@@ -1,5 +1,6 @@
 package com.prm.common.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,9 +14,11 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
     private boolean success;
     private String message;
+    private String errorCode;
     private T data;
     @Builder.Default
     private Instant timestamp = Instant.now();
@@ -39,6 +42,14 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
                 .success(false)
+                .message(message)
+                .build();
+    }
+
+    public static <T> ApiResponse<T> error(String errorCode, String message) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .errorCode(errorCode)
                 .message(message)
                 .build();
     }
