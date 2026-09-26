@@ -10,6 +10,9 @@ Thumbs.db
 # IDE & Editors
 .idea/
 .vscode/
+.codegraph/
+.agents/
+AGENTS.md
 *.swp
 *.swo
 *~
@@ -31,6 +34,7 @@ yarn-error.log*
 node_modules/
 dist/
 build/
+target/
 .next/
 out/
 coverage/
