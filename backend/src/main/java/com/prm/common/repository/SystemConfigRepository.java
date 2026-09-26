@@ -1,0 +1,9 @@
+package com.prm.common.repository;
+
+import com.prm.common.entity.SystemConfig;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface SystemConfigRepository extends JpaRepository<SystemConfig, Long> {
+}
