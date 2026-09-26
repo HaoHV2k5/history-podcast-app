@@ -1,104 +1,69 @@
-# Backend Service
+# PRM Backend Service
 
-> **Dự án**: PRM - Backend API Service  
-> **Mục tiêu**: Cung cấp hệ thống RESTful API, xác thực và xử lý logic nghiệp vụ cho ứng dụng Mobile và Web.
+> **Dự án**: PRM Modular Monolith Backend  
+> **Công nghệ**: Java 21 (LTS), Spring Boot 3.3.4, PostgreSQL 17, Spring Data JPA, Flyway, JJWT, SpringDoc OpenAPI (Swagger).
 
 ---
 
 ## 📌 1. Giới thiệu tổng quan
 
-Thư mục `backend` chứa toàn bộ mã nguồn phía máy chủ, chịu trách nhiệm:
-- Xử lý xác thực & phân quyền người dùng (Authentication & Authorization - JWT / OAuth).
-- Cung cấp các API Endpoints cho Web và Mobile.
-- Kết nối, quản lý và truy vấn cơ sở dữ liệu (PostgreSQL / MySQL / MongoDB).
-- Quản lý logic nghiệp vụ, tích hợp dịch vụ bên thứ ba (Storage, Payment, Notification).
+Hệ thống Backend được xây dựng theo kiến trúc **Modular Monolith** gồm 8 domain nghiệp vụ chính:
+1. `identity`: Xác thực (JWT, BCrypt), phân quyền (Roles: VIEWER, CREATOR, NARRATOR, ADMIN), User KYC, Refresh Token.
+2. `channel`: Kênh nội dung, bài đăng, audio/video artifacts, bản chép lời (transcripts), AI filter & moderation.
+3. `social`: Bình luận đa cấp (comments), tương tác (reactions).
+4. `membership`: Gói thành viên kênh, thanh toán & phân chia doanh thu creator.
+5. `wallet`: Ví số dư, giao dịch nạp/rút, liên kết tài khoản ngân hàng.
+6. `narrator`: Hồ sơ thuyết minh viên (voice talent), audio demo, giá cơ bản.
+7. `contract`: Yêu cầu thuê thuyết minh (hire request), hợp đồng (contract), ký quỹ (escrow), khiếu nại (dispute).
+8. `common`: Nhật ký hệ thống (audit logs), cấu hình hệ thống (system configs), chuẩn hóa response & exceptions.
 
 ---
 
-## 🏗️ 2. Cấu trúc thư mục đề xuất (Clean / Layered Architecture)
+## ⚙️ 2. Yêu cầu môi trường
 
-```text
-backend/
-├── src/
-│   ├── config/             # Cấu hình hệ thống (Database, Environment, JWT, CORS)
-│   ├── controllers/        # Tiếp nhận HTTP request, gọi service và trả về HTTP response
-│   ├── middlewares/        # Middlewares (Xác thực JWT, Validate dữ liệu, Error handler)
-│   ├── models/             # Schema / Entity định nghĩa dữ liệu (Prisma, TypeORM, Mongoose...)
-│   ├── repositories/       # Tầng tương tác trực tiếp với Database
-│   ├── routes/             # Định nghĩa danh sách các API routes theo module
-│   ├── services/           # Xử lý logic nghiệp vụ chính (Business Logic)
-│   ├── utils/              # Các hàm bổ trợ (Formatters, Helpers, Logger)
-│   └── app.ts / index.ts   # Điểm khởi chạy server
-├── tests/                  # Unit test & Integration test
-├── .env.example            # Mẫu biến môi trường
-├── .gitignore
-├── package.json / pom.xml  # Quản lý thư viện phụ thuộc
-└── README.md
+- **Java**: JDK 21 (LTS).
+- **Maven**: 3.9+ (hoặc dùng Maven tích hợp trong IDE).
+- **Docker & Docker Compose**: Để chạy PostgreSQL.
+
+---
+
+## 🚀 3. Hướng dẫn khởi chạy lần đầu cho thành viên mới
+
+Chỉ cần **2 bước đơn giản**, không cần chạy lệnh SQL thủ công (Flyway tự động thực hiện):
+
+### Bước 1: Khởi động cơ sở dữ liệu PostgreSQL
+Di chuyển vào thư mục `backend` và chạy Docker Compose:
+```bash
+cd backend
+docker compose up -d
 ```
+> **Ghi chú**: Container `prm-postgres` sẽ khởi chạy trên cổng `5432` với database `prm_db`, user `postgres`, password `postgres`.
+> (Tùy chọn: bạn có thể copy file `.env.sample` thành `.env` nếu muốn đổi thông số kết nối).
+
+### Bước 2: Khởi chạy ứng dụng Spring Boot
+```bash
+mvn spring-boot:run
+```
+*(hoặc nhấn **Run** file `PrmBackendApplication.java` từ IntelliJ IDEA / VS Code / Eclipse)*
+
+#### ✨ Cơ chế tự động của Flyway:
+Ngay khi ứng dụng khởi chạy lần đầu:
+- **`V1__init_schema.sql`**: Tự động tạo toàn bộ **27 bảng** và các chỉ mục (indexes).
+- **`V2__seed_initial_roles.sql`**: Tự động nạp sẵn 4 Role chuẩn: `VIEWER`, `CREATOR`, `NARRATOR`, `ADMIN`.
+- **Hibernate**: Chế độ `ddl-auto: validate` sẽ kiểm tra tính toàn vẹn giữa Entity và Database.
 
 ---
 
-## ⚙️ 3. Cài đặt & Khởi chạy
+## 🔌 4. Tài liệu API & Swagger UI
 
-### Yêu cầu tiên quyết
-- **Runtime**: Node.js (>= 18.x) / Java (>= 17) / Python (>= 3.10) / .NET (tùy công nghệ lựa chọn).
-- **Cơ sở dữ liệu**: PostgreSQL / MySQL / MongoDB.
-- **Package Manager**: `npm`, `yarn`, `pnpm` hoặc công cụ tương ứng.
-
-### Các bước cài đặt (Ví dụ với Node.js/TypeScript)
-
-1. **Di chuyển vào thư mục backend**:
-   ```bash
-   cd backend
-   ```
-
-2. **Cài đặt dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Cấu hình biến môi trường**:
-   Tạo file `.env` từ file mẫu `.env.example`:
-   ```bash
-   cp .env.example .env
-   ```
-   Cập nhật thông tin kết nối DB, JWT secret và cổng server (Port).
-
-4. **Khởi chạy Database & Migration (nếu có)**:
-   ```bash
-   npm run db:migrate
-   ```
-
-5. **Khởi chạy ứng dụng**:
-   - Chế độ phát triển (Development):
-     ```bash
-     npm run dev
-     ```
-   - Chế độ sản phẩm (Production):
-     ```bash
-     npm run build
-     npm start
-     ```
+Sau khi server khởi động thành công trên cổng `8080`:
+- **Swagger UI**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- **OpenAPI JSON**: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 
 ---
 
-## 🔌 4. Quy ước API & Mã trạng thái HTTP
+## 🛡️ 5. Các API Xác thực cơ bản
 
-- **Base URL**: `http://localhost:<PORT>/api/v1`
-- **Quy chuẩn mã HTTP**:
-  - `200 OK`: Yêu cầu thành công.
-  - `201 Created`: Tạo mới tài nguyên thành công.
-  - `400 Bad Request`: Dữ liệu gửi lên không hợp lệ.
-  - `401 Unauthorized`: Chưa đăng nhập hoặc token hết hạn.
-  - `403 Forbidden`: Không có quyền truy cập tài nguyên.
-  - `404 Not Found`: Không tìm thấy tài nguyên.
-  - `500 Internal Server Error`: Lỗi phía máy chủ.
-
-- **Định dạng phản hồi chuẩn (Standard Response)**:
-  ```json
-  {
-    "success": true,
-    "message": "Thông báo trạng thái",
-    "data": {}
-  }
-  ```
+- `POST /api/v1/auth/register`: Đăng ký tài khoản (mặc định role VIEWER, có confirmPassword).
+- `POST /api/v1/auth/login`: Đăng nhập, nhận Access Token & Refresh Token.
+- `POST /api/v1/auth/refresh-token`: Làm mới Access Token khi hết hạn.
