@@ -1,6 +1,7 @@
 package com.prm.channel.dto.response;
 
 import lombok.*;
+
 import java.time.Instant;
 
 @Getter
@@ -11,10 +12,12 @@ import java.time.Instant;
 public class ChannelResponse {
     private Long id;
     private Long creatorId;
+    private String creatorEmail;
     private String name;
     private String description;
     private String avatarUrl;
     private String coverUrl;
     private String status;
     private Instant createdAt;
+    private Instant updatedAt;
 }

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firebase Phone Authentication Terminal — History Podcast</title>
+  
+  <!-- Typography: Space Grotesk & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Firebase SDK v9 compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-base: #090A0F;
+      --bg-card: #12141C;
+      --bg-card-hover: #161822;
+      --bg-input: #0D0F17;
+      --bg-inner: #07080C;
+
+      --border-subtle: #222634;
+      --border-highlight: #343B4E;
+      --border-focus: #38BDF8;
+
+      --text-white: #FFFFFF;
+      --text-heading: #F8FAFC;
+      --text-body: #CBD5E1;
+      --text-dim: #8492A6;
+      --text-muted: #4B5565;
+
+      --cyan-base: #38BDF8;
+      --cyan-glow: rgba(56, 189, 248, 0.15);
+      --cyan-border: rgba(56, 189, 248, 0.35);
+
+      --emerald-base: #10B981;
+      --emerald-glow: rgba(16, 185, 129, 0.15);
+      --emerald-border: rgba(16, 185, 129, 0.35);
+
+      --rose-base: #F43F5E;
+      --rose-glow: rgba(244, 63, 94, 0.15);
+      --rose-border: rgba(244, 63, 94, 0.35);
+
+      --amber-base: #F59E0B;
+      --amber-glow: rgba(245, 158, 11, 0.15);
+      --amber-border: rgba(245, 158, 11, 0.35);
+
+      --font-display: 'Space Grotesk', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 32px 32px, 32px 32px;
+      color: var(--text-body);
+      font-family: var(--font-display);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Outer Terminal Card */
+    .terminal-window {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 24px 48px -12px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+      animation: terminalAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes terminalAppear {
+      from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.99);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Top Bar Chrome */
+    .terminal-topbar {
+      background: #0E1017;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+
+    .dot-close { background: #FF5F56; }
+    .dot-min { background: #FFBD2E; }
+    .dot-max { background: #27C93F; }
+
+    .terminal-status-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--emerald-base);
+      background: var(--emerald-glow);
+      border: 1px solid var(--emerald-border);
+      padding: 3px 10px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--emerald-base);
+      box-shadow: 0 0 8px var(--emerald-base);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Container */
+    .terminal-content {
+      padding: 32px 28px 36px;
+    }
+
+    .header-block {
+      margin-bottom: 28px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-white);
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    /* Bento Step Section */
+    .bento-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 20px 22px;
+      margin-bottom: 18px;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+
+    .bento-section:hover {
+      border-color: var(--border-highlight);
+      background: var(--bg-card-hover);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .step-pill {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 4px;
+      background: var(--cyan-glow);
+      color: var(--cyan-base);
+      border: 1px solid var(--cyan-border);
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-heading);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 11px 14px;
+      color: var(--text-white);
+      font-size: 13px;
+      font-family: var(--font-mono);
+      margin-bottom: 12px;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .field-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 1px var(--border-focus);
+      background: #0F121C;
+    }
+
+    .input-hint {
+      display: block;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: -6px;
+      margin-bottom: 14px;
+      font-family: var(--font-mono);
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 13px;
+      padding: 12px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+
+    .btn-solid-white {
+      background: #FFFFFF;
+      color: #0A0A0C;
+      border: 1px solid #FFFFFF;
+    }
+
+    .btn-solid-white:hover:not(:disabled) {
+      background: #E2E8F0;
+      border-color: #E2E8F0;
+    }
+
+    .btn-solid-white:active:not(:disabled) {
+      transform: scale(0.985);
+    }
+
+    .btn-solid-white:disabled {
+      background: #232736;
+      color: #555E72;
+      border-color: #232736;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-heading);
+      border: 1px solid var(--border-highlight);
+      margin-top: 10px;
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--text-body);
+    }
+
+    /* Notifications & Alert Badges */
+    .status-alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+
+    .status-alert.info {
+      background: var(--cyan-glow);
+      color: var(--cyan-base);
+      border: 1px solid var(--cyan-border);
+    }
+
+    .status-alert.success {
+      background: var(--emerald-glow);
+      color: var(--emerald-base);
+      border: 1px solid var(--emerald-border);
+    }
+
+    .status-alert.error {
+      background: var(--rose-glow);
+      color: var(--rose-base);
+      border: 1px solid var(--rose-border);
+    }
+
+    /* Token Block */
+    .token-container {
+      background: var(--bg-inner);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan-base);
+      word-break: break-all;
+      max-height: 130px;
+      overflow-y: auto;
+      margin-bottom: 14px;
+      line-height: 1.6;
+    }
+
+    .footer-bar {
+      margin-top: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 16px;
+    }
+
+    .svg-icon {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="terminal-window">
+    <!-- Window Chrome Topbar -->
+    <div class="terminal-topbar">
+      <div class="window-dots">
+        <div class="dot dot-close"></div>
+        <div class="dot dot-min"></div>
+        <div class="dot dot-max"></div>
+      </div>
+      <div class="terminal-status-tag">
+        <div class="pulse-dot"></div>
+        <span>BACKEND API :8080 CONNECTED</span>
+      </div>
+    </div>
+
+    <div class="terminal-content">
+      <div class="header-block">
+        <h1>
+          <svg class="svg-icon" style="width: 22px; height: 22px; color: var(--cyan-base);" viewBox="0 0 24 24"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          Xác thực SMS OTP & Firebase IdToken
+        </h1>
+        <p class="subtitle">
+          Công cụ kiểm thử nhận tin nhắn OTP SMS và tạo <strong>Firebase IdToken</strong> thật phục vụ xác minh KYC Creator trên Swagger API.
+        </p>
+      </div>
+
+      <!-- BƯỚC 1: CẤU HÌNH FIREBASE -->
+      <section class="bento-section">
+        <div class="section-header">
+          <span class="step-pill">BƯỚC 01</span>
+          <span class="section-title">Khởi tạo Firebase Web SDK</span>
+        </div>
+        
+        <label for="apiKey">Firebase Web API Key</label>
+        <input type="text" id="apiKey" class="field-input" placeholder="AIzaSy...">
+
+        <label for="projectId">Firebase Project ID</label>
+        <input type="text" id="projectId" class="field-input" value="history-podcast-app">
+
+        <button id="btnInit" class="btn btn-solid-white" onclick="initFirebase()">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          Khởi tạo Firebase Client
+        </button>
+
+        <div id="initStatus"></div>
+      </section>
+
+      <!-- BƯỚC 2: GỬI MÃ SMS -->
+      <section class="bento-section">
+        <div class="section-header">
+          <span class="step-pill">BƯỚC 02</span>
+          <span class="section-title">Phát tin nhắn SMS OTP</span>
+        </div>
+
+        <label for="phone">Số điện thoại tiếp nhận</label>
+        <input type="text" id="phone" class="field-input" value="+84356010883" placeholder="+84356010883">
+        <span class="input-hint">Định dạng quốc tế E.164: +84[số_điện_thoại]</span>
+
+        <!-- Google reCAPTCHA Badge -->
+        <div id="recaptcha-container" style="margin-bottom: 14px;"></div>
+
+        <button id="btnSend" class="btn btn-solid-white" onclick="sendOtp()" disabled>
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          Gửi SMS mã xác thực OTP
+        </button>
+
+        <div id="sendStatus"></div>
+      </section>
+
+      <!-- BƯỚC 3: XÁC THỰC MÃ OTP -->
+      <section class="bento-section" id="otpSection" style="display: none;">
+        <div class="section-header">
+          <span class="step-pill">BƯỚC 03</span>
+          <span class="section-title">Nhập mã OTP 6 chữ số</span>
+        </div>
+
+        <label for="otpCode">Mã OTP nhận được từ SMS</label>
+        <input type="text" id="otpCode" class="field-input" placeholder="123456" maxlength="6" style="font-size: 18px; letter-spacing: 0.3em; text-align: center; color: var(--emerald-base);">
+
+        <button class="btn btn-solid-white" onclick="verifyOtp()">
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Xác thực mã & Trích xuất IdToken
+        </button>
+
+        <div id="verifyStatus"></div>
+      </section>
+
+      <!-- BƯỚC 4: KẾT QUẢ TOKEN -->
+      <section class="bento-section" id="resultSection" style="display: none; border-color: var(--cyan-border);">
+        <div class="section-header">
+          <span class="step-pill" style="background: var(--emerald-glow); color: var(--emerald-base); border-color: var(--emerald-border);">BƯỚC 04 — SẴN SÀNG</span>
+          <span class="section-title">Firebase IdToken Hoàn tất</span>
+        </div>
+
+        <div class="token-container" id="tokenDisplay"></div>
+
+        <button class="btn btn-solid-white" onclick="copyToken()">
+          <svg class="svg-icon" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Sao chép IdToken vào Clipboard
+        </button>
+
+        <a href="/swagger-ui.html#/KYC%20Creator%20Verification/verifyPhone" target="_blank" style="text-decoration: none;">
+          <button type="button" class="btn btn-outline">
+            <svg class="svg-icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+            Mở Swagger UI (/api/v1/kyc-profiles/verifications/phone)
+          </button>
+        </a>
+      </section>
+
+      <div class="footer-bar">
+        <span>History Podcast Modular Backend</span>
+        <span>Spring Boot 3.3.4 &bull; Java 21</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedKey = localStorage.getItem("firebase_web_api_key");
+      const savedProj = localStorage.getItem("firebase_project_id");
+      if (savedKey) document.getElementById("apiKey").value = savedKey;
+      if (savedProj) document.getElementById("projectId").value = savedProj;
+      if (savedKey && savedProj) {
+        initFirebase();
+      }
+    });
+
+    let confirmationResultGlobal = null;
+
+    function initFirebase() {
+      const apiKey = document.getElementById("apiKey").value.trim();
+      const projectId = document.getElementById("projectId").value.trim();
+
+      if (!apiKey || !apiKey.startsWith("AIzaSy")) {
+        document.getElementById("initStatus").innerHTML = 
+          `<div class="status-alert error">Vui lòng nhập Web API Key hợp lệ (bắt đầu bằng AIzaSy)</div>`;
+        return;
+      }
+
+      localStorage.setItem("firebase_web_api_key", apiKey);
+      localStorage.setItem("firebase_project_id", projectId);
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp({
+            apiKey: apiKey,
+            authDomain: `${projectId}.firebaseapp.com`,
+            projectId: projectId
+          });
+        }
+        
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+          'size': 'normal',
+          'callback': () => {
+            document.getElementById("btnSend").disabled = false;
+          },
+          'expired-callback': () => {
+            document.getElementById("btnSend").disabled = true;
+          }
+        });
+        window.recaptchaVerifier.render();
+
+        document.getElementById("initStatus").innerHTML = 
+          `<div class="status-alert success">✓ Khởi tạo Firebase SDK thành công (Project: ${projectId})</div>`;
+        document.getElementById("btnInit").style.display = "none";
+      } catch (e) {
+        document.getElementById("initStatus").innerHTML = 
+          `<div class="status-alert error">Lỗi khởi tạo: ${e.message}</div>`;
+      }
+    }
+
+    function sendOtp() {
+      const phone = document.getElementById("phone").value.trim();
+      if (!phone.startsWith("+")) {
+        alert("Số điện thoại phải có định dạng quốc tế, ví dụ: +84356010883");
+        return;
+      }
+
+      const btn = document.getElementById("btnSend");
+      btn.disabled = true;
+      btn.innerText = "Đang gửi SMS qua Google Firebase...";
+      document.getElementById("sendStatus").innerHTML = 
+        `<div class="status-alert info">Đang liên hệ Google Firebase API để phát hành mã SMS...</div>`;
+
+      firebase.auth().signInWithPhoneNumber(phone, window.recaptchaVerifier)
+        .then((confirmationResult) => {
+          confirmationResultGlobal = confirmationResult;
+          document.getElementById("sendStatus").innerHTML = 
+            `<div class="status-alert success">✓ Đã gửi tin nhắn SMS OTP thành công đến ${phone}! Hãy kiểm tra điện thoại của bạn.</div>`;
+          document.getElementById("otpSection").style.display = "block";
+          document.getElementById("otpCode").focus();
+        })
+        .catch((error) => {
+          btn.disabled = false;
+          btn.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Gửi SMS mã xác thực OTP`;
+          document.getElementById("sendStatus").innerHTML = 
+            `<div class="status-alert error">Lỗi gửi SMS: ${error.message}</div>`;
+          console.error(error);
+        });
+    }
+
+    function verifyOtp() {
+      const code = document.getElementById("otpCode").value.trim();
+      if (code.length < 6) {
+        alert("Vui lòng nhập đủ 6 chữ số mã OTP");
+        return;
+      }
+
+      document.getElementById("verifyStatus").innerHTML = 
+        `<div class="status-alert info">Đang kiểm tra mã OTP với Google Identity Toolkit...</div>`;
+
+      confirmationResultGlobal.confirm(code)
+        .then((result) => result.user.getIdToken())
+        .then((idToken) => {
+          document.getElementById("verifyStatus").innerHTML = 
+            `<div class="status-alert success">✓ Xác thực thành công! Đã trích xuất IdToken.</div>`;
+          document.getElementById("resultSection").style.display = "block";
+          document.getElementById("tokenDisplay").innerText = idToken;
+          document.getElementById("resultSection").scrollIntoView({ behavior: 'smooth' });
+        })
+        .catch((error) => {
+          document.getElementById("verifyStatus").innerHTML = 
+            `<div class="status-alert error">Mã OTP không chính xác hoặc đã hết hạn: ${error.message}</div>`;
+        });
+    }
+
+    function copyToken() {
+      const token = document.getElementById("tokenDisplay").innerText;
+      navigator.clipboard.writeText(token).then(() => {
+        alert("Đã sao chép Firebase IdToken vào Clipboard thành công!");
+      });
+    }
+  </script>
+</body>
+</html>
