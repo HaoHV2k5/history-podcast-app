@@ -1,5 +1,7 @@
 package com.prm.common.service.impl;
 
+import com.prm.common.exception.AppException;
+import com.prm.common.exception.ErrorCode;
 import com.prm.common.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +38,7 @@ public class EmailServiceImpl implements EmailService {
         if (StringUtils.hasText(apiKey)) {
             log.info("Brevo Email Service configured successfully via REST API HTTPS port 443");
         } else {
-            log.warn("BREVO_API_KEY is not configured. Outgoing emails and OTP codes will be printed to server logs.");
+            log.warn("BREVO_API_KEY is not configured. Email sending is disabled.");
         }
     }
 
@@ -64,8 +66,8 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendEmail(String toEmail, String subject, String htmlContent) {
         if (!StringUtils.hasText(apiKey)) {
-            log.warn("[EMAIL-LOG-ONLY] Gửi email đến: '{}' | Tiêu đề: '{}' | Nội dung: {}", toEmail, subject, htmlContent);
-            return;
+            log.error("BREVO_API_KEY is not configured. Cannot send email to: {}", toEmail);
+            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Dịch vụ gửi email chưa được cấu hình khóa API (BREVO_API_KEY)");
         }
 
         try {
@@ -86,10 +88,11 @@ public class EmailServiceImpl implements EmailService {
                     .toBodilessEntity();
 
             log.info("Successfully sent email via Brevo REST API to: {}", toEmail);
+        } catch (AppException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Failed to send email via Brevo REST API to: {}. Error: {}", toEmail, e.getMessage());
-            // Fallback: log to console to not block the user during development/testing
-            log.warn("[FALLBACK-LOG] Email subject: '{}' to: '{}'", subject, toEmail);
+            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Không thể gửi email lúc này. Vui lòng kiểm tra lại cấu hình hoặc thử lại sau.");
         }
     }
 }

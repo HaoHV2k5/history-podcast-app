@@ -12,7 +12,6 @@ import java.time.Instant;
 public class ChannelResponse {
     private Long id;
     private Long creatorId;
-    private String creatorEmail;
     private String name;
     private String description;
     private String avatarUrl;

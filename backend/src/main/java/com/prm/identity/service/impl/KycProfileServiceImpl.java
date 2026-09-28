@@ -102,6 +102,10 @@ public class KycProfileServiceImpl implements KycProfileService {
         KycProfile profile = repository.findTopByUserIdOrderByIdDesc(currentUser.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.KYC_NOT_FOUND, "Không tìm thấy phiên xác thực OTP của bạn"));
 
+        if (!StringUtils.hasText(profile.getContactEmail()) || !profile.getContactEmail().equalsIgnoreCase(request.getEmail().trim())) {
+            throw new AppException(ErrorCode.KYC_OTP_INVALID, "Địa chỉ email không khớp với email đã yêu cầu mã OTP");
+        }
+
         if (profile.getOtpCode() == null || profile.getLastOtpSentAt() == null) {
             throw new AppException(ErrorCode.KYC_OTP_INVALID, "Mã OTP không hợp lệ hoặc chưa từng được gửi");
         }
@@ -116,7 +120,7 @@ public class KycProfileServiceImpl implements KycProfileService {
         }
 
         profile.setOtpVerifiedAt(Instant.now());
-        profile.setContactEmail(request.getEmail());
+        profile.setContactEmail(request.getEmail().trim());
         profile.setOtpCode(null); // Clear OTP after successful verification
         repository.save(profile);
 
@@ -157,17 +161,9 @@ public class KycProfileServiceImpl implements KycProfileService {
             throw new AppException(ErrorCode.FIREBASE_TOKEN_INVALID, "Mã xác thực Firebase token không được để trống");
         }
 
-        // 1. Chế độ kiểm thử trực tiếp trên Swagger / Postman (khi chưa có App Mobile)
-        if (firebaseToken.startsWith("dev-") || firebaseToken.startsWith("test-")) {
-            String potentialPhone = firebaseToken.substring(firebaseToken.indexOf("-") + 1).trim();
-            log.info("Bypassing Firebase verification for Swagger dev testing with phone: {}", potentialPhone);
-            return StringUtils.hasText(potentialPhone) ? potentialPhone : "+84987654321";
-        }
-
-        // 2. Chế độ DEV fallback nếu chưa cấu hình FIREBASE_API_KEY
-        if (!StringUtils.hasText(firebaseApiKey) || firebaseApiKey.startsWith("your_")) {
-            log.warn("FIREBASE_API_KEY not configured. Allowing token bypass in dev mode: [{}]", firebaseToken);
-            return "+84987654321";
+        if (!StringUtils.hasText(firebaseApiKey)) {
+            log.error("FIREBASE_API_KEY is not configured");
+            throw new AppException(ErrorCode.FIREBASE_TOKEN_INVALID, "Dịch vụ xác thực Firebase chưa được cấu hình trên máy chủ");
         }
 
         try {
@@ -234,9 +230,28 @@ public class KycProfileServiceImpl implements KycProfileService {
             throw new AppException(ErrorCode.KYC_ALREADY_SUBMITTED, "Hồ sơ của bạn đang được quản trị viên xử lý");
         }
 
+        // Preserve verified contact identity and prevent overwriting with untrusted data
+        if ("EMAIL".equalsIgnoreCase(profile.getVerificationMethod())) {
+            if (StringUtils.hasText(request.getContactEmail()) &&
+                    !request.getContactEmail().trim().equalsIgnoreCase(profile.getContactEmail())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Email liên hệ phải trùng khớp với email đã xác thực OTP (" + profile.getContactEmail() + ")");
+            }
+            if (StringUtils.hasText(request.getPhone())) {
+                profile.setPhone(request.getPhone().trim());
+            }
+        } else if ("PHONE".equalsIgnoreCase(profile.getVerificationMethod())) {
+            if (StringUtils.hasText(request.getPhone()) &&
+                    !normalizePhoneNumber(request.getPhone()).equals(normalizePhoneNumber(profile.getPhone()))) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                        "Số điện thoại gửi lên phải trùng khớp với số điện thoại đã xác thực (" + profile.getPhone() + ")");
+            }
+            if (StringUtils.hasText(request.getContactEmail())) {
+                profile.setContactEmail(request.getContactEmail().trim());
+            }
+        }
+
         profile.setFullName(request.getFullName());
-        profile.setPhone(request.getPhone());
-        profile.setContactEmail(request.getContactEmail());
         profile.setBankName(request.getBankName());
         profile.setBankAccountNumber(request.getBankAccountNumber());
         profile.setBankAccountHolder(request.getBankAccountHolder());
@@ -286,8 +301,11 @@ public class KycProfileServiceImpl implements KycProfileService {
                 log.info("Upgraded user {} to role CREATOR following KYC approval", user.getEmail());
             }
         } else if ("REJECTED".equals(targetStatus)) {
+            if (!StringUtils.hasText(request.getRejectionReason())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Vui lòng nhập lý do từ chối hồ sơ KYC");
+            }
             profile.setStatus("REJECTED");
-            profile.setRejectionReason(request.getRejectionReason());
+            profile.setRejectionReason(request.getRejectionReason().trim());
             log.info("Rejected KYC profile ID {} with reason: {}", id, request.getRejectionReason());
         } else {
             throw new AppException(ErrorCode.KYC_INVALID_STATUS, "Trạng thái chỉ có thể là APPROVED hoặc REJECTED");

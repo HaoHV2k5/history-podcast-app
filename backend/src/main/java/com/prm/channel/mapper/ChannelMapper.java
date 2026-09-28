@@ -21,7 +21,6 @@ public interface ChannelMapper {
     Channel toEntity(CreateChannelRequest request);
 
     @Mapping(source = "creator.id", target = "creatorId")
-    @Mapping(source = "creator.email", target = "creatorEmail")
     ChannelResponse toResponse(Channel entity);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

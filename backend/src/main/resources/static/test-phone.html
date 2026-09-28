@@ -504,6 +504,16 @@
   </div>
 
   <script>
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
       const savedKey = localStorage.getItem("firebase_web_api_key");
       const savedProj = localStorage.getItem("firebase_project_id");
@@ -550,11 +560,11 @@
         window.recaptchaVerifier.render();
 
         document.getElementById("initStatus").innerHTML = 
-          `<div class="status-alert success">✓ Khởi tạo Firebase SDK thành công (Project: ${projectId})</div>`;
+          `<div class="status-alert success">✓ Khởi tạo Firebase SDK thành công (Project: ${escapeHtml(projectId)})</div>`;
         document.getElementById("btnInit").style.display = "none";
       } catch (e) {
         document.getElementById("initStatus").innerHTML = 
-          `<div class="status-alert error">Lỗi khởi tạo: ${e.message}</div>`;
+          `<div class="status-alert error">Lỗi khởi tạo: ${escapeHtml(e.message)}</div>`;
       }
     }
 
@@ -575,7 +585,7 @@
         .then((confirmationResult) => {
           confirmationResultGlobal = confirmationResult;
           document.getElementById("sendStatus").innerHTML = 
-            `<div class="status-alert success">✓ Đã gửi tin nhắn SMS OTP thành công đến ${phone}! Hãy kiểm tra điện thoại của bạn.</div>`;
+            `<div class="status-alert success">✓ Đã gửi tin nhắn SMS OTP thành công đến ${escapeHtml(phone)}! Hãy kiểm tra điện thoại của bạn.</div>`;
           document.getElementById("otpSection").style.display = "block";
           document.getElementById("otpCode").focus();
         })
@@ -583,7 +593,7 @@
           btn.disabled = false;
           btn.innerHTML = `<svg class="svg-icon" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg> Gửi SMS mã xác thực OTP`;
           document.getElementById("sendStatus").innerHTML = 
-            `<div class="status-alert error">Lỗi gửi SMS: ${error.message}</div>`;
+            `<div class="status-alert error">Lỗi gửi SMS: ${escapeHtml(error.message)}</div>`;
           console.error(error);
         });
     }
@@ -609,7 +619,7 @@
         })
         .catch((error) => {
           document.getElementById("verifyStatus").innerHTML = 
-            `<div class="status-alert error">Mã OTP không chính xác hoặc đã hết hạn: ${error.message}</div>`;
+            `<div class="status-alert error">Mã OTP không chính xác hoặc đã hết hạn: ${escapeHtml(error.message)}</div>`;
         });
     }
 
