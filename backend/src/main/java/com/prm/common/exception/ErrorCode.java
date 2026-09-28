@@ -11,6 +11,7 @@ public enum ErrorCode {
     RESOURCE_NOT_FOUND("ERR_1002", "Không tìm thấy tài nguyên yêu cầu", HttpStatus.NOT_FOUND),
     UNAUTHORIZED_ACCESS("ERR_1003", "Yêu cầu cần xác thực trước khi thực hiện", HttpStatus.UNAUTHORIZED),
     FORBIDDEN_ACCESS("ERR_1004", "Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
+    METHOD_NOT_ALLOWED("ERR_1005", "Phương thức HTTP không được hỗ trợ cho tài nguyên này", HttpStatus.METHOD_NOT_ALLOWED),
 
     // Authentication & User Identity Errors (2000 - 2999)
     USER_NOT_FOUND("AUTH_2001", "Tài khoản không tồn tại trên hệ thống", HttpStatus.NOT_FOUND),
@@ -21,7 +22,30 @@ public enum ErrorCode {
     PASSWORD_CONFIRM_NOT_MATCH("AUTH_2006", "Mật khẩu và xác nhận mật khẩu không trùng khớp", HttpStatus.BAD_REQUEST),
     INVALID_OR_EXPIRED_REFRESH_TOKEN("AUTH_2007", "Refresh token không hợp lệ hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("AUTH_2008", "Refresh token đã bị thu hồi", HttpStatus.UNAUTHORIZED),
-    ROLE_NOT_FOUND("AUTH_2009", "Vai trò (Role) người dùng không tồn tại", HttpStatus.NOT_FOUND);
+    ROLE_NOT_FOUND("AUTH_2009", "Vai trò (Role) người dùng không tồn tại", HttpStatus.NOT_FOUND),
+
+    // KYC Creator Verification Errors (3000 - 3999)
+    KYC_NOT_FOUND("KYC_3000", "Không tìm thấy hồ sơ KYC", HttpStatus.NOT_FOUND),
+    KYC_REQUIRED_FOR_CHANNEL("KYC_3001", "Bạn cần hoàn tất và được duyệt KYC trước khi tạo kênh", HttpStatus.FORBIDDEN),
+    KYC_ALREADY_SUBMITTED("KYC_3002", "Hồ sơ KYC của bạn đang chờ duyệt hoặc đã được phê duyệt", HttpStatus.CONFLICT),
+    KYC_OTP_INVALID("KYC_3003", "Mã xác thực OTP không chính xác hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
+    KYC_OTP_COOLDOWN("KYC_3004", "Vui lòng đợi 60 giây trước khi yêu cầu mã OTP mới", HttpStatus.TOO_MANY_REQUESTS),
+    KYC_OTP_NOT_VERIFIED("KYC_3005", "Vui lòng xác thực mã OTP email/số điện thoại trước khi nộp hồ sơ", HttpStatus.BAD_REQUEST),
+    KYC_INVALID_STATUS("KYC_3006", "Trạng thái phê duyệt không hợp lệ", HttpStatus.BAD_REQUEST),
+    FIREBASE_TOKEN_INVALID("KYC_3007", "Mã xác thực Firebase (IdToken) không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
+    PHONE_NUMBER_MISMATCH("KYC_3008", "Số điện thoại gửi lên không khớp với số đã xác thực qua Firebase", HttpStatus.BAD_REQUEST),
+
+    // Channel Management Errors (4000 - 4999)
+    CHANNEL_NAME_EXISTS("CHAN_4001", "Tên kênh đã tồn tại, vui lòng chọn tên khác", HttpStatus.CONFLICT),
+    CHANNEL_ALREADY_EXISTS("CHAN_4002", "Mỗi nhà sáng tạo chỉ được phép tạo tối đa 1 kênh", HttpStatus.CONFLICT),
+    CHANNEL_NOT_FOUND("CHAN_4003", "Không tìm thấy kênh", HttpStatus.NOT_FOUND),
+    CHANNEL_ACCESS_DENIED("CHAN_4004", "Bạn không có quyền chỉnh sửa kênh này", HttpStatus.FORBIDDEN),
+
+    // File Storage & Media Errors (5000 - 5999)
+    FILE_EMPTY("FILE_5001", "Tệp tải lên không được để trống", HttpStatus.BAD_REQUEST),
+    FILE_TOO_LARGE("FILE_5002", "Dung lượng tệp vượt quá giới hạn cho phép", HttpStatus.BAD_REQUEST),
+    FILE_INVALID_FORMAT("FILE_5003", "Định dạng tệp không hợp lệ (chỉ chấp nhận JPG, JPEG, PNG, WEBP)", HttpStatus.BAD_REQUEST),
+    FILE_UPLOAD_FAILED("FILE_5004", "Tải tệp lên hệ thống lưu trữ thất bại", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String code;
     private final String message;

@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: prm-backend
+  config:
+    import:
+      - optional:file:./.env[.properties]
+      - optional:file:../.env[.properties]
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 20MB
 
   jackson:
     default-property-inclusion: non_null
@@ -28,6 +38,28 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     locations: classpath:db/migration
+
+# JWT Security Configuration
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:86400000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+# Application Custom Integrations
+app:
+  email:
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      sender-email: ${BREVO_SENDER_EMAIL:no-reply@historypodcast.com}
+      sender-name: ${BREVO_SENDER_NAME:History Podcast Platform}
+      api-url: https://api.brevo.com/v3/smtp/email
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
+    root-folder: ${CLOUDINARY_ROOT_FOLDER:history-podcast}
+  firebase:
+    api-key: ${FIREBASE_API_KEY:}
 
 # SpringDoc OpenAPI configuration
 springdoc:

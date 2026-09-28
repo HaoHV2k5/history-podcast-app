@@ -1,23 +1,27 @@
 package com.prm.identity.mapper;
 
-import com.prm.identity.dto.request.KycProfileRequest;
+import com.prm.identity.dto.request.SubmitKycRequest;
 import com.prm.identity.dto.response.KycProfileResponse;
 import com.prm.identity.entity.KycProfile;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
 public interface KycProfileMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "user", ignore = true)
-    KycProfile toEntity(KycProfileRequest request);
+    @Mapping(target = "otpCode", ignore = true)
+    @Mapping(target = "otpVerifiedAt", ignore = true)
+    @Mapping(target = "lastOtpSentAt", ignore = true)
+    @Mapping(target = "status", ignore = true)
+    @Mapping(target = "rejectionReason", ignore = true)
+    @Mapping(target = "verificationMethod", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    KycProfile toEntity(SubmitKycRequest request);
 
     @Mapping(source = "user.id", target = "userId")
+    @Mapping(source = "user.email", target = "userEmail")
     KycProfileResponse toResponse(KycProfile entity);
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "user", ignore = true)
-    void updateEntityFromRequest(KycProfileRequest request, @MappingTarget KycProfile entity);
 }
