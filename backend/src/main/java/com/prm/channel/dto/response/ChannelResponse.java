@@ -1,6 +1,7 @@
 package com.prm.channel.dto.response;
 
 import lombok.*;
+
 import java.time.Instant;
 
 @Getter
@@ -17,4 +18,5 @@ public class ChannelResponse {
     private String coverUrl;
     private String status;
     private Instant createdAt;
+    private Instant updatedAt;
 }
