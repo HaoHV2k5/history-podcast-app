@@ -1747,7 +1747,7 @@
         ...payload,
         gemini_api_key: (localStorage.getItem('gemini_api_key') || '').trim(),
         elevenlabs_api_key: localStorage.getItem('elevenlabs_api_key'),
-        pollinations_api_key: localStorage.getItem('pollinations_api_key') || 'key_CfTHxQ8fPC7LLn13vYdyD',
+        pollinations_api_key: localStorage.getItem('pollinations_api_key') || '',
         together_api_key: localStorage.getItem('together_api_key') || '',
         image_engine: localStorage.getItem('image_engine') || 'auto',
         tts_engine: engine,
@@ -1846,8 +1846,8 @@
     // SETTINGS MODAL
     function loadSettings() {
       $('geminiKey').value = localStorage.getItem('gemini_api_key') || '';
-      $('elevenKey').value = localStorage.getItem('elevenlabs_api_key') || 'sk_9fb92427a518f0da605cbd39b821a88e80416afb65844f43';
-      $('pollinationsKey').value = localStorage.getItem('pollinations_api_key') || 'key_CfTHxQ8fPC7LLn13vYdyD';
+      $('elevenKey').value = localStorage.getItem('elevenlabs_api_key') || '';
+      $('pollinationsKey').value = localStorage.getItem('pollinations_api_key') || '';
       $('togetherKey').value = localStorage.getItem('together_api_key') || '';
       $('imageEngine').value = localStorage.getItem('image_engine') || 'auto';
       $('ttsEngine').value = localStorage.getItem('tts_engine') || 'edge-tts';

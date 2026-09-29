@@ -4,11 +4,23 @@ Tạo giọng đọc thuyết minh tiếng Việt chuẩn qua ElevenLabs (giọn
 cho video thời tiền sử đồ đá và ghép chính xác vào timeline 57 giây.
 """
 import json
+import os
 import subprocess
 import urllib.request
 from pathlib import Path
+from pathlib import Path as _Path
 
-API_KEY = "sk_9fb92427a518f0da605cbd39b821a88e80416afb65844f43"
+try:
+    from dotenv import load_dotenv
+    _env = _Path(__file__).resolve().parent.parent / ".env"
+    if _env.exists():
+        load_dotenv(_env)
+except ImportError:
+    pass
+
+API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+if not API_KEY:
+    raise EnvironmentError("ELEVENLABS_API_KEY chưa được cấu hình. Vui lòng thêm vào file .env")
 VOICE_ID = "nPczCjzI2devNBz1zQrb"  # Brian - Giọng tài liệu lịch sử đĩnh đạc, trầm ấm
 MODEL_ID = "eleven_turbo_v2_5"
 
