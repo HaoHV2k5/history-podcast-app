@@ -11,7 +11,9 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-API_KEY = "sk_9fb92427a518f0da605cbd39b821a88e80416afb65844f43"
+API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+if not API_KEY:
+    raise EnvironmentError("ELEVENLABS_API_KEY chưa được cấu hình. Vui lòng thêm vào file .env")
 
 # Brian (nPczCjzI2devNBz1zQrb) - Giọng thuyết minh tài liệu trầm ấm, rõ chữ và chuẩn xác nhất
 VOICE_ID = "nPczCjzI2devNBz1zQrb"

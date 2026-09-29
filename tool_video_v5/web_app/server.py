@@ -82,7 +82,7 @@ class VideoRequest(BaseModel):
     scene_2_b64: Optional[str] = None
     gemini_api_key: Optional[str] = None
     elevenlabs_api_key: Optional[str] = None
-    pollinations_api_key: Optional[str] = "key_CfTHxQ8fPC7LLn13vYdyD"
+    pollinations_api_key: Optional[str] = None
     together_api_key: Optional[str] = None
     image_engine: str = "auto"  # 'auto', 'pollinations', 'together', 'imagen'
     tts_engine: str = "edge-tts"  # 'edge-tts' hoặc 'elevenlabs'
@@ -876,7 +876,7 @@ def generate_local_doodle_scene(scene_data: dict, out_path: Path) -> Path:
 
 import base64
 
-DEFAULT_POLLINATIONS_KEY = "key_CfTHxQ8fPC7LLn13vYdyD"
+DEFAULT_POLLINATIONS_KEY = os.getenv("POLLINATIONS_API_KEY", "")
 
 
 def generate_image_google_imagen(prompt: str, api_key: str, out_p: Path) -> bool:
