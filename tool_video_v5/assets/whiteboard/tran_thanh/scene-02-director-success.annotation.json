@@ -1,0 +1,59 @@
+{
+  "sceneId": "scene-02-director-success",
+  "canvas": { "width": 1376, "height": 768 },
+  "storyBasis": "Ghế đạo diễn điện ảnh, kỷ lục phòng vé nghìn tỷ và hạnh phúc viên mãn.",
+  "sceneDurationMs": 28500,
+  "elements": [
+    {
+      "id": "director_chair",
+      "label": "Ghế đạo diễn & Máy quay",
+      "sequence": 1,
+      "narrativeRole": "Bước chuyển mình sang điện ảnh",
+      "subtitle": "Không dừng lại ở vai trò MC, Trấn Thành bước lên chiếc ghế đạo diễn điện ảnh với những câu chuyện chạm đến trái tim người xem.",
+      "type": "structure",
+      "region": { "x": 80, "y": 185, "width": 350, "height": 400 },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 500,
+        "durationMs": 8000,
+        "maskPaddingPx": 22,
+        "protectedRegions": []
+      },
+      "handPath": { "start": [250, 195], "end": [250, 575], "easing": "easeInOut" }
+    },
+    {
+      "id": "blockbuster_movies",
+      "label": "Kỷ lục phòng vé nghìn tỷ",
+      "sequence": 2,
+      "narrativeRole": "Đỉnh cao doanh thu điện ảnh",
+      "subtitle": "Bộ ba tác phẩm Bố Già, Nhà Bà Nữ và Mai đã xô đổ mọi kỷ lục phòng vé, đưa anh trở thành 'Đạo diễn nghìn tỷ' đầu tiên của điện ảnh Việt.",
+      "type": "object",
+      "region": { "x": 480, "y": 185, "width": 400, "height": 390 },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 9000,
+        "durationMs": 9500,
+        "maskPaddingPx": 22,
+        "protectedRegions": []
+      },
+      "handPath": { "start": [680, 195], "end": [680, 565], "easing": "easeInOut" }
+    },
+    {
+      "id": "family_and_audience",
+      "label": "Hạnh phúc & Tri ân",
+      "sequence": 3,
+      "narrativeRole": "Hạnh phúc viên mãn cùng bạn đời và sự công nhận",
+      "subtitle": "Một hành trình rực rỡ từ con số không, trọn vẹn bên người bạn đời Hari Won và sự ghi nhận của hàng triệu khán giả.",
+      "type": "character",
+      "region": { "x": 910, "y": 190, "width": 420, "height": 400 },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 19000,
+        "durationMs": 8500,
+        "maskPaddingPx": 22,
+        "protectedRegions": []
+      },
+      "handPath": { "start": [1120, 200], "end": [1120, 580], "easing": "easeInOut" }
+    }
+  ]
+}

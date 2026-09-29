@@ -1,0 +1,59 @@
+{
+  "sceneId": "scene-01-gathering-tools",
+  "canvas": { "width": 1376, "height": 768 },
+  "storyBasis": "Cuộc sống du mục thời đồ đá, hái lượm quả dại và chế tác công cụ đá.",
+  "sceneDurationMs": 28500,
+  "elements": [
+    {
+      "id": "cave_landscape",
+      "label": "Hang đá & Thiên nhiên hoang dã",
+      "sequence": 1,
+      "narrativeRole": "Bối cảnh sinh sống của bầy đàn nguyên thủy",
+      "subtitle": "Hàng chục vạn năm trước trong thời kỳ đồ đá, con người sống thành từng bầy đàn du mục, phụ thuộc hoàn toàn vào thiên nhiên hoang dã.",
+      "type": "structure",
+      "region": { "x": 50, "y": 175, "width": 440, "height": 410 },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 500,
+        "durationMs": 8000,
+        "maskPaddingPx": 22,
+        "protectedRegions": []
+      },
+      "handPath": { "start": [270, 185], "end": [270, 575], "easing": "easeInOut" }
+    },
+    {
+      "id": "gathering_berries",
+      "label": "Hái lượm quả dại & rễ cây",
+      "sequence": 2,
+      "narrativeRole": "Nguồn lương thực chủ yếu duy trì sự sống",
+      "subtitle": "Hằng ngày, phụ nữ và trẻ em tỏa đi khắp các cánh rừng để hái lượm quả dại, đào rễ cây và thu nhặt hạt ngũ cốc làm nguồn sống chính.",
+      "type": "character",
+      "region": { "x": 500, "y": 215, "width": 400, "height": 380 },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 9000,
+        "durationMs": 8500,
+        "maskPaddingPx": 22,
+        "protectedRegions": []
+      },
+      "handPath": { "start": [700, 225], "end": [700, 585], "easing": "easeInOut" }
+    },
+    {
+      "id": "crafting_tools",
+      "label": "Ghè đẽo công cụ đá",
+      "sequence": 3,
+      "narrativeRole": "Sáng chế vũ khí và công cụ sinh tồn",
+      "subtitle": "Trong khi đó, những người đàn ông khéo léo ghè đẽo đá cuội thành rìu tay và mũi giáo sắc nhọn để chuẩn bị cho những cuộc săn sinh tử.",
+      "type": "character",
+      "region": { "x": 920, "y": 235, "width": 400, "height": 360 },
+      "reveal": {
+        "direction": "top_to_bottom",
+        "startMs": 18000,
+        "durationMs": 9500,
+        "maskPaddingPx": 22,
+        "protectedRegions": []
+      },
+      "handPath": { "start": [1120, 245], "end": [1120, 585], "easing": "easeInOut" }
+    }
+  ]
+}

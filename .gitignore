@@ -53,3 +53,21 @@ ios/Pods/
 ios/.symlinks/
 android/.gradle/
 android/app/build/
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Vector DB & Heavy Output / Media artifacts
+**/chroma_db/
+**/data/chroma_db/
+**/outputs/
+*.mp4
+!tool_video_v5/examples/scene-01-monkey-mountain-banana-whiteboard.mp4
