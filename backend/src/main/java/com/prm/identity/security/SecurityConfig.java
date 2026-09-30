@@ -35,7 +35,9 @@ public class SecurityConfig {
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/creator-studio.html",
-            "/test-phone.html"
+            "/test-phone.html",
+            "/outputs/**",
+            "/audio/**"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;

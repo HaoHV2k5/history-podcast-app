@@ -139,6 +139,95 @@
       transform: none !important;
     }
 
+    .nav-tab {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-tab:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+    }
+    .nav-tab.active {
+      background: linear-gradient(135deg, #0070f3, #2563eb);
+      border-color: #3b82f6;
+      color: #ffffff;
+      box-shadow: 0 0 15px rgba(0, 112, 243, 0.4);
+    }
+    .video-manage-card {
+      background: rgba(17, 24, 39, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 18px;
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .video-manage-card:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+    .video-manage-thumb {
+      width: 220px;
+      min-width: 220px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000;
+      aspect-ratio: 16/9;
+      position: relative;
+    }
+    .video-manage-thumb video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .badge-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.06);
+      color: #cbd5e1;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .badge-status-published {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .badge-status-hidden {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .comment-bubble {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
     .container {
       max-width: 1040px;
       width: 100%;
@@ -816,6 +905,239 @@
       color: #fbbf24;
       font-weight: 600;
     }
+
+    /* ========================================================= */
+    /* VOICE STUDIO & LIBRARY MODAL STYLES                       */
+    /* ========================================================= */
+    .voice-modal-content {
+      max-width: 960px !important;
+      width: 95% !important;
+      max-height: 92vh !important;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+    }
+    .voice-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .voice-filter-chip {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .voice-filter-chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+    .voice-filter-chip.active {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff;
+      border-color: #6366f1;
+      box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+    }
+    .voice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 14px;
+      overflow-y: auto;
+      max-height: 50vh;
+      padding-right: 6px;
+    }
+    .voice-grid::-webkit-scrollbar {
+      width: 6px;
+    }
+    .voice-grid::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    .voice-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 16px;
+      transition: all 0.22s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 10px;
+      position: relative;
+    }
+    .voice-card:hover {
+      border-color: rgba(99, 102, 241, 0.45);
+      background: rgba(99, 102, 241, 0.04);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    }
+    .voice-card.selected {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.09);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+    }
+    .voice-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .voice-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .voice-avatar.male {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.25), rgba(37, 99, 235, 0.4));
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .voice-avatar.female {
+      background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(219, 39, 119, 0.4));
+      border: 1px solid rgba(236, 72, 153, 0.3);
+    }
+    .voice-avatar.neutral, .voice-avatar.custom {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(147, 51, 234, 0.4));
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+    .voice-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .voice-name-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .voice-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .voice-badge-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .badge-elevenlabs {
+      background: rgba(99, 102, 241, 0.18);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+    }
+    .badge-edge {
+      background: rgba(16, 185, 129, 0.18);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .voice-accent-desc {
+      font-size: 0.8rem;
+      color: #cbd5e1;
+      margin-top: 4px;
+      line-height: 1.35;
+    }
+    .voice-usecase {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+    .voice-sample-quote {
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 2px solid #6366f1;
+      padding: 6px 10px;
+      border-radius: 4px 8px 8px 4px;
+      font-size: 0.78rem;
+      color: #e2e8f0;
+      font-style: italic;
+      line-height: 1.35;
+    }
+    .voice-card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn-play-preview {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-play-preview:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+    }
+    .btn-play-preview.playing {
+      background: rgba(99, 102, 241, 0.25);
+      border-color: #6366f1;
+      color: #a5b4fc;
+    }
+    .btn-select-voice {
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      background: rgba(99, 102, 241, 0.15);
+      color: #818cf8;
+    }
+    .btn-select-voice:hover {
+      background: #6366f1;
+      color: #ffffff;
+    }
+    .btn-select-voice.is-selected {
+      background: #10b981;
+      border-color: #10b981;
+      color: #ffffff;
+    }
+    .soundwave-bars {
+      display: inline-flex;
+      align-items: center;
+      gap: 2.5px;
+      height: 14px;
+    }
+    .soundwave-bars span {
+      display: block;
+      width: 2.5px;
+      height: 100%;
+      background: #818cf8;
+      border-radius: 1px;
+      animation: soundwave-anim 0.8s infinite ease-in-out;
+    }
+    .soundwave-bars span:nth-child(2) { animation-delay: 0.15s; }
+    .soundwave-bars span:nth-child(3) { animation-delay: 0.3s; }
+    .soundwave-bars span:nth-child(4) { animation-delay: 0.45s; }
+    @keyframes soundwave-anim {
+      0%, 100% { height: 3px; }
+      50% { height: 14px; }
+    }
   </style>
 </head>
 <body>
@@ -826,8 +1148,19 @@
       <span>PRM Creator Studio</span>
       <span class="creator-badge" id="roleBadge">ROLE: CREATOR</span>
     </div>
+
+    <!-- MAIN NAV TABS -->
+    <div style="display: flex; gap: 8px; align-items: center;">
+      <button class="nav-tab active" id="tabStudioBtn" onclick="switchMainTab('studio')">🎬 Dựng Video AI</button>
+      <button class="nav-tab" id="tabVideosBtn" onclick="switchMainTab('videos')">📺 Quản Lý Video & Tương Tác</button>
+    </div>
+
     <div class="header-actions">
-      <span id="headerVoiceBadge" style="font-size: 0.8rem; color: var(--text-muted); padding: 4px 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">Edge-TTS (Nam Minh)</span>
+      <button class="btn btn-secondary" onclick="openVoiceLibraryModal()" style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; padding: 6px 12px; background: rgba(99, 102, 241, 0.12); border-color: rgba(99, 102, 241, 0.35); color: #a5b4fc; cursor: pointer;" title="Bấm để mở Thư viện giọng & nghe thử trực tiếp">
+        <span>🎙️</span>
+        <span id="headerVoiceBadge">Edge-TTS (Nam Minh)</span>
+        <span style="font-size: 0.7rem; color: #818cf8; background: rgba(99, 102, 241, 0.22); padding: 1px 6px; border-radius: 4px;">Nghe thử</span>
+      </button>
       
       <!-- AUTHENTICATED USER BADGE -->
       <span id="headerUserBadge" style="display: none; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #34d399; padding: 5px 12px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px;">
@@ -855,8 +1188,10 @@
       <button class="btn-sm" id="authBarBtn" onclick="openLoginGate(false)" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">🔑 Đăng Nhập / Đổi Tài Khoản</button>
     </div>
 
-    <!-- HERO INTRO -->
-    <div class="hero-banner">
+    <!-- VIEW: STUDIO SECTION -->
+    <div id="viewStudioSection">
+      <!-- HERO INTRO -->
+      <div class="hero-banner">
       <h1 class="hero-title">Xưởng Hoạt Họa Lịch Sử Bảng Trắng AI</h1>
       <p class="hero-desc">Tự động đối chiếu tài liệu lịch sử RAG, sinh kịch bản chi tiết, upload ảnh minh họa lên Cloudinary và kết xuất video hoạt họa bảng trắng chuẩn 16:9 lưu trữ trực tiếp vào hệ thống.</p>
     </div>
@@ -957,7 +1292,8 @@
         <div style="font-weight: 800; font-size: 1.2rem; color: #10b981; display: flex; align-items: center; gap: 8px;">
           <span>🎉</span> <span id="videoResultTitle">Xuất Bản Video Thành Công!</span>
         </div>
-        <div style="display: flex; gap: 10px;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <a id="btnCloudinaryVideo" class="btn btn-secondary" target="_blank" style="display: none; background: rgba(0, 112, 243, 0.15); border-color: rgba(0, 112, 243, 0.4); color: #60a5fa; font-weight: 600;">☁️ Cloudinary</a>
           <a id="btnDownloadVideo" class="btn btn-primary" download target="_blank">📥 Tải MP4</a>
           <a id="btnDownloadSrt" class="btn btn-secondary" download target="_blank">📄 Tải SRT</a>
         </div>
@@ -969,14 +1305,59 @@
           <span style="margin-left: 10px;">Content ID: <b id="contentIdText">#</b></span> |
           <span style="margin-left: 6px;">Artifact ID: <b id="artifactIdText">#</b></span> |
           <span style="margin-left: 6px;">Kênh Creator ID: <b id="channelIdText">#</b></span>
+          <span id="cloudStorageBadge" style="display: none; margin-left: 10px; color: #60a5fa;">| ☁️ <b id="cloudStorageText">Cloudinary CDN</b></span>
         </div>
         <span style="font-size: 0.75rem; background: rgba(16,185,129,0.2); color: #34d399; padding: 3px 10px; border-radius: 12px; font-weight: 700;">TRẠNG THÁI: PUBLISHED</span>
       </div>
 
       <div class="video-wrapper">
-        <video id="videoPlayer" controls playsinline></video>
+        <video id="videoPlayer" controls playsinline preload="metadata"></video>
       </div>
     </div>
+  </div>
+  <!-- END VIEW: STUDIO SECTION -->
+
+  <!-- VIEW: QUẢN LÝ VIDEO & TƯƠNG TÁC -->
+  <div id="viewVideosSection" style="display: none; padding: 0 0 40px 0;">
+    <!-- SUMMARY METRICS -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px;">
+      <div class="card" style="padding: 16px; text-align: center; border-color: rgba(59, 130, 246, 0.3);">
+        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">📹 Tổng Số Video</div>
+        <div id="metricTotalVideos" style="font-size: 1.8rem; font-weight: 800; color: #f8fafc; margin-top: 4px;">0</div>
+      </div>
+      <div class="card" style="padding: 16px; text-align: center; border-color: rgba(16, 185, 129, 0.3);">
+        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">🟢 Đang Hiển Thị</div>
+        <div id="metricPublishedVideos" style="font-size: 1.8rem; font-weight: 800; color: #34d399; margin-top: 4px;">0</div>
+      </div>
+      <div class="card" style="padding: 16px; text-align: center; border-color: rgba(245, 158, 11, 0.3);">
+        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">🟡 Đang Ẩn</div>
+        <div id="metricHiddenVideos" style="font-size: 1.8rem; font-weight: 800; color: #fbbf24; margin-top: 4px;">0</div>
+      </div>
+      <div class="card" style="padding: 16px; text-align: center; border-color: rgba(59, 130, 246, 0.3);">
+        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">👍 Lượt Thích</div>
+        <div id="metricTotalLikes" style="font-size: 1.8rem; font-weight: 800; color: #60a5fa; margin-top: 4px;">0</div>
+      </div>
+      <div class="card" style="padding: 16px; text-align: center; border-color: rgba(236, 72, 153, 0.3);">
+        <div style="font-size: 0.8rem; color: #94a3b8; font-weight: 600;">💬 Bình Luận</div>
+        <div id="metricTotalComments" style="font-size: 1.8rem; font-weight: 800; color: #f472b6; margin-top: 4px;">0</div>
+      </div>
+    </div>
+
+    <!-- VIDEOS LIST CARD -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="font-size: 1.3rem; font-weight: 800; color: #f8fafc; margin-bottom: 4px;">📺 Video Của Bạn & Tương Tác Khán Giả</h2>
+          <p style="font-size: 0.85rem; color: #94a3b8;">Chỉnh sửa thông tin, ẩn/hiện video và xem các tương tác like, dislike, bình luận trực tiếp</p>
+        </div>
+        <button class="btn btn-secondary" onclick="loadCreatorVideos()">🔄 Tải Lại Danh Sách</button>
+      </div>
+
+      <div id="videosListContainer" style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="text-align: center; padding: 40px; color: #94a3b8;">Đang tải danh sách video...</div>
+      </div>
+    </div>
+  </div>
   </div>
 
   <!-- CREATOR LOGIN GATE MODAL -->
@@ -1069,11 +1450,22 @@
       </div>
 
       <div class="form-group" id="edgeVoiceGroup">
-        <label class="form-label">Giọng đọc Microsoft Edge</label>
-        <select id="edgeVoice" class="form-control">
-          <option value="vi-VN-NamMinhNeural">Nam Minh (Giọng Nam Truyền Cảm)</option>
-          <option value="vi-VN-HoaiMyNeural">Hoài My (Giọng Nữ Dịu Dàng)</option>
-        </select>
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Giọng đọc Microsoft Edge</span>
+          <span style="font-size: 0.72rem; color: #10b981; font-weight: 500;">🆓 Miễn phí • Tiếng Việt chuẩn</span>
+        </label>
+        <div style="display: flex; gap: 8px;">
+          <select id="edgeVoice" class="form-control" onchange="onEdgeVoiceSelectChange()" style="flex: 1;">
+            <option value="vi-VN-NamMinhNeural">Nam Minh (Giọng Nam Truyền Cảm - Chuẩn Bắc)</option>
+            <option value="vi-VN-HoaiMyNeural">Hoài My (Giọng Nữ Dịu Dàng - Lắng Đọng)</option>
+          </select>
+          <button type="button" class="btn btn-secondary" id="btnPreviewEdge" onclick="previewSettingsVoice('edge')" style="white-space: nowrap; display: flex; align-items: center; gap: 5px; padding: 0 14px; font-size: 0.82rem; font-weight: 600;" title="Bấm để nghe thử mẫu giọng này">
+            <span id="iconPreviewEdge">▶</span> <span>Nghe thử</span>
+          </button>
+        </div>
+        <div id="edgeVoiceDesc" style="font-size: 0.76rem; color: #94a3b8; margin-top: 4px; background: rgba(148, 163, 184, 0.08); padding: 5px 8px; border-radius: 6px; border: 1px solid rgba(148, 163, 184, 0.16);">
+          🎙️ Nam chuẩn Bắc, truyền cảm, tự nhiên • Tối ưu cho thuyết minh phổ thông, podcast ngắn.
+        </div>
       </div>
 
       <div class="form-group" id="elevenKeyGroup" style="display: none;">
@@ -1083,13 +1475,233 @@
       </div>
 
       <div class="form-group" id="elevenVoiceGroup" style="display: none;">
-        <label class="form-label">ElevenLabs Voice ID / Tên giọng</label>
-        <input type="text" id="elevenVoice" class="form-control" value="Brian" placeholder="Brian, Adam, Rachel...">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Chọn Giọng Đọc ElevenLabs AI</span>
+          <span style="font-size: 0.72rem; color: #38bdf8; font-weight: 500;">✨ Tối ưu phát âm Tiếng Việt</span>
+        </label>
+        
+        <div style="display: flex; gap: 8px;">
+          <select id="elevenVoiceSelect" class="form-control" onchange="onElevenVoiceSelectChange()" style="flex: 1;">
+            <optgroup label="🌟 Khuyên Dùng Lịch Sử Việt (Multilingual v2)">
+              <option value="Brian" selected>Brian (Nam - Trầm hùng, Phim tài liệu sử thi) ⭐ 5.0</option>
+              <option value="Adam">Adam (Nam - Podcast tự sự, đàm đạo sử xưa) ⭐ 5.0</option>
+              <option value="Sarah">Sarah (Nữ - Truyền cảm, hào sảng, tường thuật) ⭐ 5.0</option>
+              <option value="George">George (Nam - Học giả đĩnh đạc, phân tích chiến trận) ⭐ 5.0</option>
+              <option value="Laura">Laura (Nữ - Sinh động, khám phá bảo tàng & di tích) ⭐ 4.8</option>
+            </optgroup>
+            <optgroup label="👨 Các Giọng Nam ElevenLabs">
+              <option value="Callum">Callum (Nam - Hào khí sử thi, hịch chiến trận) ⭐ 4.8</option>
+              <option value="Liam">Liam (Nam - Trẻ trung hiện đại, TikTok / Shorts) ⭐ 4.7</option>
+              <option value="Bill">Bill (Nam - Già cổ kính, chuyện xưa tích cũ) ⭐ 4.7</option>
+              <option value="Roger">Roger (Nam - Trung niên từng trải, mộc mạc) ⭐ 4.6</option>
+              <option value="Daniel">Daniel (Nam - Điềm tĩnh, chuẩn mực phát thanh) ⭐ 4.6</option>
+              <option value="Will">Will (Nam - Ấm áp, thư thái, nhẹ nhàng) ⭐ 4.5</option>
+              <option value="Harry">Harry (Nam - Trẻ trung, chiến binh dũng mãnh) ⭐ 4.5</option>
+            </optgroup>
+            <optgroup label="👩 Các Giọng Nữ ElevenLabs">
+              <option value="Rachel">Rachel (Nữ - Điềm đạm, rõ chữ, thanh lịch) ⭐ 4.6</option>
+              <option value="Alice">Alice (Nữ - Tri thức chuẩn mực, tư liệu khảo cổ) ⭐ 4.6</option>
+              <option value="Lily">Lily (Nữ - Đằm thắm, thuyết minh giai nhân bí sử) ⭐ 4.5</option>
+              <option value="Matilda">Matilda (Nữ - Tự nhiên, sinh động, linh hoạt) ⭐ 4.5</option>
+              <option value="River">River (Trung tính - Điềm đạm, thời sự kỷ niệm) ⭐ 4.5</option>
+            </optgroup>
+            <optgroup label="🛠️ Tùy Chỉnh">
+              <option value="__custom__">➕ Nhập Voice ID cá nhân / Cloned Voice của bạn...</option>
+            </optgroup>
+          </select>
+          <button type="button" class="btn btn-secondary" id="btnPreviewEleven" onclick="previewSettingsVoice('elevenlabs')" style="white-space: nowrap; display: flex; align-items: center; gap: 5px; padding: 0 14px; font-size: 0.82rem; font-weight: 600;" title="Bấm để nghe thử mẫu giọng này">
+            <span id="iconPreviewEleven">▶</span> <span>Nghe thử</span>
+          </button>
+        </div>
+
+        <!-- Ô nhập Custom Voice ID khi chọn __custom__ -->
+        <div id="elevenCustomInputWrap" style="display: none; margin-top: 8px;">
+          <input type="text" id="elevenVoiceCustom" class="form-control" placeholder="Dán Voice ID từ ElevenLabs (ví dụ: 21m00Tcm4TlvDq8ikWAM)..." oninput="onElevenCustomInput()">
+          <span class="form-help" style="margin-top: 3px;">Dán Voice ID bạn tự nhân bản (Voice Clone) hoặc tìm thấy trên ElevenLabs Voice Library.</span>
+        </div>
+
+        <!-- Thẻ tóm tắt thông tin & đánh giá chất giọng -->
+        <div id="elevenVoiceDesc" style="font-size: 0.76rem; color: #a5b4fc; margin-top: 5px; background: rgba(99, 102, 241, 0.08); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(99, 102, 241, 0.18); display: flex; justify-content: space-between; align-items: center;">
+          <span id="elevenVoiceDescText">🔥 Trầm ấm, hào sảng, uy lực • Phù hợp chiến trận sử thi, Đại Việt chiến thắng.</span>
+          <span id="elevenVoiceRating" style="color: #fbbf24; font-weight: 600; white-space: nowrap; margin-left: 8px;">⭐⭐⭐⭐⭐ 5.0</span>
+        </div>
+
+        <!-- Input ẩn để đồng bộ với backend & các hàm lưu trữ hiện hữu -->
+        <input type="hidden" id="elevenVoice" value="Brian">
+      </div>
+
+      <!-- PHẦN GHI TEXT TÙY Ý ĐỂ NGHE THỬ TRỰC TIẾP -->
+      <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 10px; padding: 12px; margin: 10px 0 6px 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <label style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1; display: flex; align-items: center; gap: 6px; margin: 0;">
+            <span>✍️</span>
+            <span>Ghi Text Bất Kỳ Để Nghe Thử Giọng Này:</span>
+          </label>
+          <span id="settingsCustomPreviewStatus" style="font-size: 0.72rem; color: #38bdf8;"></span>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="settingsCustomText" class="form-control" style="font-size: 0.84rem;" placeholder="Nhập câu tiếng Việt bạn muốn AI đọc thử..." value="Xin chào, đây là giọng đọc AI của kênh Lịch Sử Việt Nam.">
+          <button type="button" class="btn btn-primary" id="btnSettingsTestVoice" onclick="testCustomTextFromSettings()" style="white-space: nowrap; font-size: 0.82rem; padding: 6px 14px; display: flex; align-items: center; gap: 6px;">
+            <span id="settingsTestVoiceIcon">🎙️</span>
+            <span id="settingsTestVoiceLabel">Đọc Thử</span>
+          </button>
+        </div>
+
+        <!-- Gợi ý câu nhanh -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+          <span style="font-size: 0.72rem; color: var(--text-muted); align-self: center;">Gợi ý câu:</span>
+          <button type="button" class="btn-sm" onclick="$('settingsCustomText').value='Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.';" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer;">📜 Nam Quốc Sơn Hà</button>
+          <button type="button" class="btn-sm" onclick="$('settingsCustomText').value='Lý Thường Kiệt đã thống lĩnh đại quân đánh tan quân Tống như thế nào?';" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer;">⚔️ Đánh Tống</button>
+          <button type="button" class="btn-sm" onclick="$('settingsCustomText').value='Chào mừng các bạn đến với kênh Kể Chuyện Lịch Sử Việt Nam!';" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer;">🎙️ Lời Mở Đầu</button>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 0.72rem; color: var(--text-muted);">
+          <span>Giọng đang thử: <b id="settingsPreviewTargetVoice" style="color: #60a5fa;">Brian</b> (<span id="settingsPreviewTargetEngine">ElevenLabs</span>)</span>
+          <span style="color: #10b981;">⚡ Hỗ trợ cả Edge-TTS & ElevenLabs</span>
+        </div>
+      </div>
+
+      <!-- BUTTON TO OPEN VOICE STUDIO -->
+      <div style="margin: 6px 0 10px 0;">
+        <button type="button" class="btn btn-secondary" onclick="openVoiceLibraryModal()" style="width: 100%; border: 1px solid #6366f1; background: rgba(99, 102, 241, 0.12); color: #a5b4fc; font-weight: 600; padding: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>🎙️</span>
+          <span>Khám Phá & Nghe Thử Thư Viện Giọng Đọc (20+ Giọng)</span>
+        </button>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
         <button class="btn btn-secondary" onclick="closeSettingsModal()">Hủy</button>
         <button class="btn btn-primary" id="btnSaveSettings" onclick="saveCreatorSettings()">Lưu Vào Cơ Sở Dữ Liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VOICE STUDIO & LIBRARY MODAL -->
+  <div class="modal-backdrop" id="voiceLibraryModal" style="display: none; z-index: 1050;">
+    <div class="modal-content voice-modal-content">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <span>🎙️</span>
+            <span>Thư Viện Giọng Đọc AI (Voice Studio)</span>
+          </div>
+          <span style="font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; display: block;">
+            Tuyển chọn các giọng đọc ElevenLabs (ưu tiên nói tốt tiếng Việt) & Microsoft Edge-TTS chuyên cho Sử Việt
+          </span>
+        </div>
+        <button class="btn-sm" onclick="closeVoiceLibraryModal()">✕</button>
+      </div>
+
+      <!-- SEARCH & FILTER CONTROLS -->
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input type="text" id="voiceSearchInput" class="form-control" placeholder="🔍 Tìm kiếm tên giọng, phong cách (Ví dụ: Brian, Trầm hùng, Nữ dịu dàng, Adam...)" oninput="filterVoiceCards()">
+
+        <div class="voice-filter-bar">
+          <div class="voice-filter-chip active" data-filter="all" onclick="setVoiceFilter('all')">🌟 Tất cả (<span id="countAll">20</span>)</div>
+          <div class="voice-filter-chip" data-filter="recommended" onclick="setVoiceFilter('recommended')">🔥 Khuyên dùng Sử học (<span id="countRec">6</span>)</div>
+          <div class="voice-filter-chip" data-filter="male" onclick="setVoiceFilter('male')">👨 Giọng Nam</div>
+          <div class="voice-filter-chip" data-filter="female" onclick="setVoiceFilter('female')">👩 Giọng Nữ</div>
+          <div class="voice-filter-chip" data-filter="elevenlabs" onclick="setVoiceFilter('elevenlabs')">💎 ElevenLabs AI</div>
+          <div class="voice-filter-chip" data-filter="edge-tts" onclick="setVoiceFilter('edge-tts')">🆓 Miễn Phí (Edge-TTS)</div>
+        </div>
+      </div>
+
+      <!-- VOICE CARDS GRID -->
+      <div class="voice-grid" id="voiceGridContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- LIVE TEST CUSTOM TEXT SECTION -->
+      <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-size: 0.82rem; font-weight: 600; color: #cbd5e1; display: flex; align-items: center; gap: 6px;">
+            <span>🎧</span>
+            <span>Nghe Thử Câu Tiếng Việt Tùy Ý Với Giọng: <b id="lblCurrentVoiceName" style="color: #818cf8;">Brian</b></span>
+          </span>
+          <span id="customPreviewStatus" style="font-size: 0.75rem; color: var(--text-muted);"></span>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="txtCustomPreview" class="form-control" placeholder="Nhập câu tiếng Việt muốn nghe thử (ví dụ: Đại Việt ngàn năm văn hiến...)" value="Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.">
+          <button class="btn btn-primary" id="btnTestCustomVoice" onclick="testCustomSentencePreview()" style="white-space: nowrap; padding: 8px 16px;">
+            ▶ Phát Âm Câu Này
+          </button>
+        </div>
+        <!-- Gợi ý câu nhanh -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+          <span style="font-size: 0.72rem; color: var(--text-muted); align-self: center;">Gợi ý câu:</span>
+          <button type="button" class="btn-sm" onclick="$('txtCustomPreview').value='Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.';" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer;">📜 Nam Quốc Sơn Hà</button>
+          <button type="button" class="btn-sm" onclick="$('txtCustomPreview').value='Lý Thường Kiệt đã thống lĩnh đại quân đánh tan quân Tống như thế nào?';" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer;">⚔️ Đánh Tống</button>
+          <button type="button" class="btn-sm" onclick="$('txtCustomPreview').value='Chào mừng các bạn đến với kênh Kể Chuyện Lịch Sử Việt Nam!';" style="font-size: 0.72rem; padding: 2px 8px; background: rgba(255,255,255,0.06); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: #cbd5e1; cursor: pointer;">🎙️ Lời Mở Đầu</button>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
+        <div style="font-size: 0.78rem; color: var(--text-muted);">
+          💡 <i>Mẹo:</i> Giọng ElevenLabs sử dụng mô hình <b>Multilingual v2</b> hỗ trợ phát âm tiếng Việt có dấu cực chuẩn.
+        </div>
+        <button class="btn btn-secondary" onclick="closeVoiceLibraryModal()">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT VIDEO MODAL -->
+  <div class="modal-backdrop" id="editVideoModal" style="display: none; z-index: 1000;">
+    <div class="modal-content" style="max-width: 540px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ Chỉnh Sửa Thông Tin Video</div>
+        <button class="btn-sm" onclick="closeEditVideoModal()">✕</button>
+      </div>
+
+      <input type="hidden" id="editContentId">
+
+      <div class="form-group">
+        <label class="form-label">Tiêu đề Video <span style="color:#ef4444;">*</span></label>
+        <input type="text" id="editVideoTitle" class="form-control" placeholder="Nhập tiêu đề video...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mô tả / Tóm tắt nội dung</label>
+        <textarea id="editVideoDescription" class="form-control" style="min-height: 100px; resize: vertical;" placeholder="Nhập mô tả nội dung video..."></textarea>
+      </div>
+
+      <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="editVideoExclusive" style="width: 18px; height: 18px; cursor: pointer;">
+        <label for="editVideoExclusive" style="font-size: 0.9rem; font-weight: 600; cursor: pointer;">⭐ Đặt làm nội dung độc quyền Hội Viên (VIP)</label>
+      </div>
+
+      <div id="editVideoAlert" style="display: none; margin-bottom: 12px; font-size: 0.85rem;"></div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+        <button class="btn btn-secondary" onclick="closeEditVideoModal()">Hủy</button>
+        <button class="btn btn-primary" id="btnSubmitEditVideo" onclick="submitEditVideo()">💾 Lưu Thay Đổi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMENTS & ENGAGEMENT MODAL -->
+  <div class="modal-backdrop" id="commentsModal" style="display: none; z-index: 1000;">
+    <div class="modal-content" style="max-width: 640px;">
+      <div class="modal-header">
+        <div class="modal-title" id="commentsModalTitle">💬 Chi Tiết Tương Tác & Bình Luận</div>
+        <button class="btn-sm" onclick="closeCommentsModal()">✕</button>
+      </div>
+
+      <!-- ENGAGEMENT STATS PILLS -->
+      <div style="display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;">
+        <span class="badge-stat" id="modalStatLikes" style="background: rgba(59,130,246,0.15); color: #60a5fa; font-size: 0.88rem; padding: 6px 12px;">👍 0 Likes</span>
+        <span class="badge-stat" id="modalStatDislikes" style="background: rgba(239,68,68,0.15); color: #f87171; font-size: 0.88rem; padding: 6px 12px;">👎 0 Dislikes</span>
+        <span class="badge-stat" id="modalStatComments" style="background: rgba(236,72,153,0.15); color: #f472b6; font-size: 0.88rem; padding: 6px 12px;">💬 0 Bình luận</span>
+      </div>
+
+      <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 10px; color: #f8fafc;">Khán giả bình luận:</div>
+
+      <div id="commentsListContainer" style="max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;">
+        <!-- Comments injected here dynamically -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+        <button class="btn btn-secondary" onclick="closeCommentsModal()">Đóng</button>
       </div>
     </div>
   </div>
@@ -1381,8 +1993,9 @@
           $('ttsEngine').value = s.ttsEngine || 'edge-tts';
           if (s.ttsEngine === 'edge-tts') {
             $('edgeVoice').value = s.voiceName || 'vi-VN-NamMinhNeural';
+            onEdgeVoiceSelectChange();
           } else {
-            $('elevenVoice').value = s.voiceName || 'Brian';
+            setElevenVoiceInSettings(s.voiceName || 'Brian');
           }
 
           if (s.hasGeminiKey) {
@@ -1397,6 +2010,9 @@
 
           toggleTtsOptions();
           updateHeaderVoiceBadge();
+          if (!voiceCatalog || voiceCatalog.length === 0) {
+            loadVoiceCatalog();
+          }
         }
       } catch (err) {
         console.warn('Không thể tải cài đặt AI của Creator:', err);
@@ -1452,6 +2068,7 @@
       $('edgeVoiceGroup').style.display = isEl ? 'none' : 'flex';
       $('elevenKeyGroup').style.display = isEl ? 'flex' : 'none';
       $('elevenVoiceGroup').style.display = isEl ? 'flex' : 'none';
+      updateSettingsTargetVoiceLabel();
     }
 
     function updateHeaderVoiceBadge() {
@@ -1465,12 +2082,877 @@
       }
     }
 
+    function setElevenVoiceInSettings(vName) {
+      if (!vName) vName = 'Brian';
+      const sel = $('elevenVoiceSelect');
+      if (!sel) return;
+
+      let found = false;
+      for (let i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value.toLowerCase() === vName.toLowerCase()) {
+          sel.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+
+      if (found) {
+        if ($('elevenCustomInputWrap')) $('elevenCustomInputWrap').style.display = 'none';
+        $('elevenVoice').value = sel.value;
+      } else {
+        sel.value = '__custom__';
+        if ($('elevenCustomInputWrap')) $('elevenCustomInputWrap').style.display = 'block';
+        if ($('elevenVoiceCustom')) $('elevenVoiceCustom').value = vName;
+        $('elevenVoice').value = vName;
+      }
+
+      onElevenVoiceSelectChange(false);
+    }
+
+    function onElevenVoiceSelectChange(triggerPlay = false) {
+      const sel = $('elevenVoiceSelect');
+      if (!sel) return;
+      const selVal = sel.value;
+      const isCustom = (selVal === '__custom__');
+
+      if ($('elevenCustomInputWrap')) $('elevenCustomInputWrap').style.display = isCustom ? 'block' : 'none';
+
+      let voiceId = isCustom ? (($('elevenVoiceCustom') ? $('elevenVoiceCustom').value.trim() : '') || '') : selVal;
+      $('elevenVoice').value = voiceId;
+
+      updateElevenVoiceMeta(voiceId, isCustom);
+      updateHeaderVoiceBadge();
+      updateSettingsTargetVoiceLabel();
+    }
+
+    function onElevenCustomInput() {
+      const v = $('elevenVoiceCustom') ? $('elevenVoiceCustom').value.trim() : '';
+      $('elevenVoice').value = v;
+      updateHeaderVoiceBadge();
+      updateSettingsTargetVoiceLabel();
+    }
+
+    function updateElevenVoiceMeta(voiceId, isCustom) {
+      const descText = $('elevenVoiceDescText');
+      const rating = $('elevenVoiceRating');
+      if (!descText || !rating) return;
+
+      if (isCustom) {
+        descText.textContent = '🛠️ Voice ID tùy chỉnh / Cloned Voice từ tài khoản ElevenLabs cá nhân của bạn.';
+        rating.textContent = '⭐ Riêng';
+        return;
+      }
+
+      const catalog = (voiceCatalog && voiceCatalog.length > 0) ? voiceCatalog : DEFAULT_VOICES;
+      const vObj = catalog.find(x => x.id === voiceId || x.id.toLowerCase() === voiceId.toLowerCase());
+      if (vObj) {
+        descText.textContent = (vObj.isRecommended ? '🔥 ' : '🎙️ ') + (vObj.accent || '') + ' • Tối ưu: ' + (vObj.recommendedFor || '');
+        rating.textContent = '⭐ ' + (vObj.vietnameseRating ? vObj.vietnameseRating.toFixed(1) : '5.0');
+      } else {
+        descText.textContent = '✨ Giọng đọc ElevenLabs chất lượng cao.';
+        rating.textContent = '⭐ 5.0';
+      }
+    }
+
+    function onEdgeVoiceSelectChange() {
+      const v = $('edgeVoice').value;
+      const descEl = $('edgeVoiceDesc');
+      if (descEl) {
+        if (v === 'vi-VN-NamMinhNeural') {
+          descEl.textContent = '🎙️ Nam chuẩn Bắc, truyền cảm, tự nhiên • Tối ưu cho thuyết minh phổ thông, podcast ngắn.';
+        } else {
+          descEl.textContent = '🎙️ Nữ chuẩn Bắc, dịu dàng, lắng đọng, truyền cảm hứng • Tối ưu cho huyền sử, nhân vật nữ.';
+        }
+      }
+      updateHeaderVoiceBadge();
+      updateSettingsTargetVoiceLabel();
+    }
+
+    function previewSettingsVoice(engine) {
+      if (engine === 'edge') {
+        const vId = $('edgeVoice').value;
+        const catalog = (voiceCatalog && voiceCatalog.length > 0) ? voiceCatalog : DEFAULT_VOICES;
+        const voiceObj = catalog.find(x => x.id === vId);
+        const url = (voiceObj && voiceObj.previewUrl) ? voiceObj.previewUrl : `/audio/voices/${vId}.mp3`;
+        toggleSettingsAudioPreview('btnPreviewEdge', 'iconPreviewEdge', vId, url);
+      } else {
+        const selVal = $('elevenVoiceSelect').value;
+        if (selVal === '__custom__') {
+          const customId = $('elevenVoiceCustom') ? $('elevenVoiceCustom').value.trim() : '';
+          if (!customId) {
+            alert('Vui lòng nhập Voice ID từ ElevenLabs vào ô bên dưới trước khi nghe thử!');
+            if ($('elevenVoiceCustom')) $('elevenVoiceCustom').focus();
+            return;
+          }
+          testCustomVoicePreviewDirect('elevenlabs', customId);
+          return;
+        }
+
+        const catalog = (voiceCatalog && voiceCatalog.length > 0) ? voiceCatalog : DEFAULT_VOICES;
+        const voiceObj = catalog.find(x => x.id === selVal || x.id.toLowerCase() === selVal.toLowerCase());
+        if (voiceObj && voiceObj.previewUrl) {
+          toggleSettingsAudioPreview('btnPreviewEleven', 'iconPreviewEleven', selVal, voiceObj.previewUrl);
+        } else {
+          testCustomVoicePreviewDirect('elevenlabs', selVal);
+        }
+      }
+    }
+
+    function toggleSettingsAudioPreview(btnId, iconId, voiceId, url) {
+      if (currentPlayingVoiceId === voiceId && currentAudioPlayer) {
+        stopAudioPlayback();
+        return;
+      }
+
+      stopAudioPlayback();
+
+      try {
+        currentAudioPlayer = new Audio(url);
+        currentPlayingVoiceId = voiceId;
+        const btn = $(btnId);
+        const icon = $(iconId);
+        if (btn) btn.classList.add('playing');
+        if (icon) icon.textContent = '⏹';
+
+        currentAudioPlayer.onended = () => {
+          stopAudioPlayback();
+        };
+
+        currentAudioPlayer.onerror = (e) => {
+          console.warn('Lỗi phát audio preview:', e);
+          stopAudioPlayback();
+          alert('Không thể phát âm thanh trực tiếp từ liên kết mẫu.');
+        };
+
+        currentAudioPlayer.play().catch(err => {
+          console.warn('Trình duyệt chặn autoplay:', err);
+          stopAudioPlayback();
+        });
+      } catch (e) {
+        console.error('Lỗi khởi tạo Audio:', e);
+        stopAudioPlayback();
+      }
+    }
+
+    async function testCustomVoicePreviewDirect(engine, voiceId) {
+      const btn = $('btnPreviewEleven');
+      const icon = $('iconPreviewEleven');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> <span>Đang tạo...</span>`;
+      }
+
+      try {
+        const elKey = $('elevenKey').value.trim();
+        const res = await fetch('/api/v1/creator/studio/voices/preview', {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            engine: engine,
+            voiceId: voiceId,
+            text: "Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.",
+            elevenlabsApiKey: elKey
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || 'Không thể tạo bản nghe thử.');
+        }
+
+        const audioUrl = data.data ? data.data.audioUrl : null;
+        if (audioUrl) {
+          toggleSettingsAudioPreview('btnPreviewEleven', 'iconPreviewEleven', voiceId, audioUrl);
+        } else {
+          alert('Không tìm thấy tệp âm thanh trả về từ máy chủ.');
+        }
+      } catch (err) {
+        alert('Lỗi tạo giọng nghe thử: ' + err.message);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `<span id="iconPreviewEleven">▶</span> <span>Nghe thử</span>`;
+        }
+      }
+    }
+
+    function populateClonedVoicesInSelect() {
+      const sel = $('elevenVoiceSelect');
+      if (!sel) return;
+      const clonedVoices = voiceCatalog.filter(v => v.isCloned);
+      const existingGrp = sel.querySelector('optgroup[data-cloned="true"]');
+      if (existingGrp) existingGrp.remove();
+
+      if (clonedVoices.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = "👑 Giọng Cloned Cá Nhân Của Bạn";
+        grp.setAttribute('data-cloned', 'true');
+        clonedVoices.forEach(cv => {
+          const opt = document.createElement('option');
+          opt.value = cv.id;
+          opt.textContent = `👑 ${cv.name} ⭐ 5.0`;
+          grp.appendChild(opt);
+        });
+        sel.insertBefore(grp, sel.lastElementChild);
+      }
+    }
+
+    // =========================================================
+    // VOICE STUDIO & LIBRARY STATE & CONTROLS
+    // =========================================================
+    let voiceCatalog = [];
+    let currentVoiceFilter = 'all';
+    let currentPlayingVoiceId = null;
+    let currentAudioPlayer = null;
+
+    // Built-in voice catalog fallback (used immediately while fetching or if backend offline)
+    const DEFAULT_VOICES = [
+      {
+        id: "vi-VN-NamMinhNeural",
+        name: "Nam Minh (Nam Chuẩn Bắc - Miễn Phí)",
+        gender: "male",
+        engine: "edge-tts",
+        accent: "Nam chuẩn Bắc, truyền cảm, tự nhiên, nhịp điệu vừa vặn",
+        recommendedFor: "Thuyết minh phổ thông, podcast, phim tài liệu ngắn",
+        vietnameseRating: 5.0,
+        previewUrl: "/audio/voices/vi-VN-NamMinhNeural.mp3",
+        sampleText: "Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.",
+        tags: ["free", "male", "recommended", "podcast"],
+        isRecommended: true,
+        isCloned: false
+      },
+      {
+        id: "vi-VN-HoaiMyNeural",
+        name: "Hoài My (Nữ Dịu Dàng - Miễn Phí)",
+        gender: "female",
+        engine: "edge-tts",
+        accent: "Nữ chuẩn Bắc, dịu dàng, lắng đọng, truyền cảm hứng",
+        recommendedFor: "Huyền sử, văn hóa nghệ thuật, nhân vật lịch sử nữ",
+        vietnameseRating: 5.0,
+        previewUrl: "/audio/voices/vi-VN-HoaiMyNeural.mp3",
+        sampleText: "Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.",
+        tags: ["free", "female", "recommended", "culture"],
+        isRecommended: true,
+        isCloned: false
+      },
+      {
+        id: "Brian",
+        name: "Brian (Hùng Tráng - Phim Tài Liệu)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Trầm ấm, hào sảng, uy lực, rất vang và tròn chữ tiếng Việt",
+        recommendedFor: "Chiến trận sử thi, Đại Việt chiến thắng, VTV Đặc Biệt",
+        vietnameseRating: 5.0,
+        previewUrl: "https://api.us.elevenlabs.io/v1/voices/nPczCjzI2devNBz1zQrb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiIyZGQzZTcyYy00ZmQzLTQyZjEtOTNlYS1hYmM1ZDRlNWFhMWQubXAzIiwidGltZXN0YW1wIjoxNzkwNzY5NjAwMDAwMDAwfQ%3D%3D",
+        sampleText: "Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.",
+        tags: ["elevenlabs", "male", "recommended", "epic", "documentary"],
+        isRecommended: true,
+        isCloned: false
+      },
+      {
+        id: "Adam",
+        name: "Adam (Podcast Tự Sự & Lắng Đọng)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Nam trầm ấm, tự nhiên, gần gũi, biểu cảm phong phú",
+        recommendedFor: "Podcast lịch sử, tự sự cuộc đời danh nhân, đàm đạo sử xưa",
+        vietnameseRating: 5.0,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/pNInz6obpgDQGcFmaJgB/d6905d7a-dd26-4187-bfff-1bd3a5ea7cac.mp3",
+        sampleText: "Mỗi trang sử Việt không chỉ là chiến tích, mà còn là tâm hồn của tiền nhân.",
+        tags: ["elevenlabs", "male", "recommended", "podcast", "storytelling"],
+        isRecommended: true,
+        isCloned: false
+      },
+      {
+        id: "Sarah",
+        name: "Sarah (Nữ Truyền Cảm Dịu Dàng)",
+        gender: "female",
+        engine: "elevenlabs",
+        accent: "Dịu dàng, sâu lắng, lay động lòng người, nhịp điệu tinh tế",
+        recommendedFor: "Tình sử bi tráng, huyền sử dân tộc, giai nhân và biến cố lịch sử",
+        vietnameseRating: 5.0,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/EXAVITQu4vr4xnSDxMaL/01a3e33c-6e99-4ee7-8543-ff2216a32186.mp3",
+        sampleText: "Dòng sông Bạch Đằng cuộn sóng, mang theo khí phách ngàn năm của cha ông.",
+        tags: ["elevenlabs", "female", "recommended", "emotion", "culture"],
+        isRecommended: true,
+        isCloned: false
+      },
+      {
+        id: "George",
+        name: "George (Học Giả Đĩnh Đạc)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Đĩnh đạc, điềm tĩnh, phong thái học thuật uyên bác",
+        recommendedFor: "Phân tích chiến thuật quân sự, bình luận bối cảnh triều đại",
+        vietnameseRating: 5.0,
+        previewUrl: "https://api.us.elevenlabs.io/v1/voices/JBFqnCBsd6RMkjVDRZzb/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiJlNjIwNmQxYS0wNzIxLTQ3ODctYWFmYi0wNmE2ZTcwNWNhYzUubXAzIiwidGltZXN0YW1wIjoxNzkwNzY5NjAwMDAwMDAwfQ%3D%3D",
+        sampleText: "Chiến thắng Như Nguyệt là minh chứng kinh điển cho nghệ thuật tiên phát chế nhân.",
+        tags: ["elevenlabs", "male", "recommended", "scholarly"],
+        isRecommended: true,
+        isCloned: false
+      },
+      {
+        id: "Laura",
+        name: "Laura (Nữ Sinh Động & Khám Phá)",
+        gender: "female",
+        engine: "elevenlabs",
+        accent: "Tươi sáng, dõng dạc, cuốn hút, tràn đầy năng lượng",
+        recommendedFor: "Khám phá di tích lịch sử, bảo tàng, video giáo dục ngắn",
+        vietnameseRating: 4.8,
+        previewUrl: "https://api.us.elevenlabs.io/v1/voices/FGY2WhTYpPnrIDTdsKH5/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI2NzM0MTc1OS1hZDA4LTQxYTUtYmU2ZS1kZTEyZmU0NDg2MTgubXAzIiwidGltZXN0YW1wIjoxNzkwNzY5NjAwMDAwMDAwfQ%3D%3D",
+        sampleText: "Bạn có biết bí mật nào ẩn sau bức tường Hoàng thành Thăng Long?",
+        tags: ["elevenlabs", "female", "energetic", "education"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Liam",
+        name: "Liam (Nam Trẻ Trung Hiện Đại)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Dứt khoát, thanh thoát, phong cách kể chuyện nhanh hiện đại",
+        recommendedFor: "Tóm tắt sử 60 giây, video TikTok / Shorts / Reels giới trẻ",
+        vietnameseRating: 4.7,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/TX3LPaxmHKxFdv7VOQHJ/63148076-6363-42db-aea8-31424308b92c.mp3",
+        sampleText: "Chỉ trong 60 giây, hãy xem Quang Trung thần tốc đại phá quân Thanh thế nào!",
+        tags: ["elevenlabs", "male", "modern", "shorts"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Callum",
+        name: "Callum (Hào Khí Sử Thi & Hịch Chiến Trận)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Khàn uy lực, dồn dập, giàu kịch tính chiến đấu",
+        recommendedFor: "Đọc Hịch Tướng Sĩ, trận đánh ác liệt, khoảnh khắc quyết tử",
+        vietnameseRating: 4.8,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/N2lVS1w4EtoT3dr4eOWO/ac833bd8-ffda-4938-9ebc-b0f99ca25481.mp3",
+        sampleText: "Ta thường nghe: Kỷ Tín đem mình chết thay, cứu thoát cho Cao Đế...",
+        tags: ["elevenlabs", "male", "epic", "battle"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Bill",
+        name: "Bill (Già Cổ Kính & Tích Xưa)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Già dặn, ấm áp, từng trải, ngâm ngợi sự đời",
+        recommendedFor: "Cổ tích sử học, chuyện xưa tích cũ, lời khuyên tiền nhân",
+        vietnameseRating: 4.7,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/pqHfZKP75CvOlQylNhV4/d782b3ff-84ba-4029-848c-acf01285524d.mp3",
+        sampleText: "Ngày xửa ngày xưa, trên mảnh đất Rồng Tiên, cha ông ta đã dựng nên cơ đồ này.",
+        tags: ["elevenlabs", "male", "ancient", "wise"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Alice",
+        name: "Alice (Nữ Tri Thức Chuẩn Mực)",
+        gender: "female",
+        engine: "elevenlabs",
+        accent: "Trong sáng, chuẩn chỉ, phong thái thuyết trình sư phạm",
+        recommendedFor: "Tư liệu khảo cổ học, hiện vật bảo tàng, niên biểu lịch sử",
+        vietnameseRating: 4.6,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/Xb7hH8MSUJpSbSDYk0k2/d10f7534-11f6-41fe-a012-2de1e482d336.mp3",
+        sampleText: "Trống đồng Đông Sơn là biểu tượng rực rỡ của văn minh lúa nước Việt cổ.",
+        tags: ["elevenlabs", "female", "scholarly", "education"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "River",
+        name: "River (Trung Tính Điềm Đạm)",
+        gender: "neutral",
+        engine: "elevenlabs",
+        accent: "Điềm đạm, khách quan, tự nhiên, nhịp điệu hài hòa",
+        recommendedFor: "Bản tin lịch sử, thời sự kỷ niệm, thông tin tổng quan",
+        vietnameseRating: 4.5,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/SAz9YHcvj6GT2YYXdXww/e6c95f0b-2227-491a-b3d7-2249240decb7.mp3",
+        sampleText: "Lịch sử là tấm gương soi chiếu để chúng ta tự tin bước tới tương lai.",
+        tags: ["elevenlabs", "neutral", "news"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Roger",
+        name: "Roger (Nam Mộc Mạc Thư Thái)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Thư thả, mộc mạc, gần gũi với đời sống thôn quê xưa",
+        recommendedFor: "Lịch sử làng nghề, văn hóa ẩm thực, phong tục tập quán",
+        vietnameseRating: 4.5,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/CwhRBWXzGAHq8TQ4Fs17/58ee3ff5-f6f2-4628-93b8-e38eb31806b0.mp3",
+        sampleText: "Những nếp nhà tranh, giếng nước gốc đa đã nuôi dưỡng tâm hồn người Việt.",
+        tags: ["elevenlabs", "male", "folk", "culture"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Harry",
+        name: "Harry (Chiến Binh Quyết Đoán)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Đanh thép, dũng mãnh, đầy nhiệt huyết quật cường",
+        recommendedFor: "Tuyên ngôn độc lập, kháng chiến chống ngoại xâm, lời thề cứu nước",
+        vietnameseRating: 4.5,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/SOYHLrjzK2X1ezoPC6cr/86d178f6-f4b6-4e0e-85be-3de19f490794.mp3",
+        sampleText: "Bao giờ người Tây nhổ hết cỏ nước Nam thì mới hết người Nam đánh Tây!",
+        tags: ["elevenlabs", "male", "warrior", "epic"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Matilda",
+        name: "Matilda (Nữ Chuyên Nghiệp)",
+        gender: "female",
+        engine: "elevenlabs",
+        accent: "Đĩnh đạc, rõ nét, phong thái học thuật",
+        recommendedFor: "Phân tích tư liệu, khảo cứu văn bia, chiếu chỉ cổ",
+        vietnameseRating: 4.4,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/XrExE9yKIg1WjnnlVkGX/b930e18d-6b4d-466e-bab2-0ae97c6d8535.mp3",
+        sampleText: "Chiếu dời đô của vua Lý Thái Tổ là quyết định thay đổi vận mệnh non sông.",
+        tags: ["elevenlabs", "female", "scholarly"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Will",
+        name: "Will (Nam Lạc Quan Dịu Nhẹ)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Lạc quan, nhẹ nhàng, truyền cảm hứng tích cực",
+        recommendedFor: "Những giai đoạn phục hưng hòa bình, kiến thiết đất nước",
+        vietnameseRating: 4.4,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/bIHbv24MWmeRgasZH58o/8caf8f3d-ad29-4980-af41-53f20c72d7a4.mp3",
+        sampleText: "Thái bình nên gắng sức, non nước ấy ngàn thu.",
+        tags: ["elevenlabs", "male", "peace", "calm"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Daniel",
+        name: "Daniel (Phát Thanh Viên Trang Trọng)",
+        gender: "male",
+        engine: "elevenlabs",
+        accent: "Chuẩn chỉ, đĩnh đạc, âm vang phát thanh truyền hình",
+        recommendedFor: "Bản tin trang trọng, sự kiện lịch sử trọng đại",
+        vietnameseRating: 4.4,
+        previewUrl: "https://api.us.elevenlabs.io/v1/voices/onwK4e9ZLuTAKqWW03F9/previews/audio?payload=eyJ2b2ljZV9zb3VyY2UiOiJwcmVtYWRlIiwiZmlsZW5hbWUiOiI3ZWVlMDIzNi0xYTcyLTRiODYtYjMwMy01ZGNhZGMwMDdiYTkubXAzIiwidGltZXN0YW1wIjoxNzkwNzY5NjAwMDAwMDAwfQ%3D%3D",
+        sampleText: "Việt Nam Dân chủ Cộng hòa - Độc lập, Tự do, Hạnh phúc.",
+        tags: ["elevenlabs", "male", "formal", "broadcast"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Lily",
+        name: "Lily (Nữ Quý Phái Lôi Cuốn)",
+        gender: "female",
+        engine: "elevenlabs",
+        accent: "Đằm thắm, lôi cuốn, có chiều sâu kịch nghệ",
+        recommendedFor: "Chuyện hậu cung, truyền kỳ mạn lục, giai thoại bí sử",
+        vietnameseRating: 4.3,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/pFZP5JQG7iQjIQuC4Bku/89b68b35-b3dd-4348-a84a-a3c13a3c2b30.mp3",
+        sampleText: "Dưới ánh trăng thành xưa, từng trang sử như thì thầm những bí mật nghìn năm.",
+        tags: ["elevenlabs", "female", "mystery", "drama"],
+        isRecommended: false,
+        isCloned: false
+      },
+      {
+        id: "Rachel",
+        name: "Rachel (Nữ Điềm Đạm & Rõ Chữ)",
+        gender: "female",
+        engine: "elevenlabs",
+        accent: "Điềm đạm, rõ chữ, thanh lịch, chuẩn mực",
+        recommendedFor: "Thuyết minh tài liệu, lời dẫn chương trình, đọc truyện",
+        vietnameseRating: 4.6,
+        previewUrl: "https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/sample.mp3",
+        sampleText: "Chào mừng các bạn đến với kênh kể chuyện lịch sử Việt Nam.",
+        tags: ["elevenlabs", "female", "calm", "narrative"],
+        isRecommended: false,
+        isCloned: false
+      }
+    ];
+
+    async function loadVoiceCatalog() {
+      voiceCatalog = [...DEFAULT_VOICES];
+      try {
+        const res = await fetch('/api/v1/creator/studio/voices', {
+          headers: getAuthHeaders(true)
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            voiceCatalog = json.data;
+          }
+        }
+      } catch (e) {
+        console.warn('Sử dụng danh mục giọng có sẵn:', e);
+      }
+      populateClonedVoicesInSelect();
+      updateVoiceCounts();
+      renderVoiceCards();
+    }
+
+    function updateVoiceCounts() {
+      if ($('countAll')) $('countAll').textContent = voiceCatalog.length;
+      if ($('countRec')) $('countRec').textContent = voiceCatalog.filter(v => v.isRecommended).length;
+    }
+
+    function openVoiceLibraryModal() {
+      $('voiceLibraryModal').style.display = 'flex';
+      const curEngine = $('ttsEngine').value;
+      const curVoice = curEngine === 'elevenlabs' ? ($('elevenVoice').value || 'Brian') : ($('edgeVoice').value || 'vi-VN-NamMinhNeural');
+      $('lblCurrentVoiceName').textContent = curVoice;
+
+      if (!voiceCatalog || voiceCatalog.length === 0) {
+        loadVoiceCatalog();
+      } else {
+        renderVoiceCards();
+      }
+    }
+
+    function closeVoiceLibraryModal() {
+      stopAudioPlayback();
+      $('voiceLibraryModal').style.display = 'none';
+    }
+
+    function setVoiceFilter(filter) {
+      currentVoiceFilter = filter;
+      document.querySelectorAll('.voice-filter-chip').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-filter') === filter);
+      });
+      renderVoiceCards();
+    }
+
+    function filterVoiceCards() {
+      renderVoiceCards();
+    }
+
+    function getCurrentlySelectedVoiceId() {
+      const curEngine = $('ttsEngine').value;
+      return curEngine === 'elevenlabs' ? ($('elevenVoice').value.trim() || 'Brian') : ($('edgeVoice').value || 'vi-VN-NamMinhNeural');
+    }
+
+    function renderVoiceCards() {
+      const container = $('voiceGridContainer');
+      if (!container) return;
+
+      const query = ($('voiceSearchInput').value || '').trim().toLowerCase();
+      const currentSelected = getCurrentlySelectedVoiceId();
+
+      const filtered = voiceCatalog.filter(v => {
+        // Category filter
+        if (currentVoiceFilter === 'recommended' && !v.isRecommended) return false;
+        if (currentVoiceFilter === 'male' && v.gender !== 'male') return false;
+        if (currentVoiceFilter === 'female' && v.gender !== 'female') return false;
+        if (currentVoiceFilter === 'elevenlabs' && v.engine !== 'elevenlabs') return false;
+        if (currentVoiceFilter === 'edge-tts' && v.engine !== 'edge-tts') return false;
+
+        // Search query
+        if (query) {
+          const matchName = (v.name || '').toLowerCase().includes(query);
+          const matchAccent = (v.accent || '').toLowerCase().includes(query);
+          const matchUse = (v.recommendedFor || '').toLowerCase().includes(query);
+          const matchId = (v.id || '').toLowerCase().includes(query);
+          if (!matchName && !matchAccent && !matchUse && !matchId) return false;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-muted);">
+            <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+            <div>Không tìm thấy giọng đọc nào phù hợp với từ khóa "<b>${query}</b>"</div>
+            <button class="btn btn-secondary" onclick="$('voiceSearchInput').value=''; setVoiceFilter('all');" style="margin-top: 12px;">Xem Tất Cả Giọng</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(v => {
+        const isSelected = (currentSelected === v.id || currentSelected === v.name || (v.id === 'Brian' && currentSelected === 'Brian'));
+        const isPlaying = (currentPlayingVoiceId === v.id);
+        const avatarClass = v.gender === 'female' ? 'female' : (v.gender === 'male' ? 'male' : 'neutral');
+        const avatarIcon = v.isCloned ? '👑' : (v.gender === 'female' ? '👩' : (v.gender === 'male' ? '👨' : '🎙️'));
+        const engineBadge = v.engine === 'elevenlabs' 
+          ? `<span class="voice-badge-tag badge-elevenlabs">💎 ElevenLabs AI</span>`
+          : `<span class="voice-badge-tag badge-edge">🆓 Edge-TTS (Free)</span>`;
+        const ratingStars = '⭐'.repeat(Math.round(v.vietnameseRating || 5.0)) + ` ${(v.vietnameseRating || 5.0).toFixed(1)}`;
+
+        return `
+          <div class="voice-card ${isSelected ? 'selected' : ''}" id="vcard_${v.id}">
+            <div class="voice-card-header">
+              <div class="voice-avatar ${avatarClass}">${avatarIcon}</div>
+              <div class="voice-info">
+                <div class="voice-name-row">
+                  <div class="voice-title" title="${v.name}">${v.name}</div>
+                  ${engineBadge}
+                </div>
+                <div style="font-size: 0.72rem; color: #fbbf24; margin-top: 2px;">${ratingStars} Chuẩn Tiếng Việt</div>
+                <div class="voice-accent-desc">${v.accent || ''}</div>
+                <div class="voice-usecase">🎯 <b>Phù hợp:</b> ${v.recommendedFor || ''}</div>
+              </div>
+            </div>
+
+            <div class="voice-sample-quote">
+              "${v.sampleText || 'Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.'}"
+            </div>
+
+            <div class="voice-card-actions">
+              <button type="button" class="btn-play-preview ${isPlaying ? 'playing' : ''}" id="btnPlay_${v.id}" onclick="handleVoicePreviewClick('${v.id}', '${v.previewUrl || ''}', '${v.name.replace(/'/g, "\\'")}', '${v.engine}')">
+                ${isPlaying 
+                  ? `<div class="soundwave-bars"><span></span><span></span><span></span><span></span></div> <span>Đang phát...</span>` 
+                  : `<span>▶</span> <span>Nghe Thử</span>`}
+              </button>
+
+              <button type="button" class="btn-select-voice ${isSelected ? 'is-selected' : ''}" onclick="selectAndApplyVoice('${v.id}', '${v.name.replace(/'/g, "\\'")}', '${v.engine}')">
+                ${isSelected ? '✓ Đang Dùng' : 'Chọn Giọng'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleVoicePreviewClick(voiceId, previewUrl, voiceName, engine) {
+      if (currentPlayingVoiceId === voiceId && currentAudioPlayer) {
+        stopAudioPlayback();
+        return;
+      }
+
+      stopAudioPlayback();
+
+      if (!previewUrl || previewUrl === 'null' || previewUrl === 'undefined') {
+        alert(`Giọng ${voiceName} chưa có sẵn tệp mẫu. Đang tạo trực tiếp qua API...`);
+        return;
+      }
+
+      playAudioUrl(voiceId, previewUrl);
+    }
+
+    function playAudioUrl(voiceId, audioUrl) {
+      stopAudioPlayback();
+
+      try {
+        currentAudioPlayer = new Audio(audioUrl);
+        currentPlayingVoiceId = voiceId;
+        updatePlayingUI(voiceId, true);
+
+        currentAudioPlayer.onended = () => {
+          stopAudioPlayback();
+        };
+
+        currentAudioPlayer.onerror = (e) => {
+          console.warn('Lỗi phát âm thanh URL mẫu:', e);
+          stopAudioPlayback();
+          alert('Không thể phát tệp âm thanh trực tiếp. Trình duyệt có thể đã chặn kết nối tới CDN.');
+        };
+
+        currentAudioPlayer.play().catch(err => {
+          console.warn('Trình duyệt chặn autoplay:', err);
+          stopAudioPlayback();
+        });
+      } catch (err) {
+        console.error('Lỗi khởi tạo Audio:', err);
+        stopAudioPlayback();
+      }
+    }
+
+    function stopAudioPlayback() {
+      if (currentAudioPlayer) {
+        try {
+          currentAudioPlayer.pause();
+          currentAudioPlayer.currentTime = 0;
+        } catch (e) {}
+        currentAudioPlayer = null;
+      }
+      if (currentPlayingVoiceId) {
+        updatePlayingUI(currentPlayingVoiceId, false);
+        currentPlayingVoiceId = null;
+      }
+
+      const bEdge = $('btnPreviewEdge');
+      if (bEdge) bEdge.classList.remove('playing');
+      const iEdge = $('iconPreviewEdge');
+      if (iEdge) iEdge.textContent = '▶';
+
+      const bEl = $('btnPreviewEleven');
+      if (bEl) bEl.classList.remove('playing');
+      const iEl = $('iconPreviewEleven');
+      if (iEl) iEl.textContent = '▶';
+    }
+
+    function updatePlayingUI(voiceId, isPlaying) {
+      const btn = $(`btnPlay_${voiceId}`);
+      if (btn) {
+        btn.classList.toggle('playing', isPlaying);
+        btn.innerHTML = isPlaying
+          ? `<div class="soundwave-bars"><span></span><span></span><span></span><span></span></div> <span>Đang phát...</span>`
+          : `<span>▶</span> <span>Nghe Thử</span>`;
+      }
+    }
+
+    function selectAndApplyVoice(voiceId, voiceName, engine) {
+      // 1. Set engine
+      $('ttsEngine').value = engine;
+      toggleTtsOptions();
+
+      // 2. Set specific voice
+      if (engine === 'elevenlabs') {
+        const cleanName = voiceId.length >= 15 ? voiceId : (voiceId || 'Brian');
+        setElevenVoiceInSettings(cleanName);
+      } else {
+        $('edgeVoice').value = voiceId;
+        onEdgeVoiceSelectChange();
+      }
+
+      // 3. Update badges
+      updateHeaderVoiceBadge();
+      if ($('lblCurrentVoiceName')) $('lblCurrentVoiceName').textContent = voiceName || voiceId;
+
+      // 4. Update selected card style
+      renderVoiceCards();
+
+      // Show toast confirmation
+      alert(`✅ Đã chọn giọng đọc [${voiceName}] cho xưởng Whiteboard AI!`);
+    }
+
+    async function testCustomSentencePreview() {
+      const text = ($('txtCustomPreview').value || '').trim();
+      if (!text) {
+        alert('Vui lòng nhập câu tiếng Việt bạn muốn phát âm thử!');
+        $('txtCustomPreview').focus();
+        return;
+      }
+
+      const engine = $('ttsEngine').value;
+      const voice = engine === 'elevenlabs' ? ($('elevenVoice').value.trim() || 'Brian') : ($('edgeVoice').value || 'vi-VN-NamMinhNeural');
+      const elKey = $('elevenKey').value.trim();
+
+      const btn = $('btnTestCustomVoice');
+      const statusLbl = $('customPreviewStatus');
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang tổng hợp âm...';
+      if (statusLbl) statusLbl.textContent = 'Đang gọi AI tổng hợp câu nói...';
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/voices/preview', {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            engine: engine,
+            voiceId: voice,
+            text: text,
+            elevenlabsApiKey: elKey
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || 'Không thể tạo bản nghe thử');
+        }
+
+        const audioUrl = (data.data && data.data.url) ? data.data.url : null;
+        if (!audioUrl) {
+          throw new Error('Máy chủ không trả về URL âm thanh');
+        }
+
+        if (statusLbl) statusLbl.textContent = '▶ Đang phát âm thử...';
+        playAudioUrl('custom', audioUrl);
+      } catch (err) {
+        alert('Lỗi tạo giọng nghe thử: ' + err.message);
+        if (statusLbl) statusLbl.textContent = '';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ Phát Âm Câu Này';
+      }
+    }
+
+    async function testCustomTextFromSettings() {
+      const text = ($('settingsCustomText').value || '').trim();
+      if (!text) {
+        alert('Vui lòng nhập câu tiếng Việt bạn muốn AI đọc thử!');
+        $('settingsCustomText').focus();
+        return;
+      }
+
+      const engine = $('ttsEngine').value;
+      const voice = engine === 'elevenlabs' ? ($('elevenVoice').value.trim() || 'Brian') : ($('edgeVoice').value || 'vi-VN-NamMinhNeural');
+      const elKey = $('elevenKey').value.trim();
+
+      const btn = $('btnSettingsTestVoice');
+      const icon = $('settingsTestVoiceIcon');
+      const label = $('settingsTestVoiceLabel');
+      const statusLbl = $('settingsCustomPreviewStatus');
+
+      btn.disabled = true;
+      if (icon) icon.textContent = '⏳';
+      if (label) label.textContent = 'Đang đọc...';
+      if (statusLbl) statusLbl.textContent = 'Đang tổng hợp...';
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/voices/preview', {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            engine: engine,
+            voiceId: voice,
+            text: text,
+            elevenlabsApiKey: elKey
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || 'Không thể tạo bản nghe thử');
+        }
+
+        const audioUrl = (data.data && data.data.url) ? data.data.url : (data.url || null);
+        if (!audioUrl) {
+          throw new Error('Máy chủ không trả về URL âm thanh');
+        }
+
+        if (statusLbl) statusLbl.textContent = '▶ Đang phát...';
+        playAudioUrl('settings_custom', audioUrl);
+      } catch (err) {
+        alert('Lỗi tạo giọng đọc: ' + err.message);
+        if (statusLbl) statusLbl.textContent = '';
+      } finally {
+        btn.disabled = false;
+        if (icon) icon.textContent = '🎙️';
+        if (label) label.textContent = 'Đọc Thử';
+        setTimeout(() => {
+          if (statusLbl && statusLbl.textContent.includes('Đang phát')) {
+            statusLbl.textContent = '';
+          }
+        }, 6000);
+      }
+    }
+
+    function updateSettingsTargetVoiceLabel() {
+      const engine = $('ttsEngine') ? $('ttsEngine').value : 'edge-tts';
+      let v = 'Brian';
+      if (engine === 'elevenlabs') {
+        v = ($('elevenVoice') && $('elevenVoice').value) ? $('elevenVoice').value : 'Brian';
+      } else {
+        v = ($('edgeVoice') && $('edgeVoice').value === 'vi-VN-NamMinhNeural') ? 'Nam Minh' : 'Hoài My';
+      }
+      if ($('settingsPreviewTargetVoice')) $('settingsPreviewTargetVoice').textContent = v;
+      if ($('settingsPreviewTargetEngine')) $('settingsPreviewTargetEngine').textContent = (engine === 'elevenlabs' ? 'ElevenLabs' : 'Edge-TTS');
+    }
+
     function openSettingsModal() {
       $('settingsModal').style.display = 'flex';
+      updateSettingsTargetVoiceLabel();
     }
     function closeSettingsModal() {
+      stopAudioPlayback();
       $('settingsModal').style.display = 'none';
     }
+
 
     // --- TOPIC SUGGESTIONS & DURATION ---
     function setTopic(text) {
@@ -1758,6 +3240,8 @@
       btn.disabled = true;
       $('progressCard').style.display = 'block';
       $('resultCard').style.display = 'none';
+      if ($('btnCloudinaryVideo')) $('btnCloudinaryVideo').style.display = 'none';
+      if ($('cloudStorageBadge')) $('cloudStorageBadge').style.display = 'none';
       $('consoleBox').innerHTML = '<p class="highlight">🚀 Đang lưu Content, Artifact vào DB và bắt đầu render...</p>';
       $('progressCard').scrollIntoView({ behavior: 'smooth' });
 
@@ -1835,9 +3319,29 @@
 
           $('resultCard').style.display = 'flex';
           $('videoResultTitle').textContent = '🎉 ' + (job.title || 'Video Hoàn Tất');
-          $('videoPlayer').src = job.video_url;
-          $('btnDownloadVideo').href = job.video_url;
+          const rawUrl = job.video_url || '';
+          const finalUrl = optimizeVideoUrl(rawUrl);
+          $('videoPlayer').src = finalUrl;
+          $('videoPlayer').load();
+          $('btnDownloadVideo').href = finalUrl;
           $('btnDownloadSrt').href = job.srt_url;
+
+          const isCloud = job.cloudinary_url || (finalUrl && finalUrl.includes('cloudinary.com'));
+          if (isCloud) {
+            const cUrl = optimizeVideoUrl(job.cloudinary_url || finalUrl);
+            if ($('btnCloudinaryVideo')) {
+              $('btnCloudinaryVideo').href = cUrl;
+              $('btnCloudinaryVideo').style.display = 'inline-flex';
+            }
+            if ($('cloudStorageBadge')) $('cloudStorageBadge').style.display = 'inline';
+            if ($('cloudStorageText')) {
+              $('cloudStorageText').innerHTML = `<a href="${cUrl}" target="_blank" style="color: #60a5fa; text-decoration: underline;">Cloudinary CDN (f_auto, q_auto)</a>`;
+            }
+          } else {
+            if ($('btnCloudinaryVideo')) $('btnCloudinaryVideo').style.display = 'none';
+            if ($('cloudStorageBadge')) $('cloudStorageBadge').style.display = 'none';
+          }
+
           $('resultCard').scrollIntoView({ behavior: 'smooth' });
           $('btnRenderStudio').disabled = false;
         } else if (job.status === 'failed') {
@@ -1872,8 +3376,275 @@
       return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
+    function optimizeVideoUrl(url) {
+      if (!url) return '';
+      // Giữ URL gốc trực tiếp từ Cloudinary CDN để tránh on-the-fly transcode làm cụt thời lượng video
+      return url.replace('/video/upload/f_auto,q_auto/', '/video/upload/');
+    }
+
     function escapeHtml(s) {
       return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // --- MAIN TAB SWITCHER (STUDIO vs VIDEOS) ---
+    function switchMainTab(tab) {
+      if (tab === 'studio') {
+        $('viewStudioSection').style.display = 'block';
+        $('viewVideosSection').style.display = 'none';
+        $('tabStudioBtn').className = 'nav-tab active';
+        $('tabVideosBtn').className = 'nav-tab';
+      } else {
+        if (!isLoggedInCreator()) {
+          openLoginGate(true, '⚠️ Vui lòng đăng nhập tài khoản Creator để quản lý video!');
+          return;
+        }
+        $('viewStudioSection').style.display = 'none';
+        $('viewVideosSection').style.display = 'block';
+        $('tabVideosBtn').className = 'nav-tab active';
+        $('tabStudioBtn').className = 'nav-tab';
+        loadCreatorVideos();
+      }
+    }
+
+    // --- VIDEO MANAGER & ENGAGEMENT API CALLS ---
+    let cachedVideos = [];
+
+    async function loadCreatorVideos() {
+      const container = $('videosListContainer');
+      container.innerHTML = '<div style="text-align: center; padding: 40px; color: #94a3b8;">⏳ Đang tải danh sách video...</div>';
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/videos', {
+          headers: getAuthHeaders(true)
+        });
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) {
+          throw new Error(resData.message || 'Lỗi khi tải danh sách video');
+        }
+
+        cachedVideos = resData.data || [];
+
+        // Update summary metrics
+        $('metricTotalVideos').textContent = cachedVideos.length;
+        $('metricPublishedVideos').textContent = cachedVideos.filter(v => v.status === 'PUBLISHED').length;
+        $('metricHiddenVideos').textContent = cachedVideos.filter(v => v.status === 'HIDDEN').length;
+        $('metricTotalLikes').textContent = cachedVideos.reduce((sum, v) => sum + (v.likeCount || 0), 0);
+        $('metricTotalComments').textContent = cachedVideos.reduce((sum, v) => sum + (v.commentCount || 0), 0);
+
+        if (cachedVideos.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 50px 20px; color: #94a3b8;">
+              <p style="font-size: 2.5rem; margin-bottom: 8px;">🎬</p>
+              <p style="font-size: 1.1rem; font-weight: 700; color: #f8fafc;">Bạn chưa có video nào</p>
+              <p style="font-size: 0.85rem; margin-top: 4px;">Hãy chuyển sang tab "Dựng Video AI" để bắt đầu sáng tạo video lịch sử đầu tiên!</p>
+              <button class="btn btn-primary" onclick="switchMainTab('studio')" style="margin-top: 15px;">🚀 Dựng Video Ngay</button>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        cachedVideos.forEach(v => {
+          const isPub = v.status === 'PUBLISHED';
+          const isHid = v.status === 'HIDDEN';
+          const statusBadge = isPub 
+            ? '<span class="badge-status-published">🟢 Công Khai</span>' 
+            : isHid 
+              ? '<span class="badge-status-hidden">🟡 Đang Ẩn</span>' 
+              : `<span class="badge-stat">⏳ ${escapeHtml(v.status || 'Chờ')}</span>`;
+
+          const videoSrc = optimizeVideoUrl(v.fileUrl || '');
+
+          html += `
+            <div class="video-manage-card">
+              <div class="video-manage-thumb">
+                ${videoSrc ? `<video src="${videoSrc}" controls playsinline preload="metadata"></video>` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#64748b;">Chưa có file video</div>'}
+              </div>
+
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
+                  <h3 style="font-size: 1.1rem; font-weight: 800; color: #f8fafc; line-height: 1.4;">${escapeHtml(v.title || 'Chưa đặt tiêu đề')}</h3>
+                  <div>${statusBadge}</div>
+                </div>
+
+                <p style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                  ${escapeHtml(v.description || 'Không có mô tả kịch bản.')}
+                </p>
+
+                <!-- STATS & BADGES -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                  <span class="badge-stat" style="color: #60a5fa;">👍 <b>${v.likeCount || 0}</b> Likes</span>
+                  <span class="badge-stat" style="color: #f87171;">👎 <b>${v.dislikeCount || 0}</b> Dislikes</span>
+                  <span class="badge-stat" style="color: #f472b6;">💬 <b>${v.commentCount || 0}</b> Bình luận</span>
+                  <span class="badge-stat">⏱️ ${v.durationSeconds ? formatTime(v.durationSeconds) : 'N/A'}</span>
+                  ${v.isExclusive ? '<span class="badge-stat" style="color: #fbbf24; border-color: rgba(245,158,11,0.3);">⭐ Độc Quyền VIP</span>' : ''}
+                  <span class="badge-stat" style="color: #64748b;">Content #${v.contentId} | Artifact #${v.artifactId || 'N/A'}</span>
+                </div>
+
+                <!-- ACTIONS ROW -->
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                  <button class="btn btn-secondary" onclick="openEditVideoModal(${v.contentId})" style="padding: 6px 12px; font-size: 0.82rem;">
+                    ✏️ Chỉnh Sửa
+                  </button>
+
+                  <button class="btn btn-secondary" onclick="toggleVideoVisibility(${v.contentId}, ${isPub})" style="padding: 6px 12px; font-size: 0.82rem; ${isPub ? 'color: #fbbf24;' : 'color: #34d399;'}">
+                    ${isPub ? '👁️ Ẩn Video' : '👁️ Công Khai'}
+                  </button>
+
+                  <button class="btn btn-secondary" onclick="openCommentsModal(${v.contentId})" style="padding: 6px 12px; font-size: 0.82rem; color: #f472b6;">
+                    💬 Xem Bình Luận (${v.commentCount || 0})
+                  </button>
+
+                  ${videoSrc && videoSrc.includes('cloudinary.com') ? `
+                    <a href="${videoSrc}" target="_blank" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; color: #60a5fa; text-decoration: none;">
+                      ☁️ Cloudinary
+                    </a>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        container.innerHTML = html;
+      } catch (err) {
+        container.innerHTML = `<div style="text-align: center; padding: 30px; color: #ef4444;">⚠️ Lỗi: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // --- EDIT VIDEO MODAL LOGIC ---
+    function openEditVideoModal(contentId) {
+      const v = cachedVideos.find(item => item.contentId === contentId);
+      if (!v) return;
+
+      $('editContentId').value = contentId;
+      $('editVideoTitle').value = v.title || '';
+      $('editVideoDescription').value = v.description || '';
+      $('editVideoExclusive').checked = !!v.isExclusive;
+      $('editVideoAlert').style.display = 'none';
+
+      $('editVideoModal').style.display = 'flex';
+    }
+
+    function closeEditVideoModal() {
+      $('editVideoModal').style.display = 'none';
+    }
+
+    async function submitEditVideo() {
+      const contentId = $('editContentId').value;
+      const title = $('editVideoTitle').value.trim();
+      const description = $('editVideoDescription').value.trim();
+      const isExclusive = $('editVideoExclusive').checked;
+
+      if (!title) {
+        $('editVideoAlert').textContent = '⚠️ Tiêu đề video không được để trống!';
+        $('editVideoAlert').style.color = '#ef4444';
+        $('editVideoAlert').style.display = 'block';
+        return;
+      }
+
+      const btn = $('btnSubmitEditVideo');
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang lưu...';
+
+      try {
+        const res = await fetch(`/api/v1/creator/studio/videos/${contentId}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ title, description, isExclusive })
+        });
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) {
+          throw new Error(resData.message || 'Lỗi khi cập nhật video');
+        }
+
+        closeEditVideoModal();
+        loadCreatorVideos();
+      } catch (err) {
+        $('editVideoAlert').textContent = '⚠️ ' + err.message;
+        $('editVideoAlert').style.color = '#ef4444';
+        $('editVideoAlert').style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 Lưu Thay Đổi';
+      }
+    }
+
+    // --- VISIBILITY TOGGLE (HIDE/UNHIDE) ---
+    async function toggleVideoVisibility(contentId, currentlyPublished) {
+      const actionName = currentlyPublished ? 'Ẩn video này khỏi danh sách công khai?' : 'Công khai lại video này?';
+      if (!confirm(`Bạn có chắc chắn muốn ${actionName}`)) return;
+
+      try {
+        const res = await fetch(`/api/v1/creator/studio/videos/${contentId}/visibility`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ hidden: currentlyPublished })
+        });
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) {
+          throw new Error(resData.message || 'Lỗi khi thay đổi trạng thái hiển thị');
+        }
+
+        loadCreatorVideos();
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      }
+    }
+
+    // --- COMMENTS MODAL LOGIC ---
+    async function openCommentsModal(contentId) {
+      const container = $('commentsListContainer');
+      container.innerHTML = '<div style="text-align: center; padding: 20px; color: #94a3b8;">⏳ Đang tải bình luận...</div>';
+      $('commentsModal').style.display = 'flex';
+
+      try {
+        const res = await fetch(`/api/v1/creator/studio/videos/${contentId}`, {
+          headers: getAuthHeaders(true)
+        });
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) {
+          throw new Error(resData.message || 'Lỗi khi tải chi tiết tương tác');
+        }
+
+        const data = resData.data;
+        $('commentsModalTitle').textContent = '💬 ' + (data.title || 'Chi Tiết Video');
+        $('modalStatLikes').textContent = `👍 ${data.likeCount || 0} Likes`;
+        $('modalStatDislikes').textContent = `👎 ${data.dislikeCount || 0} Dislikes`;
+        $('modalStatComments').textContent = `💬 ${data.commentCount || 0} Bình luận`;
+
+        const comments = data.comments || [];
+        if (comments.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: #94a3b8;">
+              <p style="font-size: 2rem; margin-bottom: 6px;">🍃</p>
+              <p>Chưa có bình luận nào cho video này.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let cHtml = '';
+        comments.forEach(c => {
+          cHtml += `
+            <div class="comment-bubble">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 700; color: #60a5fa; font-size: 0.85rem;">👤 ${escapeHtml(c.userEmail || 'Khán giả')}</span>
+                <span style="font-size: 0.75rem; color: #64748b;">${c.createdAt ? new Date(c.createdAt).toLocaleString('vi-VN') : ''}</span>
+              </div>
+              <p style="font-size: 0.88rem; color: #e2e8f0; line-height: 1.4;">${escapeHtml(c.textBody || '')}</p>
+            </div>
+          `;
+        });
+        container.innerHTML = cHtml;
+
+      } catch (err) {
+        container.innerHTML = `<div style="text-align: center; padding: 20px; color: #ef4444;">⚠️ Lỗi: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function closeCommentsModal() {
+      $('commentsModal').style.display = 'none';
     }
 
     // INIT

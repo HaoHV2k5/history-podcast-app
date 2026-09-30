@@ -29,7 +29,7 @@ def _ffmpeg_concat_copy(inputs: list[Path], output: Path) -> bool:
     try:
         res = subprocess.run(
             [ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-             "-i", str(list_path), "-c", "copy", str(output)],
+             "-i", str(list_path), "-c", "copy", "-movflags", "+faststart", str(output)],
             capture_output=True, text=True,
         )
         if res.returncode == 0:
@@ -39,7 +39,8 @@ def _ffmpeg_concat_copy(inputs: list[Path], output: Path) -> bool:
         res = subprocess.run(
             [ffmpeg, "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
              "-i", str(list_path), "-c:v", "libx264", "-crf", "20",
-             "-pix_fmt", "yuv420p", "-vf", "scale='trunc(iw/2)*2':'trunc(ih/2)*2'", str(output)],
+             "-pix_fmt", "yuv420p", "-vf", "scale='trunc(iw/2)*2':'trunc(ih/2)*2'",
+             "-movflags", "+faststart", str(output)],
             capture_output=True, text=True,
         )
         if res.returncode == 0:
