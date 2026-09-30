@@ -82,15 +82,19 @@ class VideoRequest(BaseModel):
     scene_2_b64: Optional[str] = None
     gemini_api_key: Optional[str] = None
     elevenlabs_api_key: Optional[str] = None
-    pollinations_api_key: Optional[str] = None
-    together_api_key: Optional[str] = None
-    image_engine: str = "auto"  # 'auto', 'pollinations', 'together', 'imagen'
     tts_engine: str = "edge-tts"  # 'edge-tts' hoặc 'elevenlabs'
     voice_name: str = "vi-VN-NamMinhNeural"  # 'vi-VN-NamMinhNeural', 'Brian', 'Liam', etc.
 
 
 
 def decode_base64_image(b64_str: str) -> bytes:
+    if not b64_str:
+        raise ValueError("Dữ liệu hình ảnh cảnh không được để trống")
+    b64_str = b64_str.strip()
+    if b64_str.startswith("http://") or b64_str.startswith("https://"):
+        req = urllib.request.Request(b64_str, headers={"User-Agent": "WhiteboardStudio/1.0"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return resp.read()
     if "," in b64_str:
         b64_str = b64_str.split(",", 1)[1]
     return base64.b64decode(b64_str)
@@ -122,6 +126,7 @@ async def list_jobs():
 
 
 @app.get("/api/job/{job_id}")
+@app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
     if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="Job không tồn tại")
@@ -139,10 +144,15 @@ async def generate_storyboard_endpoint(req: StoryboardRequest):
     if not topic:
         raise HTTPException(status_code=400, detail="Vui lòng nhập chủ đề!")
     dur = req.duration_sec or 60
-    key_to_use = sanitize_gemini_key(req.gemini_api_key) or os.getenv("SYSTEM_GEMINI_API_KEY", "").strip()
-    use_rag = getattr(req, "use_rag", True)
+    user_key = sanitize_gemini_key(req.gemini_api_key)
+    if not user_key:
+        raise HTTPException(
+            status_code=400,
+            detail="⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân. Vui lòng mở Cài đặt (⚙️) và nhập API Key của bạn để sử dụng hệ thống! (Key hệ thống chỉ dành riêng cho Admin)."
+        )
+    # RAG là bắt buộc 100% cho mọi kịch bản
     try:
-        sb = call_gemini_storyboard(topic, key_to_use, duration_sec=dur, use_rag=use_rag)
+        sb = call_gemini_storyboard(topic, user_key, duration_sec=dur, use_rag=True)
         return sb
     except OutOfScopeHistoryError as ose:
         raise HTTPException(status_code=400, detail=str(ose))
@@ -158,9 +168,14 @@ async def verify_script_endpoint(req: VerifyScriptRequest):
     script_text = req.script.strip()
     if not script_text:
         raise HTTPException(status_code=400, detail="Vui lòng nhập nội dung kịch bản cần thẩm định!")
-    key_to_use = sanitize_gemini_key(req.gemini_api_key) or os.getenv("SYSTEM_GEMINI_API_KEY", "").strip()
+    user_key = sanitize_gemini_key(req.gemini_api_key)
+    if not user_key:
+        raise HTTPException(
+            status_code=400,
+            detail="⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân. Vui lòng mở Cài đặt (⚙️) và nhập API Key của bạn để thẩm định kịch bản!"
+        )
     try:
-        report = verify_script_with_gemini(script_text, key_to_use)
+        report = verify_script_with_gemini(script_text, user_key)
         return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi thẩm định kịch bản: {str(e)}")
@@ -181,6 +196,7 @@ async def get_rag_status_endpoint():
 
 
 @app.post("/api/create")
+@app.post("/api/render")
 async def create_video(req: VideoRequest, background_tasks: BackgroundTasks):
     job_id = f"job_{int(time.time())}_{uuid.uuid4().hex[:6]}"
     display_title = (req.topic or (req.storyboard.get("title") if req.storyboard else "Whiteboard Animation"))[:40]
@@ -565,6 +581,15 @@ Trả về JSON thuần túy (không bọc trong markdown):
             data = json.loads(resp.read().decode("utf-8"))
             text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
             return json.loads(text)
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="ignore")
+        if e.code == 400:
+            raise RuntimeError("❌ Google Gemini API Key của bạn không hợp lệ hoặc sai định dạng. Vui lòng kiểm tra lại trong Cài đặt (⚙️).")
+        if e.code == 403:
+            raise RuntimeError("❌ Google Gemini API Key của bạn không có quyền truy cập hoặc đã bị khóa (403 Forbidden).")
+        if e.code == 429:
+            raise RuntimeError("❌ Google Gemini API Key của bạn đã hết hạn ngạch gọi miễn phí (Quota Exceeded / Rate Limit). Vui lòng đổi sang một API Key khác tại Google AI Studio.")
+        raise
     except Exception as e:
         print(f"⚠️ Scope check error: {e}")
         other_dynasties_keywords = [
@@ -580,7 +605,7 @@ Trả về JSON thuần túy (không bọc trong markdown):
 def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: int = 60, use_rag: bool = True) -> dict:
     api_key = sanitize_gemini_key(raw_api_key)
     if not api_key:
-        raise ValueError("Chưa có API Key hoặc định dạng API Key không đúng (Key Google AI Studio thường bắt đầu bằng 'AIzaSy...').")
+        raise ValueError("⚠️ Chưa có Google Gemini API Key của người dùng. Vui lòng mở Cài đặt (⚙️) và nhập API Key cá nhân.")
 
     num_scenes = max(1, min(10, int(round(duration_sec / 28.5)) or 1))
     approx_time = num_scenes * 25.0
@@ -601,32 +626,37 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
             f"Mọi thời kỳ lịch sử khác hoặc thông tin ngoài phạm vi này đều bị chặn."
         )
 
-    # ── BƯỚC 2: TRA CỨU SỬ LIỆU TRONG KHO SÁCH doc/ ──
+    # ── BƯỚC 2: TRA CỨU SỬ LIỆU BẮT BUỘC TRONG KHO SÁCH doc/ (MANDATORY RAG) ──
     citations = []
     rag_context_section = ""
-    threshold = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.62"))
     chunks = []
     try:
         chunks = search_history_context(raw_input[:400], api_key, top_k=6)
     except Exception as e:
         print(f"⚠️ RAG Search in storyboard failed: {e}")
+        raise RuntimeError(f"Lỗi truy vấn kho sử liệu RAG: {e}. Hệ thống yêu cầu bắt buộc RAG.")
 
-    valid_chunks = [c for c in chunks if c.get("similarity", 0) >= threshold]
-    if valid_chunks:
-        citations = [
-            {
-                "id": i,
-                "book_title": c["book_title"],
-                "page": c["page"],
-                "similarity": c["similarity"],
-                "text": c.get("text", ""),
-                "file_name": c.get("file_name", "")
-            }
-            for i, c in enumerate(valid_chunks, 1)
-        ]
-        rag_context_section = "\n\nTƯ LIỆU SỬ HỌC ĐỐI CHIẾU TỪ KHO SÁCH doc/ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):\n"
-        for i, c in enumerate(valid_chunks, 1):
-            rag_context_section += f"[{i}] ({c['book_title']} - Trang {c['page']}): {c['text']}\n\n"
+    if not chunks:
+        raise ValueError(
+            f"⚠️ RAG THẤT BẠI: Không tìm thấy tư liệu lịch sử tương ứng trong kho sách doc/ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược).\n"
+            f"Vì hệ thống đang ở chế độ RAG BẮT BUỘC, mọi kịch bản đều phải có căn cứ sử liệu gốc đối chiếu. "
+            f"Vui lòng kiểm tra lại chủ đề: \"{raw_input}\"."
+        )
+
+    citations = [
+        {
+            "id": i,
+            "book_title": c["book_title"],
+            "page": c["page"],
+            "similarity": c["similarity"],
+            "text": c.get("text", ""),
+            "file_name": c.get("file_name", "")
+        }
+        for i, c in enumerate(chunks, 1)
+    ]
+    rag_context_section = "\n\nTƯ LIỆU SỬ HỌC BẮT BUỘC ĐỐI CHIẾU TỪ KHO SÁCH doc/ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):\n"
+    for i, c in enumerate(chunks, 1):
+        rag_context_section += f"[{i}] ({c['book_title']} - Trang {c['page']}): {c['text']}\n\n"
     if is_long_text:
         prompt_instruction = f"""Người dùng cung cấp một BÀI VIẾT / KỊCH BẢN / DÀN Ý CÓ SẴN dưới đây:
 \"{raw_input}\"
@@ -752,7 +782,7 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                                         break
 
                         parsed["citations"] = citations
-                        parsed["use_rag"] = bool(citations)
+                        parsed["use_rag"] = True
                         return parsed
 
                 except urllib.error.HTTPError as e:
@@ -766,17 +796,19 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 
                     # 403 / 400 invalid key: stop immediately, no point retrying
                     if e.code == 403:
-                        raise RuntimeError(f"❌ Gemini API: Không có quyền truy cập (403 Forbidden). Kiểm tra quyền API Key. {msg}")
-                    if e.code == 400 and "API_KEY_INVALID" in err_body:
-                        raise RuntimeError(f"❌ Gemini API: Key không hợp lệ (400 Invalid Key). {msg}")
+                        raise RuntimeError(f"❌ Google Gemini API Key của bạn không có quyền truy cập hoặc đã bị khóa (403 Forbidden). Chi tiết: {msg}")
+                    if e.code == 400 and ("API_KEY_INVALID" in err_body or "API key not valid" in msg or "not valid" in msg.lower()):
+                        raise RuntimeError("❌ Google Gemini API Key của bạn không hợp lệ hoặc sai định dạng (400 Invalid Key). Vui lòng kiểm tra lại trong Cài đặt (⚙️).")
 
                     # 404: model này không tồn tại → switch sang model tiếp, không retry
                     if e.code == 404:
                         print(f"[Gemini] ⚠️ Model {ver}/{model} không tồn tại (404), thử model tiếp theo...")
                         break  # thoát retry loop, chuyển sang ver/model tiếp
 
-                    # 429: traffic cao → retry với exponential backoff
+                    # 429: quota exhaustion hoặc rate limit
                     if e.code == 429:
+                        if "RESOURCE_EXHAUSTED" in err_body or "Quota exceeded" in err_body:
+                            raise RuntimeError("❌ Google Gemini API Key của bạn đã hết hạn ngạch gọi miễn phí trong ngày (Quota Exceeded / Rate Limit). Vui lòng đổi sang một API Key khác tại Google AI Studio hoặc chờ reset hạn ngạch.")
                         delay = RETRY_BASE_DELAY * (2 ** attempt)
                         print(f"[Gemini] ⏳ Rate limit (429) trên {ver}/{model}, chờ {delay:.0f}s rồi retry (lần {attempt+1}/{MAX_RETRIES_ON_TRAFFIC})...")
                         time.sleep(delay)
@@ -800,229 +832,17 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 
                 break  # nếu chạy đến đây mà không return thì thôi (không nhật thiết retry)
 
-    raise RuntimeError(f"Không thể kết nối Gemini API sau khi thử tất cả model. Lỗi cuối: {last_err}")
+    raise RuntimeError(f"Không thể kết nối Gemini API với API Key của bạn sau khi thử các model. Vui lòng kiểm tra lại API Key hoặc đổi key mới. Lỗi cuối: {last_err}")
 
 # ──────────────────────────────────────────────────────────────
-# BƯỚC 2: TẠO ẢNH MINH HỌA (POLLINATIONS AI + LOCAL VECTOR DOODLE)
+# BƯỚC 2: XỬ LÝ ẢNH DO NGƯỜI DÙNG UPLOAD (BẮT BUỘC MỖI CẢNH)
 # ──────────────────────────────────────────────────────────────
 import unicodedata
-from PIL import ImageDraw
 
 def clean_ascii_prompt(text: str) -> str:
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     text = re.sub(r"[^a-zA-Z0-9\s,\.-]", "", text)
     return re.sub(r"\s+", " ", text).strip()
-
-
-def generate_local_doodle_scene(scene_data: dict, out_path: Path) -> Path:
-    """Vẽ minh họa Doodle bảng trắng độc nhất theo từng chủ đề và phân đoạn, 100% offline"""
-    w, h = 1376, 768
-    im = Image.new("RGB", (w, h), color=(245, 235, 215))  # Nền giấy be #F5EBD7
-    draw = ImageDraw.Draw(im)
-
-    cols = [240, 688, 1136]
-    color_charcoal = (45, 45, 45)
-    color_light = (185, 178, 165)
-    color_accent = (70, 75, 85)
-
-    elements = scene_data.get("elements", [])
-    font_label = get_font(22)
-
-    for i, cx in enumerate(cols):
-        cy = 380
-        el = elements[i] if i < len(elements) else {}
-        label = el.get("label", f"Chủ thể {i+1}")
-
-        # Khung viền mờ bo tròn (Vignette sketch frame)
-        draw.rounded_rectangle([cx - 160, cy - 200, cx + 160, cy + 220], radius=18, outline=color_light, width=2)
-        
-        # Nhãn tên chủ thể ở trên đầu
-        bbox = draw.textbbox((0, 0), label, font=font_label)
-        lw = bbox[2] - bbox[0]
-        draw.text((cx - lw // 2, cy - 185), label, font=font_label, fill=color_charcoal)
-
-        # Vẽ hình tượng nghệ thuật phác thảo
-        # Đầu & nụ cười/biểu cảm
-        draw.ellipse([cx - 40, cy - 120, cx + 40, cy - 40], outline=color_charcoal, width=4)
-        draw.arc([cx - 15, cy - 80, cx + 15, cy - 65], start=0, end=180, fill=color_charcoal, width=2)
-
-        # Thân
-        draw.line([cx, cy - 40, cx, cy + 80], fill=color_charcoal, width=4)
-
-        # Các tư thế khác nhau cho 3 phân đoạn:
-        if i == 0:  # Khởi đầu / Bối cảnh
-            draw.line([cx, cy - 10, cx - 60, cy - 50], fill=color_charcoal, width=4)
-            draw.line([cx, cy - 10, cx + 55, cy + 20], fill=color_charcoal, width=4)
-            draw.ellipse([cx - 65, cy - 90, cx - 45, cy - 70], outline=(180, 140, 40), width=3)
-        elif i == 1: # Hành động / Thử thách
-            draw.line([cx, cy - 10, cx - 65, cy + 30], fill=color_charcoal, width=4)
-            draw.line([cx, cy - 10, cx + 65, cy + 30], fill=color_charcoal, width=4)
-            draw.ellipse([cx + 45, cy + 10, cx + 75, cy + 40], outline=color_accent, width=3)
-        else: # Thành tựu / Vinh quang
-            draw.line([cx, cy - 10, cx - 55, cy - 70], fill=color_charcoal, width=4)
-            draw.line([cx, cy - 10, cx + 55, cy - 70], fill=color_charcoal, width=4)
-            draw.line([cx + 55, cy - 70, cx + 75, cy - 90], fill=(180, 50, 50), width=3)
-
-        # Chân
-        draw.line([cx, cy + 80, cx - 40, cy + 165], fill=color_charcoal, width=4)
-        draw.line([cx, cy + 80, cx + 40, cy + 165], fill=color_charcoal, width=4)
-
-        # Nền đất phác thảo
-        draw.arc([cx - 85, cy + 150, cx + 85, cy + 185], start=0, end=180, fill=(130, 125, 115), width=3)
-
-    im.save(out_path, "PNG")
-    return out_path
-
-
-import base64
-
-DEFAULT_POLLINATIONS_KEY = os.getenv("POLLINATIONS_API_KEY", "")
-
-
-def generate_image_google_imagen(prompt: str, api_key: str, out_p: Path) -> bool:
-    """Tạo ảnh minh họa qua Google Imagen 3 (Nano Banana) với Gemini API Key"""
-    if not api_key:
-        return False
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key}"
-    payload = {
-        "instances": [{"prompt": prompt}],
-        "parameters": {
-            "sampleCount": 1,
-            "aspectRatio": "16:9",
-            "outputMimeType": "image/png"
-        }
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"}
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            preds = data.get("predictions", [])
-            if preds and "bytesBase64Encoded" in preds[0]:
-                raw_bytes = base64.b64decode(preds[0]["bytesBase64Encoded"])
-                out_p.write_bytes(raw_bytes)
-                im = Image.open(out_p).convert("RGB")
-                if im.size != (1376, 768):
-                    im = im.resize((1376, 768), Image.Resampling.LANCZOS)
-                im.save(out_p, "PNG")
-                return True
-    except Exception as e:
-        print(f"Google Imagen (Nano Banana) failed: {e}")
-        return False
-
-
-def generate_image_together_flux(prompt: str, api_key: str, out_p: Path) -> bool:
-    """Tạo ảnh minh họa qua Together AI FLUX.1-schnell"""
-    if not api_key:
-        return False
-    url = "https://api.together.xyz/v1/images/generations"
-    payload = {
-        "model": "black-forest-labs/FLUX.1-schnell",
-        "prompt": prompt,
-        "width": 1024,
-        "height": 576,
-        "steps": 4,
-        "n": 1,
-        "response_format": "b64_json"
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key.strip()}",
-            "Content-Type": "application/json"
-        }
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            b64 = data["data"][0]["b64_json"]
-            raw_bytes = base64.b64decode(b64)
-            out_p.write_bytes(raw_bytes)
-            im = Image.open(out_p).convert("RGB")
-            if im.size != (1376, 768):
-                im = im.resize((1376, 768), Image.Resampling.LANCZOS)
-            im.save(out_p, "PNG")
-            return True
-    except Exception as e:
-        print(f"Together AI FLUX failed: {e}")
-        return False
-
-
-def generate_or_download_scene_image(
-    scene_data: dict, 
-    out_path: Path, 
-    topic: str = "", 
-    gemini_key: str = None,
-    pollinations_key: str = None,
-    together_key: str = None,
-    image_engine: str = "auto"
-) -> Path:
-    s_idx = scene_data.get("scene_index", 1)
-    
-    # Xây dựng câu lệnh prompt chuẩn Whiteboard Doodle 3 chủ thể, cấm từ 'paper background'
-    elements = scene_data.get("elements", [])
-    ele_parts = []
-    positions = ["On left side", "In center", "On right side"]
-    for i, pos in enumerate(positions):
-        if i < len(elements):
-            v_desc = elements[i].get("visual_desc", "") or elements[i].get("label", "")
-            safe_desc = clean_ascii_prompt(v_desc)[:60]
-            ele_parts.append(f"{pos}: {safe_desc}")
-        else:
-            ele_parts.append(f"{pos}: action illustration")
-    
-    comp_desc = ". ".join(ele_parts)
-    full_prompt = f"flat 2D whiteboard animation doodle drawing, black marker sketch line art, {comp_desc}, 3 distinct figures arranged horizontally from left to right with wide spacing, solid flat pale beige background #F5EBD7, clean outlines, high contrast lines, no shading, no 3D, no real paper, no borders, 16:9 ratio"
-
-    # 1. Thử Together AI nếu người dùng chọn hoặc có key
-    if (image_engine == "together" or together_key) and together_key:
-        print(f"Đang tạo ảnh qua Together AI (FLUX) cho Cảnh {s_idx}...")
-        if generate_image_together_flux(full_prompt, together_key, out_path):
-            print(f"✅ Together AI đã tạo ảnh Cảnh {s_idx} thành công!")
-            return out_path
-
-    # 2. Thử Google Imagen 3 (Nano Banana) nếu có Gemini API Key
-    if (image_engine == "imagen" or gemini_key) and gemini_key:
-        print(f"Đang tạo ảnh qua Google Imagen (Nano Banana) cho Cảnh {s_idx}...")
-        if generate_image_google_imagen(full_prompt, gemini_key, out_path):
-            print(f"✅ Google Imagen đã tạo ảnh Cảnh {s_idx} thành công!")
-            return out_path
-
-    # 3. Thử tải qua Pollinations AI với API Key (xác thực không bị rate limit)
-    p_key = pollinations_key or DEFAULT_POLLINATIONS_KEY
-    seed = random.randint(10000, 9999999)
-    encoded = urllib.parse.quote(full_prompt)
-    poll_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=576&nologo=true&seed={seed}&model=flux&key={p_key}"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        "Referer": "https://pollinations.ai/"
-    }
-    if p_key:
-        headers["Authorization"] = f"Bearer {p_key}"
-        
-    try:
-        print(f"Đang tạo ảnh qua Pollinations AI (FLUX + Key) cho Cảnh {s_idx}...")
-        req = urllib.request.Request(poll_url, headers=headers)
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = resp.read()
-            if len(data) > 5000:
-                out_path.write_bytes(data)
-                im = Image.open(out_path).convert("RGB")
-                if im.size != (1376, 768):
-                    im = im.resize((1376, 768), Image.Resampling.LANCZOS)
-                im.save(out_path, "PNG")
-                print(f"✅ Pollinations AI đã tạo ảnh Cảnh {s_idx} thành công!")
-                return out_path
-    except Exception as e:
-        print(f"Pollinations fetch failed ({e}), chuyển sang vẽ doodle nội bộ...")
-
-    # 4. Fallback an toàn: Vẽ trực tiếp Doodle Vector theo đúng các phân đoạn chủ đề mới
-    print(f"Sử dụng Engine Vẽ Doodle Nội Bộ cho Cảnh {s_idx}")
-    return generate_local_doodle_scene(scene_data, out_path)
 
 
 
@@ -1332,24 +1152,15 @@ def run_pipeline(job_id: str, req: VideoRequest):
         duration_sec = req.duration_sec or 60
         # 1. Kịch bản (Ưu tiên kịch bản người dùng tùy chỉnh từ Studio, hoặc Gemini AI, hoặc Smart Offline AI)
         storyboard = req.storyboard
-        key_to_use = sanitize_gemini_key(req.gemini_api_key)
+        user_key = sanitize_gemini_key(req.gemini_api_key)
 
         if not storyboard:
-            log(job_id, f"🔍 Bước 1: Chuẩn bị nội dung kịch bản ({duration_sec}s)...", 1, "Nghiên cứu & Kịch bản")
-            if key_to_use:
-                try:
-                    log(job_id, "   Đang kết nối Google Gemini AI...")
-                    storyboard = call_gemini_storyboard(req.topic, key_to_use, duration_sec=duration_sec)
-                    log(job_id, f"✅ Gemini AI đã nghiên cứu và tạo kịch bản thành công: {storyboard.get('title')}")
-                except Exception as e:
-                    err_msg = str(e)
-                    log(job_id, f"⚠️ Gemini API gặp sự cố: {err_msg[:120]}")
-                    log(job_id, "💡 Tự động kích hoạt Engine Kịch Bản Dự Phòng (Offline AI) để tiếp tục tạo video...")
-
-            if not storyboard:
-                log(job_id, "   Đang khởi tạo kịch bản chuyên sâu theo chủ đề qua Engine Offline...")
-                storyboard = generate_smart_storyboard(req.topic, duration_sec=duration_sec)
-                log(job_id, f"✅ Đã tạo kịch bản hoàn chỉnh: {storyboard.get('title')}")
+            log(job_id, f"🔍 Bước 1: Nghiên cứu kịch bản ({duration_sec}s) qua RAG Sử Liệu Bắt Buộc...", 1, "Nghiên cứu & Kịch bản")
+            if not user_key:
+                raise ValueError("⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân. Vui lòng mở Cài đặt (⚙️) và nhập API Key của bạn.")
+            log(job_id, "   Đang đối chiếu sử liệu gốc từ kho doc/ qua RAG...")
+            storyboard = call_gemini_storyboard(req.topic, user_key, duration_sec=duration_sec, use_rag=True)
+            log(job_id, f"✅ Gemini AI đã nghiên cứu và tạo kịch bản thành công: {storyboard.get('title')}")
         else:
             log(job_id, f"✅ Đã tải kịch bản Studio ({len(storyboard.get('scenes', []))} cảnh): {storyboard.get('title')}", 1, "Nghiên cứu & Kịch bản")
 
@@ -1379,21 +1190,14 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         for sc in scenes:
             s_idx = sc["scene_index"]
-            img_p = job_dir / f"scene_{s_idx}.png"
             b64_val = custom_b64s.get(s_idx)
-
-            if b64_val and len(b64_val.strip()) > 100:
+            if b64_val and (b64_val.strip().startswith("http") or len(b64_val.strip()) > 50):
                 log(job_id, f"   🖼️ Sử dụng ảnh bạn đã tải lên cho Cảnh {s_idx}!")
                 raw_bytes = decode_base64_image(b64_val)
                 process_uploaded_image(raw_bytes, img_p)
             else:
-                log(job_id, f"   🎨 Đang chuẩn bị tranh Cảnh {s_idx}...")
-                generate_or_download_scene_image(
-                    sc, img_p, req.topic or "", 
-                    gemini_key=key_to_use,
-                    pollinations_key=req.pollinations_api_key,
-                    together_key=req.together_api_key,
-                    image_engine=req.image_engine
+                raise ValueError(
+                    f"Cảnh {s_idx} chưa có ảnh. Bạn phải upload ảnh cho tất cả {len(scenes)} cảnh trước khi tạo video."
                 )
             img_scenes.append(img_p)
             time.sleep(0.5)

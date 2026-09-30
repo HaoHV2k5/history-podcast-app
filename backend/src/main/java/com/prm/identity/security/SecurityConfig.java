@@ -33,7 +33,9 @@ public class SecurityConfig {
             "/v3/api-docs/**",
             "/v3/api-docs",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/creator-studio.html",
+            "/test-phone.html"
     };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
