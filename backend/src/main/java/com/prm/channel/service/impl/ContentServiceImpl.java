@@ -6,7 +6,11 @@ import com.prm.channel.entity.Content;
 import com.prm.channel.mapper.ContentMapper;
 import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.service.ContentService;
+import com.prm.common.exception.AppException;
+import com.prm.common.exception.ErrorCode;
 import com.prm.common.exception.ResourceNotFoundException;
+import com.prm.membership.dto.response.MembershipCheckResponse;
+import com.prm.membership.service.MembershipService;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,7 @@ public class ContentServiceImpl implements ContentService {
     private final ContentRepository repository;
     private final ContentMapper mapper;
     private final EntityManager entityManager;
+    private final MembershipService membershipService;
 
     @Override
     @Transactional(readOnly = true)
@@ -34,9 +39,17 @@ public class ContentServiceImpl implements ContentService {
     @Override
     @Transactional(readOnly = true)
     public ContentResponse findById(Long id) {
-        return repository.findById(id)
-                .map(mapper::toResponse)
+        Content content = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Content not found with id: " + id));
+
+        if (Boolean.TRUE.equals(content.getIsExclusive()) && content.getChannel() != null) {
+            MembershipCheckResponse check = membershipService.checkMembership(content.getChannel().getId());
+            if (!check.isMember()) {
+                throw new AppException(ErrorCode.FORBIDDEN_ACCESS, "Nội dung này dành riêng cho hội viên của kênh");
+            }
+        }
+
+        return mapper.toResponse(content);
     }
 
     @Override

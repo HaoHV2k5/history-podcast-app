@@ -30,4 +30,23 @@ public class Wallet {
     private String currency;
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (availableBalance == null) {
+            availableBalance = BigDecimal.ZERO;
+        }
+        if (pendingBalance == null) {
+            pendingBalance = BigDecimal.ZERO;
+        }
+        if (currency == null) {
+            currency = "VND";
+        }
+        updatedAt = Instant.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
 }

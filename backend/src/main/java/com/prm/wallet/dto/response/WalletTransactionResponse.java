@@ -17,5 +17,9 @@ public class WalletTransactionResponse {
     private String relatedType;
     private Long relatedId;
     private String status;
+    private String merchantTxnRef;
+    private String gatewayTxnNo;
+    private String gatewayProvider;
+    private String description;
     private Instant createdAt;
 }

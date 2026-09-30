@@ -13,6 +13,8 @@ public interface MembershipMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "viewer", ignore = true)
     @Mapping(target = "channel", ignore = true)
+    @Mapping(target = "plan", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     Membership toEntity(MembershipRequest request);
 
     @Mapping(source = "viewer.id", target = "viewerId")
@@ -22,5 +24,7 @@ public interface MembershipMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "viewer", ignore = true)
     @Mapping(target = "channel", ignore = true)
+    @Mapping(target = "plan", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(MembershipRequest request, @MappingTarget Membership entity);
 }

@@ -32,6 +32,24 @@ public class WalletTransaction {
     private Long relatedId;
     @Column(name = "status")
     private String status;
+    @Column(name = "merchant_txn_ref")
+    private String merchantTxnRef;
+    @Column(name = "gateway_txn_no")
+    private String gatewayTxnNo;
+    @Column(name = "gateway_provider")
+    private String gatewayProvider;
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description;
     @Column(name = "created_at")
     private Instant createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        if (gatewayProvider == null) {
+            gatewayProvider = "INTERNAL";
+        }
+    }
 }

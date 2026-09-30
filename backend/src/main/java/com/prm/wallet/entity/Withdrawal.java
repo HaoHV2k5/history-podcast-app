@@ -36,4 +36,14 @@ public class Withdrawal {
     private Instant processedAt;
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
+
+    @PrePersist
+    protected void onCreate() {
+        if (requestedAt == null) {
+            requestedAt = Instant.now();
+        }
+        if (status == null) {
+            status = "PENDING";
+        }
+    }
 }

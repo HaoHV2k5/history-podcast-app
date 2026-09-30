@@ -1,17 +1,29 @@
 package com.prm.wallet.service.impl;
 
-import com.prm.wallet.dto.request.WalletRequest;
+import com.prm.common.dto.PageResponse;
+import com.prm.common.exception.AppException;
+import com.prm.common.exception.ErrorCode;
+import com.prm.common.util.SecurityUtils;
+import com.prm.identity.entity.User;
+import com.prm.identity.repository.UserRepository;
+import com.prm.payment.dto.request.CreateDepositRequest;
+import com.prm.payment.dto.response.PaymentUrlResponse;
+import com.prm.payment.service.PaymentService;
 import com.prm.wallet.dto.response.WalletResponse;
+import com.prm.wallet.dto.response.WalletTransactionResponse;
 import com.prm.wallet.entity.Wallet;
-import com.prm.wallet.mapper.WalletMapper;
+import com.prm.wallet.entity.WalletTransaction;
 import com.prm.wallet.repository.WalletRepository;
+import com.prm.wallet.repository.WalletTransactionRepository;
 import com.prm.wallet.service.WalletService;
-import com.prm.common.exception.ResourceNotFoundException;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -19,53 +31,85 @@ import java.util.List;
 @Transactional
 public class WalletServiceImpl implements WalletService {
 
-    private final WalletRepository repository;
-    private final WalletMapper mapper;
-    private final EntityManager entityManager;
+    private final WalletRepository walletRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final UserRepository userRepository;
+    private final PaymentService paymentService;
+
+    @Override
+    public WalletResponse getMyWallet() {
+        String email = SecurityUtils.getCurrentUserEmail();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng"));
+
+        Wallet wallet = walletRepository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    Wallet newWallet = Wallet.builder()
+                            .user(user)
+                            .availableBalance(BigDecimal.ZERO)
+                            .pendingBalance(BigDecimal.ZERO)
+                            .currency("VND")
+                            .updatedAt(Instant.now())
+                            .build();
+                    return walletRepository.save(newWallet);
+                });
+
+        return toResponse(wallet);
+    }
 
     @Override
     @Transactional(readOnly = true)
-    public List<WalletResponse> findAll() {
-        return repository.findAll().stream()
-                .map(mapper::toResponse)
+    public PageResponse<WalletTransactionResponse> getMyTransactions(Pageable pageable) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng"));
+
+        Page<WalletTransaction> page = walletTransactionRepository.findByWalletUserId(user.getId(), pageable);
+        List<WalletTransactionResponse> items = page.getContent().stream()
+                .map(this::toTransactionResponse)
                 .toList();
+
+        return PageResponse.of(page, items);
+    }
+
+    @Override
+    public PaymentUrlResponse createDeposit(CreateDepositRequest request, String ipAddress) {
+        return paymentService.createDepositPayment(request, ipAddress);
     }
 
     @Override
     @Transactional(readOnly = true)
     public WalletResponse findById(Long id) {
-        return repository.findById(id)
-                .map(mapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found with id: " + id));
+        Wallet wallet = walletRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.WALLET_NOT_FOUND, "Không tìm thấy ví với ID: " + id));
+        return toResponse(wallet);
     }
 
-    @Override
-    public WalletResponse create(WalletRequest request) {
-        Wallet entity = mapper.toEntity(request);
-        if (request.getUserId() != null) {
-            entity.setUser(entityManager.getReference(com.prm.identity.entity.User.class, request.getUserId()));
-        }
-        Wallet saved = repository.save(entity);
-        return mapper.toResponse(saved);
+    private WalletResponse toResponse(Wallet wallet) {
+        return WalletResponse.builder()
+                .id(wallet.getId())
+                .userId(wallet.getUser() != null ? wallet.getUser().getId() : null)
+                .availableBalance(wallet.getAvailableBalance())
+                .pendingBalance(wallet.getPendingBalance())
+                .currency(wallet.getCurrency())
+                .updatedAt(wallet.getUpdatedAt())
+                .build();
     }
 
-    @Override
-    public WalletResponse update(Long id, WalletRequest request) {
-        Wallet entity = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found with id: " + id));
-        mapper.updateEntityFromRequest(request, entity);
-        if (request.getUserId() != null) {
-            entity.setUser(entityManager.getReference(com.prm.identity.entity.User.class, request.getUserId()));
-        }
-        Wallet updated = repository.save(entity);
-        return mapper.toResponse(updated);
-    }
-
-    @Override
-    public void delete(Long id) {
-        if (!repository.existsById(id)) {
-            throw new ResourceNotFoundException("Wallet not found with id: " + id);
-        }
-        repository.deleteById(id);
+    private WalletTransactionResponse toTransactionResponse(WalletTransaction tx) {
+        return WalletTransactionResponse.builder()
+                .id(tx.getId())
+                .walletId(tx.getWallet() != null ? tx.getWallet().getId() : null)
+                .type(tx.getType())
+                .amount(tx.getAmount())
+                .relatedType(tx.getRelatedType())
+                .relatedId(tx.getRelatedId())
+                .status(tx.getStatus())
+                .merchantTxnRef(tx.getMerchantTxnRef())
+                .gatewayTxnNo(tx.getGatewayTxnNo())
+                .gatewayProvider(tx.getGatewayProvider())
+                .description(tx.getDescription())
+                .createdAt(tx.getCreatedAt())
+                .build();
     }
 }

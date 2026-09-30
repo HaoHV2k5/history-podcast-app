@@ -45,7 +45,23 @@ public enum ErrorCode {
     FILE_EMPTY("FILE_5001", "Tệp tải lên không được để trống", HttpStatus.BAD_REQUEST),
     FILE_TOO_LARGE("FILE_5002", "Dung lượng tệp vượt quá giới hạn cho phép", HttpStatus.BAD_REQUEST),
     FILE_INVALID_FORMAT("FILE_5003", "Định dạng tệp không hợp lệ (chỉ chấp nhận JPG, JPEG, PNG, WEBP)", HttpStatus.BAD_REQUEST),
-    FILE_UPLOAD_FAILED("FILE_5004", "Tải tệp lên hệ thống lưu trữ thất bại", HttpStatus.INTERNAL_SERVER_ERROR);
+    FILE_UPLOAD_FAILED("FILE_5004", "Tải tệp lên hệ thống lưu trữ thất bại", HttpStatus.INTERNAL_SERVER_ERROR),
+
+    // Wallet & Payment Errors (6000 - 6999)
+    WALLET_NOT_FOUND("PAY_6001", "Không tìm thấy ví người dùng", HttpStatus.NOT_FOUND),
+    INSUFFICIENT_WALLET_BALANCE("PAY_6002", "Số dư ví không đủ để thực hiện giao dịch", HttpStatus.BAD_REQUEST),
+    INVALID_PAYMENT_AMOUNT("PAY_6003", "Số tiền nạp không hợp lệ (tối thiểu 10.000 VNĐ)", HttpStatus.BAD_REQUEST),
+    TRANSACTION_NOT_FOUND("PAY_6004", "Không tìm thấy giao dịch", HttpStatus.NOT_FOUND),
+    TRANSACTION_ALREADY_PROCESSED("PAY_6005", "Giao dịch đã được xử lý trước đó", HttpStatus.BAD_REQUEST),
+    INVALID_CHECKSUM("PAY_6006", "Chữ ký bảo mật (checksum) không hợp lệ", HttpStatus.BAD_REQUEST),
+    BANK_ACCOUNT_NOT_FOUND("PAY_6007", "Không tìm thấy tài khoản ngân hàng chính chủ", HttpStatus.NOT_FOUND),
+    PENDING_WITHDRAWAL_EXISTS("PAY_6008", "Bạn đang có yêu cầu rút tiền đang chờ xử lý", HttpStatus.CONFLICT),
+    INVALID_WITHDRAWAL_STATE("PAY_6009", "Trạng thái yêu cầu rút tiền không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+
+    // Channel Membership Errors (7000 - 7999)
+    MEMBERSHIP_PLAN_NOT_FOUND("MEM_7001", "Kênh chưa thiết lập gói hội viên hoặc gói đang tạm đóng", HttpStatus.NOT_FOUND),
+    ALREADY_ACTIVE_MEMBER("MEM_7002", "Bạn đã là hội viên còn hiệu lực của kênh này", HttpStatus.CONFLICT),
+    CANNOT_SUBSCRIBE_OWN_CHANNEL("MEM_7003", "Chủ kênh không thể tự mua gói hội viên của chính mình", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

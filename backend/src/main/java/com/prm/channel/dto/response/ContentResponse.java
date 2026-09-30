@@ -15,6 +15,7 @@ public class ContentResponse {
     private String textBody;
     private String sourceType;
     private String status;
+    private Boolean isExclusive;
     private Instant createdAt;
     private Instant updatedAt;
 }

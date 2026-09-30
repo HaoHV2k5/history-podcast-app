@@ -12,6 +12,10 @@ public interface WalletTransactionMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "wallet", ignore = true)
+    @Mapping(target = "merchantTxnRef", ignore = true)
+    @Mapping(target = "gatewayTxnNo", ignore = true)
+    @Mapping(target = "gatewayProvider", ignore = true)
+    @Mapping(target = "description", ignore = true)
     WalletTransaction toEntity(WalletTransactionRequest request);
 
     @Mapping(source = "wallet.id", target = "walletId")
@@ -19,5 +23,9 @@ public interface WalletTransactionMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "wallet", ignore = true)
+    @Mapping(target = "merchantTxnRef", ignore = true)
+    @Mapping(target = "gatewayTxnNo", ignore = true)
+    @Mapping(target = "gatewayProvider", ignore = true)
+    @Mapping(target = "description", ignore = true)
     void updateEntityFromRequest(WalletTransactionRequest request, @MappingTarget WalletTransaction entity);
 }
