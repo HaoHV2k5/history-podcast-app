@@ -25,6 +25,8 @@ public class Artifact {
     private String type;
     @Column(name = "file_url")
     private String fileUrl;
+    @Column(name = "optimized_url")
+    private String optimizedUrl;
     @Column(name = "source_type")
     private String sourceType;
     @Column(name = "duration_seconds")

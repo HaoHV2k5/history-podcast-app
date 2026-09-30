@@ -94,6 +94,51 @@ public class FileStorageServiceImpl implements FileStorageService {
     }
 
     @Override
+    public boolean isConfigured() {
+        return isConfigured;
+    }
+
+    @Override
+    public String uploadVideo(byte[] videoBytes, String folder, String publicId) {
+        if (!isConfigured) {
+            throw new AppException(
+                    ErrorCode.FILE_UPLOAD_FAILED,
+                    "Hệ thống lưu trữ ảnh/video chưa được cấu hình khóa API (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)"
+            );
+        }
+
+        if (videoBytes == null || videoBytes.length == 0) {
+            throw new AppException(ErrorCode.FILE_EMPTY, "Dữ liệu video kết xuất bị rỗng");
+        }
+
+        String targetFolder = buildTargetFolder(folder);
+        try {
+            Map<String, Object> params = new java.util.HashMap<>();
+            params.put("folder", targetFolder);
+            params.put("resource_type", "video");
+            params.put("overwrite", true);
+            if (StringUtils.hasText(publicId)) {
+                params.put("public_id", publicId);
+            }
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(videoBytes, params);
+
+            String secureUrl = (String) uploadResult.get("secure_url");
+            if (!StringUtils.hasText(secureUrl)) {
+                throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Không nhận được URL video từ dịch vụ Cloudinary");
+            }
+
+            // Giữ nguyên secure_url gốc của Cloudinary để video phát đúng 100% thời lượng (tránh on-the-fly transcode làm cụt video)
+            log.info("Uploaded video successfully to Cloudinary path '{}': {}", targetFolder, secureUrl);
+            return secureUrl;
+        } catch (IOException e) {
+            log.error("Failed to upload video to Cloudinary", e);
+            throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Lỗi khi truyền dữ liệu video lên Cloudinary: " + e.getMessage());
+        }
+    }
+
+    @Override
     public void deleteFile(String publicId) {
         if (!isConfigured || !StringUtils.hasText(publicId)) {
             return;
@@ -104,6 +149,29 @@ public class FileStorageServiceImpl implements FileStorageService {
         } catch (IOException e) {
             log.warn("Failed to delete asset from cloud storage: {}", publicId, e);
         }
+    }
+
+    @Override
+    public String buildOptimizedVideoUrl(String rawUrl) {
+        if (!StringUtils.hasText(rawUrl) || !rawUrl.contains("cloudinary.com")) {
+            return rawUrl;
+        }
+        // Cloudinary raw URL pattern: .../upload/<public-id-path>
+        // Optimized URL pattern:      .../upload/f_auto,q_auto/<public-id-path>
+        String uploadMarker = "/upload/";
+        int idx = rawUrl.indexOf(uploadMarker);
+        if (idx == -1) {
+            return rawUrl;
+        }
+        String prefix = rawUrl.substring(0, idx + uploadMarker.length());
+        String suffix = rawUrl.substring(idx + uploadMarker.length());
+        // Avoid double-injecting if already optimized
+        if (suffix.startsWith("f_auto") || suffix.startsWith("q_auto")) {
+            return rawUrl;
+        }
+        String optimized = prefix + "f_auto,q_auto/" + suffix;
+        log.debug("Built optimized video URL: {}", optimized);
+        return optimized;
     }
 
     private String buildTargetFolder(String subFolder) {

@@ -42,4 +42,40 @@ public interface CreatorStudioService {
      * Kiểm tra tiến trình render và cập nhật Artifact trong DB khi video hoàn thành.
      */
     Map<String, Object> getJobStatus(String email, String jobId, Long artifactId);
+
+    /**
+     * Lấy danh sách video của Creator kèm các chỉ số tương tác (like, dislike, comment count).
+     */
+    java.util.List<com.prm.creator.dto.response.CreatorVideoItemResponse> getCreatorVideos(String email);
+
+    /**
+     * Lấy chi tiết thông tin video kèm thống kê tương tác và danh sách bình luận.
+     */
+    com.prm.creator.dto.response.CreatorVideoDetailResponse getVideoDetail(String email, Long contentId);
+
+    /**
+     * Chỉnh sửa thông tin video (tiêu đề, mô tả/nội dung, trạng thái độc quyền).
+     */
+    com.prm.creator.dto.response.CreatorVideoItemResponse updateVideo(String email, Long contentId, com.prm.creator.dto.request.CreatorUpdateVideoRequest request);
+
+    /**
+     * Ẩn hoặc Hiện video (chuyển đổi trạng thái PUBLISHED <-> HIDDEN).
+     */
+    com.prm.creator.dto.response.CreatorVideoItemResponse updateVideoVisibility(String email, Long contentId, Boolean hidden);
+
+    /**
+     * Xem danh sách các bình luận của một video.
+     */
+    java.util.List<com.prm.creator.dto.response.CreatorCommentItemResponse> getVideoComments(String email, Long contentId);
+
+    /**
+     * Lấy danh mục các giọng đọc AI chất lượng cao (ưu tiên tiếng Việt) từ ElevenLabs & Edge-TTS.
+     */
+    java.util.List<com.prm.creator.dto.response.CreatorVoiceResponse> getVoiceCatalog(String email);
+
+    /**
+     * Tạo âm thanh nghe thử trực tiếp câu tiếng Việt theo giọng đọc và engine được chọn.
+     */
+    Map<String, Object> previewVoice(String email, com.prm.creator.dto.request.CreatorVoicePreviewRequest request);
 }
+
