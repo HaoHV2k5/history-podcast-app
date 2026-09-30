@@ -1044,7 +1044,14 @@ def generate_single_audio_clip(
                 "❌ ElevenLabs được chọn nhưng chưa có API Key. "
                 "Vui lòng vào ⚙️ Cài đặt API để nhập ElevenLabs API Key."
             )
-        vid = el_voices.get(voice_name, el_voices["Brian"])
+        # Hỗ trợ cả Voice Name (Brian, Liam, Adam) lẫn Voice ID trực tiếp từ ElevenLabs
+        if voice_name and voice_name.strip() in el_voices:
+            vid = el_voices[voice_name.strip()]
+        elif voice_name and len(voice_name.strip()) >= 15:
+            # Người dùng nhập trực tiếp Voice ID (thường là chuỗi mã 20 ký tự)
+            vid = voice_name.strip()
+        else:
+            vid = el_voices.get(voice_name, el_voices["Brian"])
         # Sẽ raise RuntimeError nếu lỗi - không silent fallback
         generate_speech_elevenlabs(text, vid, el_key.strip(), out_mp3)
     else:
