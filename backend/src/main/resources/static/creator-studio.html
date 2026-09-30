@@ -1374,7 +1374,7 @@
         }
 
         const data = await res.json();
-        if (data.status === 200 && data.data) {
+        if (res.ok && (data.success !== false) && data.data) {
           const s = data.data;
           $('geminiKey').value = s.geminiApiKey || '';
           $('elevenKey').value = s.elevenlabsApiKey || '';
@@ -1425,12 +1425,18 @@
           })
         });
 
+        if (res.status === 401 || res.status === 403) {
+          updateAuthUI(null);
+          openLoginGate(true, '⚠️ Phiên làm việc đã hết hạn hoặc bạn không có vai trò CREATOR. Vui lòng đăng nhập lại.');
+          return;
+        }
+
         const data = await res.json();
-        if (!res.ok || data.status !== 200) {
+        if (!res.ok || data.success === false) {
           throw new Error(data.message || 'Lỗi khi lưu cài đặt');
         }
 
-        alert('✅ Đã lưu cấu hình AI của bạn vào hệ thống!');
+        alert('✅ ' + (data.message || 'Đã lưu cấu hình AI của bạn vào hệ thống!'));
         closeSettingsModal();
         loadCreatorSettings();
       } catch (err) {
@@ -1515,7 +1521,7 @@
         }
 
         const resData = await res.json();
-        if (!res.ok || resData.status !== 200) {
+        if (!res.ok || resData.success === false) {
           throw new Error(resData.message || 'Lỗi khi tạo kịch bản từ máy chủ');
         }
 
@@ -1667,7 +1673,7 @@
         }
 
         const data = await res.json();
-        if (!res.ok || data.status !== 200) {
+        if (!res.ok || data.success === false) {
           throw new Error(data.message || 'Lỗi khi upload ảnh lên Cloudinary');
         }
 
@@ -1777,7 +1783,7 @@
         }
 
         const resData = await res.json();
-        if (!res.ok || resData.status !== 200) {
+        if (!res.ok || resData.success === false) {
           throw new Error(resData.message || 'Lỗi khi khởi chạy quá trình dựng video');
         }
 
@@ -1809,7 +1815,7 @@
         });
 
         const resData = await res.json();
-        if (!res.ok || resData.status !== 200) return;
+        if (!res.ok || resData.success === false) return;
 
         const job = resData.data;
         if (job.logs && job.logs.length > 0) {
