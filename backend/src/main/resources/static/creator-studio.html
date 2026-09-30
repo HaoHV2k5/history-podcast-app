@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creator Studio - Hoạt Họa Lịch Sử Bảng Trắng AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090b10;
+      --card-bg: rgba(18, 22, 32, 0.88);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #8b5cf6;
+      --accent-hover: #7c3aed;
+      --gold: #f59e0b;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --success: #10b981;
+      --danger: #ef4444;
+      --cloudinary-blue: #0070f3;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(59, 130, 246, 0.15) 0%, transparent 45%),
+        radial-gradient(circle at 90% 85%, rgba(245, 158, 11, 0.12) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    header {
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(9, 11, 16, 0.85);
+      backdrop-filter: blur(14px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.5px;
+    }
+    .brand-icon {
+      font-size: 1.6rem;
+    }
+    .creator-badge {
+      font-size: 0.72rem;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: none;
+      font-family: inherit;
+      text-decoration: none;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #0b0d13;
+      font-weight: 700;
+      box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+    }
+    .btn-gold:hover {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.45);
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
+    }
+    .btn-accent:hover {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      transform: translateY(-1px);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .container {
+      max-width: 1040px;
+      width: 100%;
+      margin: 32px auto;
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .hero-banner {
+      text-align: center;
+      padding: 10px 0;
+    }
+    .hero-title {
+      font-size: 2.3rem;
+      font-weight: 800;
+      line-height: 1.25;
+      background: linear-gradient(135deg, #ffffff 40%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      color: var(--text-muted);
+      font-size: 1.02rem;
+      margin-top: 10px;
+      max-width: 760px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 26px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 36px rgba(0, 0, 0, 0.4);
+    }
+
+    /* AUTH NOTIFICATION BANNER */
+    .auth-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 18px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: #93c5fd;
+    }
+    .auth-bar b { color: #ffffff; }
+
+    textarea.prompt-input {
+      width: 100%;
+      min-height: 95px;
+      background: rgba(11, 13, 17, 0.65);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea.prompt-input:focus {
+      border-color: var(--primary);
+    }
+
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pill:hover {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: #bfdbfe;
+    }
+
+    /* DURATION ROW */
+    .duration-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .duration-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .duration-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .duration-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .duration-pill:hover {
+      background: rgba(59, 130, 246, 0.15);
+      color: #93c5fd;
+    }
+    .duration-pill.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.35), rgba(139, 92, 246, 0.35));
+      border-color: #60a5fa;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+    }
+
+    .form-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--card-border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .info-notice {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: #94a3b8;
+    }
+    .info-notice b { color: #cbd5e1; }
+
+    /* STUDIO WORKBENCH */
+    .studio-section {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .scenes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 820px) {
+      .scenes-grid { grid-template-columns: 1fr; }
+    }
+
+    .scene-card {
+      background: rgba(11, 14, 21, 0.75);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      position: relative;
+    }
+
+    .scene-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scene-badge {
+      background: rgba(139, 92, 246, 0.22);
+      color: #c4b5fd;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .cloudinary-status {
+      font-size: 0.74rem;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .cloudinary-status.uploaded {
+      color: #34d399;
+      font-weight: 600;
+    }
+    .cloudinary-status.waiting {
+      color: var(--text-muted);
+    }
+
+    .scene-title-input {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      width: 100%;
+      outline: none;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.15);
+      padding-bottom: 4px;
+    }
+
+    .narration-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .narration-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .narration-textarea {
+      background: transparent;
+      border: none;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      line-height: 1.45;
+      resize: vertical;
+      min-height: 55px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .prompt-box-inner {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .prompt-textarea {
+      background: transparent;
+      border: none;
+      color: #d1d5db;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      resize: none;
+      height: 75px;
+      font-family: inherit;
+      outline: none;
+    }
+    .btn-copy {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-copy:hover {
+      background: rgba(59, 130, 246, 0.35);
+    }
+
+    /* UPLOAD DROPZONE */
+    .dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.02);
+      position: relative;
+      overflow: hidden;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .dropzone input[type="file"] {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .dropzone-text {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .dropzone-text b { color: #38bdf8; }
+
+    .preview-container {
+      display: none;
+      width: 100%;
+      position: relative;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .preview-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+      background: #000;
+    }
+    .preview-overlay {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      display: flex;
+      gap: 6px;
+    }
+    .cloudinary-url-badge {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 112, 243, 0.85);
+      color: white;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+    }
+
+    /* ACTION BOTTOM WORKBENCH */
+    .workbench-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(18, 22, 32, 0.95);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      padding: 20px 26px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(245, 158, 11, 0.1);
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .db-persist-note {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .db-persist-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fbbf24;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .db-persist-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    /* PROGRESS */
+    .progress-section { display: none; }
+    .step-bar {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 6px;
+      opacity: 0.35;
+      transition: opacity 0.3s;
+    }
+    .step-item.active { opacity: 1; }
+    .step-item.done { opacity: 0.85; }
+    .step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .step-item.active .step-circle {
+      background: var(--primary);
+      border-color: #93c5fd;
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+      animation: pulse 1.5s infinite;
+    }
+    .step-item.done .step-circle {
+      background: var(--success);
+      border-color: #a7f3d0;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .step-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .step-item.active .step-title {
+      color: #93c5fd;
+      font-weight: 700;
+    }
+
+    .console-box {
+      background: #050608;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'SF Mono', Menlo, Monaco, monospace;
+      font-size: 0.82rem;
+      line-height: 1.55;
+      max-height: 220px;
+      overflow-y: auto;
+      color: #a1a1aa;
+    }
+    .console-box p.highlight {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* RESULT */
+    .result-section {
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .video-wrapper {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      background: #000;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    }
+    video {
+      width: 100%;
+      aspect-ratio: 16/9;
+      display: block;
+    }
+
+    .db-record-card {
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .db-record-info {
+      font-size: 0.85rem;
+      color: #a7f3d0;
+    }
+    .db-record-info b { color: #ffffff; }
+
+    /* MODAL */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 20px;
+    }
+    .modal-content {
+      background: #11141c;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 28px;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+    .form-control {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+    }
+    .form-help {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .form-help.warning {
+      color: #f59e0b;
+    }
+
+    /* STUDIO LOCKED STATE */
+    .studio-locked {
+      filter: blur(6px) grayscale(30%);
+      pointer-events: none;
+      user-select: none;
+      opacity: 0.35;
+      transition: all 0.3s ease;
+    }
+
+    /* LOGIN MODAL ENHANCEMENTS */
+    .login-modal-content {
+      max-width: 480px;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(59, 130, 246, 0.15);
+      position: relative;
+    }
+    .login-tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 4px;
+    }
+    .login-tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .login-tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+    .login-alert {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      display: none;
+    }
+    .login-alert.show-error {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+    }
+    .login-alert.show-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+    }
+    .demo-account-box {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px dashed rgba(245, 158, 11, 0.35);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      color: #fde68a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .demo-account-box code {
+      background: rgba(0, 0, 0, 0.45);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #fbbf24;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span class="brand-icon">📜</span>
+      <span>PRM Creator Studio</span>
+      <span class="creator-badge" id="roleBadge">ROLE: CREATOR</span>
+    </div>
+    <div class="header-actions">
+      <span id="headerVoiceBadge" style="font-size: 0.8rem; color: var(--text-muted); padding: 4px 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">Edge-TTS (Nam Minh)</span>
+      
+      <!-- AUTHENTICATED USER BADGE -->
+      <span id="headerUserBadge" style="display: none; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 600; color: #34d399; padding: 5px 12px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px;">
+        <span>👤</span>
+        <span id="headerUserEmail">creator@example.com</span>
+      </span>
+
+      <button class="btn btn-secondary" id="btnOpenSettings">⚙️ Cài Đặt AI</button>
+      
+      <!-- LOGOUT BUTTON (Shown when logged in) -->
+      <button class="btn btn-secondary" id="btnLogout" onclick="handleLogout()" style="display: none; border-color: rgba(239, 68, 68, 0.35); color: #fca5a5;">🚪 Đăng Xuất</button>
+      
+      <!-- LOGIN TRIGGER BUTTON (Shown when logged out) -->
+      <button class="btn btn-primary" id="btnLoginGateTrigger" onclick="openLoginGate(false)">🔑 Đăng Nhập Creator</button>
+    </div>
+  </header>
+
+  <div class="container studio-locked" id="studioContainer">
+    <!-- AUTH STATUS BANNER -->
+    <div class="auth-bar" id="authBar">
+      <div>
+        <span>👤 Trạng thái Creator: <b id="authEmailText">Chưa xác thực tài khoản</b></span>
+        <span id="keyStatusBadge" style="margin-left: 10px; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; background: rgba(239,68,68,0.2); color: #f87171;">⚠️ Chưa cấu hình Gemini Key</span>
+      </div>
+      <button class="btn-sm" id="authBarBtn" onclick="openLoginGate(false)" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);">🔑 Đăng Nhập / Đổi Tài Khoản</button>
+    </div>
+
+    <!-- HERO INTRO -->
+    <div class="hero-banner">
+      <h1 class="hero-title">Xưởng Hoạt Họa Lịch Sử Bảng Trắng AI</h1>
+      <p class="hero-desc">Tự động đối chiếu tài liệu lịch sử RAG, sinh kịch bản chi tiết, upload ảnh minh họa lên Cloudinary và kết xuất video hoạt họa bảng trắng chuẩn 16:9 lưu trữ trực tiếp vào hệ thống.</p>
+    </div>
+
+    <!-- STEP 1: PROMPT & DURATION -->
+    <div class="card" id="inputCard">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <label for="promptInput" style="font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+          <span>📝</span> <span>Chủ đề lịch sử hoặc Kịch bản phác thảo</span>
+        </label>
+        <span style="font-size: 0.78rem; color: #34d399; font-weight: 600;">🔒 Bắt buộc đối chiếu RAG Sử Liệu</span>
+      </div>
+
+      <textarea id="promptInput" class="prompt-input" placeholder="Nhập chủ đề lịch sử bạn muốn dựng hoạt họa (Ví dụ: Trận Bạch Đằng năm 938, Khởi nghĩa Lam Sơn, Chiến dịch Điện Biên Phủ 1954...)..."></textarea>
+
+      <div class="suggestions">
+        <span class="pill" onclick="setTopic('Chiến thắng Bạch Đằng năm 938 của Ngô Quyền')">🌊 Trận Bạch Đằng 938</span>
+        <span class="pill" onclick="setTopic('Quang Trung đại phá 29 vạn quân Thanh mùa xuân Kỷ Dậu 1789')">⚔️ Đại phá quân Thanh 1789</span>
+        <span class="pill" onclick="setTopic('Chiến thắng Điện Biên Phủ lừng lẫy năm châu năm 1954')">🎖️ Điện Biên Phủ 1954</span>
+        <span class="pill" onclick="setTopic('Khởi nghĩa Hai Bà Trưng năm 40 sau Công nguyên')">🐘 Khởi nghĩa Hai Bà Trưng</span>
+      </div>
+
+      <div class="duration-row">
+        <span class="duration-label">⏱️ Thời lượng kịch bản:</span>
+        <div class="duration-pills">
+          <button type="button" class="duration-pill" data-dur="30" onclick="selectDuration(30)">30 Giây (1 cảnh)</button>
+          <button type="button" class="duration-pill active" data-dur="60" onclick="selectDuration(60)">1 Phút (2 cảnh)</button>
+          <button type="button" class="duration-pill" data-dur="90" onclick="selectDuration(90)">1.5 Phút (3 cảnh)</button>
+          <button type="button" class="duration-pill" data-dur="120" onclick="selectDuration(120)">2 Phút (4 cảnh)</button>
+          <button type="button" class="duration-pill" data-dur="180" onclick="selectDuration(180)">3 Phút (6 cảnh)</button>
+        </div>
+      </div>
+
+      <div class="form-bottom">
+        <div class="info-notice">
+          <span>ℹ️</span>
+          <span>Bước này chỉ xem thử kịch bản, <b>chưa lưu vào DB</b>. Bạn có thể chỉnh sửa tự do trước khi bấm Chấp nhận.</span>
+        </div>
+        <button class="btn btn-primary" id="btnGenStoryboard" onclick="generateStoryboard()">
+          <span>⚡</span> <span>Tạo Kịch Bản & Gợi Ý Ảnh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 2: STUDIO WORKBENCH (SCENES & CLOUDINARY UPLOADS) -->
+    <div class="studio-section" id="studioWorkbench">
+      <div class="section-title">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span>🎨</span>
+          <span>Biên Tập Cảnh & Tải Ảnh Lên Cloudinary</span>
+        </div>
+        <span id="sceneCountBadge" style="font-size: 0.8rem; background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 12px; border-radius: 14px; font-weight: 600;">2 Cảnh</span>
+      </div>
+
+      <div class="scenes-grid" id="scenesGrid"></div>
+
+      <!-- WORKBENCH BOTTOM ACTION -->
+      <div class="workbench-actions">
+        <div class="db-persist-note">
+          <div class="db-persist-title">
+            <span>💾</span>
+            <span>Chấp nhận kịch bản & Lưu vĩnh viễn vào Cơ Sở Dữ Liệu</span>
+          </div>
+          <div class="db-persist-desc">Hệ thống sẽ lưu <b>Content</b> (AI_WHITEBOARD), <b>Artifact</b> (VIDEO) và <b>Transcript</b> vào kênh của bạn, sau đó kích hoạt máy chủ dựng phim.</div>
+        </div>
+        <button class="btn btn-gold" id="btnRenderStudio" onclick="approveAndRenderVideo()" style="font-size: 1rem; padding: 12px 24px;">
+          <span>🎬</span> <span>Chấp Nhận & Tạo Video (Lưu DB)</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3: PROGRESS & LOGS -->
+    <div class="card progress-section" id="progressCard">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 8px;">
+          <span>⚙️</span> <span id="jobStatusTitle">Đang khởi tạo tiến trình...</span>
+        </div>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          Thời gian chạy: <b id="jobTimeText" style="color: #60a5fa;">0s</b>
+        </div>
+      </div>
+
+      <div class="step-bar">
+        <div class="step-item" id="step1"><div class="step-circle">1</div><div class="step-title">Khởi tạo</div></div>
+        <div class="step-item" id="step2"><div class="step-circle">2</div><div class="step-title">TTS Thuyết minh</div></div>
+        <div class="step-item" id="step3"><div class="step-circle">3</div><div class="step-title">Phụ đề & Đồng bộ</div></div>
+        <div class="step-item" id="step4"><div class="step-circle">4</div><div class="step-title">Xử lý Nét vẽ</div></div>
+        <div class="step-item" id="step5"><div class="step-circle">5</div><div class="step-title">Dựng Animation</div></div>
+        <div class="step-item" id="step6"><div class="step-circle">6</div><div class="step-title">Ghép Âm & Nhạc</div></div>
+      </div>
+
+      <div class="console-box" id="consoleBox"></div>
+    </div>
+
+    <!-- STEP 4: RESULT -->
+    <div class="card result-section" id="resultCard">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-weight: 800; font-size: 1.2rem; color: #10b981; display: flex; align-items: center; gap: 8px;">
+          <span>🎉</span> <span id="videoResultTitle">Xuất Bản Video Thành Công!</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <a id="btnDownloadVideo" class="btn btn-primary" download target="_blank">📥 Tải MP4</a>
+          <a id="btnDownloadSrt" class="btn btn-secondary" download target="_blank">📄 Tải SRT</a>
+        </div>
+      </div>
+
+      <div class="db-record-card" id="dbRecordCard">
+        <div class="db-record-info">
+          <span>✅ Dữ liệu đã lưu thành công vào cơ sở dữ liệu:</span>
+          <span style="margin-left: 10px;">Content ID: <b id="contentIdText">#</b></span> |
+          <span style="margin-left: 6px;">Artifact ID: <b id="artifactIdText">#</b></span> |
+          <span style="margin-left: 6px;">Kênh Creator ID: <b id="channelIdText">#</b></span>
+        </div>
+        <span style="font-size: 0.75rem; background: rgba(16,185,129,0.2); color: #34d399; padding: 3px 10px; border-radius: 12px; font-weight: 700;">TRẠNG THÁI: PUBLISHED</span>
+      </div>
+
+      <div class="video-wrapper">
+        <video id="videoPlayer" controls playsinline></video>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATOR LOGIN GATE MODAL -->
+  <div class="modal-backdrop" id="loginModal" style="display: none; z-index: 999;">
+    <div class="modal-content login-modal-content">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" style="display: flex; align-items: center; gap: 8px;">
+            <span>🛡️</span>
+            <span>Đăng Nhập Creator Studio</span>
+          </div>
+          <span style="font-size: 0.76rem; color: var(--text-muted); margin-top: 4px; display: block;">
+            Yêu cầu tài khoản có vai trò <b>ROLE_CREATOR</b> để truy cập xưởng
+          </span>
+        </div>
+        <button class="btn-sm" id="btnCloseLoginModal" onclick="closeLoginGate()" style="display: none;">✕</button>
+      </div>
+
+      <!-- ALERT MESSAGE BOX -->
+      <div id="loginAlertBox" class="login-alert"></div>
+
+      <!-- TABS -->
+      <div class="login-tabs">
+        <button class="login-tab-btn active" id="tabBtnPassword" onclick="switchLoginTab('password')">Đăng Nhập Email / Mật Khẩu</button>
+        <button class="login-tab-btn" id="tabBtnJwt" onclick="switchLoginTab('jwt')">Dán Bearer JWT Token</button>
+      </div>
+
+      <!-- TAB 1: EMAIL & PASSWORD FORM -->
+      <div id="tabContentPassword" style="display: flex; flex-direction: column; gap: 14px;">
+        <div class="form-group">
+          <label class="form-label">Email tài khoản Creator <span style="color:#ef4444;">*</span></label>
+          <input type="email" id="loginEmailInput" class="form-control" placeholder="creator@example.com" value="creator@example.com">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mật khẩu <span style="color:#ef4444;">*</span></label>
+          <input type="password" id="loginPasswordInput" class="form-control" placeholder="••••••••" value="Creator@123">
+        </div>
+
+        <div class="demo-account-box">
+          <div>
+            <span>💡 Demo: </span>
+            <code>creator@example.com</code> / <code>Creator@123</code>
+          </div>
+          <button type="button" class="btn-sm" onclick="fillDemoAccount()" style="background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); color: #fbbf24; cursor: pointer;">
+            ⚡ Điền Sẵn
+          </button>
+        </div>
+
+        <button class="btn btn-primary" id="btnSubmitLogin" onclick="handleLoginSubmit()" style="width: 100%; justify-content: center; padding: 12px; font-size: 0.92rem; margin-top: 4px;">
+          🚀 Đăng Nhập Creator Studio
+        </button>
+      </div>
+
+      <!-- TAB 2: RAW JWT TOKEN -->
+      <div id="tabContentJwt" style="display: none; flex-direction: column; gap: 14px;">
+        <div class="form-group">
+          <label class="form-label">JWT Bearer Token của Creator</label>
+          <textarea id="jwtTokenInput" class="form-control" style="min-height: 90px; font-family: monospace; font-size: 0.78rem;" placeholder="eyJhbGciOiJIUzM4NCJ9..."></textarea>
+          <span class="form-help">Token sẽ được kiểm tra vai trò CREATOR trước khi cấp quyền truy cập.</span>
+        </div>
+
+        <button class="btn btn-primary" id="btnSubmitToken" onclick="handleTokenSubmit()" style="width: 100%; justify-content: center; padding: 12px; font-size: 0.92rem;">
+          🔑 Xác Thực Token JWT
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL (PER CREATOR AI SETTINGS) -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ Cài Đặt AI Creator (Lưu DB)</div>
+        <button class="btn-sm" onclick="closeSettingsModal()">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Google Gemini API Key <span style="color:#ef4444;">*</span></label>
+        <input type="password" id="geminiKey" class="form-control" placeholder="AIzaSy...">
+        <span class="form-help warning">⚠️ Khóa cá nhân của bạn sẽ được lưu vào cơ sở dữ liệu backend. Hệ thống không sử dụng key Admin cho Creator.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Công nghệ Thuyết minh (TTS Engine)</label>
+        <select id="ttsEngine" class="form-control" onchange="toggleTtsOptions()">
+          <option value="edge-tts">Microsoft Edge TTS (Miễn phí, chuẩn Việt Nam)</option>
+          <option value="elevenlabs">ElevenLabs AI Voice (Cao cấp, giọng đọc tự nhiên)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="edgeVoiceGroup">
+        <label class="form-label">Giọng đọc Microsoft Edge</label>
+        <select id="edgeVoice" class="form-control">
+          <option value="vi-VN-NamMinhNeural">Nam Minh (Giọng Nam Truyền Cảm)</option>
+          <option value="vi-VN-HoaiMyNeural">Hoài My (Giọng Nữ Dịu Dàng)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="elevenKeyGroup" style="display: none;">
+        <label class="form-label">ElevenLabs API Key</label>
+        <input type="password" id="elevenKey" class="form-control" placeholder="sk_...">
+        <span class="form-help">Yêu cầu tài khoản ElevenLabs cá nhân.</span>
+      </div>
+
+      <div class="form-group" id="elevenVoiceGroup" style="display: none;">
+        <label class="form-label">ElevenLabs Voice ID / Tên giọng</label>
+        <input type="text" id="elevenVoice" class="form-control" value="Brian" placeholder="Brian, Adam, Rachel...">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+        <button class="btn btn-secondary" onclick="closeSettingsModal()">Hủy</button>
+        <button class="btn btn-primary" id="btnSaveSettings" onclick="saveCreatorSettings()">Lưu Vào Cơ Sở Dữ Liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    let selectedDuration = 60;
+    let currentStoryboard = null;
+    let cloudinaryImages = {}; // Map sceneIndex -> Cloudinary Secure HTTPS URL
+    let activeJobId = null;
+    let currentArtifactId = null;
+    let pollInterval = null;
+    let timerInterval = null;
+    let startTime = null;
+
+    // --- AUTHENTICATION & LOGIN GATE LOGIC ---
+    function getAuthToken() {
+      return localStorage.getItem('creator_jwt_token') || localStorage.getItem('access_token') || '';
+    }
+
+    function parseJwtPayload(token) {
+      if (!token) return null;
+      try {
+        const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+        const parts = cleanToken.split('.');
+        if (parts.length < 2) return null;
+        const base64Url = parts[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        return JSON.parse(jsonPayload);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function isTokenExpired(payload) {
+      if (!payload || !payload.exp) return false;
+      return (payload.exp * 1000) < Date.now();
+    }
+
+    function isLoggedInCreator() {
+      const token = getAuthToken();
+      if (!token) return false;
+      const payload = parseJwtPayload(token);
+      if (!payload) return false;
+      if (isTokenExpired(payload)) return false;
+      const role = (payload.role || (payload.authorities && payload.authorities[0]) || '').toUpperCase();
+      return role === 'CREATOR' || role === 'ROLE_CREATOR';
+    }
+
+    function getAuthHeaders(isJson = true) {
+      const headers = {};
+      const token = getAuthToken();
+      if (token) {
+        headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+      }
+      if (isJson) {
+        headers['Content-Type'] = 'application/json';
+      }
+      return headers;
+    }
+
+    function switchLoginTab(mode) {
+      const isPass = mode === 'password';
+      $('tabBtnPassword').classList.toggle('active', isPass);
+      $('tabBtnJwt').classList.toggle('active', !isPass);
+      $('tabContentPassword').style.display = isPass ? 'flex' : 'none';
+      $('tabContentJwt').style.display = isPass ? 'none' : 'flex';
+      setLoginAlert('', '');
+    }
+
+    function setLoginAlert(msg, type = 'error') {
+      const el = $('loginAlertBox');
+      if (!msg) {
+        el.className = 'login-alert';
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+      }
+      el.className = `login-alert show-${type}`;
+      el.innerHTML = `<span>${type === 'error' ? '⚠️' : 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`;
+    }
+
+    function fillDemoAccount() {
+      $('loginEmailInput').value = 'creator@example.com';
+      $('loginPasswordInput').value = 'Creator@123';
+    }
+
+    function openLoginGate(isMandatory = false, alertMsg = '') {
+      $('loginModal').style.display = 'flex';
+      $('btnCloseLoginModal').style.display = isMandatory ? 'none' : 'block';
+      $('jwtTokenInput').value = getAuthToken();
+
+      if (alertMsg) {
+        setLoginAlert(alertMsg, 'error');
+      } else {
+        setLoginAlert('', '');
+      }
+
+      if (isMandatory) {
+        $('studioContainer').classList.add('studio-locked');
+      }
+    }
+
+    function closeLoginGate() {
+      if (!isLoggedInCreator()) {
+        setLoginAlert('Bạn cần đăng nhập tài khoản vai trò CREATOR để sử dụng studio!', 'error');
+        return;
+      }
+      $('loginModal').style.display = 'none';
+    }
+
+    async function handleLoginSubmit() {
+      const email = $('loginEmailInput').value.trim();
+      const password = $('loginPasswordInput').value;
+
+      if (!email || !password) {
+        setLoginAlert('Vui lòng điền đầy đủ Email và Mật khẩu!', 'error');
+        return;
+      }
+
+      const btn = $('btnSubmitLogin');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> <span>Đang xác thực đăng nhập...</span>';
+      setLoginAlert('', '');
+
+      try {
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok || !data.success) {
+          const msg = data.message || (res.status === 401 ? 'Sai email hoặc mật khẩu' : 'Đăng nhập không thành công');
+          setLoginAlert(msg, 'error');
+          return;
+        }
+
+        const authData = data.data;
+        if (!authData || !authData.accessToken) {
+          setLoginAlert('Không nhận được token từ máy chủ!', 'error');
+          return;
+        }
+
+        // STRICT ROLE CHECK
+        const role = (authData.role || '').toUpperCase();
+        if (role !== 'CREATOR' && role !== 'ROLE_CREATOR') {
+          setLoginAlert(`⛔ Từ chối truy cập: Tài khoản [${authData.email}] mang vai trò [${role || 'VIEWER'}]. Whiteboard Studio chỉ cho phép tài khoản có vai trò CREATOR!`, 'error');
+          return;
+        }
+
+        // Save Auth
+        localStorage.setItem('creator_jwt_token', authData.accessToken);
+        localStorage.setItem('creator_user_info', JSON.stringify({
+          userId: authData.userId,
+          email: authData.email,
+          role: authData.role
+        }));
+
+        // Unlock Studio
+        $('loginModal').style.display = 'none';
+        $('studioContainer').classList.remove('studio-locked');
+        updateAuthUI(authData.email);
+        loadCreatorSettings();
+
+      } catch (err) {
+        setLoginAlert('Lỗi kết nối máy chủ: ' + err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+
+    function handleTokenSubmit() {
+      const token = $('jwtTokenInput').value.trim();
+      if (!token) {
+        setLoginAlert('Vui lòng nhập Bearer Token!', 'error');
+        return;
+      }
+
+      const payload = parseJwtPayload(token);
+      if (!payload) {
+        setLoginAlert('Token JWT không đúng định dạng!', 'error');
+        return;
+      }
+
+      if (isTokenExpired(payload)) {
+        setLoginAlert('Token này đã hết hạn (expired)!', 'error');
+        return;
+      }
+
+      const role = (payload.role || (payload.authorities && payload.authorities[0]) || '').toUpperCase();
+      if (role !== 'CREATOR' && role !== 'ROLE_CREATOR') {
+        setLoginAlert(`⛔ Token có vai trò [${role || 'VIEWER'}]. Studio chỉ cho phép tài khoản CREATOR!`, 'error');
+        return;
+      }
+
+      localStorage.setItem('creator_jwt_token', token);
+      $('loginModal').style.display = 'none';
+      $('studioContainer').classList.remove('studio-locked');
+      updateAuthUI(payload.sub || payload.email || 'Creator');
+      loadCreatorSettings();
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('creator_jwt_token');
+      localStorage.removeItem('creator_user_info');
+      updateAuthUI(null);
+      openLoginGate(true, 'ℹ️ Bạn đã đăng xuất. Vui lòng đăng nhập tài khoản Creator để tiếp tục.');
+    }
+
+    function updateAuthUI(email) {
+      if (email) {
+        $('headerUserBadge').style.display = 'inline-flex';
+        $('headerUserEmail').textContent = email;
+        $('btnLogout').style.display = 'inline-flex';
+        $('btnLoginGateTrigger').style.display = 'none';
+        $('authEmailText').textContent = email;
+        $('authEmailText').style.color = '#34d399';
+        $('authBarBtn').textContent = '🔄 Đổi Tài Khoản';
+      } else {
+        $('headerUserBadge').style.display = 'none';
+        $('btnLogout').style.display = 'none';
+        $('btnLoginGateTrigger').style.display = 'inline-flex';
+        $('authEmailText').textContent = 'Chưa đăng nhập (Bị khóa)';
+        $('authEmailText').style.color = '#f87171';
+        $('authBarBtn').textContent = '🔑 Đăng Nhập Creator';
+        $('studioContainer').classList.add('studio-locked');
+      }
+    }
+
+    function checkAuthPrompt() {
+      const token = getAuthToken();
+      if (!token) {
+        updateAuthUI(null);
+        openLoginGate(true, 'Chào mừng đến với PRM Creator Studio! Vui lòng đăng nhập tài khoản Creator để sử dụng.');
+        return;
+      }
+
+      const payload = parseJwtPayload(token);
+      if (!payload || isTokenExpired(payload)) {
+        localStorage.removeItem('creator_jwt_token');
+        updateAuthUI(null);
+        openLoginGate(true, '⚠️ Phiên làm việc trước đó đã hết hạn. Vui lòng đăng nhập lại.');
+        return;
+      }
+
+      const role = (payload.role || '').toUpperCase();
+      if (role !== 'CREATOR' && role !== 'ROLE_CREATOR') {
+        localStorage.removeItem('creator_jwt_token');
+        updateAuthUI(null);
+        openLoginGate(true, `⛔ Tài khoản hiện tại có vai trò [${role || 'VIEWER'}]. Vui lòng đăng nhập bằng tài khoản CREATOR.`);
+        return;
+      }
+
+      // Valid Creator
+      $('studioContainer').classList.remove('studio-locked');
+      updateAuthUI(payload.sub || payload.email || 'creator@example.com');
+      loadCreatorSettings();
+    }
+
+    // --- LOAD & SAVE CREATOR AI SETTINGS VIA SPRING BOOT ---
+    async function loadCreatorSettings() {
+      const token = getAuthToken();
+      if (!token) return;
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/settings', {
+          method: 'GET',
+          headers: getAuthHeaders(true)
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          updateAuthUI(null);
+          openLoginGate(true, '⚠️ Phiên làm việc đã hết hạn hoặc bạn không có vai trò CREATOR. Vui lòng đăng nhập lại.');
+          return;
+        }
+
+        const data = await res.json();
+        if (res.ok && (data.success !== false) && data.data) {
+          const s = data.data;
+          $('geminiKey').value = s.geminiApiKey || '';
+          $('elevenKey').value = s.elevenlabsApiKey || '';
+          $('ttsEngine').value = s.ttsEngine || 'edge-tts';
+          if (s.ttsEngine === 'edge-tts') {
+            $('edgeVoice').value = s.voiceName || 'vi-VN-NamMinhNeural';
+          } else {
+            $('elevenVoice').value = s.voiceName || 'Brian';
+          }
+
+          if (s.hasGeminiKey) {
+            $('keyStatusBadge').textContent = '✅ Đã lưu Gemini Key';
+            $('keyStatusBadge').style.background = 'rgba(16, 185, 129, 0.2)';
+            $('keyStatusBadge').style.color = '#34d399';
+          } else {
+            $('keyStatusBadge').textContent = '⚠️ Chưa cấu hình Gemini Key';
+            $('keyStatusBadge').style.background = 'rgba(239, 68, 68, 0.2)';
+            $('keyStatusBadge').style.color = '#f87171';
+          }
+
+          toggleTtsOptions();
+          updateHeaderVoiceBadge();
+        }
+      } catch (err) {
+        console.warn('Không thể tải cài đặt AI của Creator:', err);
+      }
+    }
+
+    async function saveCreatorSettings() {
+      const gKey = $('geminiKey').value.trim();
+      const eKey = $('elevenKey').value.trim();
+      const engine = $('ttsEngine').value;
+      const vName = engine === 'elevenlabs' ? $('elevenVoice').value.trim() : $('edgeVoice').value;
+
+      const btn = $('btnSaveSettings');
+      btn.disabled = true;
+      btn.textContent = 'Đang lưu vào DB...';
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/settings', {
+          method: 'PUT',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            geminiApiKey: gKey,
+            elevenlabsApiKey: eKey,
+            ttsEngine: engine,
+            voiceName: vName
+          })
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          updateAuthUI(null);
+          openLoginGate(true, '⚠️ Phiên làm việc đã hết hạn hoặc bạn không có vai trò CREATOR. Vui lòng đăng nhập lại.');
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || 'Lỗi khi lưu cài đặt');
+        }
+
+        alert('✅ ' + (data.message || 'Đã lưu cấu hình AI của bạn vào hệ thống!'));
+        closeSettingsModal();
+        loadCreatorSettings();
+      } catch (err) {
+        alert('Lỗi lưu cài đặt: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lưu Vào Cơ Sở Dữ Liệu';
+      }
+    }
+
+    function toggleTtsOptions() {
+      const isEl = $('ttsEngine').value === 'elevenlabs';
+      $('edgeVoiceGroup').style.display = isEl ? 'none' : 'flex';
+      $('elevenKeyGroup').style.display = isEl ? 'flex' : 'none';
+      $('elevenVoiceGroup').style.display = isEl ? 'flex' : 'none';
+    }
+
+    function updateHeaderVoiceBadge() {
+      const engine = $('ttsEngine').value;
+      if (engine === 'elevenlabs') {
+        const v = $('elevenVoice').value || 'Brian';
+        $('headerVoiceBadge').textContent = `ElevenLabs (${v})`;
+      } else {
+        const v = $('edgeVoice').value === 'vi-VN-NamMinhNeural' ? 'Nam Minh' : 'Hoài My';
+        $('headerVoiceBadge').textContent = `Edge-TTS (${v} - Free)`;
+      }
+    }
+
+    function openSettingsModal() {
+      $('settingsModal').style.display = 'flex';
+    }
+    function closeSettingsModal() {
+      $('settingsModal').style.display = 'none';
+    }
+
+    // --- TOPIC SUGGESTIONS & DURATION ---
+    function setTopic(text) {
+      $('promptInput').value = text;
+      $('promptInput').focus();
+    }
+
+    function selectDuration(dur) {
+      selectedDuration = dur;
+      document.querySelectorAll('.duration-pill').forEach(p => {
+        p.classList.toggle('active', parseInt(p.getAttribute('data-dur')) === dur);
+      });
+    }
+
+    // --- STEP 1: GENERATE STORYBOARD (NO DB SAVE) ---
+    async function generateStoryboard() {
+      const topic = $('promptInput').value.trim();
+      if (!topic) {
+        alert('Vui lòng nhập chủ đề lịch sử bạn muốn dựng hoạt họa!');
+        $('promptInput').focus();
+        return;
+      }
+
+      if (!isLoggedInCreator()) {
+        openLoginGate(true, '⚠️ Vui lòng đăng nhập tài khoản Creator trước khi sinh kịch bản!');
+        return;
+      }
+
+      const btn = $('btnGenStoryboard');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span>⏳</span> <span>Đang RAG Sử Liệu & Sinh Kịch Bản...</span>';
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/storyboard', {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            topic: topic,
+            durationSec: selectedDuration
+          })
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          updateAuthUI(null);
+          openLoginGate(true, '⚠️ Phiên làm việc hết hạn hoặc không đủ quyền Creator. Vui lòng đăng nhập lại!');
+          return;
+        }
+
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) {
+          throw new Error(resData.message || 'Lỗi khi tạo kịch bản từ máy chủ');
+        }
+
+        currentStoryboard = resData.data;
+        cloudinaryImages = {}; // reset custom scene images
+        renderStudioScenes(currentStoryboard.scenes || []);
+        $('studioWorkbench').style.display = 'flex';
+        $('studioWorkbench').scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        alert('Lỗi tạo kịch bản: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+
+    // --- STEP 2: RENDER SCENES & UPLOAD TO CLOUDINARY ---
+    function renderStudioScenes(scenes) {
+      const container = $('scenesGrid');
+      container.innerHTML = '';
+      $('sceneCountBadge').textContent = `${scenes.length} Cảnh (${scenes.length * 30}s)`;
+
+      scenes.forEach((sc, idx) => {
+        const sIdx = sc.scene_index || (idx + 1);
+        const startSec = (sIdx - 1) * 30;
+        const endSec = sIdx * 30;
+        const timeRangeStr = `${formatTime(startSec)} - ${formatTime(endSec)}`;
+        const hasImg = !!cloudinaryImages[sIdx];
+
+        // Combine dialogue / elements text for editable narration
+        const defaultNarration = (sc.elements || []).map(e => e.subtitle || '').filter(Boolean).join(' ') || sc.description || '';
+
+        const card = document.createElement('div');
+        card.className = 'scene-card';
+        card.innerHTML = `
+          <div class="scene-header">
+            <span class="scene-badge">Cảnh ${sIdx} (${timeRangeStr})</span>
+            <div id="cloudStatus_${sIdx}" class="cloudinary-status ${hasImg ? 'uploaded' : 'waiting'}">
+              ${hasImg ? '☁️ Đã lưu Cloudinary' : '☁️ Chờ tải ảnh Cloudinary'}
+            </div>
+          </div>
+
+          <input type="text" id="sceneTitle_${sIdx}" class="scene-title-input" value="${escapeHtml(sc.scene_title || `Cảnh ${sIdx}`)}">
+
+          <div class="narration-box">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="narration-label">🎙️ Lời Thuyết Minh 3 Phân Đoạn (Mục tiêu ~30s / Cảnh)</span>
+              <span style="font-size: 0.7rem; color: #34d399;">~28-35 từ/câu để chuẩn thời lượng</span>
+            </div>
+            ${(sc.elements || []).map((el, eIdx) => `
+              <div style="margin-top: 6px; background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 0.73rem; color: #93c5fd; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                  <span>#${eIdx + 1} (${escapeHtml(el.label || `Ý chính ${eIdx + 1}`)})</span>
+                  <span style="color: var(--text-muted); font-weight: normal; font-size: 0.7rem;">(8 - 10s giọng đọc)</span>
+                </div>
+                <textarea id="sub_${sIdx}_${eIdx}" class="narration-textarea" style="min-height: 48px; width: 100%;">${escapeHtml(el.subtitle || '')}</textarea>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="prompt-box-inner">
+            <div class="prompt-header">
+              <span>Gợi Ý Prompt Vẽ Tranh 16:9</span>
+              <button class="btn-copy" id="btnCopy_${sIdx}" onclick="copyPrompt(${sIdx})">📋 Copy Prompt</button>
+            </div>
+            <textarea id="promptText_${sIdx}" class="prompt-textarea" readonly>${escapeHtml(sc.image_prompt || '')}</textarea>
+          </div>
+
+          <div class="dropzone" id="dropzone_${sIdx}" style="display: ${hasImg ? 'none' : 'flex'}">
+            <input type="file" id="fileInput_${sIdx}" accept="image/*" onchange="uploadToCloudinary(${sIdx}, this.files)">
+            <span style="font-size: 1.8rem;">🖼️</span>
+            <p class="dropzone-text">Kéo thả ảnh <b>Cảnh ${sIdx}</b> vào đây hoặc <b>Bấm để tải lên Cloudinary</b></p>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">(Tỷ lệ 16:9, hình minh họa hoạt họa nét đen nền be)</span>
+          </div>
+
+          <div class="preview-container" id="previewContainer_${sIdx}" style="display: ${hasImg ? 'block' : 'none'}">
+            <span class="cloudinary-url-badge">☁️ Cloudinary Hosted</span>
+            <img id="previewImg_${sIdx}" class="preview-img" alt="Cảnh ${sIdx}" src="${cloudinaryImages[sIdx] || ''}">
+            <div class="preview-overlay">
+              <button class="btn-sm" onclick="triggerFileInput(${sIdx})">🔄 Đổi ảnh</button>
+              <button class="btn-sm" style="background: rgba(239, 68, 68, 0.85);" onclick="removeSceneImage(${sIdx})">❌ Xóa</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+
+        // Drag & Drop
+        const dz = card.querySelector('#dropzone_' + sIdx);
+        if (dz) {
+          dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+          dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+          dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+              uploadToCloudinary(sIdx, e.dataTransfer.files);
+            }
+          });
+        }
+      });
+    }
+
+    function copyPrompt(sIdx) {
+      const ta = $('promptText_' + sIdx);
+      if (!ta) return;
+      navigator.clipboard.writeText(ta.value).then(() => {
+        const btn = $('btnCopy_' + sIdx);
+        const oldText = btn.textContent;
+        btn.textContent = '✓ Đã Copy!';
+        setTimeout(() => btn.textContent = oldText, 2000);
+      });
+    }
+
+    function triggerFileInput(idx) {
+      const fi = $('fileInput_' + idx);
+      if (fi) fi.click();
+    }
+
+    // UPLOAD TO CLOUDINARY VIA SPRING BOOT ENDPOINT
+    async function uploadToCloudinary(sIdx, files) {
+      if (!files || !files[0]) return;
+      if (!isLoggedInCreator()) {
+        openLoginGate(true, '⚠️ Vui lòng đăng nhập tài khoản Creator trước khi tải ảnh lên!');
+        return;
+      }
+
+      const file = files[0];
+
+      const st = $('cloudStatus_' + sIdx);
+      if (st) {
+        st.textContent = '⏳ Đang upload lên Cloudinary...';
+        st.className = 'cloudinary-status waiting';
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/upload-image', {
+          method: 'POST',
+          headers: getAuthHeaders(false), // multipart/form-data must not set Content-Type header manually
+          body: formData
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          updateAuthUI(null);
+          openLoginGate(true, '⚠️ Phiên làm việc đã hết hạn hoặc không có quyền Creator. Vui lòng đăng nhập lại!');
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok || data.success === false) {
+          throw new Error(data.message || 'Lỗi khi upload ảnh lên Cloudinary');
+        }
+
+        const secureUrl = data.data.imageUrl;
+        cloudinaryImages[sIdx] = secureUrl;
+
+        const img = $('previewImg_' + sIdx);
+        const container = $('previewContainer_' + sIdx);
+        const dz = $('dropzone_' + sIdx);
+
+        if (img) img.src = secureUrl;
+        if (container) container.style.display = 'block';
+        if (dz) dz.style.display = 'none';
+        if (st) {
+          st.textContent = '☁️ Đã lưu Cloudinary';
+          st.className = 'cloudinary-status uploaded';
+        }
+      } catch (err) {
+        alert(`Lỗi upload ảnh Cảnh ${sIdx} lên Cloudinary: ` + err.message);
+        if (st) {
+          st.textContent = '❌ Lỗi upload';
+          st.className = 'cloudinary-status waiting';
+        }
+      }
+    }
+
+    function removeSceneImage(idx) {
+      delete cloudinaryImages[idx];
+      const container = $('previewContainer_' + idx);
+      const dz = $('dropzone_' + idx);
+      const fi = $('fileInput_' + idx);
+      const st = $('cloudStatus_' + idx);
+
+      if (container) container.style.display = 'none';
+      if (dz) dz.style.display = 'flex';
+      if (fi) fi.value = '';
+      if (st) {
+        st.textContent = '☁️ Chờ tải ảnh Cloudinary';
+        st.className = 'cloudinary-status waiting';
+      }
+    }
+
+    // --- STEP 3: APPROVE & RENDER (SAVES TO DB) ---
+    async function approveAndRenderVideo() {
+      if (!currentStoryboard || !currentStoryboard.scenes) {
+        alert('Vui lòng tạo kịch bản trước!');
+        return;
+      }
+
+      // Sync edited titles and narrations back into currentStoryboard
+      currentStoryboard.scenes.forEach((sc, idx) => {
+        const sIdx = sc.scene_index || (idx + 1);
+        const tInput = $('sceneTitle_' + sIdx);
+        if (tInput && tInput.value.trim()) sc.scene_title = tInput.value.trim();
+        (sc.elements || []).forEach((el, eIdx) => {
+          const subInput = $(`sub_${sIdx}_${eIdx}`);
+          if (subInput && subInput.value.trim()) {
+            el.subtitle = subInput.value.trim();
+          }
+        });
+      });
+
+      const videoTitle = $('promptInput').value.trim() || currentStoryboard.title || 'Video Hoạt Họa Lịch Sử Bảng Trắng';
+      const engine = $('ttsEngine').value || 'edge-tts';
+      const vName = engine === 'elevenlabs' ? $('elevenVoice').value.trim() : $('edgeVoice').value;
+
+      const renderPayload = {
+        title: videoTitle,
+        durationSec: selectedDuration,
+        storyboard: currentStoryboard,
+        sceneImages: cloudinaryImages,
+        ttsEngine: engine,
+        voiceName: vName
+      };
+
+      if (!isLoggedInCreator()) {
+        openLoginGate(true, '⚠️ Vui lòng đăng nhập tài khoản Creator trước khi xuất bản video!');
+        return;
+      }
+
+      const btn = $('btnRenderStudio');
+      btn.disabled = true;
+      $('progressCard').style.display = 'block';
+      $('resultCard').style.display = 'none';
+      $('consoleBox').innerHTML = '<p class="highlight">🚀 Đang lưu Content, Artifact vào DB và bắt đầu render...</p>';
+      $('progressCard').scrollIntoView({ behavior: 'smooth' });
+
+      resetSteps();
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const sec = Math.floor((Date.now() - startTime) / 1000);
+        $('jobTimeText').textContent = sec + 's';
+      }, 1000);
+
+      try {
+        const res = await fetch('/api/v1/creator/studio/render', {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify(renderPayload)
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          clearInterval(timerInterval);
+          updateAuthUI(null);
+          openLoginGate(true, '⚠️ Phiên làm việc hết hạn hoặc không đủ quyền Creator. Vui lòng đăng nhập lại!');
+          return;
+        }
+
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) {
+          throw new Error(resData.message || 'Lỗi khi khởi chạy quá trình dựng video');
+        }
+
+        const renderRes = resData.data;
+        activeJobId = renderRes.jobId;
+        currentArtifactId = renderRes.artifactId;
+
+        $('contentIdText').textContent = '#' + (renderRes.contentId || 'N/A');
+        $('artifactIdText').textContent = '#' + (renderRes.artifactId || 'N/A');
+        $('channelIdText').textContent = '#' + (renderRes.channelId || 'N/A');
+
+        // Start polling Spring Boot endpoint
+        pollInterval = setInterval(pollJobStatus, 2000);
+      } catch (err) {
+        alert('Lỗi xuất bản video: ' + err.message);
+        clearInterval(timerInterval);
+        btn.disabled = false;
+      }
+    }
+
+    async function pollJobStatus() {
+      if (!activeJobId) return;
+
+      try {
+        const url = `/api/v1/creator/studio/jobs/${activeJobId}${currentArtifactId ? '?artifactId=' + currentArtifactId : ''}`;
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: getAuthHeaders(true)
+        });
+
+        const resData = await res.json();
+        if (!res.ok || resData.success === false) return;
+
+        const job = resData.data;
+        if (job.logs && job.logs.length > 0) {
+          const logHtml = job.logs.map(l => `<p class="${l.startsWith('✅')||l.startsWith('🎉')||l.startsWith('🖼️')?'highlight':''}">${escapeHtml(l)}</p>`).join('');
+          $('consoleBox').innerHTML = logHtml;
+          $('consoleBox').scrollTop = $('consoleBox').scrollHeight;
+        }
+
+        if (job.step) setStepProgress(job.step);
+        if (job.step_name) $('jobStatusTitle').textContent = job.step_name;
+
+        if (job.status === 'completed') {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          setStepProgress(7);
+          $('jobStatusTitle').textContent = '✅ Đã hoàn thành xuất bản video!';
+
+          $('resultCard').style.display = 'flex';
+          $('videoResultTitle').textContent = '🎉 ' + (job.title || 'Video Hoàn Tất');
+          $('videoPlayer').src = job.video_url;
+          $('btnDownloadVideo').href = job.video_url;
+          $('btnDownloadSrt').href = job.srt_url;
+          $('resultCard').scrollIntoView({ behavior: 'smooth' });
+          $('btnRenderStudio').disabled = false;
+        } else if (job.status === 'failed') {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          $('jobStatusTitle').textContent = '❌ Quá trình tạo video thất bại';
+          $('btnRenderStudio').disabled = false;
+        }
+      } catch (e) {
+        console.error('Lỗi kiểm tra tiến trình:', e);
+      }
+    }
+
+    function resetSteps() {
+      for (let i = 1; i <= 6; i++) {
+        $('step' + i).className = 'step-item';
+      }
+    }
+
+    function setStepProgress(step) {
+      for (let i = 1; i <= 6; i++) {
+        const el = $('step' + i);
+        if (i < step) el.className = 'step-item done';
+        else if (i === step) el.className = 'step-item active';
+        else el.className = 'step-item';
+      }
+    }
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // INIT
+    $('btnOpenSettings').onclick = openSettingsModal;
+    checkAuthPrompt();
+  </script>
+</body>
+</html>

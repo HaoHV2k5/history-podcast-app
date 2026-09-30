@@ -1,0 +1,103 @@
+services:
+  # ==============================================================================
+  # 1. PostgreSQL Database Service
+  # ==============================================================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: prm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-prm_db}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - prm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-prm_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - prm-network
+
+  # ==============================================================================
+  # 2. Whiteboard AI Rendering Tool & RAG Service (Python)
+  # ==============================================================================
+  tool:
+    build:
+      context: ./tool
+      dockerfile: Dockerfile
+    container_name: prm-whiteboard-tool
+    restart: unless-stopped
+    environment:
+      - SYSTEM_GEMINI_API_KEY=${SYSTEM_GEMINI_API_KEY:-}
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
+      - CHROMA_DB_DIR=/app/data/chroma_db
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./tool/web_app/outputs:/app/web_app/outputs
+      - ./tool/data:/app/data
+      - ./doc:/app/doc:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/jobs"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - prm-network
+
+  # ==============================================================================
+  # 3. Spring Boot Backend Service (Java 21)
+  # ==============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prm-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      tool:
+        condition: service_healthy
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-prm_db}
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      - TOOL_URL=http://tool:8000
+      - JWT_SECRET=${JWT_SECRET:-PRM_PLATFORM_SUPER_SECRET_KEY_FOR_JWT_SIGNING_2026_VERY_SECURE}
+      - JWT_ACCESS_EXPIRATION_MS=${JWT_ACCESS_EXPIRATION_MS:-86400000}
+      - JWT_REFRESH_EXPIRATION_MS=${JWT_REFRESH_EXPIRATION_MS:-604800000}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      - CLOUDINARY_ROOT_FOLDER=${CLOUDINARY_ROOT_FOLDER:-history-podcast}
+      - BREVO_API_KEY=${BREVO_API_KEY:-}
+      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL:-no-reply@historypodcast.com}
+      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME:-History Podcast Platform}
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY:-}
+      - VNPAY_TMN_CODE=${VNPAY_TMN_CODE:-DEMOVNPAY}
+      - VNPAY_HASH_SECRET=${VNPAY_HASH_SECRET:-DEMOHASHSECRET1234567890ABCDEF}
+      - VNPAY_PAY_URL=${VNPAY_PAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      - VNPAY_RETURN_URL=${VNPAY_RETURN_URL:-http://localhost:3000/payment/vnpay-return}
+    ports:
+      - "8080:8080"
+    networks:
+      - prm-network
+
+volumes:
+  prm_postgres_data:
+    external: true
+
+networks:
+  prm-network:
+    name: prm-network
+    driver: bridge

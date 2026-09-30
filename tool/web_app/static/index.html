@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whiteboard AI Studio - Hoạt Họa Bảng Trắng 1 Phút</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090b10;
+      --card-bg: rgba(18, 22, 32, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #8b5cf6;
+      --accent-hover: #7c3aed;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --cream-bg: #F5EBD7;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(59, 130, 246, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(139, 92, 246, 0.12) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    header {
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(9, 11, 16, 0.7);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.5px;
+    }
+    .brand-badge {
+      font-size: 0.75rem;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      border: none;
+      font-family: inherit;
+      text-decoration: none;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+      box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
+    }
+    .btn-accent:hover {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(139, 92, 246, 0.45);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+      margin: 32px auto;
+      padding: 0 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .hero-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.25;
+      background: linear-gradient(135deg, #ffffff 40%, #9ca3af 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-desc {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-top: 8px;
+    }
+
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    textarea.prompt-input {
+      width: 100%;
+      min-height: 90px;
+      background: rgba(11, 13, 17, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    textarea.prompt-input:focus {
+      border-color: var(--primary);
+    }
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pill:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.3);
+      color: #bfdbfe;
+    }
+
+    /* DURATION SELECTOR */
+    .duration-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .duration-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .duration-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .duration-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .duration-pill:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: #93c5fd;
+    }
+    .duration-pill.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3));
+      border-color: #60a5fa;
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(59, 130, 246, 0.25);
+    }
+
+    .form-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid var(--card-border);
+    }
+    .tts-tag {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    /* STUDIO WORKBENCH */
+    .studio-section {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .scenes-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 800px) {
+      .scenes-grid { grid-template-columns: 1fr; }
+    }
+    .scene-card {
+      background: rgba(11, 14, 21, 0.7);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .scene-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .scene-badge {
+      background: rgba(139, 92, 246, 0.2);
+      color: #c4b5fd;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .scene-title-input {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      width: 100%;
+      outline: none;
+    }
+
+    .prompt-box-inner {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .prompt-textarea {
+      background: transparent;
+      border: none;
+      color: #d1d5db;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      resize: none;
+      height: 90px;
+      font-family: inherit;
+      outline: none;
+    }
+    .btn-copy {
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      align-self: flex-end;
+    }
+    .btn-copy:hover {
+      background: rgba(59, 130, 246, 0.35);
+    }
+
+    /* UPLOAD DROPZONE */
+    .dropzone {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.02);
+      position: relative;
+      overflow: hidden;
+      min-height: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: rgba(59, 130, 246, 0.08);
+    }
+    .dropzone input[type="file"] {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .dropzone-text {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .dropzone-text b { color: #60a5fa; }
+    .preview-container {
+      display: none;
+      width: 100%;
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+    .preview-img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+    }
+    .preview-overlay {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      display: flex;
+      gap: 6px;
+    }
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+    }
+
+    .tools-hint {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .tools-hint a {
+      color: #60a5fa;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .tools-hint a:hover { text-decoration: underline; }
+
+    /* PROGRESS */
+    .progress-section { display: none; }
+    .step-bar {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 6px;
+      opacity: 0.35;
+      transition: opacity 0.3s;
+    }
+    .step-item.active { opacity: 1; }
+    .step-item.done { opacity: 0.85; }
+    .step-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.85rem;
+      border: 1px solid var(--card-border);
+    }
+    .step-item.active .step-circle {
+      background: var(--primary);
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.6);
+      animation: pulse 1.5s infinite;
+    }
+    .step-item.done .step-circle {
+      background: var(--success);
+      color: white;
+    }
+    .step-label { font-size: 0.72rem; font-weight: 600; }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+
+    .console {
+      background: #06080d;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'SF Mono', Consolas, Monaco, monospace;
+      font-size: 0.82rem;
+      color: #94a3b8;
+      max-height: 220px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+    .console p { margin: 2px 0; }
+    .console .highlight { color: #38bdf8; font-weight: 600; }
+
+    /* RESULT VIDEO */
+    .result-section {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+    video {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      background: black;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+      max-height: 520px;
+    }
+    .action-row {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    /* CITATION PILL */
+    .citation-pill {
+      background: rgba(59, 130, 246, 0.15);
+      color: #bfdbfe;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      border-radius: 14px;
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+    }
+    .citation-pill:hover {
+      background: rgba(59, 130, 246, 0.32);
+      border-color: #60a5fa;
+      color: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+    }
+    .citation-pill:active {
+      transform: translateY(0);
+    }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal {
+      background: #10141f;
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 28px;
+      width: 90%;
+      max-width: 520px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title { font-size: 1.15rem; font-weight: 700; }
+    .close-btn {
+      background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer;
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field-group label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #e2e8f0;
+    }
+    .field-group input, .field-group select {
+      background: #0c0e14;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .field-hint { font-size: 0.75rem; color: var(--text-muted); }
+    .field-hint a { color: var(--primary); text-decoration: none; }
+    .field-hint a:hover { text-decoration: underline; }
+
+    /* ── SCRIPT PREVIEW PANEL ── */
+    .script-preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .script-preview-header h2 { font-size: 1.2rem; font-weight: 700; color: #fff; }
+    .script-preview-header p { font-size: 0.84rem; color: var(--text-muted); margin-top: 5px; }
+    .script-total-badge {
+      background: rgba(139, 92, 246, 0.2);
+      color: #c4b5fd;
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      border-radius: 12px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      white-space: nowrap;
+      align-self: center;
+    }
+    .script-scenes-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .script-scene-block {
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .script-scene-title {
+      background: rgba(59, 130, 246, 0.12);
+      border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+      padding: 8px 16px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #93c5fd;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .script-sentence-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .script-sentence-row:last-child { border-bottom: none; }
+    .sentence-num {
+      min-width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(139, 92, 246, 0.25);
+      color: #c4b5fd;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .sentence-edit-area {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      padding: 8px 12px;
+      resize: vertical;
+      min-height: 50px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .sentence-edit-area:focus {
+      border-color: rgba(139, 92, 246, 0.5);
+      background: rgba(139, 92, 246, 0.06);
+    }
+    .script-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--card-border);
+      flex-wrap: wrap;
+    }
+    .btn-success {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+    }
+    .btn-success:hover {
+      background: linear-gradient(135deg, #059669, #047857);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    }
+    .script-tip {
+      font-size: 0.78rem;
+      color: #64748b;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span>🎨 Whiteboard AI Studio</span>
+      <span class="brand-badge">Studio Edition</span>
+    </div>
+    <button class="btn btn-secondary" id="btnOpenSettings">⚙️ Cài đặt API</button>
+  </header>
+
+  <div class="container">
+    <div>
+      <h1 class="hero-title" style="display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;">
+        Whiteboard Animation Studio
+        <span style="font-size: 0.85rem; font-weight: 700; background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); padding: 4px 12px; border-radius: 20px; letter-spacing: 0.5px;">Chuyên Đề: Triều Đại Lý - Trần (1009 - 1400)</span>
+      </h1>
+      <p class="hero-desc">Tự động dựng kịch bản chuẩn sử liệu thời Lý - Trần ➔ Đối chiếu Đại Việt Sử Ký Toàn Thư & An Nam Chí Lược ➔ Render bảng trắng & Lồng tiếng AI.</p>
+    </div>
+
+
+    <!-- PROMPT INPUT CARD -->
+    <div class="card" id="inputCard">
+      <div class="prompt-box">
+        <textarea id="promptInput" class="prompt-input" placeholder="Nhập sự kiện hoặc nhân vật lịch sử thời Lý - Trần (Ví dụ: Vì sao Lý Thái Tổ dời đô về Thăng Long, Lý Thường Kiệt và phòng tuyến Như Nguyệt, Trần Hưng Đạo đại phá quân Nguyên Mông, Hịch tướng sĩ, Hội nghị Diên Hồng...) HOẶC dán bài viết để đối chiếu chính sử..."></textarea>
+      </div>
+      
+      <div class="suggestions">
+        <span class="pill" onclick="setPrompt(this.innerText)">Vì sao Lý Thái Tổ rời Hoa Lư ra Thăng Long, và ý nghĩa của tên gọi &quot;rồng bay&quot;.</span>
+        <span class="pill" onclick="setPrompt(this.innerText)">Lý Thường Kiệt và trận tuyến sông Như Nguyệt</span>
+        <span class="pill" onclick="setPrompt(this.innerText)">Trần Hưng Đạo và Hịch tướng sĩ</span>
+        <span class="pill" onclick="setPrompt(this.innerText)">Chiến thắng Bạch Đằng năm 1288 đập tan quân Nguyên Mông</span>
+      </div>
+
+      <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 10px;">
+        💡 <b>Hệ thống tự động xử lý thông minh:</b> Bạn có thể nhập <i>Tiêu đề ngắn</i> (AI sẽ tự nghiên cứu kịch bản chuyên sâu) hoặc dán <i>Kịch bản / Bài viết dài</i> (AI sẽ tự động chắt lọc và chia cảnh chính xác).
+      </div>
+
+      <!-- RAG HISTORICAL SOURCES MANDATORY BADGE -->
+      <div style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 10px 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.25rem;">📚</span>
+          <div>
+            <div style="font-size: 0.88rem; font-weight: 700; color: #6ee7b7;">Tra Cứu &amp; Đối Chiếu Sử Liệu Gốc (doc/)</div>
+            <div style="font-size: 0.75rem; color: #94a3b8;">Bắt buộc đối chiếu Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 20px; padding: 4px 10px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 6px #34d399;"></span>
+          <span style="font-size: 0.78rem; font-weight: 700; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px;">RAG Bắt Buộc</span>
+        </div>
+      </div>
+
+      <!-- DURATION SELECTOR (UP TO 5 MINUTES) -->
+      <div class="duration-row">
+        <span class="duration-label">⏱️ Thời lượng video:</span>
+        <div class="duration-pills">
+          <button type="button" class="duration-pill" id="durPill30" onclick="selectDuration(30)">⏱️ 30 Giây (1 Cảnh)</button>
+          <button type="button" class="duration-pill active" id="durPill60" onclick="selectDuration(60)">⏱️ 1 Phút (2 Cảnh)</button>
+          <button type="button" class="duration-pill" id="durPill120" onclick="selectDuration(120)">⏱️ 2 Phút (4 Cảnh)</button>
+          <button type="button" class="duration-pill" id="durPill180" onclick="selectDuration(180)">⏱️ 3 Phút (6 Cảnh)</button>
+          <button type="button" class="duration-pill" id="durPill300" onclick="selectDuration(300)">⏱️ 5 Phút (10 Cảnh)</button>
+        </div>
+      </div>
+
+      <div class="form-bottom">
+        <div class="tts-indicator">
+          <span>Giọng đọc:</span>
+          <span id="currentVoiceBadge" class="tts-tag">Edge-TTS (Miễn phí)</span>
+        </div>
+        
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="btnVerifyScript" class="btn" style="background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; border: none; font-weight: 600;" onclick="verifyUserScript()">
+            🛡️ Thẩm Định Kịch Bản (Fact-Check)
+          </button>
+          <button id="btnGenPrompts" class="btn btn-accent" onclick="generateStudioStoryboard()">
+            ✨ Tạo Kịch Bản &amp; Gợi Ý Prompt
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── SCRIPT PREVIEW PANEL ── -->
+    <div class="card" id="scriptPreviewCard" style="display:none;">
+      <div class="script-preview-header">
+        <div>
+          <h2>📋 Xem Trước Kịch Bản Thuyết Minh</h2>
+          <p>Đây là toàn bộ nội dung AI sẽ đọc trong video. Bạn có thể chỉnh sửa trực tiếp từng câu trước khi tiếp tục.</p>
+        </div>
+        <span class="script-total-badge" id="scriptTotalBadge">0 cảnh</span>
+      </div>
+
+      <!-- CITATIONS CARD -->
+      <div id="citationsCard" style="display:none; margin: 12px 0 16px 0; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 12px; padding: 12px 16px;">
+        <div style="font-size: 0.84rem; font-weight: 700; color: #93c5fd; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span>📖</span> Nguồn sử liệu tham chiếu từ kho doc/
+            <span style="font-size: 0.74rem; font-weight: normal; color: #94a3b8;">(Click vào thẻ để xem nguyên văn trang sách)</span>
+          </div>
+          <span style="font-size: 0.72rem; color: #60a5fa; background: rgba(59,130,246,0.15); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(59,130,246,0.25);">🔍 Bấm để kiểm chứng</span>
+        </div>
+        <div id="citationsList" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+      </div>
+
+      <div class="script-scenes-list" id="scriptScenesList">
+        <!-- Dynamically rendered -->
+      </div>
+
+      <div class="script-actions">
+        <span class="script-tip">💡 Click vào từng câu để chỉnh sửa nội dung thuyết minh</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="regenerateScript()" id="btnRegenScript">
+            🔄 Tạo lại kịch bản
+          </button>
+          <button class="btn btn-success" onclick="approveScript()" id="btnApproveScript">
+            ✅ Chấp nhận &amp; Tiếp tục tạo ảnh →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDIO WORKBENCH -->
+    <div class="card studio-section" id="studioWorkbench">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 14px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">🎨 Studio Soạn Kịch Bản & Tranh Minh Họa</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Sao chép prompt bên dưới để tạo ảnh tại Midjourney / DALL-E / Ideogram rồi tải ảnh vào đây, hoặc để AI tự vẽ.</p>
+        </div>
+        <span class="scene-badge" id="studioStatusBadge">Đã sẵn sàng</span>
+      </div>
+
+      <!-- FREE TOOLS SUGGESTIONS -->
+      <div class="tools-hint">
+        <span>💡 <b>Gợi ý nơi tạo ảnh đẹp 16:9 miễn phí:</b></span>
+        <a href="https://www.bing.com/images/create" target="_blank">🌐 Bing Image Creator (DALL-E 3)</a>
+        <span>•</span>
+        <a href="https://ideogram.ai" target="_blank">🌐 Ideogram AI</a>
+        <span>•</span>
+        <a href="https://leonardo.ai" target="_blank">🌐 Leonardo.ai</a>
+      </div>
+
+      <!-- DYNAMIC SCENES GRID -->
+      <div class="scenes-grid" id="scenesGrid">
+        <!-- Rendered dynamically by JavaScript -->
+      </div>
+
+      <!-- ACTION BUTTON -->
+      <div style="display: flex; justify-content: center; margin-top: 10px;">
+        <button id="btnRenderStudio" class="btn btn-primary" style="padding: 14px 32px; font-size: 1.05rem;" onclick="renderStudioVideo()">
+          🎬 Bắt Đầu Ghép Hoạt Họa Bảng Trắng & Lồng Tiếng
+        </button>
+      </div>
+    </div>
+
+    <!-- PROGRESS CARD -->
+    <div class="card progress-section" id="progressCard">
+      <h3 style="margin-bottom: 16px; font-size: 1rem; display: flex; justify-content: space-between;">
+        <span id="jobStatusTitle">Đang xử lý quy trình hoạt họa...</span>
+        <span id="jobTimeText" style="color: var(--primary); font-family: monospace;">0s</span>
+      </h3>
+
+      <div class="step-bar">
+        <div class="step-item" id="step1">
+          <div class="step-circle">1</div>
+          <span class="step-label">Kịch bản</span>
+        </div>
+        <div class="step-item" id="step2">
+          <div class="step-circle">2</div>
+          <span class="step-label">Tranh 16:9</span>
+        </div>
+        <div class="step-item" id="step3">
+          <div class="step-circle">3</div>
+          <span class="step-label">Lồng tiếng & Đồng bộ</span>
+        </div>
+        <div class="step-item" id="step4">
+          <div class="step-circle">4</div>
+          <span class="step-label">Vẽ bảng trắng</span>
+        </div>
+        <div class="step-item" id="step5">
+          <div class="step-circle">5</div>
+          <span class="step-label">Ghép cảnh & Nhạc</span>
+        </div>
+        <div class="step-item" id="step6">
+          <div class="step-circle">6</div>
+          <span class="step-label">Hoàn tất</span>
+        </div>
+      </div>
+
+      <div class="console" id="consoleBox">
+        <p>Hệ thống đã sẵn sàng...</p>
+      </div>
+    </div>
+
+    <!-- RESULT VIDEO CARD -->
+    <div class="card result-section" id="resultCard">
+      <h2 id="videoResultTitle" style="font-size: 1.25rem; font-weight: 700; text-align: center;">🎉 Video Của Bạn Đã Sẵn Sàng!</h2>
+      <video id="videoPlayer" controls playsinline></video>
+      <div class="action-row">
+        <a id="btnDownloadVideo" class="btn btn-primary" download>⬇️ Tải Video MP4</a>
+        <a id="btnDownloadSrt" class="btn btn-secondary" download>📝 Tải Phụ Đề (.SRT)</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">⚙️ Cấu Hình API Studio</h3>
+        <button class="close-btn" id="btnCloseSettings">&times;</button>
+      </div>
+
+      <div class="field-group">
+        <label>🔑 Google Gemini API Key <span style="color: #ef4444; font-size: 0.75rem; font-weight: 700;">(BẮT BUỘC)</span></label>
+        <input type="text" id="geminiKey" placeholder="AIzaSy... (Bắt buộc phải nhập để sử dụng hệ thống)">
+        <p class="field-hint">Hệ thống không dùng chung key. Mỗi người dùng cần có API Key cá nhân (MIỄN PHÍ) tại: <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</p>
+      </div>
+
+
+      <div class="field-group">
+        <label>Động cơ Giọng Đọc (TTS)</label>
+        <select id="ttsEngine" onchange="toggleTtsOptions()">
+          <option value="edge-tts">Microsoft Edge-TTS (Miễn phí 100% - Không cần API Key)</option>
+          <option value="elevenlabs">ElevenLabs API (Yêu cầu API Key cá nhân)</option>
+        </select>
+      </div>
+
+      <div class="field-group" id="edgeVoiceGroup">
+        <label>Giọng đọc tiếng Việt (Edge-TTS)</label>
+        <select id="edgeVoice">
+          <option value="vi-VN-NamMinhNeural">Nam Minh (Giọng Nam trầm, truyền cảm)</option>
+          <option value="vi-VN-HoaiMyNeural">Hoài My (Giọng Nữ dịu dàng, tự nhiên)</option>
+        </select>
+      </div>
+
+      <div class="field-group" id="elevenKeyGroup" style="display: none;">
+        <label>ElevenLabs API Key</label>
+        <input type="password" id="elevenKey" placeholder="sk_...">
+        <label style="margin-top: 8px;">Giọng đọc ElevenLabs</label>
+        <select id="elevenVoice">
+          <option value="Brian">Brian (Giọng phim tài liệu rõ chữ nhất - Khuyên dùng)</option>
+          <option value="Liam">Liam (Giọng Nam trẻ, năng động)</option>
+          <option value="Adam">Adam (Giọng Trầm)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 8px;" id="btnSaveSettings">Lưu Cấu Hình</button>
+    </div>
+  </div>
+
+  <!-- SCOPE BLOCKED MODAL -->
+  <div class="modal-overlay" id="scopeBlockedModal" style="display: none;">
+    <div class="modal" style="max-width: 580px; border: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 0 20px 40px rgba(239, 68, 68, 0.15);">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.4rem;">🚫</span>
+          <h3 class="modal-title" style="color: #f87171;">Từ Chối: Nằm Ngoài Thời Kỳ Lý - Trần</h3>
+        </div>
+        <button class="close-btn" onclick="$('scopeBlockedModal').style.display='none'">&times;</button>
+      </div>
+      <div id="scopeBlockedContent" style="padding: 14px 4px; color: #cbd5e1; font-size: 0.92rem; line-height: 1.6;">
+      </div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 14px;">
+        <button class="btn btn-secondary" onclick="$('scopeBlockedModal').style.display='none'">Đã Hiểu - Đổi Sang Đề Tài Lý - Trần (1009 - 1400)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VERIFICATION REPORT MODAL -->
+  <div class="modal-overlay" id="verifyModal" style="display: none;">
+    <div class="modal" style="max-width: 760px; max-height: 88vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 1.4rem;">🛡️</span>
+          <h3 class="modal-title">Báo Cáo Thẩm Định Sử Liệu Gốc</h3>
+        </div>
+        <button class="close-btn" id="btnCloseVerify" onclick="$('verifyModal').style.display='none'">&times;</button>
+      </div>
+
+      <!-- SCORE & STATUS HEADER -->
+      <div id="verifyScoreCard" style="display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px 18px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div id="verifyScoreCircle" style="width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; font-weight: 800; border: 3px solid #10b981; color: #10b981;">
+            --
+          </div>
+          <div>
+            <div id="verifyStatusBadge" style="font-size: 0.95rem; font-weight: 700; color: #fff;">Đang phân tích...</div>
+            <div id="verifyScopeText" style="font-size: 0.78rem; color: var(--text-muted);">Đang đối chiếu kho sách doc/...</div>
+          </div>
+        </div>
+        <div id="verifySummaryBadge" style="font-size: 0.78rem; background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 12px; border-radius: 20px; font-weight: 600;">
+          3 Bộ Chính Sử
+        </div>
+      </div>
+
+      <!-- SUMMARY TEXT -->
+      <div id="verifySummaryBox" style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 12px 14px; font-size: 0.86rem; line-height: 1.5; color: #cbd5e1;">
+      </div>
+
+      <!-- CITATIONS FROM DATABASE -->
+      <div id="verifyCitationsBox" style="display: none; background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; padding: 12px 14px;">
+        <div style="font-size: 0.82rem; font-weight: 700; color: #93c5fd; margin-bottom: 6px;">📖 Các tư liệu liên quan tìm thấy trong kho sách:</div>
+        <div id="verifyCitationsTags" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+
+      <!-- CLAIMS BREAKDOWN -->
+      <div>
+        <h4 style="font-size: 0.92rem; font-weight: 700; color: #fff; margin-bottom: 8px;">📋 Chi Tiết Từng Luận Điểm Lịch Sử:</h4>
+        <div id="verifyClaimsList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+      </div>
+
+      <!-- REVISED SCRIPT PREVIEW & ACTIONS -->
+      <div id="revisedScriptSection" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="font-size: 0.92rem; font-weight: 700; color: #34d399;">✨ Kịch Bản Đã Được Hiệu Đính Chuẩn Sử:</h4>
+          <button class="btn btn-secondary" style="font-size: 0.78rem; padding: 4px 10px;" onclick="copyRevisedScript()">📋 Sao chép</button>
+        </div>
+        <textarea id="revisedScriptText" readonly style="width: 100%; height: 90px; background: rgba(0,0,0,0.4); border: 1px solid rgba(52, 211, 153, 0.3); border-radius: 8px; color: #e2e8f0; padding: 10px; font-size: 0.84rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; border-top: 1px solid var(--card-border); padding-top: 14px;">
+        <button class="btn btn-secondary" onclick="$('verifyModal').style.display='none'">Đóng</button>
+        <button class="btn" style="background: linear-gradient(135deg, #059669, #10b981); color: #fff; font-weight: 700;" onclick="applyRevisedScriptToStudio()">
+          🚀 Dùng Kịch Bản Này &amp; Tạo Video
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CITATION DETAIL MODAL -->
+  <div class="modal-overlay" id="citationModal" style="display: none; z-index: 120;">
+    <div class="modal" style="max-width: 680px; max-height: 86vh; overflow-y: auto;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.5rem; background: rgba(59, 130, 246, 0.2); width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(59, 130, 246, 0.3);">📖</span>
+          <div>
+            <h3 class="modal-title" id="citationModalBookTitle" style="color: #60a5fa; margin: 0; font-size: 1.15rem;">Đại Việt Sử Ký Toàn Thư</h3>
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-top: 3px;" id="citationModalSubtitle">Nguồn chính sử Việt Nam</div>
+          </div>
+        </div>
+        <button class="close-btn" onclick="$('citationModal').style.display='none'">&times;</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px;">
+        <span id="citationModalPageBadge" style="background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.35); border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; font-weight: 700;">Trang 81</span>
+        <span id="citationModalSimBadge" style="background: rgba(16,185,129,0.2); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.35); border-radius: 6px; padding: 3px 10px; font-size: 0.75rem; font-weight: 700;">Độ khớp: 85%</span>
+        <span id="citationModalFileBadge" style="background: rgba(148,163,184,0.12); color: #cbd5e1; border: 1px solid rgba(148,163,184,0.2); border-radius: 6px; padding: 3px 10px; font-size: 0.75rem;">doc/dai-viet-su-ky-toan-thu...pdf</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #93c5fd;">📜 Nguyên văn đoạn trích từ trang sách sử:</span>
+          <button class="btn btn-secondary" onclick="copyCitationModalText()" style="padding: 3px 10px; font-size: 0.75rem;">📋 Sao chép văn bản</button>
+        </div>
+        <div id="citationModalText" style="background: #090d16; border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 10px; padding: 16px; font-size: 0.92rem; line-height: 1.7; color: #f1f5f9; max-height: 360px; overflow-y: auto; white-space: pre-wrap; font-family: inherit;">
+          (Nội dung đoạn trích...)
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; margin-top: 6px; border-top: 1px solid var(--card-border); padding-top: 12px;">
+        <button class="btn btn-secondary" onclick="$('citationModal').style.display='none'">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    let activeJobId = null;
+    let pollInterval = null;
+    let timerInterval = null;
+    let startTime = 0;
+    let currentMode = 'studio';
+
+    let selectedDuration = 60;
+    let currentStoryboard = null;
+    let customImages = {};
+
+    function selectDuration(sec) {
+      selectedDuration = sec;
+      [30, 60, 120, 180, 300].forEach(s => {
+        const el = $('durPill' + s);
+        if (el) el.className = (s === sec) ? 'duration-pill active' : 'duration-pill';
+      });
+      updateRenderButtonText();
+    }
+
+    function formatTime(totalSec) {
+      const m = Math.floor(totalSec / 60);
+      const s = (totalSec % 60).toFixed(1);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    function updateRenderButtonText() {
+      const numScenes = currentStoryboard ? (currentStoryboard.scenes || []).length : Math.max(1, Math.round(selectedDuration / 28.5));
+      const totalSec = (numScenes * 28.5).toFixed(1);
+      const btn = $('btnRenderStudio');
+      if (btn) {
+        btn.textContent = `🎬 Bắt Đầu Ghép Hoạt Họa Bảng Trắng & Lồng Tiếng (${totalSec}s - ${numScenes} Cảnh)`;
+      }
+    }
+
+
+    function setPrompt(text) {
+      $('promptInput').value = text;
+      $('promptInput').focus();
+    }
+
+    // STUDIO: TẠO KỊCH BẢN → HIỂN THỊ PREVIEW KỊCH BẢN TRƯỚC
+    function showScopeBlockedModal(msg) {
+      $('scopeBlockedContent').innerHTML = escapeHtml(msg).replace(/\n/g, '<br>');
+      $('scopeBlockedModal').style.display = 'flex';
+    }
+
+    async function generateStudioStoryboard() {
+      const topic = $('promptInput').value.trim();
+      if (!topic) {
+        alert('Vui lòng nhập chủ đề bạn muốn làm video!');
+        return;
+      }
+
+      const btn = $('btnGenPrompts');
+      btn.disabled = true;
+      btn.innerHTML = '<span style="animation:pulse 1s infinite">⏳</span> Đang đối chiếu sử sách & tạo kịch bản...';
+
+      const gKey = (localStorage.getItem('gemini_api_key') || '').trim();
+      if (!gKey) {
+        openSettingsModal();
+        alert('⚠️ BẠN CHƯA CẤU HÌNH GOOGLE GEMINI API KEY!\n\nHệ thống yêu cầu người dùng phải tự cung cấp API Key cá nhân để tạo kịch bản và đối chiếu RAG (Key hệ thống chỉ dành cho Admin).\n\nVui lòng nhập API Key của bạn trong hộp thoại Cài Đặt (⚙️) vừa mở.');
+        return;
+      }
+
+      // Ẩn workbench cũ nếu có
+      $('studioWorkbench').style.display = 'none';
+      $('scriptPreviewCard').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/storyboard', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            topic,
+            duration_sec: selectedDuration,
+            gemini_api_key: gKey,
+            use_rag: true
+          })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || ('Không thể tạo kịch bản (HTTP ' + res.status + ')'));
+        }
+        const data = await res.json();
+        currentStoryboard = data;
+
+        // BƯỚC MỚI: Hiển thị preview kịch bản để người dùng xem/sửa
+        renderScriptPreview(data);
+        $('scriptPreviewCard').style.display = 'block';
+        $('scriptPreviewCard').scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        if (err.message.includes('NGOÀI PHẠM VI') || err.message.includes('TỪ CHỐI')) {
+          showScopeBlockedModal(err.message);
+        } else {
+          if (err.message.includes('API Key') || err.message.includes('Quota') || err.message.includes('429') || err.message.includes('403') || err.message.includes('400')) {
+            openSettingsModal();
+          }
+          alert('Lỗi tạo kịch bản: ' + err.message);
+        }
+      } finally {
+        btn.innerHTML = '✨ Tạo Kịch Bản & Gợi Ý Prompt';
+      }
+    }
+
+    // HIỂN THỊ KỊCH BẢN PREVIEW
+    function renderScriptPreview(data) {
+      const scenes = data.scenes || [];
+      $('scriptTotalBadge').textContent = `${scenes.length} cảnh · ${(scenes.length * 28.5).toFixed(0)}s`;
+
+      // Hiển thị nguồn sử liệu tham chiếu nếu có
+      const cBox = $('citationsCard');
+      const cList = $('citationsList');
+      if (cBox && cList) {
+        if (data.citations && data.citations.length > 0) {
+          cList.innerHTML = '';
+          data.citations.forEach(c => {
+            const pill = document.createElement('button');
+            pill.type = 'button';
+            pill.className = 'citation-pill';
+            pill.innerHTML = `<span>📖</span> <span>${c.book_title} (Trang ${c.page})</span> <span style="font-size:0.7rem;color:#93c5fd;opacity:0.85;">🔍</span>`;
+            pill.title = `Click để xem nguyên văn trang ${c.page} của ${c.book_title}`;
+            pill.onclick = () => openCitationModal(c);
+            cList.appendChild(pill);
+          });
+          cBox.style.display = 'block';
+        } else {
+          cBox.style.display = 'none';
+        }
+      }
+
+      const list = $('scriptScenesList');
+      list.innerHTML = '';
+
+      scenes.forEach((sc, idx) => {
+        const sIdx = sc.scene_index || (idx + 1);
+        const elements = sc.elements || [];
+        const block = document.createElement('div');
+        block.className = 'script-scene-block';
+
+        const titleBar = document.createElement('div');
+        titleBar.className = 'script-scene-title';
+        titleBar.innerHTML = `<span style="background:rgba(139,92,246,0.3);padding:1px 8px;border-radius:10px;font-size:0.72rem;">Cảnh ${sIdx}</span> ${escapeHtml(sc.scene_title || `Cảnh ${sIdx}`)}`;
+        block.appendChild(titleBar);
+
+        elements.forEach((el, eIdx) => {
+          const row = document.createElement('div');
+          row.className = 'script-sentence-row';
+
+          const num = document.createElement('div');
+          num.className = 'sentence-num';
+          num.textContent = eIdx + 1;
+
+          const ta = document.createElement('textarea');
+          ta.className = 'sentence-edit-area';
+          ta.id = `sub_${sIdx}_${eIdx}`;
+          ta.value = el.subtitle || '';
+          ta.rows = 2;
+          // Auto-resize
+          ta.addEventListener('input', () => {
+            ta.style.height = 'auto';
+            ta.style.height = (ta.scrollHeight) + 'px';
+          });
+
+          row.appendChild(num);
+          row.appendChild(ta);
+          block.appendChild(row);
+        });
+
+        list.appendChild(block);
+      });
+    }
+
+    // TẠO LẠI KỊCH BẢN
+    async function regenerateScript() {
+      const btn = $('btnRegenScript');
+      btn.disabled = true;
+      btn.textContent = '⏳ Đang tạo lại...';
+      try {
+        const topic = $('promptInput').value.trim() || (currentStoryboard && currentStoryboard.title) || '';
+        if (!topic) { alert('Không xác định được chủ đề.'); return; }
+        const gKey = (localStorage.getItem('gemini_api_key') || '').trim();
+        if (!gKey) {
+          openSettingsModal();
+          alert('⚠️ Vui lòng cấu hình Google Gemini API Key cá nhân trong Cài đặt (⚙️) để tạo lại kịch bản.');
+          return;
+        }
+        const res = await fetch('/api/storyboard', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ topic, duration_sec: selectedDuration, gemini_api_key: gKey, use_rag: true })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || ('HTTP ' + res.status));
+        }
+        const data = await res.json();
+        currentStoryboard = data;
+        renderScriptPreview(data);
+      } catch (err) {
+        if (err.message.includes('NGOÀI PHẠM VI') || err.message.includes('TỪ CHỐI')) {
+          showScopeBlockedModal(err.message);
+        } else {
+          if (err.message.includes('API Key') || err.message.includes('Quota') || err.message.includes('429') || err.message.includes('403')) {
+            openSettingsModal();
+          }
+          alert('Lỗi tạo lại kịch bản: ' + err.message);
+        }
+      } finally {
+        btn.textContent = '🔄 Tạo lại kịch bản';
+      }
+    }
+
+    // ── THẨM ĐỊNH KỊCH BẢN SO VỚI TƯ LIỆU SỬ HỌC ──
+    let latestVerificationReport = null;
+
+    async function verifyUserScript() {
+      const script = $('promptInput').value.trim();
+      if (!script) {
+        alert('Vui lòng nhập hoặc dán nội dung kịch bản bạn muốn thẩm định vào ô văn bản bên trên!');
+        return;
+      }
+
+      const btn = $('btnVerifyScript');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span style="animation:pulse 1s infinite">⏳</span> Đang đối chiếu sử liệu doc/...';
+
+      try {
+        const gKey = (localStorage.getItem('gemini_api_key') || '').trim();
+        if (!gKey) {
+          openSettingsModal();
+          alert('⚠️ Vui lòng cấu hình Google Gemini API Key cá nhân trong Cài đặt (⚙️) để thẩm định kịch bản.');
+          return;
+        }
+        const res = await fetch('/api/script/verify', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            script: script,
+            gemini_api_key: gKey
+          })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Lỗi máy chủ (${res.status})`);
+        }
+
+        const report = await res.json();
+        latestVerificationReport = report;
+        displayVerificationReport(report);
+      } catch (err) {
+        alert('Lỗi thẩm định: ' + err.message);
+      } finally {
+        btn.innerHTML = origText;
+      }
+    }
+
+    function displayVerificationReport(report) {
+      const score = report.overall_score || 0;
+      const circle = $('verifyScoreCircle');
+      circle.textContent = score;
+
+      let scoreColor = '#10b981';
+      let statusText = '✅ Khớp Sử Liệu Tốt';
+      if (score < 50) {
+        scoreColor = '#ef4444';
+        statusText = '❌ Sai Lệch Nghiêm Trọng / Ngoại Sử';
+      } else if (score < 85) {
+        scoreColor = '#f59e0b';
+        statusText = '⚠️ Cần Hiệu Đính Một Số Điểm';
+      }
+
+      circle.style.borderColor = scoreColor;
+      circle.style.color = scoreColor;
+      $('verifyStatusBadge').textContent = statusText;
+      $('verifyStatusBadge').style.color = scoreColor;
+
+      $('verifyScopeText').textContent = report.in_scope 
+        ? 'Nằm trong phạm vi sử liệu Việt Nam' 
+        : '⚠️ Chủ đề có vẻ nằm ngoài phạm vi tư liệu sử Việt trong doc/';
+
+      $('verifySummaryBox').textContent = report.summary || 'Không có tóm tắt.';
+
+      // Citations
+      const cTags = $('verifyCitationsTags');
+      cTags.innerHTML = '';
+      if (report.source_citations && report.source_citations.length > 0) {
+        report.source_citations.forEach(c => {
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          pill.className = 'citation-pill';
+          const bookName = c.book || c.book_title || 'Sử liệu';
+          pill.innerHTML = `<span>📖</span> <span>${bookName} (Trang ${c.page})</span> <span style="font-size:0.7rem;color:#93c5fd;opacity:0.85;">🔍</span>`;
+          pill.title = `Click để xem nguyên văn trang ${c.page} của ${bookName}`;
+          pill.onclick = () => openCitationModal(c);
+          cTags.appendChild(pill);
+        });
+        $('verifyCitationsBox').style.display = 'block';
+      } else {
+        $('verifyCitationsBox').style.display = 'none';
+      }
+
+      // Claims
+      const claimsList = $('verifyClaimsList');
+      claimsList.innerHTML = '';
+      (report.claims || []).forEach(cl => {
+        const card = document.createElement('div');
+        let cardBorder = '#10b981';
+        let badgeBg = 'rgba(16,185,129,0.2)';
+        let badgeColor = '#34d399';
+        let badgeLabel = '✅ Chính xác';
+
+        if (cl.verdict === 'error') {
+          cardBorder = '#ef4444';
+          badgeBg = 'rgba(239,68,68,0.2)';
+          badgeColor = '#f87171';
+          badgeLabel = '❌ Sai lệch sử liệu';
+        } else if (cl.verdict === 'unverified') {
+          cardBorder = '#f59e0b';
+          badgeBg = 'rgba(245,158,11,0.2)';
+          badgeColor = '#fbbf24';
+          badgeLabel = '⚠️ Không rõ nguồn / Ngoại sử';
+        }
+
+        card.style = `background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.08);border-left:4px solid ${cardBorder};border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;`;
+
+        card.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="font-weight:700;font-size:0.88rem;color:#f1f5f9;">${escapeHtml(cl.claim_text)}</div>
+            <span style="background:${badgeBg};color:${badgeColor};padding:2px 8px;border-radius:12px;font-size:0.72rem;font-weight:700;white-space:nowrap;">${badgeLabel}</span>
+          </div>
+          <div style="font-size:0.82rem;color:#94a3b8;line-height:1.4;">${escapeHtml(cl.explanation || '')}</div>
+          ${cl.source_reference ? `<div style="font-size:0.75rem;color:#60a5fa;font-weight:600;">📖 Nguồn: ${escapeHtml(cl.source_reference)}</div>` : ''}
+          ${cl.suggested_fix ? `<div style="margin-top:4px;background:rgba(16,185,129,0.1);border-radius:6px;padding:6px 10px;font-size:0.8rem;color:#a7f3d0;"><b>💡 Đề xuất sửa:</b> ${escapeHtml(cl.suggested_fix)}</div>` : ''}
+        `;
+        claimsList.appendChild(card);
+      });
+
+      // Revised Script
+      if (report.revised_script) {
+        $('revisedScriptText').value = report.revised_script;
+        $('revisedScriptSection').style.display = 'flex';
+      } else {
+        $('revisedScriptSection').style.display = 'none';
+      }
+
+      $('verifyModal').style.display = 'flex';
+    }
+
+    function applyRevisedScriptToStudio() {
+      if (latestVerificationReport && latestVerificationReport.revised_script) {
+        $('promptInput').value = latestVerificationReport.revised_script;
+      }
+      $('verifyModal').style.display = 'none';
+      // Tự động kích hoạt tạo storyboard từ kịch bản đã hiệu đính
+      generateStudioStoryboard();
+    }
+
+    function copyRevisedScript() {
+      const txt = $('revisedScriptText').value;
+      if (txt) {
+        navigator.clipboard.writeText(txt).then(() => {
+          alert('Đã sao chép kịch bản hiệu đính vào clipboard!');
+        });
+      }
+    }
+
+    // MODAL XEM CHI TIẾT TRÍCH DẪN SỬ LIỆU GỐC
+    let currentActiveCitationText = '';
+
+    function openCitationModal(c) {
+      if (!c) return;
+      const bTitle = c.book_title || c.book || 'Sử liệu Việt Nam';
+      const page = c.page || 'N/A';
+      const sim = c.similarity ? Math.round(c.similarity * 100) : null;
+      const fileName = c.file_name || '';
+      const text = c.text || '(Chưa có nội dung trích đoạn)';
+
+      currentActiveCitationText = text;
+
+      $('citationModalBookTitle').textContent = bTitle;
+      $('citationModalSubtitle').textContent = `Tư liệu tra cứu gốc từ thư mục doc/${fileName ? ' (' + fileName + ')' : ''}`;
+      $('citationModalPageBadge').textContent = `Trang ${page}`;
+      
+      const simBadge = $('citationModalSimBadge');
+      if (sim) {
+        simBadge.textContent = `Độ khớp ngữ nghĩa: ${sim}%`;
+        simBadge.style.display = 'inline-block';
+      } else {
+        simBadge.style.display = 'none';
+      }
+
+      const fileBadge = $('citationModalFileBadge');
+      if (fileName) {
+        fileBadge.textContent = `Tệp: ${fileName}`;
+        fileBadge.style.display = 'inline-block';
+      } else {
+        fileBadge.style.display = 'none';
+      }
+
+      $('citationModalText').textContent = text;
+      $('citationModal').style.display = 'flex';
+    }
+
+    function copyCitationModalText() {
+      if (!currentActiveCitationText) return;
+      navigator.clipboard.writeText(currentActiveCitationText).then(() => {
+        alert('✅ Đã sao chép nguyên văn đoạn trích vào clipboard!');
+      }).catch(err => {
+        alert('Không thể sao chép: ' + err);
+      });
+    }
+
+    // NGƯỜI DÙNG CHẤP NHẬN KỊCH BẢN → TIẾN TỚI STUDIO WORKBENCH
+    function approveScript() {
+      if (!currentStoryboard || !currentStoryboard.scenes) return;
+
+      // Đọc lại nội dung thuyết minh đã chỉnh sửa vào storyboard
+      currentStoryboard.scenes.forEach((sc, idx) => {
+        const sIdx = sc.scene_index || (idx + 1);
+        (sc.elements || []).forEach((el, eIdx) => {
+          const ta = $(`sub_${sIdx}_${eIdx}`);
+          if (ta) el.subtitle = ta.value.trim() || el.subtitle;
+        });
+      });
+
+      // Ẩn preview, hiện workbench
+      $('scriptPreviewCard').style.display = 'none';
+      renderStudioScenes(currentStoryboard.scenes);
+      $('studioWorkbench').style.display = 'flex';
+      $('studioWorkbench').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // RENDER STUDIO SCENES CARD DYNAMICALLY
+    function renderStudioScenes(scenes) {
+      const container = $('scenesGrid');
+      container.innerHTML = '';
+
+      if (scenes.length === 1) {
+        container.style.gridTemplateColumns = '1fr';
+        container.style.maxWidth = '680px';
+        container.style.margin = '0 auto';
+      } else {
+        container.style.gridTemplateColumns = '1fr 1fr';
+        container.style.maxWidth = 'none';
+        container.style.margin = '0';
+      }
+
+      scenes.forEach((sc, idx) => {
+        const sIdx = sc.scene_index || (idx + 1);
+        const startSec = (sIdx - 1) * 28.5;
+        const endSec = sIdx * 28.5;
+        const timeRangeStr = `${formatTime(startSec)} - ${formatTime(endSec)}`;
+        const hasImg = !!customImages[sIdx];
+
+        const card = document.createElement('div');
+        card.className = 'scene-card';
+        card.innerHTML = `
+          <div class="scene-header">
+            <span class="scene-badge">Cảnh ${sIdx} (${timeRangeStr})</span>
+            <span id="uploadStatus_${sIdx}" style="font-size: 0.75rem; color: ${hasImg ? '#34d399' : 'var(--text-muted)'};">
+              ${hasImg ? '✓ Đã tải ảnh lên' : 'Tự động sinh nếu trống'}
+            </span>
+          </div>
+          <input type="text" id="sceneTitle_${sIdx}" class="scene-title-input" value="${escapeHtml(sc.scene_title || `Cảnh ${sIdx}`)}">
+
+          <div class="prompt-box-inner">
+            <div class="prompt-header">
+              <span>PROMPT VẼ TRANH 16:9</span>
+              <button class="btn-copy" id="btnCopy_${sIdx}" onclick="copyPrompt(${sIdx})">📋 Sao chép Prompt</button>
+            </div>
+            <textarea id="promptText_${sIdx}" class="prompt-textarea" readonly>${escapeHtml(sc.image_prompt || '')}</textarea>
+          </div>
+
+          <div class="dropzone" id="dropzone_${sIdx}" style="display: ${hasImg ? 'none' : 'flex'}">
+            <input type="file" id="fileInput_${sIdx}" accept="image/*" onchange="handleFileSelect(${sIdx}, this.files)">
+            <span style="font-size: 1.8rem;">🖼️</span>
+            <p class="dropzone-text">Kéo thả ảnh <b>Cảnh ${sIdx}</b> vào đây hoặc <b>Bấm để tải lên</b></p>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">(Khuyên dùng tỷ lệ 16:9, tranh nét đen nền be)</span>
+          </div>
+
+          <div class="preview-container" id="previewContainer_${sIdx}" style="display: ${hasImg ? 'block' : 'none'}">
+            <img id="previewImg_${sIdx}" class="preview-img" alt="Cảnh ${sIdx}" src="${customImages[sIdx] || ''}">
+            <div class="preview-overlay">
+              <button class="btn-sm" onclick="triggerFileInput(${sIdx})">🔄 Đổi ảnh</button>
+              <button class="btn-sm" style="background: rgba(239, 68, 68, 0.8);" onclick="removeCustomImage(${sIdx})">❌ Xóa</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+
+        // Attach drag & drop events
+        const dz = card.querySelector('#dropzone_' + sIdx);
+        if (dz) {
+          dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+          dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+          dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+              handleFileSelect(sIdx, e.dataTransfer.files);
+            }
+          });
+        }
+      });
+
+      updateRenderButtonText();
+    }
+
+    function copyPrompt(sIdx) {
+      const textarea = $('promptText_' + sIdx);
+      if (!textarea) return;
+      const text = textarea.value;
+      const btn = $('btnCopy_' + sIdx);
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Đã sao chép!';
+        btn.style.background = 'rgba(16, 185, 129, 0.3)';
+        btn.style.color = '#34d399';
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.style.background = '';
+          btn.style.color = '';
+        }, 2500);
+      });
+    }
+
+    // UPLOAD IMAGE HANDLERS
+    function triggerFileInput(idx) {
+      const fi = $('fileInput_' + idx);
+      if (fi) fi.click();
+    }
+
+    function handleFileSelect(idx, files) {
+      if (!files || !files[0]) return;
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = e => {
+        const b64 = e.target.result;
+        customImages[idx] = b64;
+        const img = $('previewImg_' + idx);
+        const container = $('previewContainer_' + idx);
+        const dz = $('dropzone_' + idx);
+        const st = $('uploadStatus_' + idx);
+        if (img) img.src = b64;
+        if (container) container.style.display = 'block';
+        if (dz) dz.style.display = 'none';
+        if (st) {
+          st.textContent = '✓ Đã tải ảnh lên';
+          st.style.color = '#34d399';
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeCustomImage(idx) {
+      delete customImages[idx];
+      const container = $('previewContainer_' + idx);
+      const dz = $('dropzone_' + idx);
+      const fi = $('fileInput_' + idx);
+      const st = $('uploadStatus_' + idx);
+      if (container) container.style.display = 'none';
+      if (dz) dz.style.display = 'flex';
+      if (fi) fi.value = '';
+      if (st) {
+        st.textContent = 'Tự động sinh nếu trống';
+        st.style.color = 'var(--text-muted)';
+      }
+    }
+
+    // RENDER STUDIO VIDEO
+    async function renderStudioVideo() {
+      if (!currentStoryboard || !currentStoryboard.scenes) {
+        alert('Vui lòng tạo kịch bản trước!');
+        return;
+      }
+
+      // Cập nhật tiêu đề tùy chỉnh
+      currentStoryboard.scenes.forEach((sc, idx) => {
+        const sIdx = sc.scene_index || (idx + 1);
+        const titleInput = $('sceneTitle_' + sIdx);
+        if (titleInput) {
+          sc.scene_title = titleInput.value.trim();
+        }
+      });
+
+      startJobSubmission({
+        topic: $('promptInput').value.trim() || currentStoryboard.title,
+        duration_sec: selectedDuration,
+        storyboard: currentStoryboard,
+        custom_images: customImages
+      });
+    }
+
+
+    async function startJobSubmission(payload) {
+      const engine = localStorage.getItem('tts_engine') || 'edge-tts';
+      const vName = engine === 'elevenlabs' ? localStorage.getItem('eleven_voice') : localStorage.getItem('edge_voice');
+
+      const bodyData = {
+        ...payload,
+        gemini_api_key: (localStorage.getItem('gemini_api_key') || '').trim(),
+        elevenlabs_api_key: localStorage.getItem('elevenlabs_api_key'),
+        image_engine: 'doodle',
+        tts_engine: engine,
+        voice_name: vName
+      };
+
+      $('btnRenderStudio').disabled = true;
+      $('progressCard').style.display = 'block';
+      $('resultCard').style.display = 'none';
+      $('consoleBox').innerHTML = '<p class="highlight">🚀 Đang khởi động tiến trình...</p>';
+      $('progressCard').scrollIntoView({ behavior: 'smooth' });
+
+      resetSteps();
+      startTime = Date.now();
+      timerInterval = setInterval(() => {
+        const sec = Math.floor((Date.now() - startTime) / 1000);
+        $('jobTimeText').textContent = sec + 's';
+      }, 1000);
+
+      try {
+        const res = await fetch('/api/create', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(bodyData)
+        });
+        const data = await res.json();
+        activeJobId = data.job_id;
+        pollInterval = setInterval(checkJobStatus, 2000);
+      } catch (err) {
+        alert('Lỗi khởi tạo job: ' + err.message);
+        clearInterval(timerInterval);
+      }
+    }
+
+    function resetSteps() {
+      for (let i = 1; i <= 6; i++) {
+        $('step' + i).className = 'step-item';
+      }
+    }
+
+    function setStepProgress(step) {
+      for (let i = 1; i <= 6; i++) {
+        const el = $('step' + i);
+        if (i < step) el.className = 'step-item done';
+        else if (i === step) el.className = 'step-item active';
+        else el.className = 'step-item';
+      }
+    }
+
+    async function checkJobStatus() {
+      if (!activeJobId) return;
+      try {
+        const res = await fetch('/api/job/' + activeJobId);
+        const job = await res.json();
+
+        const logHtml = job.logs.map(l => `<p class="${l.startsWith('✅')||l.startsWith('🎉')||l.startsWith('🖼️')?'highlight':''}">${escapeHtml(l)}</p>`).join('');
+        $('consoleBox').innerHTML = logHtml;
+        $('consoleBox').scrollTop = $('consoleBox').scrollHeight;
+
+        if (job.step) setStepProgress(job.step);
+        if (job.step_name) $('jobStatusTitle').textContent = job.step_name;
+
+        if (job.status === 'completed') {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          setStepProgress(7);
+          $('jobStatusTitle').textContent = '✅ Đã hoàn thành xuất bản video!';
+
+          $('resultCard').style.display = 'flex';
+          $('videoResultTitle').textContent = '🎉 ' + job.title;
+          $('videoPlayer').src = job.video_url;
+          $('btnDownloadVideo').href = job.video_url;
+          $('btnDownloadSrt').href = job.srt_url;
+          $('resultCard').scrollIntoView({ behavior: 'smooth' });
+        } else if (job.status === 'failed') {
+          clearInterval(pollInterval);
+          clearInterval(timerInterval);
+          $('jobStatusTitle').textContent = '❌ Quá trình tạo video thất bại';
+        }
+      } catch (e) {
+        console.error('Lỗi kiểm tra tiến trình:', e);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // SETTINGS MODAL
+    function loadSettings() {
+      $('geminiKey').value = localStorage.getItem('gemini_api_key') || '';
+      $('elevenKey').value = localStorage.getItem('elevenlabs_api_key') || '';
+      $('ttsEngine').value = localStorage.getItem('tts_engine') || 'edge-tts';
+      $('edgeVoice').value = localStorage.getItem('edge_voice') || 'vi-VN-NamMinhNeural';
+      $('elevenVoice').value = localStorage.getItem('eleven_voice') || 'Brian';
+
+      toggleTtsOptions();
+      updateVoiceBadge();
+    }
+
+    function saveSettings() {
+      localStorage.setItem('gemini_api_key', $('geminiKey').value.trim());
+      localStorage.setItem('elevenlabs_api_key', $('elevenKey').value.trim());
+      localStorage.setItem('tts_engine', $('ttsEngine').value);
+      localStorage.setItem('edge_voice', $('edgeVoice').value);
+      localStorage.setItem('eleven_voice', $('elevenVoice').value);
+      $('settingsModal').style.display = 'none';
+      updateVoiceBadge();
+    }
+
+    function toggleTtsOptions() {
+      const isEl = $('ttsEngine').value === 'elevenlabs';
+      $('edgeVoiceGroup').style.display = isEl ? 'none' : 'flex';
+      $('elevenKeyGroup').style.display = isEl ? 'flex' : 'none';
+    }
+
+    function updateVoiceBadge() {
+      const isEl = $('ttsEngine').value === 'elevenlabs';
+      if (isEl) {
+        $('currentVoiceBadge').textContent = 'ElevenLabs (' + $('elevenVoice').value + ')';
+        $('currentVoiceBadge').style.background = 'rgba(59, 130, 246, 0.15)';
+        $('currentVoiceBadge').style.color = '#60a5fa';
+      } else {
+        const vName = $('edgeVoice').value === 'vi-VN-NamMinhNeural' ? 'Nam Minh' : 'Hoài My';
+        $('currentVoiceBadge').textContent = 'Edge-TTS (' + vName + ' - Free)';
+        $('currentVoiceBadge').style.background = 'rgba(16, 185, 129, 0.15)';
+        $('currentVoiceBadge').style.color = '#34d399';
+      }
+    }
+
+    function openSettingsModal() {
+      $('settingsModal').style.display = 'flex';
+      setTimeout(() => $('geminiKey').focus(), 100);
+    }
+    function closeSettingsModal() {
+      $('settingsModal').style.display = 'none';
+    }
+
+    $('btnOpenSettings').onclick = openSettingsModal;
+    $('btnCloseSettings').onclick = closeSettingsModal;
+    $('btnSaveSettings').onclick = saveSettings;
+
+    loadSettings();
+  </script>
+</body>
+</html>
