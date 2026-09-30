@@ -1264,7 +1264,7 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         # 4. Render Video Whiteboard Animation
         log(job_id, f"✍️ Bước 4: Đang render hoạt họa vẽ tay bảng trắng ({num_scenes} cảnh)...", 4, "Render vẽ bảng trắng")
-        py_env = ROOT_DIR / ".venv" / "bin" / "python"
+        py_env = str(ROOT_DIR / ".venv" / "bin" / "python") if (ROOT_DIR / ".venv" / "bin" / "python").exists() else sys.executable
         render_script = ROOT_DIR / "scripts" / "render_stream_whiteboard.py"
         hand_img = ROOT_DIR / "assets" / "drawing-hand.png"
 
