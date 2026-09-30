@@ -284,9 +284,9 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
             for e_i in range(3):
                 cur_text = extended_sentences[sent_idx]
                 words = cur_text.split()
-                # Cắt gọn câu nếu quá dài (tối đa ~24 từ để đọc vừa vặn trong 6-7s)
-                if len(words) > 24:
-                    cur_text = " ".join(words[:24]) + "..."
+                # Cắt gọn câu nếu quá dài (tối đa ~36 từ để đọc vừa vặn trong 8.5-10s)
+                if len(words) > 36:
+                    cur_text = " ".join(words[:36]) + "..."
                 
                 # Trích xuất nhãn từ 2-4 từ đầu tiên
                 label_words = [w for w in words[:4] if len(w) > 1]
@@ -607,8 +607,8 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
     if not api_key:
         raise ValueError("⚠️ Chưa có Google Gemini API Key của người dùng. Vui lòng mở Cài đặt (⚙️) và nhập API Key cá nhân.")
 
-    num_scenes = max(1, min(10, int(round(duration_sec / 28.5)) or 1))
-    approx_time = num_scenes * 25.0
+    num_scenes = max(1, min(10, int(round(duration_sec / 30.0)) or 1))
+    target_scene_time = duration_sec / num_scenes
     raw_input = topic.strip()
     is_long_text = len(raw_input) > 100 or "\n" in raw_input or raw_input.count(".") >= 3
 
@@ -663,7 +663,7 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
 {rag_context_section}
 HÃY PHÂN TÍCH VÀ BIÊN TẬP THÀNH KỊCH BẢN VIDEO HOẠT HỌA BẢNG TRẮNG:
 - BÁM SÁT DỮ LIỆU ĐƯỢC CUNG CẤP: Kiểm tra kỹ lưỡng các mốc năm, sự kiện, địa danh và nhân vật so với tư liệu sử học. Sửa chữa ngay mọi chi tiết sai lệch hoặc hiểu nhầm.
-- Giữ trọn vẹn thông điệp cốt lõi của người dùng, phân bổ hợp lý vào đúng {num_scenes} CẢNH (tổng thời lượng video khoảng {approx_time:.1f} giây).
+- Giữ trọn vẹn thông điệp cốt lõi của người dùng, phân bổ hợp lý vào đúng {num_scenes} CẢNH (tổng thời lượng video mục tiêu: đúng {duration_sec} giây, ~{target_scene_time:.0f} giây mỗi cảnh).
 - VĂN PHONG TỰ NHIÊN, KHÔNG DÙNG TỪ NỐI RẬP KHUÔN: Tuyệt đối KHÔNG mở đầu câu bằng các từ nối máy móc như 'Thế nhưng,', 'Chính vì vậy,', 'Không dừng lại ở đó,', 'Và kết quả là,'. Dẫn dắt câu chuyện tự nhiên bằng thời gian, bối cảnh và hành động cụ thể."""
     else:
         # Đề tài thuộc kho sử liệu Việt Nam
@@ -695,17 +695,17 @@ QUY CHUẨN NỘI DUNG VÀ VĂN PHONG PHIM TÀI LIỆU LỊCH SỬ CHÍNH THỐN
    - TUYỆT ĐỐI KHÔNG mở đầu câu bằng các từ nối công thức: 'Thế nhưng,', 'Chính vì vậy,', 'Không dừng lại ở đó,', 'Và kết quả là,', 'Và qua đó,', 'Chính trong hoàn cảnh đó,'.
    - Hãy dẫn dắt tự nhiên bằng tiến trình thời gian và hành động của nhân vật.
 
-4. BỐ CỤC: Chia thành đúng {num_scenes} CẢNH liền mạch."""
+4. BỐ CỤC: Chia thành đúng {num_scenes} CẢNH liền mạch. Tổng thời lượng video mục tiêu là đúng {duration_sec} giây."""
 
     prompt = f"""{prompt_instruction}
 
 YÊU CẦU ĐỊNH DẠNG:
-- Tổng cộng đúng {num_scenes} Cảnh (từ Scene 1 đến Scene {num_scenes}).
+- Tổng cộng đúng {num_scenes} Cảnh (từ Scene 1 đến Scene {num_scenes}). Tổng thời lượng video mục tiêu: đúng {duration_sec} giây (~{target_scene_time:.0f} giây mỗi cảnh).
 - Mỗi cảnh gồm đúng 3 khối chủ thể xuất hiện từ Trái qua Phải.
 - Mỗi khối chủ thể có:
   + label: Nhãn tên chủ thể ngắn gọn, đắt giá (2-4 từ tiếng Việt, ví dụ: 'Cố Đô Hoa Lư', 'Chiếu Dời Đô 1010', 'Rồng Vàng Thăng Long').
   + narrativeRole: Vai trò dẫn dắt câu chuyện (tiếng Việt).
-  + subtitle: 1 câu thuyết minh tiếng Việt CHUẨN XÁC THEO SỬ LIỆU, GIÀU HÌNH ẢNH, dài khoảng 18 đến 24 từ (vừa vặn đọc trong 5.5 đến 7.0 giây, khớp với tốc độ vẽ whiteboard sketch). Văn phong đĩnh đạc, câu chuyện tự nhiên, KHÔNG dùng từ nối máy móc AI.
+  + subtitle: 1-2 câu thuyết minh tiếng Việt CHUẨN XÁC THEO SỬ LIỆU, ĐĨNH ĐẠC, GIÀU CHI TIẾT LỊCH SỬ, có độ dài từ 28 đến 35 từ (được căn chỉnh vừa vặn đọc truyền cảm trong 8.5 đến 10.0 giây, nhằm đảm bảo thời lượng mỗi cảnh đạt đúng ~30 giây và tổng video đạt đúng {duration_sec} giây). TUYỆT ĐỐI KHÔNG VIẾT NGẮN CỤT LỦN dưới 25 từ vì sẽ làm video bị hụt thời lượng.
   + visual_desc: Mô tả hình vẽ phác thảo tối giản kiểu doodle/sketch bằng tiếng Anh cho AI tạo ảnh.
 - image_prompt: 1 prompt tổng thể tiếng Anh (16:9) theo chuẩn Notion Doodle để người dùng copy tạo ảnh:
   "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
@@ -1077,8 +1077,8 @@ def compute_scene_continuous_timeline(audio_durations: list[float]) -> dict:
     - Nét vẽ tay hoàn thành TRƯỚC khi giọng nói dứt câu (người xem nhìn thấy hình hoàn chỉnh trước).
     - Cảnh kết thúc đúng 1.5s sau khi câu nói cuối cùng dứt (chuyển cảnh dứt khoát, không chờ lâu 3-4s).
     """
-    PAUSE_BETWEEN_SENTENCES = 0.35  # Giọng đọc liền mạch, nhịp thở 0.35s
-    SCENE_TAIL_WAIT = 1.5           # Đúng 1.5s sau khi dứt lời là qua cảnh tiếp theo
+    PAUSE_BETWEEN_SENTENCES = 0.55  # Khoảng nghỉ thở tự nhiên giữa các câu thuyết minh lịch sử
+    SCENE_TAIL_WAIT = 2.0           # 2.0s chiêm ngưỡng tranh hoàn chỉnh trước khi chuyển cảnh tiếp theo
 
     element_timings = []
     prev_voice_end = 0.0
@@ -1095,10 +1095,10 @@ def compute_scene_continuous_timeline(audio_durations: list[float]) -> dict:
         voice_end = voice_start + dur
 
         # Nét vẽ hoàn thành trước giọng nói ~0.8s (người xem thấy tranh trọn vẹn trước khi dứt câu)
-        ideal_draw_dur = max(2.2, min(4.8, dur - 0.7))
+        ideal_draw_dur = max(2.5, min(6.0, dur - 0.7))
         # Nếu vẽ xong vẫn muộn hơn voice_end, ép vẽ nhanh hơn để xong trước giọng nói
         if draw_start + ideal_draw_dur > voice_end - 0.3:
-            ideal_draw_dur = max(1.8, (voice_end - 0.3) - draw_start)
+            ideal_draw_dur = max(2.0, (voice_end - 0.3) - draw_start)
 
         draw_end = draw_start + ideal_draw_dur
 

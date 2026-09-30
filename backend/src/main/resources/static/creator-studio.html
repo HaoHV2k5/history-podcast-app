@@ -1217,8 +1217,19 @@
           <input type="text" id="sceneTitle_${sIdx}" class="scene-title-input" value="${escapeHtml(sc.scene_title || `Cảnh ${sIdx}`)}">
 
           <div class="narration-box">
-            <span class="narration-label">🎙️ Lời Thuyết Minh (Voiceover)</span>
-            <textarea id="narrationText_${sIdx}" class="narration-textarea">${escapeHtml(defaultNarration)}</textarea>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span class="narration-label">🎙️ Lời Thuyết Minh 3 Phân Đoạn (Mục tiêu ~30s / Cảnh)</span>
+              <span style="font-size: 0.7rem; color: #34d399;">~28-35 từ/câu để chuẩn thời lượng</span>
+            </div>
+            ${(sc.elements || []).map((el, eIdx) => `
+              <div style="margin-top: 6px; background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 0.73rem; color: #93c5fd; font-weight: 700; margin-bottom: 4px; display: flex; justify-content: space-between;">
+                  <span>#${eIdx + 1} (${escapeHtml(el.label || `Ý chính ${eIdx + 1}`)})</span>
+                  <span style="color: var(--text-muted); font-weight: normal; font-size: 0.7rem;">(8 - 10s giọng đọc)</span>
+                </div>
+                <textarea id="sub_${sIdx}_${eIdx}" class="narration-textarea" style="min-height: 48px; width: 100%;">${escapeHtml(el.subtitle || '')}</textarea>
+              </div>
+            `).join('')}
           </div>
 
           <div class="prompt-box-inner">
@@ -1355,16 +1366,13 @@
       currentStoryboard.scenes.forEach((sc, idx) => {
         const sIdx = sc.scene_index || (idx + 1);
         const tInput = $('sceneTitle_' + sIdx);
-        const nInput = $('narrationText_' + sIdx);
         if (tInput && tInput.value.trim()) sc.scene_title = tInput.value.trim();
-        if (nInput && nInput.value.trim()) {
-          // If elements exist, update first element or add one
-          if (sc.elements && sc.elements.length > 0) {
-            sc.elements[0].subtitle = nInput.value.trim();
-          } else {
-            sc.elements = [{ subtitle: nInput.value.trim() }];
+        (sc.elements || []).forEach((el, eIdx) => {
+          const subInput = $(`sub_${sIdx}_${eIdx}`);
+          if (subInput && subInput.value.trim()) {
+            el.subtitle = subInput.value.trim();
           }
-        }
+        });
       });
 
       const videoTitle = $('promptInput').value.trim() || currentStoryboard.title || 'Video Hoạt Họa Lịch Sử Bảng Trắng';
