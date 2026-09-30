@@ -29,6 +29,9 @@ public class Content {
     private String sourceType;
     @Column(name = "status")
     private String status;
+    @Column(name = "is_exclusive")
+    @Builder.Default
+    private Boolean isExclusive = false;
     @Column(name = "created_at")
     private Instant createdAt;
     @Column(name = "updated_at")

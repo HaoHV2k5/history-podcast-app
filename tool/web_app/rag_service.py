@@ -1,6 +1,6 @@
 """
 rag_service.py — Dịch vụ Tra cứu Sử liệu (RAG) & Thẩm định Kịch bản (Fact-Checking)
-Tích hợp cho tool_video_v5 (Whiteboard Studio)
+Tích hợp cho tool (Whiteboard Studio)
 """
 
 import os

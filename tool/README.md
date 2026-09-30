@@ -24,7 +24,7 @@
 ### Bước 1: Mở Terminal, cd vào thư mục dự án
 
 ```bash
-cd /Users/ttcenter/Desktop/projects/tool_video_v5
+cd /Users/ttcenter/Desktop/projects/tool
 ```
 
 ### Bước 2: Chạy server
@@ -48,7 +48,7 @@ http://localhost:8000
 Nếu chưa có môi trường `.venv`, chạy lần lượt:
 
 ```bash
-cd /Users/ttcenter/Desktop/projects/tool_video_v5
+cd /Users/ttcenter/Desktop/projects/tool
 
 # 1. Tạo virtual environment
 python3 -m venv .venv
@@ -106,7 +106,7 @@ Vào **⚙️ Cài đặt API** trong giao diện web để cài:
 ## 📁 Cấu Trúc Dự Án
 
 ```
-tool_video_v5/
+tool/
 ├── web_app/
 │   ├── server.py              # Backend FastAPI — điều phối toàn bộ pipeline
 │   ├── static/
@@ -137,7 +137,7 @@ tool_video_v5/
 ### ❌ `ModuleNotFoundError`
 → Chưa cài dependencies. Chạy:
 ```bash
-cd /Users/ttcenter/Desktop/projects/tool_video_v5
+cd /Users/ttcenter/Desktop/projects/tool
 source .venv/bin/activate
 pip install fastapi uvicorn pillow opencv-python numpy edge-tts pydantic
 ```

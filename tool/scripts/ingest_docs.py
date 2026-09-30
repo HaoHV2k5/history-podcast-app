@@ -247,7 +247,7 @@ def main():
     api_key = os.getenv("SYSTEM_GEMINI_API_KEY", "").strip()
     if not api_key:
         print("❌ LỖI: Chưa cấu hình SYSTEM_GEMINI_API_KEY trong file .env!")
-        print("Vui lòng mở file tool_video_v5/.env và điền key vào.")
+        print("Vui lòng mở file tool/.env và điền key vào.")
         sys.exit(1)
 
     doc_dir_path = Path(args.doc_dir).resolve()
