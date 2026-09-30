@@ -95,8 +95,7 @@ services:
 
 volumes:
   prm_postgres_data:
-    name: prm_postgres_data
-    driver: local
+    external: true
 
 networks:
   prm-network:
