@@ -19,6 +19,7 @@ import time
 import urllib.parse
 import urllib.request
 import uuid
+import hashlib
 from pathlib import Path
 from typing import Optional
 
@@ -129,7 +130,21 @@ async def list_jobs():
 @app.get("/api/jobs/{job_id}")
 async def get_job(job_id: str):
     if job_id not in JOBS:
-        raise HTTPException(status_code=404, detail="Job không tồn tại")
+        job_dir = OUTPUTS_DIR / job_id
+        video_p = job_dir / "final_whiteboard_video.mp4"
+        srt_p = job_dir / "subtitles.srt"
+        if video_p.exists():
+            JOBS[job_id] = {
+                "id": job_id,
+                "status": "completed",
+                "step": 7,
+                "step_name": "Đã hoàn thành xuất bản video!",
+                "video_url": f"/outputs/{job_id}/final_whiteboard_video.mp4",
+                "srt_url": f"/outputs/{job_id}/subtitles.srt" if srt_p.exists() else None,
+                "logs": ["Đã khôi phục tác vụ từ ổ đĩa lưu trữ."]
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Job không tồn tại")
     return JOBS[job_id]
 
 
@@ -980,14 +995,78 @@ async def generate_speech_edge(text: str, voice: str, out_p: Path):
     ], check=True)
 
 
+ELEVENLABS_VOICES = {
+    "Brian": "nPczCjzI2devNBz1zQrb",       # Nam - Trầm hùng, Phim tài liệu lịch sử
+    "Adam": "pNInz6obpgDQGcFmaJgB",        # Nam - Tự nhiên, Ấm áp, Podcast
+    "Sarah": "EXAVITQu4vr4xnSDxMaL",       # Nữ - Truyền cảm, Dịu dàng, Huyền sử
+    "George": "JBFqnCBsd6RMkjVDRZzb",      # Nam - Đĩnh đạc, Học giả, Bình luận
+    "Laura": "FGY2WhTYpPnrIDTdsKH5",       # Nữ - Tươi sáng, Sinh động, Khám phá
+    "Liam": "TX3LPaxmHKxFdv7VOQHJ",        # Nam - Trẻ trung, Năng động, Video ngắn
+    "Callum": "N2lVS1w4EtoT3dr4eOWO",      # Nam - Hào khí sử thi, Hịch chiến trận
+    "River": "SAz9YHcvj6GT2YYXdXww",       # Trung tính - Điềm đạm, Thời sự
+    "Bill": "pqHfZKP75CvOlQylNhV4",        # Nam - Già dặn, Cổ kính, Tích xưa
+    "Alice": "Xb7hH8MSUJpSbSDYk0k2",       # Nữ - Chuẩn mực, Khảo cổ & Di sản
+    "Roger": "CwhRBWXzGAHq8TQ4Fs17",       # Nam - Mộc mạc, Văn hóa dân gian
+    "Harry": "SOYHLrjzK2X1ezoPC6cr",       # Nam - Khí chất chiến binh dũng mãnh
+    "Matilda": "XrExE9yKIg1WjnnlVkGX",     # Nữ - Chuyên nghiệp, Khảo cứu chiếu chỉ
+    "Will": "bIHbv24MWmeRgasZH58o",        # Nam - Lạc quan, Tự sự phục hưng
+    "Jessica": "cgSgspJ2msm6clMCkdW9",     # Nữ - Trong trẻo, Cổ tích
+    "Eric": "cjVigY5qzO86Huf0OWal",        # Nam - Trầm ấm, Đáng tin cậy
+    "Chris": "iP95p4xoKVk53GoZ742B",       # Nam - Thân thiện, Podcast
+    "Daniel": "onwK4e9ZLuTAKqWW03F9",      # Nam - Phát thanh viên trang trọng
+    "Lily": "pFZP5JQG7iQjIQuC4Bku",        # Nữ - Quý phái, Giai nhân bí sử
+    "Rachel": "21m00Tcm4TlvDq8ikWAM",      # Nữ - Điềm đạm, Rõ chữ, Thuyết minh
+    "Charlie": "IKne3meq5aSn9XLyUdCD"      # Nam - Sôi nổi, Khí thế dồn dập
+}
+
+
+class VoicePreviewRequest(BaseModel):
+    engine: str = "edge-tts"  # 'elevenlabs' hoặc 'edge-tts'
+    voice: str = "vi-VN-NamMinhNeural"
+    text: Optional[str] = "Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời."
+    elevenlabs_api_key: Optional[str] = None
+
+
+@app.post("/api/voice/preview")
+async def preview_voice_endpoint(req: VoicePreviewRequest):
+    PREVIEWS_DIR = OUTPUTS_DIR / "previews"
+    PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+
+    text_to_speak = (req.text or "").strip() or "Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời."
+    content_key = f"{req.engine}_{req.voice}_{text_to_speak}"
+    content_hash = hashlib.md5(content_key.encode("utf-8")).hexdigest()[:12]
+    out_file = PREVIEWS_DIR / f"preview_{content_hash}.mp3"
+
+    if not out_file.exists() or out_file.stat().st_size < 500:
+        if req.engine == "elevenlabs":
+            el_key = (req.elevenlabs_api_key or "").strip()
+            if not el_key:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Vui lòng cung cấp ElevenLabs API Key để tạo giọng nói tiếng Việt trực tiếp."
+                )
+            vid = ELEVENLABS_VOICES.get(req.voice.strip(), req.voice.strip())
+            generate_speech_elevenlabs(text_to_speak, vid, el_key, out_file)
+        else:
+            vname = req.voice.strip() if req.voice in ["vi-VN-NamMinhNeural", "vi-VN-HoaiMyNeural"] else "vi-VN-NamMinhNeural"
+            await generate_speech_edge(text_to_speak, vname, out_file)
+
+    return {
+        "url": f"/outputs/previews/preview_{content_hash}.mp3",
+        "relative_url": f"/outputs/previews/preview_{content_hash}.mp3",
+        "filename": f"preview_{content_hash}.mp3"
+    }
+
+
 def generate_speech_elevenlabs(text: str, voice_id: str, api_key: str, out_p: Path):
     """Gọi ElevenLabs TTS. Nếu lỗi sẽ raise RuntimeError với thông báo rõ ràng."""
     url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    # Dùng eleven_multilingual_v2 - mô hình phát âm tiếng Việt có dấu tốt nhất của ElevenLabs
     payload = {
         "text": text,
-        "model_id": "eleven_turbo_v2_5",
+        "model_id": "eleven_multilingual_v2",
         "language_code": "vi",
-        "voice_settings": {"stability": 0.75, "similarity_boost": 0.85, "style": 0.0, "use_speaker_boost": True}
+        "voice_settings": {"stability": 0.65, "similarity_boost": 0.85, "style": 0.15, "use_speaker_boost": True}
     }
     req = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"),
@@ -998,6 +1077,21 @@ def generate_speech_elevenlabs(text: str, voice_id: str, api_key: str, out_p: Pa
         with urllib.request.urlopen(req, timeout=30) as resp:
             out_p.write_bytes(resp.read())
     except urllib.error.HTTPError as e:
+        # Nếu model eleven_multilingual_v2 bị giới hạn ở tài khoản, thử fallback sang eleven_turbo_v2_5
+        if e.code in (400, 422):
+            try:
+                payload["model_id"] = "eleven_turbo_v2_5"
+                req_fallback = urllib.request.Request(
+                    url, data=json.dumps(payload).encode("utf-8"),
+                    headers={"xi-api-key": api_key, "Content-Type": "application/json", "Accept": "audio/mpeg"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req_fallback, timeout=30) as resp2:
+                    out_p.write_bytes(resp2.read())
+                    return
+            except Exception:
+                pass
+
         # Phân tích body lỗi để lấy message cụ thể
         err_body = e.read().decode("utf-8", errors="ignore")
         try:
@@ -1015,7 +1109,7 @@ def generate_speech_elevenlabs(text: str, voice_id: str, api_key: str, out_p: Pa
         elif code == 422:
             raise RuntimeError(f"❌ ElevenLabs: Dữ liệu đầu vào không hợp lệ (422). Chi tiết: {msg}")
         elif code == 429:
-            raise RuntimeError(f"❌ ElevenLabs: Quá nhiều yỪu cầu - hết quota hoặc rate limit (429). {msg}")
+            raise RuntimeError(f"❌ ElevenLabs: Quá nhiều yêu cầu - hết quota hoặc rate limit (429). {msg}")
         else:
             raise RuntimeError(f"❌ ElevenLabs API lỗi HTTP {code}: {msg}")
     except Exception as e:
@@ -1032,30 +1126,25 @@ def generate_single_audio_clip(
 ) -> float:
     """Tạo file âm thanh cho 1 câu phụ đề và đo thời lượng chính xác bằng ffprobe.
     Nếu ElevenLabs được chọn mà lỗi: RAISE ngay, không tự động chuyển sang edge-tts."""
-    el_voices = {
-        "Brian": "nPczCjzI2devNBz1zQrb",
-        "Liam": "TX3LPaxmHKxFdv7VOQHJ",
-        "Adam": "pNInz6obpgDQGcFmaJgB"
-    }
-
     if tts_engine == "elevenlabs":
         if not el_key or not el_key.strip():
             raise RuntimeError(
                 "❌ ElevenLabs được chọn nhưng chưa có API Key. "
                 "Vui lòng vào ⚙️ Cài đặt API để nhập ElevenLabs API Key."
             )
-        # Hỗ trợ cả Voice Name (Brian, Liam, Adam) lẫn Voice ID trực tiếp từ ElevenLabs
-        if voice_name and voice_name.strip() in el_voices:
-            vid = el_voices[voice_name.strip()]
-        elif voice_name and len(voice_name.strip()) >= 15:
+        # Hỗ trợ cả Voice Name (Brian, Liam, Adam...) lẫn Voice ID trực tiếp từ ElevenLabs
+        v_clean = voice_name.strip() if voice_name else "Brian"
+        if v_clean in ELEVENLABS_VOICES:
+            vid = ELEVENLABS_VOICES[v_clean]
+        elif len(v_clean) >= 15:
             # Người dùng nhập trực tiếp Voice ID (thường là chuỗi mã 20 ký tự)
-            vid = voice_name.strip()
+            vid = v_clean
         else:
-            vid = el_voices.get(voice_name, el_voices["Brian"])
+            vid = ELEVENLABS_VOICES.get(v_clean, ELEVENLABS_VOICES["Brian"])
         # Sẽ raise RuntimeError nếu lỗi - không silent fallback
         generate_speech_elevenlabs(text, vid, el_key.strip(), out_mp3)
     else:
-        vname = "vi-VN-NamMinhNeural" if "Nam" in voice_name or voice_name in ["Brian", "Liam", "Adam"] else "vi-VN-HoaiMyNeural"
+        vname = "vi-VN-NamMinhNeural" if "Nam" in voice_name or voice_name in ["Brian", "Liam", "Adam", "George", "Callum", "Bill"] else "vi-VN-HoaiMyNeural"
         asyncio.run(generate_speech_edge(text, vname, out_mp3))
 
     # Chuẩn hóa sang WAV 44.1kHz stereo để trộn timeline mượt mà
@@ -1197,6 +1286,7 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         for sc in scenes:
             s_idx = sc["scene_index"]
+            img_p = job_dir / f"scene_{s_idx}.png"
             b64_val = custom_b64s.get(s_idx)
             if b64_val and (b64_val.strip().startswith("http") or len(b64_val.strip()) > 50):
                 log(job_id, f"   🖼️ Sử dụng ảnh bạn đã tải lên cho Cảnh {s_idx}!")
@@ -1294,6 +1384,7 @@ def run_pipeline(job_id: str, req: VideoRequest):
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-b:a", "192k",
+                "-movflags", "+faststart",
                 "-t", f"{dur_s:.3f}",
                 str(scene_final_mp4)
             ], check=True)

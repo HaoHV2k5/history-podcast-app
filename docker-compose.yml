@@ -32,9 +32,9 @@ services:
       dockerfile: Dockerfile
     container_name: prm-whiteboard-tool
     restart: unless-stopped
+    env_file:
+      - ./tool/.env
     environment:
-      - SYSTEM_GEMINI_API_KEY=${SYSTEM_GEMINI_API_KEY:-}
-      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}
       - CHROMA_DB_DIR=/app/data/chroma_db
       - PYTHONUNBUFFERED=1
     ports:
@@ -66,28 +66,12 @@ services:
         condition: service_healthy
       tool:
         condition: service_healthy
+    env_file:
+      - ./backend/.env
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=${DB_NAME:-prm_db}
-      - DB_USERNAME=${DB_USERNAME:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-postgres}
       - TOOL_URL=http://tool:8000
-      - JWT_SECRET=${JWT_SECRET:-PRM_PLATFORM_SUPER_SECRET_KEY_FOR_JWT_SIGNING_2026_VERY_SECURE}
-      - JWT_ACCESS_EXPIRATION_MS=${JWT_ACCESS_EXPIRATION_MS:-86400000}
-      - JWT_REFRESH_EXPIRATION_MS=${JWT_REFRESH_EXPIRATION_MS:-604800000}
-      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
-      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
-      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
-      - CLOUDINARY_ROOT_FOLDER=${CLOUDINARY_ROOT_FOLDER:-history-podcast}
-      - BREVO_API_KEY=${BREVO_API_KEY:-}
-      - BREVO_SENDER_EMAIL=${BREVO_SENDER_EMAIL:-no-reply@historypodcast.com}
-      - BREVO_SENDER_NAME=${BREVO_SENDER_NAME:-History Podcast Platform}
-      - FIREBASE_API_KEY=${FIREBASE_API_KEY:-}
-      - VNPAY_TMN_CODE=${VNPAY_TMN_CODE:-DEMOVNPAY}
-      - VNPAY_HASH_SECRET=${VNPAY_HASH_SECRET:-DEMOHASHSECRET1234567890ABCDEF}
-      - VNPAY_PAY_URL=${VNPAY_PAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
-      - VNPAY_RETURN_URL=${VNPAY_RETURN_URL:-http://localhost:3000/payment/vnpay-return}
     ports:
       - "8080:8080"
     networks:

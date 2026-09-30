@@ -2,12 +2,8 @@ package com.prm.creator.controller;
 
 import com.prm.common.dto.ApiResponse;
 import com.prm.common.util.SecurityUtils;
-import com.prm.creator.dto.request.CreatorAiSettingRequest;
-import com.prm.creator.dto.request.CreatorRenderRequest;
-import com.prm.creator.dto.request.CreatorStoryboardRequest;
-import com.prm.creator.dto.response.CreatorAiSettingResponse;
-import com.prm.creator.dto.response.CreatorRenderResponse;
-import com.prm.creator.dto.response.CreatorUploadImageResponse;
+import com.prm.creator.dto.request.*;
+import com.prm.creator.dto.response.*;
 import com.prm.creator.service.CreatorStudioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -19,6 +15,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -80,4 +77,68 @@ public class CreatorStudioController {
         Map<String, Object> status = creatorStudioService.getJobStatus(email, jobId, artifactId);
         return ApiResponse.success("Lấy trạng thái render thành công", status);
     }
+
+    @Operation(summary = "Danh sách video đã xuất bản của Creator", description = "Lấy tất cả video của Creator kèm các chỉ số tương tác (like, dislike, bình luận)")
+    @GetMapping("/videos")
+    public ApiResponse<List<CreatorVideoItemResponse>> getVideos() {
+        String email = SecurityUtils.getCurrentUserEmail();
+        List<CreatorVideoItemResponse> videos = creatorStudioService.getCreatorVideos(email);
+        return ApiResponse.success("Lấy danh sách video thành công", videos);
+    }
+
+    @Operation(summary = "Chi tiết video và tương tác", description = "Lấy thông tin chi tiết một video kèm danh sách bình luận của khán giả")
+    @GetMapping("/videos/{contentId}")
+    public ApiResponse<CreatorVideoDetailResponse> getVideoDetail(@PathVariable Long contentId) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorVideoDetailResponse detail = creatorStudioService.getVideoDetail(email, contentId);
+        return ApiResponse.success("Lấy chi tiết video thành công", detail);
+    }
+
+    @Operation(summary = "Chỉnh sửa thông tin video", description = "Cập nhật tiêu đề, mô tả hoặc chế độ độc quyền của video")
+    @PutMapping("/videos/{contentId}")
+    public ApiResponse<CreatorVideoItemResponse> updateVideo(
+            @PathVariable Long contentId,
+            @Valid @RequestBody CreatorUpdateVideoRequest request
+    ) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorVideoItemResponse updated = creatorStudioService.updateVideo(email, contentId, request);
+        return ApiResponse.success("Cập nhật thông tin video thành công", updated);
+    }
+
+    @Operation(summary = "Ẩn hoặc Hiện video", description = "Chuyển trạng thái video thành HIDDEN (ẩn) hoặc PUBLISHED (công khai)")
+    @PatchMapping("/videos/{contentId}/visibility")
+    public ApiResponse<CreatorVideoItemResponse> updateVisibility(
+            @PathVariable Long contentId,
+            @RequestBody CreatorVideoVisibilityRequest request
+    ) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorVideoItemResponse updated = creatorStudioService.updateVideoVisibility(email, contentId, request.getHidden());
+        String msg = Boolean.TRUE.equals(request.getHidden()) ? "Đã ẩn video khỏi danh sách công khai" : "Đã công khai video";
+        return ApiResponse.success(msg, updated);
+    }
+
+    @Operation(summary = "Danh sách bình luận của video", description = "Xem tất cả bình luận của người xem dưới video")
+    @GetMapping("/videos/{contentId}/comments")
+    public ApiResponse<List<CreatorCommentItemResponse>> getVideoComments(@PathVariable Long contentId) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        List<CreatorCommentItemResponse> comments = creatorStudioService.getVideoComments(email, contentId);
+        return ApiResponse.success("Lấy danh sách bình luận thành công", comments);
+    }
+
+    @Operation(summary = "Thư viện giọng đọc AI cho thuyết minh sử Việt", description = "Danh mục các giọng đọc ElevenLabs (ưu tiên nói tốt tiếng Việt) và Microsoft Edge-TTS kèm file nghe thử trực tiếp")
+    @GetMapping("/voices")
+    public ApiResponse<List<CreatorVoiceResponse>> getVoices() {
+        String email = SecurityUtils.getCurrentUserEmail();
+        List<CreatorVoiceResponse> voices = creatorStudioService.getVoiceCatalog(email);
+        return ApiResponse.success("Lấy danh mục giọng đọc AI thành công", voices);
+    }
+
+    @Operation(summary = "Tạo bản nghe thử giọng đọc trực tiếp", description = "Sinh tệp âm thanh nghe thử câu tiếng Việt tùy ý với engine và giọng đọc đã chọn")
+    @PostMapping("/voices/preview")
+    public ApiResponse<Map<String, Object>> previewVoice(@Valid @RequestBody CreatorVoicePreviewRequest request) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        Map<String, Object> result = creatorStudioService.previewVoice(email, request);
+        return ApiResponse.success("Tạo âm thanh nghe thử thành công", result);
+    }
 }
+
