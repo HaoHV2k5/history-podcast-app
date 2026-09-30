@@ -13,6 +13,9 @@ public class WithdrawalResponse {
     private Long id;
     private Long walletId;
     private Long bankAccountId;
+    private String bankName;
+    private String accountNumber;
+    private String accountHolderName;
     private BigDecimal amount;
     private String status;
     private Instant requestedAt;

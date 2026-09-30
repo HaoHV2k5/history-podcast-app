@@ -1,59 +1,57 @@
 package com.prm.membership.controller;
 
-import com.prm.membership.dto.request.MembershipRequest;
-import com.prm.membership.dto.response.MembershipResponse;
-import com.prm.membership.service.MembershipService;
 import com.prm.common.dto.ApiResponse;
+import com.prm.common.dto.PageResponse;
+import com.prm.membership.dto.response.MembershipCheckResponse;
+import com.prm.membership.dto.response.MembershipSubscribeResponse;
+import com.prm.membership.dto.response.MyMembershipResponse;
+import com.prm.membership.service.MembershipService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
-@RequestMapping("/api/v1/memberships")
 @RequiredArgsConstructor
-@Tag(name = "Membership Management", description = "Quản lý và thao tác dữ liệu Membership")
+@Tag(name = "Membership Management", description = "Quản lý đăng ký hội viên kênh, kiểm tra quyền truy cập và danh sách hội viên")
 public class MembershipController {
 
-    private final MembershipService service;
+    private final MembershipService membershipService;
 
-    @GetMapping
-    @Operation(summary = "Lấy danh sách tất cả Membership", description = "Trả về danh sách bản ghi Membership")
-    public ResponseEntity<ApiResponse<List<MembershipResponse>>> getAll() {
-        List<MembershipResponse> list = service.findAll();
-        return ResponseEntity.ok(ApiResponse.success(list));
+    @PostMapping("/api/v1/channels/{channelId}/memberships/subscribe")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "1. Đăng ký mua gói hội viên kênh",
+            description = "Viewer sử dụng số dư ví để đăng ký gói hội viên kênh (30 ngày). Phân chia doanh thu 80% cho Creator, 20% cho nền tảng.")
+    public ResponseEntity<ApiResponse<MembershipSubscribeResponse>> subscribe(@PathVariable Long channelId) {
+        MembershipSubscribeResponse response = membershipService.subscribe(channelId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đăng ký gói hội viên kênh thành công", response));
     }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Lấy chi tiết Membership theo ID", description = "Trả về chi tiết một bản ghi Membership")
-    public ResponseEntity<ApiResponse<MembershipResponse>> getById(@PathVariable Long id) {
-        MembershipResponse response = service.findById(id);
+    @GetMapping("/api/v1/channels/{channelId}/memberships/check")
+    @Operation(summary = "2. Kiểm tra quyền hội viên kênh",
+            description = "Kiểm tra xem người dùng hiện tại có quyền truy cập nội dung độc quyền của kênh này hay không (là chủ kênh, Admin hoặc hội viên còn hạn).")
+    public ResponseEntity<ApiResponse<MembershipCheckResponse>> checkMembership(@PathVariable Long channelId) {
+        MembershipCheckResponse response = membershipService.checkMembership(channelId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping
-    @Operation(summary = "Tạo mới Membership", description = "Tạo mới một bản ghi Membership trong hệ thống")
-    public ResponseEntity<ApiResponse<MembershipResponse>> create(@Valid @RequestBody MembershipRequest request) {
-        MembershipResponse response = service.create(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("Tạo mới thành công", response));
-    }
-
-    @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật Membership", description = "Cập nhật thông tin bản ghi Membership theo ID")
-    public ResponseEntity<ApiResponse<MembershipResponse>> update(@PathVariable Long id, @Valid @RequestBody MembershipRequest request) {
-        MembershipResponse response = service.update(id, request);
-        return ResponseEntity.ok(ApiResponse.success("Cập nhật thành công", response));
-    }
-
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Xóa Membership", description = "Xóa bản ghi Membership khỏi hệ thống theo ID")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
-        service.delete(id);
-        return ResponseEntity.ok(ApiResponse.success("Xóa thành công", null));
+    @GetMapping("/api/v1/memberships/me")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "3. Xem danh sách các kênh đang là hội viên",
+            description = "Viewer xem danh sách các kênh mình đã đăng ký hội viên còn hiệu lực có phân trang.")
+    public ResponseEntity<ApiResponse<PageResponse<MyMembershipResponse>>> getMyMemberships(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "startedAt"));
+        PageResponse<MyMembershipResponse> response = membershipService.getMyMemberships(pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
