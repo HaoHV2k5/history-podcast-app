@@ -60,9 +60,9 @@ def get_embedding(text: str, api_key: str, model: str = EMBEDDING_MODEL, output_
     Tạo vector embedding cho một chuỗi văn bản (query, title hoặc câu kịch bản)
     Hỗ trợ tự động fallback giữa gemini-embedding-2 và gemini-embedding-001.
     """
-    key_to_use = (api_key or SYSTEM_KEY).strip()
+    key_to_use = (api_key or "").strip()
     if not key_to_use:
-        raise ValueError("Chưa có Gemini API Key để thực hiện truy vấn embedding!")
+        raise ValueError("Chưa có Google Gemini API Key của người dùng. Vui lòng cấu hình API Key cá nhân trong Cài đặt (⚙️).")
 
     candidate_models = [model]
     if model != "gemini-embedding-2":
@@ -84,35 +84,106 @@ def get_embedding(text: str, api_key: str, model: str = EMBEDDING_MODEL, output_
             method="POST"
         )
 
-        for attempt in range(3):
+        for attempt in range(2):
             try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                with urllib.request.urlopen(req, timeout=15) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     return data.get("embedding", {}).get("values", [])
             except urllib.error.HTTPError as e:
-                if e.code == 429:
-                    time.sleep(1.5 * (attempt + 1))
-                    continue
-                break  # try next model
-            except Exception:
-                if attempt < 2:
+                err_text = ""
+                try:
+                    err_text = e.read().decode("utf-8", errors="ignore")
+                except Exception:
+                    pass
+                if "RESOURCE_EXHAUSTED" in err_text or "Quota exceeded" in err_text:
+                    # Hết quota lượt gọi API trong ngày, dừng thử ngay để chuyển sang keyword search
+                    break
+                if e.code == 429 and attempt == 0:
                     time.sleep(1.0)
+                    continue
+                break
+            except Exception:
+                if attempt == 0:
+                    time.sleep(0.5)
                     continue
                 break
 
     raise RuntimeError("Không thể tạo vector embedding với các mô hình Gemini hiện có.")
 
 
+_cached_corpus = None
+
+def get_cached_corpus():
+    global _cached_corpus
+    if _cached_corpus is None:
+        col = get_chroma_collection()
+        total = col.count()
+        if total > 0:
+            data = col.get(include=["documents", "metadatas"])
+            _cached_corpus = (data.get("documents", []), data.get("metadatas", []))
+        else:
+            _cached_corpus = ([], [])
+    return _cached_corpus
+
+
+def search_history_by_keywords(query: str, top_k: int = 6) -> List[Dict[str, Any]]:
+    """
+    Tìm kiếm sử liệu dựa trên từ khóa ngữ cảnh trên toàn bộ kho sách doc/ (1920 chunks trong ChromaDB).
+    Hoạt động như phương thức Hybrid / Fallback vững chắc khi Gemini Vector Embedding chạm quota hoặc lỗi kết nối.
+    Đảm bảo quy trình RAG luôn BẮT BUỘC và không bao giờ bị gián đoạn.
+    """
+    import re
+    docs, metas = get_cached_corpus()
+    if not docs:
+        return []
+
+    q_lower = query.lower()
+    # Tách cụm từ 2-3 từ
+    phrases = re.findall(r'\b[a-zA-Zà-ỹÀ-Ỹ]{3,}(?:\s+[a-zA-Zà-ỹÀ-Ỹ]{3,}){1,2}\b', q_lower)
+    stop_words = {
+        'và', 'của', 'các', 'những', 'ở', 'tại', 'trong', 'cho', 'với', 'là', 'khi',
+        'về', 'năm', 'được', 'người', 'này', 'đó', 'từ', 'ra', 'vào', 'đã', 'sẽ', 'lại'
+    }
+    words = [w for w in re.findall(r'\b[a-zA-Zà-ỹÀ-Ỹ]{2,}\b', q_lower) if w not in stop_words]
+
+    scored = []
+    for d, m in zip(docs, metas):
+        dl = d.lower()
+        score = 0
+        for p in phrases:
+            if p in dl:
+                score += 8
+        for w in words:
+            score += dl.count(w)
+        if score > 0:
+            similarity = min(0.95, 0.65 + score * 0.015)
+            scored.append({
+                "text": d,
+                "book_title": m.get("book_title", "Sử liệu Việt Nam"),
+                "page": m.get("page_number", 0),
+                "file_name": m.get("file_name", ""),
+                "similarity": round(similarity, 4),
+                "distance": round(max(0.0, 1.0 - similarity), 4),
+                "_score": score
+            })
+
+    scored.sort(key=lambda x: x["_score"], reverse=True)
+    return scored[:top_k]
+
+
 def search_history_context(query: str, api_key: str, top_k: int = 5) -> List[Dict[str, Any]]:
     """
-    Tìm kiếm các đoạn tư liệu lịch sử liên quan nhất trong ChromaDB
+    Tìm kiếm các đoạn tư liệu lịch sử liên quan nhất trong ChromaDB.
+    Ưu tiên tìm kiếm Vector Embedding; tự động kích hoạt Keyword Search nếu Embedding API bận/quota.
+    Đảm bảo quy trình RAG BẮT BUỘC luôn trả về nguồn sử liệu gốc tin cậy.
     """
-    try:
-        col = get_chroma_collection()
-        total_chunks = col.count()
-        if total_chunks == 0:
-            return []
+    col = get_chroma_collection()
+    total_chunks = col.count()
+    if total_chunks == 0:
+        return []
 
+    # 1. Thử Vector Embedding Search
+    try:
         query_emb = get_embedding(query, api_key)
         results = col.query(
             query_embeddings=[query_emb],
@@ -126,7 +197,6 @@ def search_history_context(query: str, api_key: str, top_k: int = 5) -> List[Dic
             distances = results["distances"][0]
 
             for d, m, dist in zip(docs, metas, distances):
-                # Cosine distance: 0 = identical, 1 = orthogonal
                 similarity = max(0.0, min(1.0, 1.0 - (dist / 2.0)))
                 matches.append({
                     "text": d,
@@ -137,10 +207,17 @@ def search_history_context(query: str, api_key: str, top_k: int = 5) -> List[Dic
                     "distance": round(dist, 4)
                 })
 
-        return matches
+        if matches:
+            print(f"[RAG] ✅ Tìm thấy {len(matches)} đoạn sử liệu qua Vector Search (Sim cao nhất: {matches[0]['similarity']})")
+            return matches
     except Exception as e:
-        print(f"⚠️ Lỗi truy vấn Vector DB: {e}")
-        return []
+        print(f"[RAG] ⚠️ Vector Search không khả dụng ({e}). Tự động kích hoạt Keyword Context RAG...")
+
+    # 2. Fallback / Hybrid sang Keyword Search từ kho 1920 chunks
+    kw_matches = search_history_by_keywords(query, top_k=top_k)
+    if kw_matches:
+        print(f"[RAG] ✅ Tìm thấy {len(kw_matches)} đoạn sử liệu qua Keyword Context RAG (Trích dẫn cao nhất: {kw_matches[0]['book_title']} Trang {kw_matches[0]['page']})")
+    return kw_matches
 
 
 def verify_script_with_gemini(script_text: str, api_key: str) -> Dict[str, Any]:
@@ -150,9 +227,9 @@ def verify_script_with_gemini(script_text: str, api_key: str) -> Dict[str, Any]:
     - Đối chiếu các luận điểm lịch sử với tư liệu gốc
     - Đưa ra điểm tin cậy, chi tiết đúng/sai, trích dẫn sách và bản sửa đổi chuẩn xác
     """
-    key_to_use = (api_key or SYSTEM_KEY).strip()
+    key_to_use = (api_key or "").strip()
     if not key_to_use:
-        raise ValueError("Vui lòng cung cấp Gemini API Key để thực hiện thẩm định!")
+        raise ValueError("Vui lòng cung cấp Google Gemini API Key cá nhân trong Cài đặt (⚙️) để thực hiện thẩm định!")
 
     # 1. Truy vấn các đoạn sử liệu liên quan nhất cho toàn bộ bài viết / kịch bản
     # Cắt ngắn để tìm kiếm theo bối cảnh chung

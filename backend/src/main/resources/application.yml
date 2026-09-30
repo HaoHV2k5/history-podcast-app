@@ -65,6 +65,8 @@ app:
     hash-secret: ${VNPAY_HASH_SECRET:DEMOHASHSECRET1234567890ABCDEF}
     pay-url: ${VNPAY_PAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
     return-url: ${VNPAY_RETURN_URL:http://localhost:3000/payment/vnpay-return}
+  tool:
+    url: ${TOOL_URL:http://localhost:8000}
 
 # SpringDoc OpenAPI configuration
 springdoc:
