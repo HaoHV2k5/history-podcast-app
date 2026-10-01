@@ -64,6 +64,27 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendPasswordResetOtpEmail(String toEmail, String otpCode) {
+        String subject = "[History Podcast] Mã OTP đặt lại mật khẩu tài khoản";
+        String htmlContent = """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <h2 style="color: #8b0000; margin-bottom: 16px;">Yêu Cầu Đặt Lại Mật Khẩu</h2>
+                    <p>Xin chào bạn,</p>
+                    <p>Hệ thống nhận được yêu cầu đặt lại mật khẩu cho tài khoản <strong>History Podcast</strong> liên kết với email này.</p>
+                    <p>Mã xác thực OTP của bạn là:</p>
+                    <div style="text-align: center; margin: 24px 0;">
+                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #8b0000; background-color: #fdf2f2; border: 1px solid #fecaca; padding: 12px 24px; border-radius: 6px; display: inline-block;">%s</span>
+                    </div>
+                    <p style="color: #666; font-size: 14px;">Mã xác thực này có hiệu lực trong <strong>5 phút</strong>. Tuyệt đối không chia sẻ mã này cho bất kỳ ai khác.</p>
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                    <p style="color: #999; font-size: 12px;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email để đảm bảo an toàn cho tài khoản của bạn.</p>
+                </div>
+                """.formatted(otpCode);
+
+        sendEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
     public void sendEmail(String toEmail, String subject, String htmlContent) {
         if (!StringUtils.hasText(apiKey)) {
             log.error("BREVO_API_KEY is not configured. Cannot send email to: {}", toEmail);
