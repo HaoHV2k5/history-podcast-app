@@ -3,11 +3,18 @@ package com.prm.creator.service;
 import com.prm.creator.dto.request.CreatorAiSettingRequest;
 import com.prm.creator.dto.request.CreatorRenderRequest;
 import com.prm.creator.dto.request.CreatorStoryboardRequest;
+import com.prm.creator.dto.request.CreatorUpdateVideoRequest;
+import com.prm.creator.dto.request.CreatorVoicePreviewRequest;
 import com.prm.creator.dto.response.CreatorAiSettingResponse;
+import com.prm.creator.dto.response.CreatorCommentItemResponse;
 import com.prm.creator.dto.response.CreatorRenderResponse;
 import com.prm.creator.dto.response.CreatorUploadImageResponse;
+import com.prm.creator.dto.response.CreatorVideoDetailResponse;
+import com.prm.creator.dto.response.CreatorVideoItemResponse;
+import com.prm.creator.dto.response.CreatorVoiceResponse;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 public interface CreatorStudioService {
@@ -46,12 +53,12 @@ public interface CreatorStudioService {
     /**
      * Lấy danh sách video của Creator kèm các chỉ số tương tác (like, dislike, comment count).
      */
-    java.util.List<com.prm.creator.dto.response.CreatorVideoItemResponse> getCreatorVideos(String email);
+    List<CreatorVideoItemResponse> getCreatorVideos(String email);
 
     /**
      * Tìm kiếm và lọc danh sách video của Creator theo từ khóa, trạng thái, độc quyền VIP và sắp xếp.
      */
-    java.util.List<com.prm.creator.dto.response.CreatorVideoItemResponse> getCreatorVideos(
+    List<CreatorVideoItemResponse> getCreatorVideos(
             String email,
             String keyword,
             String status,
@@ -63,31 +70,30 @@ public interface CreatorStudioService {
     /**
      * Lấy chi tiết thông tin video kèm thống kê tương tác và danh sách bình luận.
      */
-    com.prm.creator.dto.response.CreatorVideoDetailResponse getVideoDetail(String email, Long contentId);
+    CreatorVideoDetailResponse getVideoDetail(String email, Long contentId);
 
     /**
      * Chỉnh sửa thông tin video (tiêu đề, mô tả/nội dung, trạng thái độc quyền).
      */
-    com.prm.creator.dto.response.CreatorVideoItemResponse updateVideo(String email, Long contentId, com.prm.creator.dto.request.CreatorUpdateVideoRequest request);
+    CreatorVideoItemResponse updateVideo(String email, Long contentId, CreatorUpdateVideoRequest request);
 
     /**
      * Ẩn hoặc Hiện video (chuyển đổi trạng thái PUBLISHED <-> HIDDEN).
      */
-    com.prm.creator.dto.response.CreatorVideoItemResponse updateVideoVisibility(String email, Long contentId, Boolean hidden);
+    CreatorVideoItemResponse updateVideoVisibility(String email, Long contentId, Boolean hidden);
 
     /**
      * Xem danh sách các bình luận của một video.
      */
-    java.util.List<com.prm.creator.dto.response.CreatorCommentItemResponse> getVideoComments(String email, Long contentId);
+    List<CreatorCommentItemResponse> getVideoComments(String email, Long contentId);
 
     /**
      * Lấy danh mục các giọng đọc AI chất lượng cao (ưu tiên tiếng Việt) từ ElevenLabs & Edge-TTS.
      */
-    java.util.List<com.prm.creator.dto.response.CreatorVoiceResponse> getVoiceCatalog(String email);
+    List<CreatorVoiceResponse> getVoiceCatalog(String email);
 
     /**
      * Tạo âm thanh nghe thử trực tiếp câu tiếng Việt theo giọng đọc và engine được chọn.
      */
-    Map<String, Object> previewVoice(String email, com.prm.creator.dto.request.CreatorVoicePreviewRequest request);
+    Map<String, Object> previewVoice(String email, CreatorVoicePreviewRequest request);
 }
-
