@@ -78,11 +78,20 @@ public class CreatorStudioController {
         return ApiResponse.success("Lấy trạng thái render thành công", status);
     }
 
-    @Operation(summary = "Danh sách video đã xuất bản của Creator", description = "Lấy tất cả video của Creator kèm các chỉ số tương tác (like, dislike, bình luận)")
+    @Operation(summary = "Danh sách, Tìm kiếm & Lọc video của Creator", 
+               description = "Lấy danh sách video của Creator kèm tìm kiếm theo từ khóa (tiêu đề, nội dung), lọc theo trạng thái (PUBLISHED, HIDDEN, FAILED, PROCESSING), lọc độc quyền VIP, và sắp xếp theo ngày tạo, lượt like, bình luận, thời lượng")
     @GetMapping("/videos")
-    public ApiResponse<List<CreatorVideoItemResponse>> getVideos() {
+    public ApiResponse<List<CreatorVideoItemResponse>> getVideos(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Boolean isExclusive,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir
+    ) {
         String email = SecurityUtils.getCurrentUserEmail();
-        List<CreatorVideoItemResponse> videos = creatorStudioService.getCreatorVideos(email);
+        List<CreatorVideoItemResponse> videos = creatorStudioService.getCreatorVideos(
+                email, keyword, status, isExclusive, sortBy, sortDir
+        );
         return ApiResponse.success("Lấy danh sách video thành công", videos);
     }
 

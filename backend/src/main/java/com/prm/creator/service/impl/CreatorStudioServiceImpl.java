@@ -17,6 +17,8 @@ import com.prm.common.enums.ActiveStatus;
 import com.prm.common.enums.ArtifactStatus;
 import com.prm.common.enums.ContentStatus;
 import com.prm.common.service.FileStorageService;
+import com.prm.common.util.SearchUtils;
+import java.util.Comparator;
 import com.prm.creator.dto.request.CreatorAiSettingRequest;
 import com.prm.creator.dto.request.CreatorRenderRequest;
 import com.prm.creator.dto.request.CreatorStoryboardRequest;
@@ -501,11 +503,54 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     @Override
     @Transactional(readOnly = true)
     public List<CreatorVideoItemResponse> getCreatorVideos(String email) {
+        return getCreatorVideos(email, null, null, null, "createdAt", "desc");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CreatorVideoItemResponse> getCreatorVideos(
+            String email,
+            String keyword,
+            String status,
+            Boolean isExclusive,
+            String sortBy,
+            String sortDir
+    ) {
         User creator = getUserByEmail(email);
         List<Content> contents = contentRepository.findByCreatorId(creator.getId());
 
         List<CreatorVideoItemResponse> result = new ArrayList<>();
         for (Content content : contents) {
+            // 1. Lọc theo trạng thái
+            if (StringUtils.hasText(status) && !"ALL".equalsIgnoreCase(status.trim())) {
+                String reqStatus = status.trim().toUpperCase();
+                String curStatus = content.getStatus() != null ? content.getStatus().toUpperCase() : "";
+                if ("PENDING".equals(reqStatus) || "PROCESSING".equals(reqStatus)) {
+                    if (!"PENDING".equals(curStatus) && !"PROCESSING".equals(curStatus) && !"DRAFT".equals(curStatus)) {
+                        continue;
+                    }
+                } else if (!reqStatus.equals(curStatus)) {
+                    continue;
+                }
+            }
+
+            // 2. Lọc theo quyền truy cập độc quyền VIP
+            if (isExclusive != null) {
+                boolean itemIsExclusive = Boolean.TRUE.equals(content.getIsExclusive());
+                if (isExclusive != itemIsExclusive) {
+                    continue;
+                }
+            }
+
+            // 3. Tìm kiếm theo từ khóa trong tiêu đề và nội dung kịch bản (hỗ trợ cả có dấu và không dấu tiếng Việt)
+            if (StringUtils.hasText(keyword)) {
+                boolean matchTitle = SearchUtils.matchesKeyword(content.getTitle(), keyword);
+                boolean matchBody = SearchUtils.matchesKeyword(content.getTextBody(), keyword);
+                if (!matchTitle && !matchBody) {
+                    continue;
+                }
+            }
+
             Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null);
             long likeCount = 0;
             long dislikeCount = 0;
@@ -545,7 +590,46 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                     .commentCount(commentCount)
                     .build());
         }
+
+        // 4. Sắp xếp danh sách video
+        Comparator<CreatorVideoItemResponse> comparator = getCreatorVideoComparator(sortBy);
+        if ("asc".equalsIgnoreCase(sortDir)) {
+            result.sort(comparator);
+        } else {
+            result.sort(comparator.reversed());
+        }
+
         return result;
+    }
+
+    private Comparator<CreatorVideoItemResponse> getCreatorVideoComparator(String sortBy) {
+        if (!StringUtils.hasText(sortBy)) {
+            sortBy = "createdAt";
+        }
+        Comparator<CreatorVideoItemResponse> primary;
+        switch (sortBy.toLowerCase()) {
+            case "title" -> primary = Comparator.comparing(
+                    v -> v.getTitle() != null ? v.getTitle().toLowerCase() : "",
+                    Comparator.naturalOrder()
+            );
+            case "likecount", "likes", "like" -> primary = Comparator.comparingLong(CreatorVideoItemResponse::getLikeCount);
+            case "dislikecount", "dislikes" -> primary = Comparator.comparingLong(CreatorVideoItemResponse::getDislikeCount);
+            case "commentcount", "comments", "comment" -> primary = Comparator.comparingLong(CreatorVideoItemResponse::getCommentCount);
+            case "durationseconds", "duration" -> primary = Comparator.comparingInt(
+                    v -> v.getDurationSeconds() != null ? v.getDurationSeconds() : 0
+            );
+            default -> primary = Comparator.comparing(
+                    CreatorVideoItemResponse::getCreatedAt,
+                    Comparator.nullsLast(Comparator.naturalOrder())
+            );
+        }
+
+        return primary.thenComparing(
+                Comparator.comparing(
+                        CreatorVideoItemResponse::getCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                )
+        );
     }
 
     @Override

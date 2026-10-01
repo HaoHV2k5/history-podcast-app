@@ -17,4 +17,10 @@ public interface ContentRepository extends JpaRepository<Content, Long> {
 
     @Query("SELECT c FROM Content c WHERE c.id = :contentId AND c.channel.creator.id = :creatorId")
     Optional<Content> findByIdAndCreatorId(@Param("contentId") Long contentId, @Param("creatorId") Long creatorId);
+
+    @Query("SELECT c FROM Content c WHERE c.status = :status ORDER BY c.createdAt DESC")
+    List<Content> findByStatus(@Param("status") String status);
+
+    @Query("SELECT c FROM Content c WHERE c.channel.id = :channelId AND c.status = :status ORDER BY c.createdAt DESC")
+    List<Content> findByChannelIdAndStatus(@Param("channelId") Long channelId, @Param("status") String status);
 }
