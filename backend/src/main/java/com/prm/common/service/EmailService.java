@@ -11,6 +11,14 @@ public interface EmailService {
     void sendOtpEmail(String toEmail, String otpCode);
 
     /**
+     * Send an OTP code to a recipient email for password reset verification.
+     *
+     * @param toEmail recipient email address
+     * @param otpCode 6-digit verification code
+     */
+    void sendPasswordResetOtpEmail(String toEmail, String otpCode);
+
+    /**
      * Send a general transactional email.
      *
      * @param toEmail     recipient email address

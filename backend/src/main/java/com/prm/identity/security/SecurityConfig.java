@@ -37,6 +37,7 @@ public class SecurityConfig {
             "/swagger-ui.html",
             "/creator-studio.html",
             "/test-phone.html",
+            "/test-forgot-password.html",
             "/outputs/**",
             "/audio/**"
     };
