@@ -40,11 +40,34 @@ class SearchUtilsTest {
     }
 
     @Test
-    @DisplayName("Từ khóa rỗng hoặc null luôn trả về true")
+    @DisplayName("Tự động trim khoảng trắng và gom nhiều khoảng trắng liên tiếp")
+    void testWhitespaceTrimmingAndNormalization() {
+        String title = "Chiến dịch Bạch Đằng năm 938";
+
+        // Từ khóa có khoảng trắng đầu và cuối
+        assertTrue(SearchUtils.matchesKeyword(title, "   Bạch Đằng   "));
+        assertTrue(SearchUtils.matchesKeyword(title, "   bach dang   "));
+
+        // Từ khóa có nhiều khoảng trắng ở giữa
+        assertTrue(SearchUtils.matchesKeyword(title, "Bạch     Đằng"));
+        assertTrue(SearchUtils.matchesKeyword(title, "bach    dang"));
+
+        // Tiêu đề nguồn có nhiều khoảng trắng ở giữa
+        String messyTitle = "Chiến    dịch    Bạch     Đằng   năm  938";
+        assertTrue(SearchUtils.matchesKeyword(messyTitle, "Bạch Đằng"));
+        assertTrue(SearchUtils.matchesKeyword(messyTitle, "bach dang"));
+
+        // Normalize whitespace độc lập
+        assertEquals("Bạch Đằng 938", SearchUtils.normalizeWhitespace("   Bạch    Đằng    938   "));
+    }
+
+    @Test
+    @DisplayName("Từ khóa rỗng hoặc chỉ toàn khoảng trắng luôn trả về true")
     void testEmptyOrNullKeyword() {
         assertTrue(SearchUtils.matchesKeyword("Tiêu đề bất kỳ", null));
         assertTrue(SearchUtils.matchesKeyword("Tiêu đề bất kỳ", ""));
         assertTrue(SearchUtils.matchesKeyword("Tiêu đề bất kỳ", "   "));
+        assertTrue(SearchUtils.matchesKeyword("Tiêu đề bất kỳ", " \t \n "));
     }
 
     @Test
@@ -52,5 +75,6 @@ class SearchUtilsTest {
     void testEmptyOrNullTarget() {
         assertFalse(SearchUtils.matchesKeyword(null, "search"));
         assertFalse(SearchUtils.matchesKeyword("", "search"));
+        assertFalse(SearchUtils.matchesKeyword("   ", "search"));
     }
 }
