@@ -1,11 +1,15 @@
 package com.prm.common.service.impl;
 
+import com.prm.common.dto.request.EmailTemplatePreviewRequest;
 import com.prm.common.dto.request.EmailTemplateRequest;
+import com.prm.common.dto.request.EmailTemplateTestSendRequest;
+import com.prm.common.dto.response.EmailTemplatePreviewResponse;
 import com.prm.common.dto.response.EmailTemplateResponse;
 import com.prm.common.entity.EmailTemplate;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
 import com.prm.common.repository.EmailTemplateRepository;
+import com.prm.common.service.EmailService;
 import com.prm.common.service.EmailTemplateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -13,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ import java.util.List;
 public class EmailTemplateServiceImpl implements EmailTemplateService {
 
     private final EmailTemplateRepository repository;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -93,6 +99,50 @@ public class EmailTemplateServiceImpl implements EmailTemplateService {
             throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy mẫu email với ID: " + id);
         }
         repository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EmailTemplatePreviewResponse preview(Long id, EmailTemplatePreviewRequest request) {
+        EmailTemplate template = repository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy mẫu email với ID: " + id));
+
+        String subject = template.getSubject();
+        String htmlContent = template.getHtmlContent();
+
+        if (request != null && request.getVariables() != null) {
+            for (Map.Entry<String, String> entry : request.getVariables().entrySet()) {
+                String placeholder = "{{" + entry.getKey() + "}}";
+                String val = entry.getValue() != null ? entry.getValue() : "";
+                subject = subject.replace(placeholder, val);
+                htmlContent = htmlContent.replace(placeholder, val);
+            }
+        }
+
+        return EmailTemplatePreviewResponse.builder()
+                .subject(subject)
+                .htmlContent(htmlContent)
+                .build();
+    }
+
+    @Override
+    public void sendTestEmail(Long id, EmailTemplateTestSendRequest request) {
+        EmailTemplate template = repository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy mẫu email với ID: " + id));
+
+        String subject = template.getSubject();
+        String htmlContent = template.getHtmlContent();
+
+        if (request.getVariables() != null) {
+            for (Map.Entry<String, String> entry : request.getVariables().entrySet()) {
+                String placeholder = "{{" + entry.getKey() + "}}";
+                String val = entry.getValue() != null ? entry.getValue() : "";
+                subject = subject.replace(placeholder, val);
+                htmlContent = htmlContent.replace(placeholder, val);
+            }
+        }
+
+        emailService.sendEmail(request.getToEmail(), "[TEST PREVIEW] " + subject, htmlContent);
     }
 
     private EmailTemplateResponse mapToResponse(EmailTemplate template) {

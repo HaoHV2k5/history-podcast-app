@@ -1,6 +1,9 @@
 package com.prm.common.service;
 
+import com.prm.common.dto.request.EmailTemplatePreviewRequest;
 import com.prm.common.dto.request.EmailTemplateRequest;
+import com.prm.common.dto.request.EmailTemplateTestSendRequest;
+import com.prm.common.dto.response.EmailTemplatePreviewResponse;
 import com.prm.common.dto.response.EmailTemplateResponse;
 import com.prm.common.entity.EmailTemplate;
 import com.prm.common.exception.AppException;
@@ -16,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +31,9 @@ class EmailTemplateServiceImplTest {
 
     @Mock
     private EmailTemplateRepository repository;
+
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private EmailTemplateServiceImpl service;
@@ -135,5 +142,50 @@ class EmailTemplateServiceImplTest {
         assertNotNull(result);
         assertEquals("Updated Name", sampleTemplate.getName());
         verify(repository, times(1)).save(sampleTemplate);
+    }
+
+    @Test
+    @DisplayName("delete template thành công")
+    void testDelete_Success() {
+        when(repository.existsById(1L)).thenReturn(true);
+
+        service.delete(1L);
+
+        verify(repository, times(1)).deleteById(1L);
+    }
+
+    @Test
+    @DisplayName("preview template thay thế các biến chính xác")
+    void testPreview_Success() {
+        when(repository.findById(1L)).thenReturn(Optional.of(sampleTemplate));
+
+        EmailTemplatePreviewRequest request = EmailTemplatePreviewRequest.builder()
+                .variables(Map.of("otpCode", "987654"))
+                .build();
+
+        EmailTemplatePreviewResponse response = service.preview(1L, request);
+
+        assertNotNull(response);
+        assertEquals("Test Subject 987654", response.getSubject());
+        assertEquals("<div>OTP: 987654</div>", response.getHtmlContent());
+    }
+
+    @Test
+    @DisplayName("sendTestEmail gửi email qua emailService")
+    void testSendTestEmail_Success() {
+        when(repository.findById(1L)).thenReturn(Optional.of(sampleTemplate));
+
+        EmailTemplateTestSendRequest request = EmailTemplateTestSendRequest.builder()
+                .toEmail("admin@historypodcast.com")
+                .variables(Map.of("otpCode", "111222"))
+                .build();
+
+        service.sendTestEmail(1L, request);
+
+        verify(emailService, times(1)).sendEmail(
+                eq("admin@historypodcast.com"),
+                eq("[TEST PREVIEW] Test Subject 111222"),
+                eq("<div>OTP: 111222</div>")
+        );
     }
 }
