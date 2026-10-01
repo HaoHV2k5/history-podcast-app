@@ -2,6 +2,7 @@ package com.prm.channel.controller;
 
 import com.prm.channel.dto.request.ContentRequest;
 import com.prm.channel.dto.response.ContentResponse;
+import com.prm.channel.dto.response.PublicVideoItemResponse;
 import com.prm.channel.service.ContentService;
 import com.prm.common.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -21,6 +22,20 @@ import java.util.List;
 public class ContentController {
 
     private final ContentService service;
+
+    @GetMapping("/search")
+    @Operation(summary = "Tìm kiếm & lọc video công khai cho người xem", 
+               description = "Tìm kiếm video đã xuất bản theo từ khóa (tiêu đề, nội dung kịch bản), lọc theo kênh, độc quyền VIP, và sắp xếp theo ngày tạo, lượt like, bình luận, thời lượng")
+    public ResponseEntity<ApiResponse<List<PublicVideoItemResponse>>> searchVideos(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long channelId,
+            @RequestParam(required = false) Boolean isExclusive,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
+            @RequestParam(required = false, defaultValue = "desc") String sortDir
+    ) {
+        List<PublicVideoItemResponse> list = service.searchPublicVideos(keyword, channelId, isExclusive, sortBy, sortDir);
+        return ResponseEntity.ok(ApiResponse.success(list));
+    }
 
     @GetMapping
     @Operation(summary = "Lấy danh sách tất cả Content", description = "Trả về danh sách bản ghi Content")

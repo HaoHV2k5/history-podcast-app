@@ -49,6 +49,18 @@ public interface CreatorStudioService {
     java.util.List<com.prm.creator.dto.response.CreatorVideoItemResponse> getCreatorVideos(String email);
 
     /**
+     * Tìm kiếm và lọc danh sách video của Creator theo từ khóa, trạng thái, độc quyền VIP và sắp xếp.
+     */
+    java.util.List<com.prm.creator.dto.response.CreatorVideoItemResponse> getCreatorVideos(
+            String email,
+            String keyword,
+            String status,
+            Boolean isExclusive,
+            String sortBy,
+            String sortDir
+    );
+
+    /**
      * Lấy chi tiết thông tin video kèm thống kê tương tác và danh sách bình luận.
      */
     com.prm.creator.dto.response.CreatorVideoDetailResponse getVideoDetail(String email, Long contentId);
