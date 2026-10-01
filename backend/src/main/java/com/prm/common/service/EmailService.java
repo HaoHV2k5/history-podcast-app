@@ -26,4 +26,13 @@ public interface EmailService {
      * @param htmlContent HTML body content
      */
     void sendEmail(String toEmail, String subject, String htmlContent);
+
+    /**
+     * Send an email by loading template from database and substituting variable placeholders.
+     *
+     * @param toEmail      recipient email address
+     * @param templateCode unique code of the email template in the database
+     * @param variables    map of key-value variables to replace in subject and HTML body
+     */
+    void sendEmailWithTemplate(String toEmail, String templateCode, java.util.Map<String, String> variables);
 }
