@@ -1,7 +1,9 @@
 package com.prm.common.service.impl;
 
+import com.prm.common.entity.EmailTemplate;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
+import com.prm.common.repository.EmailTemplateRepository;
 import com.prm.common.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,17 +20,20 @@ import java.util.Map;
 public class EmailServiceImpl implements EmailService {
 
     private final RestClient restClient;
+    private final EmailTemplateRepository emailTemplateRepository;
     private final String apiKey;
     private final String senderEmail;
     private final String senderName;
     private final String apiUrl;
 
     public EmailServiceImpl(
+            EmailTemplateRepository emailTemplateRepository,
             @Value("${app.email.brevo.api-key:}") String apiKey,
             @Value("${app.email.brevo.sender-email:no-reply@historypodcast.com}") String senderEmail,
             @Value("${app.email.brevo.sender-name:History Podcast Platform}") String senderName,
             @Value("${app.email.brevo.api-url:https://api.brevo.com/v3/smtp/email}") String apiUrl
     ) {
+        this.emailTemplateRepository = emailTemplateRepository;
         this.apiKey = apiKey;
         this.senderEmail = senderEmail;
         this.senderName = senderName;
@@ -43,24 +48,43 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
-    public void sendOtpEmail(String toEmail, String otpCode) {
-        String subject = "[History Podcast] Mã xác thực OTP đăng ký Nhà Sáng Tạo (Creator)";
-        String htmlContent = """
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                    <h2 style="color: #8b0000; margin-bottom: 16px;">Xác Thực Hồ Sơ Creator</h2>
-                    <p>Xin chào bạn,</p>
-                    <p>Bạn đang thực hiện quy trình đăng ký trở thành <strong>Nhà Sáng Tạo (Creator)</strong> trên nền tảng <strong>History Podcast</strong>.</p>
-                    <p>Mã xác thực OTP của bạn là:</p>
-                    <div style="text-align: center; margin: 24px 0;">
-                        <span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #1a1a1a; background-color: #f4f4f4; padding: 12px 24px; border-radius: 6px; display: inline-block;">%s</span>
-                    </div>
-                    <p style="color: #666; font-size: 14px;">Mã này có hiệu lực trong <strong>5 phút</strong>. Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>
-                    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                    <p style="color: #999; font-size: 12px;">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.</p>
-                </div>
-                """.formatted(otpCode);
+    public void sendEmailWithTemplate(String toEmail, String templateCode, Map<String, String> variables) {
+        EmailTemplate template = emailTemplateRepository.findByCodeAndStatus(templateCode, "ACTIVE")
+                .orElseGet(() -> emailTemplateRepository.findByCode(templateCode)
+                        .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND,
+                                "Không tìm thấy mẫu email với mã template: " + templateCode)));
+
+        String subject = template.getSubject();
+        String htmlContent = template.getHtmlContent();
+
+        if (variables != null) {
+            for (Map.Entry<String, String> entry : variables.entrySet()) {
+                String placeholder = "{{" + entry.getKey() + "}}";
+                String val = entry.getValue() != null ? entry.getValue() : "";
+                subject = subject.replace(placeholder, val);
+                htmlContent = htmlContent.replace(placeholder, val);
+            }
+        }
 
         sendEmail(toEmail, subject, htmlContent);
+    }
+
+    @Override
+    public void sendOtpEmail(String toEmail, String otpCode) {
+        sendEmailWithTemplate(toEmail, "CREATOR_KYC_OTP", Map.of(
+                "otpCode", otpCode,
+                "email", toEmail,
+                "expiryMinutes", "5"
+        ));
+    }
+
+    @Override
+    public void sendPasswordResetOtpEmail(String toEmail, String otpCode) {
+        sendEmailWithTemplate(toEmail, "FORGOT_PASSWORD_OTP", Map.of(
+                "otpCode", otpCode,
+                "email", toEmail,
+                "expiryMinutes", "5"
+        ));
     }
 
     @Override

@@ -23,6 +23,11 @@ public enum ErrorCode {
     INVALID_OR_EXPIRED_REFRESH_TOKEN("AUTH_2007", "Refresh token không hợp lệ hoặc đã hết hạn", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_REVOKED("AUTH_2008", "Refresh token đã bị thu hồi", HttpStatus.UNAUTHORIZED),
     ROLE_NOT_FOUND("AUTH_2009", "Vai trò (Role) người dùng không tồn tại", HttpStatus.NOT_FOUND),
+    OTP_INVALID("AUTH_2010", "Mã xác thực OTP không chính xác", HttpStatus.BAD_REQUEST),
+    OTP_EXPIRED("AUTH_2011", "Mã xác thực OTP đã hết hạn sau 5 phút. Vui lòng gửi lại", HttpStatus.BAD_REQUEST),
+    OTP_COOLDOWN("AUTH_2012", "Vui lòng đợi trước khi yêu cầu mã OTP mới", HttpStatus.TOO_MANY_REQUESTS),
+    RESET_TOKEN_INVALID("AUTH_2013", "Mã xác nhận đặt lại mật khẩu không hợp lệ hoặc chưa được xác thực", HttpStatus.BAD_REQUEST),
+    RESET_TOKEN_ALREADY_USED("AUTH_2014", "Yêu cầu đặt lại mật khẩu này đã được sử dụng trước đó", HttpStatus.BAD_REQUEST),
 
     // KYC Creator Verification Errors (3000 - 3999)
     KYC_NOT_FOUND("KYC_3000", "Không tìm thấy hồ sơ KYC", HttpStatus.NOT_FOUND),
