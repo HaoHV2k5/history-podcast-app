@@ -99,21 +99,30 @@ public class ContentServiceImpl implements ContentService {
     @Transactional(readOnly = true)
     public List<PublicVideoItemResponse> searchPublicVideos(
             String keyword,
+            String status,
             Long channelId,
             Boolean isExclusive,
             String sortBy,
             String sortDir
     ) {
+        // Đối với người xem / người dùng chưa đăng nhập, mặc định chỉ lấy video đã PUBLISHED
+        String targetStatus = ContentStatus.PUBLISHED.name();
+        if (StringUtils.hasText(status) && ContentStatus.PUBLISHED.name().equalsIgnoreCase(status.trim())) {
+            targetStatus = ContentStatus.PUBLISHED.name();
+        }
+
         List<Content> contents;
         if (channelId != null) {
-            contents = repository.findByChannelIdAndStatus(channelId, ContentStatus.PUBLISHED.name());
+            contents = repository.findByChannelIdAndStatus(channelId, targetStatus);
         } else {
-            contents = repository.findByStatus(ContentStatus.PUBLISHED.name());
+            contents = repository.findByStatus(targetStatus);
         }
+
+        String cleanKeyword = SearchUtils.normalizeWhitespace(keyword);
 
         List<PublicVideoItemResponse> result = new ArrayList<>();
         for (Content content : contents) {
-            // 1. Lọc theo quyền truy cập độc quyền VIP
+            // 1. Lọc theo quyền truy cập độc quyền VIP / Hội viên (null = Tất cả, true = Hội viên VIP, false = Miễn phí)
             if (isExclusive != null) {
                 boolean itemIsExclusive = Boolean.TRUE.equals(content.getIsExclusive());
                 if (isExclusive != itemIsExclusive) {
@@ -121,10 +130,10 @@ public class ContentServiceImpl implements ContentService {
                 }
             }
 
-            // 2. Tìm kiếm theo từ khóa trong tiêu đề và nội dung kịch bản
-            if (StringUtils.hasText(keyword)) {
-                boolean matchTitle = SearchUtils.matchesKeyword(content.getTitle(), keyword);
-                boolean matchBody = SearchUtils.matchesKeyword(content.getTextBody(), keyword);
+            // 2. Tìm kiếm theo từ khóa trong tiêu đề và nội dung kịch bản (tự động trim và chuẩn hóa khoảng trắng thừa)
+            if (StringUtils.hasText(cleanKeyword)) {
+                boolean matchTitle = SearchUtils.matchesKeyword(content.getTitle(), cleanKeyword);
+                boolean matchBody = SearchUtils.matchesKeyword(content.getTextBody(), cleanKeyword);
                 if (!matchTitle && !matchBody) {
                     continue;
                 }

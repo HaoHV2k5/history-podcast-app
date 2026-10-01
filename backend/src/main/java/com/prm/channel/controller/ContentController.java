@@ -24,16 +24,17 @@ public class ContentController {
     private final ContentService service;
 
     @GetMapping("/search")
-    @Operation(summary = "Tìm kiếm & lọc video công khai cho người xem", 
-               description = "Tìm kiếm video đã xuất bản theo từ khóa (tiêu đề, nội dung kịch bản), lọc theo kênh, độc quyền VIP, và sắp xếp theo ngày tạo, lượt like, bình luận, thời lượng")
+    @Operation(summary = "Tìm kiếm & lọc video công khai cho người xem (Không yêu cầu đăng nhập)", 
+               description = "Khán giả chưa đăng nhập hoặc đã đăng nhập đều có thể tìm kiếm video theo từ khóa (tự động trim khoảng trắng), lọc trạng thái xuất bản (mặc định PUBLISHED), lọc theo gói hội viên VIP / miễn phí, theo kênh và sắp xếp theo ngày tạo, lượt like, bình luận, thời lượng")
     public ResponseEntity<ApiResponse<List<PublicVideoItemResponse>>> searchVideos(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = "PUBLISHED") String status,
             @RequestParam(required = false) Long channelId,
             @RequestParam(required = false) Boolean isExclusive,
             @RequestParam(required = false, defaultValue = "createdAt") String sortBy,
             @RequestParam(required = false, defaultValue = "desc") String sortDir
     ) {
-        List<PublicVideoItemResponse> list = service.searchPublicVideos(keyword, channelId, isExclusive, sortBy, sortDir);
+        List<PublicVideoItemResponse> list = service.searchPublicVideos(keyword, status, channelId, isExclusive, sortBy, sortDir);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 

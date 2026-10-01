@@ -14,13 +14,25 @@ public interface ContentService {
     void delete(Long id);
 
     /**
-     * Tìm kiếm và lọc video công khai cho người xem (chỉ lấy video PUBLISHED).
+     * Tìm kiếm và lọc video công khai cho người xem (người dùng chưa đăng nhập hoặc đã đăng nhập).
+     * Hỗ trợ tìm kiếm theo từ khóa (tự động trim khoảng trắng), lọc trạng thái xuất bản, lọc hội viên VIP và sắp xếp.
      */
     List<PublicVideoItemResponse> searchPublicVideos(
             String keyword,
+            String status,
             Long channelId,
             Boolean isExclusive,
             String sortBy,
             String sortDir
     );
+
+    default List<PublicVideoItemResponse> searchPublicVideos(
+            String keyword,
+            Long channelId,
+            Boolean isExclusive,
+            String sortBy,
+            String sortDir
+    ) {
+        return searchPublicVideos(keyword, "PUBLISHED", channelId, isExclusive, sortBy, sortDir);
+    }
 }

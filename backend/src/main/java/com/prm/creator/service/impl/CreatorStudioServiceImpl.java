@@ -519,6 +519,8 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         User creator = getUserByEmail(email);
         List<Content> contents = contentRepository.findByCreatorId(creator.getId());
 
+        String cleanKeyword = SearchUtils.normalizeWhitespace(keyword);
+
         List<CreatorVideoItemResponse> result = new ArrayList<>();
         for (Content content : contents) {
             // 1. Lọc theo trạng thái
@@ -542,10 +544,10 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 }
             }
 
-            // 3. Tìm kiếm theo từ khóa trong tiêu đề và nội dung kịch bản (hỗ trợ cả có dấu và không dấu tiếng Việt)
-            if (StringUtils.hasText(keyword)) {
-                boolean matchTitle = SearchUtils.matchesKeyword(content.getTitle(), keyword);
-                boolean matchBody = SearchUtils.matchesKeyword(content.getTextBody(), keyword);
+            // 3. Tìm kiếm theo từ khóa trong tiêu đề và nội dung kịch bản (tự động trim và chuẩn hóa khoảng trắng thừa)
+            if (StringUtils.hasText(cleanKeyword)) {
+                boolean matchTitle = SearchUtils.matchesKeyword(content.getTitle(), cleanKeyword);
+                boolean matchBody = SearchUtils.matchesKeyword(content.getTextBody(), cleanKeyword);
                 if (!matchTitle && !matchBody) {
                     continue;
                 }
