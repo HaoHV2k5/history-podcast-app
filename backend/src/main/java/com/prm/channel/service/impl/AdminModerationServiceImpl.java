@@ -10,7 +10,9 @@ import com.prm.channel.repository.AiFilterLogRepository;
 import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.repository.ModerationReviewRepository;
 import com.prm.channel.service.AdminModerationService;
+import com.prm.channel.service.AiShieldPolicyService;
 import com.prm.common.dto.PageResponse;
+import com.prm.common.enums.AiShieldTier;
 import com.prm.common.enums.ContentStatus;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
@@ -39,6 +41,16 @@ public class AdminModerationServiceImpl implements AdminModerationService {
     private final AiFilterLogRepository aiFilterLogRepository;
     private final ContentRepository contentRepository;
     private final UserRepository userRepository;
+    private final AiShieldPolicyService aiShieldPolicyService;
+
+    public AdminModerationServiceImpl(
+            ModerationReviewRepository moderationReviewRepository,
+            AiFilterLogRepository aiFilterLogRepository,
+            ContentRepository contentRepository,
+            UserRepository userRepository
+    ) {
+        this(moderationReviewRepository, aiFilterLogRepository, contentRepository, userRepository, null);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -60,7 +72,7 @@ public class AdminModerationServiceImpl implements AdminModerationService {
             // Lọc theo tier nếu có yêu cầu
             if (StringUtils.hasText(tier)) {
                 String targetTier = tier.trim().toUpperCase();
-                if (dto.getAiShieldTier() == null || !dto.getAiShieldTier().equalsIgnoreCase(targetTier)) {
+                if (dto.getAiShieldTier() == null || !dto.getAiShieldTier().name().equalsIgnoreCase(targetTier)) {
                     continue;
                 }
             }
@@ -149,17 +161,29 @@ public class AdminModerationServiceImpl implements AdminModerationService {
                 ? aiFilterLogRepository.findTopByArtifactIdOrderByIdDesc(artifactId)
                 : Optional.empty();
 
-        String aiShieldTier = null;
+        AiShieldTier aiShieldTier = null;
         String aiShieldTierLabel = null;
         BigDecimal aiShieldScore = null;
         String aiShieldReason = null;
 
         if (aiLogOpt.isPresent()) {
             AiFilterLog log = aiLogOpt.get();
-            aiShieldTier = log.getResult();
             aiShieldScore = log.getScore();
             aiShieldReason = log.getReason();
-            aiShieldTierLabel = resolveTierLabel(aiShieldTier);
+
+            if (aiShieldPolicyService != null && aiShieldScore != null) {
+                var eval = aiShieldPolicyService.resolveTier(aiShieldScore);
+                if (eval != null) {
+                    aiShieldTier = eval.tier();
+                    aiShieldTierLabel = eval.label();
+                } else {
+                    aiShieldTier = AiShieldTier.fromString(log.getResult());
+                    aiShieldTierLabel = aiShieldTier != null ? aiShieldTier.getDefaultLabel() : resolveTierLabel(log.getResult());
+                }
+            } else {
+                aiShieldTier = AiShieldTier.fromString(log.getResult());
+                aiShieldTierLabel = aiShieldTier != null ? aiShieldTier.getDefaultLabel() : resolveTierLabel(log.getResult());
+            }
         }
 
         return AdminModerationItemResponse.builder()

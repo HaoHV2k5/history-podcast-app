@@ -12,6 +12,7 @@ import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.repository.ModerationReviewRepository;
 import com.prm.channel.service.impl.AdminModerationServiceImpl;
 import com.prm.common.dto.PageResponse;
+import com.prm.common.enums.AiShieldTier;
 import com.prm.common.enums.ContentStatus;
 import com.prm.common.exception.AppException;
 import com.prm.identity.entity.User;
@@ -51,6 +52,9 @@ class AdminModerationServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private AiShieldPolicyService aiShieldPolicyService;
 
     @InjectMocks
     private AdminModerationServiceImpl adminModerationService;
@@ -121,7 +125,7 @@ class AdminModerationServiceTest {
         assertEquals(300L, item.getReviewId());
         assertEquals("Chiến thắng Bạch Đằng 938", item.getTitle());
         assertEquals("PENDING", item.getDecision());
-        assertEquals("FAIR", item.getAiShieldTier());
+        assertEquals(AiShieldTier.FAIR, item.getAiShieldTier());
         assertEquals("Khá", item.getAiShieldTierLabel());
         assertEquals(BigDecimal.valueOf(75.0), item.getAiShieldScore());
     }

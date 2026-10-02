@@ -15,6 +15,8 @@ import com.prm.channel.repository.ChannelRepository;
 import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.repository.ModerationReviewRepository;
 import com.prm.channel.repository.TranscriptRepository;
+import com.prm.channel.service.AiShieldPolicyService;
+import com.prm.common.enums.AiShieldTier;
 import java.math.BigDecimal;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
@@ -72,6 +74,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     private final ObjectMapper objectMapper;
     private final AiFilterLogRepository aiFilterLogRepository;
     private final ModerationReviewRepository moderationReviewRepository;
+    private final AiShieldPolicyService aiShieldPolicyService;
 
     public CreatorStudioServiceImpl(
             UserRepository userRepository,
@@ -87,7 +90,26 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     ) {
         this(userRepository, creatorAiSettingRepository, channelRepository, contentRepository,
                 artifactRepository, transcriptRepository, reactionRepository, commentRepository,
-                fileStorageService, objectMapper, null, null);
+                fileStorageService, objectMapper, null, null, null);
+    }
+
+    public CreatorStudioServiceImpl(
+            UserRepository userRepository,
+            CreatorAiSettingRepository creatorAiSettingRepository,
+            ChannelRepository channelRepository,
+            ContentRepository contentRepository,
+            ArtifactRepository artifactRepository,
+            TranscriptRepository transcriptRepository,
+            ReactionRepository reactionRepository,
+            CommentRepository commentRepository,
+            FileStorageService fileStorageService,
+            ObjectMapper objectMapper,
+            AiFilterLogRepository aiFilterLogRepository,
+            ModerationReviewRepository moderationReviewRepository
+    ) {
+        this(userRepository, creatorAiSettingRepository, channelRepository, contentRepository,
+                artifactRepository, transcriptRepository, reactionRepository, commentRepository,
+                fileStorageService, objectMapper, aiFilterLogRepository, moderationReviewRepository, null);
     }
 
     @Value("${app.tool.url:http://localhost:8000}")
@@ -694,7 +716,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             Integer duration = null;
             Long artifactId = null;
             BigDecimal aiShieldScore = null;
-            String aiShieldTier = null;
+            AiShieldTier aiShieldTier = null;
             String aiShieldTierLabel = null;
             String aiShieldReason = null;
             String modDecision = null;
@@ -716,9 +738,15 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                     Optional<AiFilterLog> aiLogOpt = aiFilterLogRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId());
                     if (aiLogOpt.isPresent()) {
                         aiShieldScore = aiLogOpt.get().getScore();
-                        aiShieldTier = aiLogOpt.get().getResult();
                         aiShieldReason = aiLogOpt.get().getReason();
-                        aiShieldTierLabel = resolveTierLabel(aiShieldTier);
+                        if (aiShieldPolicyService != null && aiShieldScore != null) {
+                            var eval = aiShieldPolicyService.resolveTier(aiShieldScore);
+                            aiShieldTier = eval.tier();
+                            aiShieldTierLabel = eval.label();
+                        } else {
+                            aiShieldTier = AiShieldTier.fromString(aiLogOpt.get().getResult());
+                            aiShieldTierLabel = aiShieldTier != null ? aiShieldTier.getDefaultLabel() : resolveTierLabel(aiLogOpt.get().getResult());
+                        }
                     }
                 }
                 if (moderationReviewRepository != null) {
@@ -812,7 +840,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         Long artifactId = null;
         List<CreatorCommentItemResponse> commentItems = new ArrayList<>();
         BigDecimal aiShieldScore = null;
-        String aiShieldTier = null;
+        AiShieldTier aiShieldTier = null;
         String aiShieldTierLabel = null;
         String aiShieldReason = null;
         String modDecision = null;
@@ -833,9 +861,15 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 Optional<AiFilterLog> aiLogOpt = aiFilterLogRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId());
                 if (aiLogOpt.isPresent()) {
                     aiShieldScore = aiLogOpt.get().getScore();
-                    aiShieldTier = aiLogOpt.get().getResult();
                     aiShieldReason = aiLogOpt.get().getReason();
-                    aiShieldTierLabel = resolveTierLabel(aiShieldTier);
+                    if (aiShieldPolicyService != null && aiShieldScore != null) {
+                        var eval = aiShieldPolicyService.resolveTier(aiShieldScore);
+                        aiShieldTier = eval.tier();
+                        aiShieldTierLabel = eval.label();
+                    } else {
+                        aiShieldTier = AiShieldTier.fromString(aiLogOpt.get().getResult());
+                        aiShieldTierLabel = aiShieldTier != null ? aiShieldTier.getDefaultLabel() : resolveTierLabel(aiLogOpt.get().getResult());
+                    }
                 }
             }
             if (moderationReviewRepository != null) {
@@ -1471,7 +1505,23 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             log.error("Failed to call Tool AI Shield API: {}", e.getMessage(), e);
         }
 
-        tierLabel = resolveTierLabel(tier);
+        AiShieldTier aiShieldTier = null;
+        if (aiShieldPolicyService != null) {
+            var eval = aiShieldPolicyService.resolveTier(score);
+            aiShieldTier = eval.tier();
+            tierLabel = eval.label();
+            tier = aiShieldTier.name();
+        } else {
+            aiShieldTier = AiShieldTier.fromString(tier);
+            if (aiShieldTier == null) {
+                aiShieldTier = score.compareTo(BigDecimal.valueOf(50)) < 0 ? AiShieldTier.RED_ALERT
+                        : score.compareTo(BigDecimal.valueOf(80)) < 0 ? AiShieldTier.FAIR
+                        : score.compareTo(BigDecimal.valueOf(90)) <= 0 ? AiShieldTier.GOOD
+                        : AiShieldTier.EXCELLENT;
+            }
+            tier = aiShieldTier.name();
+            tierLabel = aiShieldTier.getDefaultLabel();
+        }
 
         // Lưu bản ghi vào ai_filter_logs
         AiFilterLog aiLog = null;
@@ -1528,7 +1578,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .dislikeCount(dislikeCount)
                 .commentCount(commentCount)
                 .aiShieldScore(score)
-                .aiShieldTier(tier)
+                .aiShieldTier(aiShieldTier)
                 .aiShieldTierLabel(tierLabel)
                 .aiShieldReason(aiLog != null ? aiLog.getReason() : reason)
                 .moderationDecision("PENDING")

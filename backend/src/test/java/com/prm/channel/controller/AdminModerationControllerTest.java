@@ -1,10 +1,15 @@
 package com.prm.channel.controller;
 
 import com.prm.channel.dto.request.AdminModerationDecisionRequest;
+import com.prm.channel.dto.request.AiShieldPolicyConfigRequest;
+import com.prm.channel.dto.request.BatchUpdatePolicyConfigRequest;
 import com.prm.channel.dto.response.AdminModerationItemResponse;
+import com.prm.channel.dto.response.AiShieldPolicyConfigResponse;
 import com.prm.channel.service.AdminModerationService;
+import com.prm.channel.service.AiShieldPolicyService;
 import com.prm.common.dto.ApiResponse;
 import com.prm.common.dto.PageResponse;
+import com.prm.common.enums.AiShieldTier;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +39,9 @@ class AdminModerationControllerTest {
     @Mock
     private AdminModerationService adminModerationService;
 
+    @Mock
+    private AiShieldPolicyService aiShieldPolicyService;
+
     @InjectMocks
     private AdminModerationController adminModerationController;
 
@@ -60,7 +68,7 @@ class AdminModerationControllerTest {
                 .contentId(10L)
                 .title("Chiến thắng Bạch Đằng")
                 .decision("PENDING")
-                .aiShieldTier("GOOD")
+                .aiShieldTier(AiShieldTier.GOOD)
                 .aiShieldTierLabel("Tốt")
                 .aiShieldScore(BigDecimal.valueOf(88.0))
                 .build();
@@ -94,7 +102,7 @@ class AdminModerationControllerTest {
                 .contentId(10L)
                 .title("Chiến dịch Lam Sơn")
                 .decision("PENDING")
-                .aiShieldTier("EXCELLENT")
+                .aiShieldTier(AiShieldTier.EXCELLENT)
                 .aiShieldTierLabel("Xuất sắc")
                 .aiShieldScore(BigDecimal.valueOf(95.0))
                 .build();
@@ -161,5 +169,87 @@ class AdminModerationControllerTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertTrue(response.getBody().getMessage().contains("từ chối"));
         assertEquals("REJECTED", response.getBody().getData().getDecision());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/moderation/policy-configs: Lấy danh sách cấu hình AI Shield")
+    void testGetPolicyConfigs() {
+        AiShieldPolicyConfigResponse config = AiShieldPolicyConfigResponse.builder()
+                .id(1L)
+                .tier(AiShieldTier.RED_ALERT)
+                .label("Báo động đỏ")
+                .minScore(BigDecimal.ZERO)
+                .maxScore(BigDecimal.valueOf(50.0))
+                .build();
+
+        when(aiShieldPolicyService.getAllConfigs()).thenReturn(List.of(config));
+
+        ResponseEntity<ApiResponse<List<AiShieldPolicyConfigResponse>>> response =
+                adminModerationController.getPolicyConfigs();
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(1, response.getBody().getData().size());
+        assertEquals(AiShieldTier.RED_ALERT, response.getBody().getData().get(0).getTier());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/admin/moderation/policy-configs/{tier}: Lấy cấu hình của 1 tier")
+    void testGetConfigByTier() {
+        AiShieldPolicyConfigResponse config = AiShieldPolicyConfigResponse.builder()
+                .tier(AiShieldTier.GOOD)
+                .label("Tốt")
+                .minScore(BigDecimal.valueOf(80.0))
+                .maxScore(BigDecimal.valueOf(90.0))
+                .build();
+
+        when(aiShieldPolicyService.getConfigByTier(AiShieldTier.GOOD)).thenReturn(config);
+
+        ResponseEntity<ApiResponse<AiShieldPolicyConfigResponse>> response =
+                adminModerationController.getConfigByTier(AiShieldTier.GOOD);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Tốt", response.getBody().getData().getLabel());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/admin/moderation/policy-configs/{tier}: Admin cập nhật cấu hình % và nhãn")
+    void testUpdatePolicyConfig() {
+        AiShieldPolicyConfigRequest request = AiShieldPolicyConfigRequest.builder()
+                .label("Cảnh báo nghiêm trọng")
+                .minScore(BigDecimal.ZERO)
+                .maxScore(BigDecimal.valueOf(45.0))
+                .build();
+
+        AiShieldPolicyConfigResponse updated = AiShieldPolicyConfigResponse.builder()
+                .tier(AiShieldTier.RED_ALERT)
+                .label("Cảnh báo nghiêm trọng")
+                .minScore(BigDecimal.ZERO)
+                .maxScore(BigDecimal.valueOf(45.0))
+                .build();
+
+        when(aiShieldPolicyService.updateConfig(eq(AiShieldTier.RED_ALERT), any(AiShieldPolicyConfigRequest.class)))
+                .thenReturn(updated);
+
+        ResponseEntity<ApiResponse<AiShieldPolicyConfigResponse>> response =
+                adminModerationController.updatePolicyConfig(AiShieldTier.RED_ALERT, request);
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Cảnh báo nghiêm trọng", response.getBody().getData().getLabel());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/admin/moderation/policy-configs/reset-defaults: Khôi phục cấu hình mặc định")
+    void testResetDefaultConfigs() {
+        when(aiShieldPolicyService.resetDefaultConfigs()).thenReturn(List.of());
+
+        ResponseEntity<ApiResponse<List<AiShieldPolicyConfigResponse>>> response =
+                adminModerationController.resetDefaultConfigs();
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(aiShieldPolicyService, times(1)).resetDefaultConfigs();
     }
 }
