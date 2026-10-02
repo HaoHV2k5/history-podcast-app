@@ -108,8 +108,51 @@ def decode_base64_image(b64_str: str) -> bytes:
 
 def process_uploaded_image(raw_bytes: bytes, out_path: Path):
     im = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
-    im_fit = ImageOps.fit(im, (1376, 768), method=Image.Resampling.LANCZOS)
+    im_fit = ImageOps.fit(im, (1280, 720), method=Image.Resampling.LANCZOS)
     im_fit.save(out_path, "PNG")
+
+
+def process_podcast_cover(raw_bytes: bytes, out_cover_path: Path, out_video_bg_path: Path = None):
+    """
+    Xử lý ảnh bìa Audio Podcast:
+    1. out_cover_path: Lưu ảnh gốc (tỉ lệ vuông 1:1, ví dụ 1200x1200, hoặc tỉ lệ tự do người dùng tải lên)
+       nguyên vẹn cho Mobile và Cloudinary, KHÔNG ép crop.
+    2. out_video_bg_path: Tạo khung video 16:9 (1280x720) cho trình phát video MP4:
+       - Nếu ảnh là vuông 1:1 hoặc khác 16:9: tạo nền mờ nghệ thuật ambient, đặt ảnh vuông 1:1 sắc nét ở giữa.
+    """
+    im = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    im.save(out_cover_path, "PNG", quality=95)
+
+    if out_video_bg_path:
+        w, h = im.size
+        target_w, target_h = 1280, 720
+        aspect = w / max(h, 1)
+
+        if 1.7 <= aspect <= 1.85:
+            video_bg = ImageOps.fit(im, (target_w, target_h), method=Image.Resampling.LANCZOS)
+        else:
+            from PIL import ImageFilter, ImageEnhance
+            # Nền mờ nghệ thuật
+            bg = ImageOps.fit(im, (target_w, target_h), method=Image.Resampling.LANCZOS)
+            bg = bg.filter(ImageFilter.GaussianBlur(radius=32))
+            enhancer = ImageEnhance.Brightness(bg)
+            bg = enhancer.enhance(0.35)
+
+            # Đặt ảnh vuông 1:1 ở giữa (cao 510px, giữ nguyên tỷ lệ không crop)
+            card_h = 510
+            card_w = int(card_h * aspect)
+            if card_w > 760:
+                card_w = 760
+                card_h = int(card_w / aspect)
+
+            cover_scaled = im.resize((card_w, card_h), Image.Resampling.LANCZOS)
+            pos_x = (target_w - card_w) // 2
+            pos_y = 45
+
+            bg.paste(cover_scaled, (pos_x, pos_y))
+            video_bg = bg
+
+        video_bg.save(out_video_bg_path, "PNG")
 
 
 @app.get("/")
@@ -227,7 +270,7 @@ async def create_video(req: VideoRequest, background_tasks: BackgroundTasks):
         if not cover_b64 or (not cover_b64.strip().startswith("http") and len(cover_b64.strip()) < 50):
             raise HTTPException(
                 status_code=400,
-                detail="⚠️ Bắt buộc phải có ảnh bìa (thumbnail) cho video Audio Podcast! Vui lòng tải lên ảnh 16:9 trước khi xuất bản."
+                detail="⚠️ Bắt buộc phải có ảnh bìa cho video Audio Podcast! Vui lòng tải lên ảnh bìa (chuẩn vuông 1:1, ví dụ 1200x1200 px) trước khi xuất bản."
             )
     total_steps = 5 if render_mode in ["audio_podcast", "podcast", "audio"] else 6
     default_title = "Bản Thuyết Minh Audio" if render_mode in ["audio_podcast", "podcast", "audio"] else "Whiteboard Animation"
@@ -743,8 +786,8 @@ YÊU CẦU ĐỊNH DẠNG:
   + visual_desc: Mô tả hình vẽ phác thảo tối giản kiểu doodle/sketch bằng tiếng Anh cho AI tạo ảnh.
 - image_prompt: 1 prompt tổng thể tiếng Anh (16:9) theo chuẩn Notion Doodle để người dùng copy tạo ảnh:
   "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
-- thumbnail_prompt: 1 prompt tiếng Anh (16:9) chuyên dụng để người dùng đưa vào Midjourney/DALL-E 3/Bing Image Creator tạo ảnh bìa Thumbnail cho bản thu Audio Podcast lịch sử này:
-  "Epic cinematic historical documentary podcast cover art illustration of [chủ đề chính], dramatic atmosphere, volumetric lighting, rich historical color palette, classical oil painting art style, highly detailed, masterwork, 16:9 aspect ratio, strictly NO text, NO typography, NO watermark."
+- thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa Podcast lịch sử theo chuẩn VUÔNG 1:1 (ví dụ 1200x1200px):
+  "Epic cinematic historical documentary podcast cover art illustration of [chủ đề chính], dramatic atmosphere, volumetric lighting, rich historical color palette, classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark."
 
 Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 {{
@@ -823,7 +866,7 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                             parsed["thumbnail_prompt"] = (
                                 f"Epic cinematic historical documentary podcast cover art illustration of {clean_topic}, "
                                 "dramatic atmosphere, volumetric lighting, rich historical color palette, "
-                                "classical oil painting art style, highly detailed, masterwork, 16:9 aspect ratio, "
+                                "classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, "
                                 "strictly NO text, NO typography, NO watermark"
                             )
 
@@ -1288,8 +1331,8 @@ def draw_mic_icon(draw, cx: int, cy: int, color=(251, 191, 36)):
 
 
 def generate_podcast_cover(title: str, out_path: Path):
-    """Tạo ảnh bìa podcast phong cách sang trọng, hiện đại với tỷ lệ 16:9 (1376x768)."""
-    width, height = 1376, 768
+    """Tạo ảnh bìa podcast phong cách sang trọng, hiện đại với tỷ lệ vuông 1:1 (1200x1200)."""
+    width, height = 1200, 1200
     img = Image.new("RGB", (width, height), (15, 23, 42))
     draw = ImageDraw.Draw(img)
 
@@ -1300,48 +1343,48 @@ def generate_podcast_cover(title: str, out_path: Path):
         b = int(42 + ratio * 45)
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    margin = 36
+    margin = 48
     draw.rounded_rectangle(
         [(margin, margin), (width - margin, height - margin)],
-        radius=20,
+        radius=24,
         outline=(217, 119, 6),
-        width=2
+        width=3
     )
 
-    corner_len = 30
+    corner_len = 40
     for cx, cy in [(margin, margin), (width - margin, margin), (margin, height - margin), (width - margin, height - margin)]:
         dx = 1 if cx == margin else -1
         dy = 1 if cy == margin else -1
-        draw.line([(cx, cy), (cx + dx * corner_len, cy)], fill=(245, 158, 11), width=4)
-        draw.line([(cx, cy), (cx, cy + dy * corner_len)], fill=(245, 158, 11), width=4)
+        draw.line([(cx, cy), (cx + dx * corner_len, cy)], fill=(245, 158, 11), width=5)
+        draw.line([(cx, cy), (cx, cy + dy * corner_len)], fill=(245, 158, 11), width=5)
 
-    badge_w, badge_h = 340, 42
+    badge_w, badge_h = 420, 50
     badge_x = (width - badge_w) // 2
-    badge_y = margin + 40
+    badge_y = margin + 60
     draw.rounded_rectangle(
         [(badge_x, badge_y), (badge_x + badge_w, badge_y + badge_h)],
-        radius=21,
+        radius=25,
         fill=(30, 41, 59),
         outline=(245, 158, 11),
         width=1
     )
-    badge_font = get_font(16)
+    badge_font = get_font(20)
     badge_text = "PODCAST LỊCH SỬ VIỆT NAM"
     bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
     bw, bh = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    text_x = badge_x + (badge_w - bw) // 2 + 10
+    text_x = badge_x + (badge_w - bw) // 2 + 12
     text_y = badge_y + (badge_h - bh) // 2 - 2
-    draw_mic_icon(draw, text_x - 18, badge_y + badge_h // 2, color=(251, 191, 36))
+    draw_mic_icon(draw, text_x - 22, badge_y + badge_h // 2, color=(251, 191, 36))
     draw.text((text_x, text_y), badge_text, font=badge_font, fill=(251, 191, 36))
 
-    title_font = get_font(40)
-    lines = textwrap.wrap(title or "Kể Chuyện Lịch Sử", width=36)
-    line_spacing = 16
+    title_font = get_font(48)
+    lines = textwrap.wrap(title or "Kể Chuyện Lịch Sử", width=28)
+    line_spacing = 20
     line_bboxes = [draw.textbbox((0, 0), ln, font=title_font) for ln in lines]
     line_hs = [b[3] - b[1] for b in line_bboxes]
     line_ws = [b[2] - b[0] for b in line_bboxes]
     total_title_h = sum(line_hs) + (len(lines) - 1) * line_spacing
-    title_start_y = (height - total_title_h) // 2 - 20
+    title_start_y = (height - total_title_h) // 2 - 30
 
     curr_y = title_start_y
     for i, ln in enumerate(lines):
@@ -1351,31 +1394,31 @@ def generate_podcast_cover(title: str, out_path: Path):
         draw.text((lx, curr_y), ln, font=title_font, fill=(255, 255, 255))
         curr_y += line_hs[i] + line_spacing
 
-    div_y = curr_y + 12
-    draw.line([(width // 2 - 120, div_y), (width // 2 + 120, div_y)], fill=(217, 119, 6), width=2)
-    draw.ellipse([(width // 2 - 5, div_y - 5), (width // 2 + 5, div_y + 5)], fill=(245, 158, 11))
+    div_y = curr_y + 24
+    draw.line([(width // 2 - 160, div_y), (width // 2 + 160, div_y)], fill=(217, 119, 6), width=2)
+    draw.ellipse([(width // 2 - 6, div_y - 6), (width // 2 + 6, div_y + 6)], fill=(245, 158, 11))
 
-    sub_font = get_font(20)
+    sub_font = get_font(24)
     sub_text = "THUYẾT MINH AI • DIỄN ĐỌC CHUYÊN SÂU"
     s_bbox = draw.textbbox((0, 0), sub_text, font=sub_font)
     sw, sh = s_bbox[2] - s_bbox[0], s_bbox[3] - s_bbox[1]
-    draw.text(((width - sw) // 2, div_y + 24), sub_text, font=sub_font, fill=(148, 163, 184))
+    draw.text(((width - sw) // 2, div_y + 30), sub_text, font=sub_font, fill=(148, 163, 184))
 
     num_bars = 48
-    bar_w = 8
-    gap = 10
+    bar_w = 10
+    gap = 12
     total_eq_w = num_bars * bar_w + (num_bars - 1) * gap
     eq_x = (width - total_eq_w) // 2
-    eq_base_y = height - margin - 50
+    eq_base_y = height - margin - 70
 
     random_seed = int(hashlib.md5(title.encode()).hexdigest(), 16) % 1000
     for idx in range(num_bars):
         wave = math.sin(idx * 0.25 + random_seed) * 0.5 + 0.5
-        b_h = max(10, int(wave * 45 + 10))
+        b_h = max(12, int(wave * 65 + 12))
         bx = eq_x + idx * (bar_w + gap)
         draw.rounded_rectangle(
             [(bx, eq_base_y - b_h), (bx + bar_w, eq_base_y)],
-            radius=4,
+            radius=5,
             fill=(245, 158, 11) if idx % 2 == 0 else (217, 119, 6)
         )
 
@@ -1461,18 +1504,19 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         (job_dir / "script.txt").write_text("\n\n".join(sentences), encoding="utf-8")
 
         # 2. ẢNH BÌA PODCAST
-        log(job_id, "🖼️ Bước 2: Chuẩn bị ảnh bìa Podcast 16:9...", 2, "Ảnh bìa Podcast")
+        log(job_id, "🖼️ Bước 2: Chuẩn bị ảnh bìa Podcast (chuẩn vuông 1:1 hoặc tỷ lệ tự do)...", 2, "Ảnh bìa Podcast")
         cover_png = job_dir / "cover.png"
+        video_bg_png = job_dir / "podcast_video_bg.png"
         cover_b64 = req.cover_image_b64
         if not cover_b64 and req.custom_images:
             cover_b64 = req.custom_images.get("cover") or req.custom_images.get("1")
 
         if not cover_b64 or (not cover_b64.strip().startswith("http") and len(cover_b64.strip()) < 50):
-            raise ValueError("⚠️ Bắt buộc phải có ảnh bìa (thumbnail) cho video Audio Podcast! Vui lòng tải lên ảnh 16:9 trước khi xuất bản.")
+            raise ValueError("⚠️ Bắt buộc phải có ảnh bìa cho bản thu Audio Podcast! Vui lòng tải lên ảnh trước khi xuất bản.")
 
-        log(job_id, "   🖼️ Sử dụng ảnh bìa đại diện (thumbnail) bạn đã tải lên!")
+        log(job_id, "   🖼️ Sử dụng ảnh bìa đại diện bạn đã tải lên!")
         raw_bytes = decode_base64_image(cover_b64)
-        process_uploaded_image(raw_bytes, cover_png)
+        process_podcast_cover(raw_bytes, cover_png, video_bg_png)
 
         # 3. LỒNG TIẾNG AI & PHỤ ĐỀ ĐỒNG BỘ
         log(job_id, f"🎙️ Bước 3: Đang sinh giọng đọc AI ({req.tts_engine.upper()}) & tạo phụ đề...", 3, "Lồng tiếng & Phụ đề")
@@ -1529,10 +1573,11 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         log(job_id, f"🎬 Bước 4: Đang render video Podcast MP4 ({total_audio_duration:.1f}s)...", 4, "Xuất bản Video Podcast")
 
         raw_video_p = job_dir / "podcast_base.mp4"
+        bg_to_use = video_bg_png if video_bg_png.exists() else cover_png
         subprocess.run([
             "ffmpeg", "-y", "-loglevel", "error",
             "-loop", "1",
-            "-i", str(cover_png),
+            "-i", str(bg_to_use),
             "-c:v", "libx264",
             "-tune", "stillimage",
             "-pix_fmt", "yuv420p",
