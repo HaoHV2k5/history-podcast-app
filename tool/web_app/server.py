@@ -43,6 +43,7 @@ import stream_render as sr
 from add_subtitles import add_subtitles, get_font, parse_annotation
 from export_srt import export_srt, format_srt_time
 from rag_service import search_history_context, verify_script_with_gemini, get_chroma_collection
+from ai_shield_service import verify_content_ai_shield
 
 app = FastAPI(title="Whiteboard AI Studio")
 
@@ -90,6 +91,16 @@ class VideoRequest(BaseModel):
     render_mode: Optional[str] = "whiteboard"  # 'whiteboard' hoặc 'audio_podcast'
     script_text: Optional[str] = None
     cover_image_b64: Optional[str] = None
+
+
+class AiShieldVerifyRequest(BaseModel):
+    content_id: Optional[int] = None
+    artifact_id: Optional[int] = None
+    title: str
+    script_text: Optional[str] = ""
+    storyboard: Optional[dict] = None
+    video_url: Optional[str] = None
+    gemini_api_key: Optional[str] = None
 
 
 
@@ -242,6 +253,26 @@ async def verify_script_endpoint(req: VerifyScriptRequest):
         return report
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Lỗi thẩm định kịch bản: {str(e)}")
+
+
+@app.post("/api/ai-shield/verify")
+async def ai_shield_verify_endpoint(req: AiShieldVerifyRequest):
+    title = (req.title or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Tiêu đề video không được để trống!")
+    user_key = sanitize_gemini_key(req.gemini_api_key)
+    try:
+        report = verify_content_ai_shield(
+            title=title,
+            script_text=req.script_text or "",
+            storyboard=req.storyboard,
+            media_url=req.video_url,
+            api_key=user_key
+        )
+        return report
+    except Exception as e:
+        print(f"[AI Shield] ⚠️ Lỗi kiểm duyệt AI Shield: {e}")
+        raise HTTPException(status_code=500, detail=f"Lỗi kiểm duyệt AI Shield: {str(e)}")
 
 
 @app.get("/api/rag/status")

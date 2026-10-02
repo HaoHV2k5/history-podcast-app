@@ -3,14 +3,21 @@ package com.prm.creator.service.impl;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.prm.channel.entity.AiFilterLog;
 import com.prm.channel.entity.Artifact;
 import com.prm.channel.entity.Channel;
 import com.prm.channel.entity.Content;
+import com.prm.channel.entity.ModerationReview;
 import com.prm.channel.entity.Transcript;
+import com.prm.channel.repository.AiFilterLogRepository;
 import com.prm.channel.repository.ArtifactRepository;
 import com.prm.channel.repository.ChannelRepository;
 import com.prm.channel.repository.ContentRepository;
+import com.prm.channel.repository.ModerationReviewRepository;
 import com.prm.channel.repository.TranscriptRepository;
+import com.prm.channel.service.AiShieldPolicyService;
+import com.prm.common.enums.AiShieldTier;
+import java.math.BigDecimal;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
 import com.prm.common.enums.ActiveStatus;
@@ -65,6 +72,45 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     private final CommentRepository commentRepository;
     private final FileStorageService fileStorageService;
     private final ObjectMapper objectMapper;
+    private final AiFilterLogRepository aiFilterLogRepository;
+    private final ModerationReviewRepository moderationReviewRepository;
+    private final AiShieldPolicyService aiShieldPolicyService;
+
+    public CreatorStudioServiceImpl(
+            UserRepository userRepository,
+            CreatorAiSettingRepository creatorAiSettingRepository,
+            ChannelRepository channelRepository,
+            ContentRepository contentRepository,
+            ArtifactRepository artifactRepository,
+            TranscriptRepository transcriptRepository,
+            ReactionRepository reactionRepository,
+            CommentRepository commentRepository,
+            FileStorageService fileStorageService,
+            ObjectMapper objectMapper
+    ) {
+        this(userRepository, creatorAiSettingRepository, channelRepository, contentRepository,
+                artifactRepository, transcriptRepository, reactionRepository, commentRepository,
+                fileStorageService, objectMapper, null, null, null);
+    }
+
+    public CreatorStudioServiceImpl(
+            UserRepository userRepository,
+            CreatorAiSettingRepository creatorAiSettingRepository,
+            ChannelRepository channelRepository,
+            ContentRepository contentRepository,
+            ArtifactRepository artifactRepository,
+            TranscriptRepository transcriptRepository,
+            ReactionRepository reactionRepository,
+            CommentRepository commentRepository,
+            FileStorageService fileStorageService,
+            ObjectMapper objectMapper,
+            AiFilterLogRepository aiFilterLogRepository,
+            ModerationReviewRepository moderationReviewRepository
+    ) {
+        this(userRepository, creatorAiSettingRepository, channelRepository, contentRepository,
+                artifactRepository, transcriptRepository, reactionRepository, commentRepository,
+                fileStorageService, objectMapper, aiFilterLogRepository, moderationReviewRepository, null);
+    }
 
     @Value("${app.tool.url:http://localhost:8000}")
     private String toolUrl;
@@ -483,7 +529,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
                             if (artifact.getContent() != null) {
                                 Content c = artifact.getContent();
-                                c.setStatus(ContentStatus.PUBLISHED.name());
+                                c.setStatus(ContentStatus.COMPLETED.name());
                                 contentRepository.save(c);
                             }
                             log.info("Artifact ID {} updated with final video URL: {}, optimized URL built", artifactId, finalVideoUrl);
@@ -669,6 +715,12 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             String fileUrl = null;
             Integer duration = null;
             Long artifactId = null;
+            BigDecimal aiShieldScore = null;
+            AiShieldTier aiShieldTier = null;
+            String aiShieldTierLabel = null;
+            String aiShieldReason = null;
+            String modDecision = null;
+            String modReason = null;
 
             if (artifact != null) {
                 artifactId = artifact.getId();
@@ -681,6 +733,29 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 likeCount = reactionRepository.countByArtifactIdAndType(artifact.getId(), "LIKE");
                 dislikeCount = reactionRepository.countByArtifactIdAndType(artifact.getId(), "DISLIKE");
                 commentCount = commentRepository.countByArtifactId(artifact.getId());
+
+                if (aiFilterLogRepository != null) {
+                    Optional<AiFilterLog> aiLogOpt = aiFilterLogRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId());
+                    if (aiLogOpt.isPresent()) {
+                        aiShieldScore = aiLogOpt.get().getScore();
+                        aiShieldReason = aiLogOpt.get().getReason();
+                        if (aiShieldPolicyService != null && aiShieldScore != null) {
+                            var eval = aiShieldPolicyService.resolveTier(aiShieldScore);
+                            aiShieldTier = eval.tier();
+                            aiShieldTierLabel = eval.label();
+                        } else {
+                            aiShieldTier = AiShieldTier.fromString(aiLogOpt.get().getResult());
+                            aiShieldTierLabel = aiShieldTier != null ? aiShieldTier.getDefaultLabel() : resolveTierLabel(aiLogOpt.get().getResult());
+                        }
+                    }
+                }
+                if (moderationReviewRepository != null) {
+                    Optional<ModerationReview> modOpt = moderationReviewRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId());
+                    if (modOpt.isPresent()) {
+                        modDecision = modOpt.get().getDecision();
+                        modReason = modOpt.get().getReason();
+                    }
+                }
             }
 
             result.add(CreatorVideoItemResponse.builder()
@@ -699,6 +774,12 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                     .likeCount(likeCount)
                     .dislikeCount(dislikeCount)
                     .commentCount(commentCount)
+                    .aiShieldScore(aiShieldScore)
+                    .aiShieldTier(aiShieldTier)
+                    .aiShieldTierLabel(aiShieldTierLabel)
+                    .aiShieldReason(aiShieldReason)
+                    .moderationDecision(modDecision)
+                    .moderationReason(modReason)
                     .build());
         }
 
@@ -758,6 +839,12 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         Integer duration = null;
         Long artifactId = null;
         List<CreatorCommentItemResponse> commentItems = new ArrayList<>();
+        BigDecimal aiShieldScore = null;
+        AiShieldTier aiShieldTier = null;
+        String aiShieldTierLabel = null;
+        String aiShieldReason = null;
+        String modDecision = null;
+        String modReason = null;
 
         if (artifact != null) {
             artifactId = artifact.getId();
@@ -769,6 +856,29 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             likeCount = reactionRepository.countByArtifactIdAndType(artifact.getId(), "LIKE");
             dislikeCount = reactionRepository.countByArtifactIdAndType(artifact.getId(), "DISLIKE");
             commentCount = commentRepository.countByArtifactId(artifact.getId());
+
+            if (aiFilterLogRepository != null) {
+                Optional<AiFilterLog> aiLogOpt = aiFilterLogRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId());
+                if (aiLogOpt.isPresent()) {
+                    aiShieldScore = aiLogOpt.get().getScore();
+                    aiShieldReason = aiLogOpt.get().getReason();
+                    if (aiShieldPolicyService != null && aiShieldScore != null) {
+                        var eval = aiShieldPolicyService.resolveTier(aiShieldScore);
+                        aiShieldTier = eval.tier();
+                        aiShieldTierLabel = eval.label();
+                    } else {
+                        aiShieldTier = AiShieldTier.fromString(aiLogOpt.get().getResult());
+                        aiShieldTierLabel = aiShieldTier != null ? aiShieldTier.getDefaultLabel() : resolveTierLabel(aiLogOpt.get().getResult());
+                    }
+                }
+            }
+            if (moderationReviewRepository != null) {
+                Optional<ModerationReview> modOpt = moderationReviewRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId());
+                if (modOpt.isPresent()) {
+                    modDecision = modOpt.get().getDecision();
+                    modReason = modOpt.get().getReason();
+                }
+            }
 
             List<Comment> comments = commentRepository.findByArtifactIdWithUser(artifact.getId());
             for (Comment c : comments) {
@@ -800,6 +910,12 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .dislikeCount(dislikeCount)
                 .commentCount(commentCount)
                 .comments(commentItems)
+                .aiShieldScore(aiShieldScore)
+                .aiShieldTier(aiShieldTier)
+                .aiShieldTierLabel(aiShieldTierLabel)
+                .aiShieldReason(aiShieldReason)
+                .moderationDecision(modDecision)
+                .moderationReason(modReason)
                 .build();
     }
 
@@ -1316,6 +1432,173 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             log.error("Lỗi kết nối tới engine tạo voice preview", e);
             throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi kết nối engine âm thanh: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional
+    public CreatorVideoItemResponse submitVideoForPublish(String email, Long contentId) {
+        User creator = getUserByEmail(email);
+        Content content = contentRepository.findByIdAndCreatorId(contentId, creator.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy video hoặc bạn không có quyền truy cập"));
+
+        if (ContentStatus.PENDING_REVIEW.name().equalsIgnoreCase(content.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Video này đang trong hàng đợi chờ Admin kiểm duyệt!");
+        }
+        if (ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Video đã được xuất bản công khai trên hệ thống!");
+        }
+
+        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy tệp video của bài đăng này"));
+
+        if (!StringUtils.hasText(artifact.getFileUrl())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Video chưa hoàn tất quá trình kết xuất hoặc chưa có tệp video");
+        }
+
+        Optional<CreatorAiSetting> settingOpt = creatorAiSettingRepository.findByUserId(creator.getId());
+        String geminiKey = settingOpt.map(CreatorAiSetting::getGeminiApiKey).orElse("");
+
+        Map<String, Object> aiShieldPayload = new HashMap<>();
+        aiShieldPayload.put("content_id", content.getId());
+        aiShieldPayload.put("artifact_id", artifact.getId());
+        aiShieldPayload.put("title", content.getTitle());
+        aiShieldPayload.put("script_text", content.getTextBody());
+        aiShieldPayload.put("video_url", artifact.getFileUrl());
+        if (StringUtils.hasText(geminiKey)) {
+            aiShieldPayload.put("gemini_api_key", geminiKey);
+        }
+
+        String tier = "FAIR";
+        String tierLabel = "Khá";
+        BigDecimal score = BigDecimal.valueOf(70.0);
+        String reason = "Đã gửi vào hàng đợi AI Shield & Admin kiểm duyệt";
+
+        try {
+            String jsonReq = objectMapper.writeValueAsString(aiShieldPayload);
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(toolUrl + "/api/ai-shield/verify"))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(60))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonReq))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                JsonNode resNode = objectMapper.readTree(response.body());
+                if (resNode.has("tier")) {
+                    tier = resNode.path("tier").asText();
+                }
+                if (resNode.has("tier_label")) {
+                    tierLabel = resNode.path("tier_label").asText();
+                }
+                if (resNode.has("score")) {
+                    score = BigDecimal.valueOf(resNode.path("score").asDouble());
+                }
+                if (resNode.has("reason")) {
+                    reason = resNode.path("reason").asText();
+                }
+            } else {
+                log.warn("Tool AI Shield returned HTTP {}: {}, falling back to default evaluation", response.statusCode(), response.body());
+            }
+        } catch (Exception e) {
+            log.error("Failed to call Tool AI Shield API: {}", e.getMessage(), e);
+        }
+
+        AiShieldTier aiShieldTier = null;
+        if (aiShieldPolicyService != null) {
+            var eval = aiShieldPolicyService.resolveTier(score);
+            aiShieldTier = eval.tier();
+            tierLabel = eval.label();
+            tier = aiShieldTier.name();
+        } else {
+            aiShieldTier = AiShieldTier.fromString(tier);
+            if (aiShieldTier == null) {
+                aiShieldTier = score.compareTo(BigDecimal.valueOf(50)) < 0 ? AiShieldTier.RED_ALERT
+                        : score.compareTo(BigDecimal.valueOf(80)) < 0 ? AiShieldTier.FAIR
+                        : score.compareTo(BigDecimal.valueOf(90)) <= 0 ? AiShieldTier.GOOD
+                        : AiShieldTier.EXCELLENT;
+            }
+            tier = aiShieldTier.name();
+            tierLabel = aiShieldTier.getDefaultLabel();
+        }
+
+        // Lưu bản ghi vào ai_filter_logs
+        AiFilterLog aiLog = null;
+        if (aiFilterLogRepository != null) {
+            aiLog = AiFilterLog.builder()
+                    .artifact(artifact)
+                    .result(tier)
+                    .score(score)
+                    .reason("[" + tierLabel + " - " + score + "%] " + reason)
+                    .checkedAt(Instant.now())
+                    .build();
+            aiLog = aiFilterLogRepository.save(aiLog);
+        }
+
+        // Lưu / cập nhật bản ghi vào moderation_reviews
+        ModerationReview review = null;
+        if (moderationReviewRepository != null) {
+            review = moderationReviewRepository.findTopByArtifactIdOrderByIdDesc(artifact.getId())
+                    .orElseGet(() -> ModerationReview.builder().artifact(artifact).build());
+            review.setArtifact(artifact);
+            review.setDecision("PENDING");
+            review.setReason("AI Shield: [" + tierLabel + " - " + score + "%] " + reason);
+            review.setModerator(null);
+            review.setReviewedAt(null);
+            review = moderationReviewRepository.save(review);
+        }
+
+        // Cập nhật trạng thái Content sang PENDING_REVIEW
+        content.setStatus(ContentStatus.PENDING_REVIEW.name());
+        content.setUpdatedAt(Instant.now());
+        content = contentRepository.save(content);
+
+        log.info("Creator '{}' submitted video ID '{}' for review. AI Shield Tier: {}, Score: {}",
+                email, content.getId(), tier, score);
+
+        long likeCount = reactionRepository.countByArtifactIdAndType(artifact.getId(), "LIKE");
+        long dislikeCount = reactionRepository.countByArtifactIdAndType(artifact.getId(), "DISLIKE");
+        long commentCount = commentRepository.countByArtifactId(artifact.getId());
+
+        return CreatorVideoItemResponse.builder()
+                .contentId(content.getId())
+                .artifactId(artifact.getId())
+                .channelId(content.getChannel() != null ? content.getChannel().getId() : null)
+                .channelName(content.getChannel() != null ? content.getChannel().getName() : null)
+                .title(content.getTitle())
+                .description(content.getTextBody())
+                .status(content.getStatus())
+                .fileUrl(artifact.getFileUrl())
+                .durationSeconds(artifact.getDurationSeconds())
+                .isExclusive(content.getIsExclusive())
+                .createdAt(content.getCreatedAt())
+                .updatedAt(content.getUpdatedAt())
+                .likeCount(likeCount)
+                .dislikeCount(dislikeCount)
+                .commentCount(commentCount)
+                .aiShieldScore(score)
+                .aiShieldTier(aiShieldTier)
+                .aiShieldTierLabel(tierLabel)
+                .aiShieldReason(aiLog != null ? aiLog.getReason() : reason)
+                .moderationDecision("PENDING")
+                .moderationReason(review != null ? review.getReason() : null)
+                .build();
+    }
+
+    private String resolveTierLabel(String tier) {
+        if (tier == null) return null;
+        String upper = tier.toUpperCase();
+        if (upper.contains("RED") || upper.contains("CRITICAL")) {
+            return "Báo động đỏ";
+        } else if (upper.contains("FAIR") || upper.contains("WARNING") || upper.contains("KHÁ")) {
+            return "Khá";
+        } else if (upper.contains("GOOD") || upper.contains("TỐT")) {
+            return "Tốt";
+        } else if (upper.contains("EXCELLENT") || upper.contains("XUẤT SẮC")) {
+            return "Xuất sắc";
+        }
+        return tier;
     }
 }
 

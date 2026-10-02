@@ -1,7 +1,9 @@
 package com.prm.creator.dto.response;
 
+import com.prm.common.enums.AiShieldTier;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Getter
@@ -28,4 +30,12 @@ public class CreatorVideoItemResponse {
     private long likeCount;
     private long dislikeCount;
     private long commentCount;
+
+    // Chỉ số & Trạng thái kiểm duyệt AI Shield
+    private BigDecimal aiShieldScore;
+    private AiShieldTier aiShieldTier;
+    private String aiShieldTierLabel;
+    private String aiShieldReason;
+    private String moderationDecision;
+    private String moderationReason;
 }
