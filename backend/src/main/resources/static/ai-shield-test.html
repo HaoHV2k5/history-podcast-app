@@ -714,6 +714,32 @@
               </div>
             </div>
 
+            <!-- Score Breakdown Rubric -->
+            <div id="scoreBreakdownBox" style="display: none; margin-bottom: 20px; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: var(--radius-sm);">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-list-check text-primary"></i> Chi tiết chấm điểm 4 tiêu chí (Rubric)</span>
+                <span id="breakdownTotal" style="color: var(--primary); font-weight: 700;"></span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; font-size: 0.82rem;">
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Sử liệu gốc (doc/)</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdGrounding">-- / 50 đ</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #8b5cf6;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Chiều sâu bối cảnh</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdContext">-- / 25 đ</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #10b981;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Ăn khớp tiêu đề</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdTitle">-- / 15 đ</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Chuẩn mực văn hóa</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdTone">-- / 10 đ</div>
+                </div>
+              </div>
+            </div>
+
             <!-- Tabs inside results: Markdown vs Violations vs Context -->
             <div style="display: flex; gap: 8px; margin-bottom: 14px;">
               <button class="btn btn-sm btn-secondary active" id="btnSubMd" onclick="showSubTab('md')">
@@ -1115,14 +1141,14 @@
     function renderVerifyResult(data) {
       document.getElementById("verifyResultContent").style.display = "block";
 
-      const score = Math.round(data.score || 0);
+      const scoreVal = typeof data.score === "number" ? data.score : parseFloat(data.score || 0);
       const tier = data.tier || "GOOD";
       const tierLabel = data.tier_label || "Tốt";
 
       // Score Circle
       const circle = document.getElementById("scoreCircle");
       circle.className = "score-circle " + (tier === "RED_ALERT" ? "red" : tier === "FAIR" ? "fair" : tier === "GOOD" ? "good" : "excellent");
-      document.getElementById("scoreNumber").textContent = score + "%";
+      document.getElementById("scoreNumber").textContent = (Number.isInteger(scoreVal) ? scoreVal : scoreVal.toFixed(1)) + "%";
 
       // Meta
       document.getElementById("scoreTierLabel").textContent = tierLabel;
@@ -1132,6 +1158,18 @@
 
       document.getElementById("resultTierBadge").innerHTML = `<span class="tier-badge ${tier}">${tier} &bull; ${tierLabel}</span>`;
       document.getElementById("scoreReasonText").textContent = data.reason || "Không có nhận định bổ sung.";
+
+      // Rubric Breakdown
+      if (data.score_breakdown) {
+        document.getElementById("scoreBreakdownBox").style.display = "block";
+        document.getElementById("bdGrounding").textContent = (data.score_breakdown.grounding_accuracy || 0) + " / 50 đ";
+        document.getElementById("bdContext").textContent = (data.score_breakdown.completeness_context || 0) + " / 25 đ";
+        document.getElementById("bdTitle").textContent = (data.score_breakdown.title_alignment || 0) + " / 15 đ";
+        document.getElementById("bdTone").textContent = (data.score_breakdown.tone_integrity || 0) + " / 10 đ";
+        document.getElementById("breakdownTotal").textContent = "Tổng: " + (Number.isInteger(scoreVal) ? scoreVal : scoreVal.toFixed(1)) + " / 100 đ";
+      } else {
+        document.getElementById("scoreBreakdownBox").style.display = "none";
+      }
 
       // Markdown preview
       const mdHtml = marked.parse(data.markdown_content || "*Không có kịch bản markdown*");
