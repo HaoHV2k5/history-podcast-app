@@ -1270,7 +1270,7 @@
           <div class="mode-icon">🎙️</div>
           <div>
             <div class="mode-title">Podcast / Thuyết Minh Audio (Audio Story)</div>
-            <div class="mode-desc">Tạo video podcast âm thanh kèm thumbnail 16:9 &amp; phụ đề chữ chạy</div>
+            <div class="mode-desc">Tạo video podcast âm thanh kèm ảnh bìa vuông 1:1 &amp; phụ đề chữ chạy</div>
           </div>
         </div>
       </div>
@@ -1352,7 +1352,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 14px; margin-bottom: 20px;">
         <div>
           <h2 style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">🎙️ Studio Thuyết Minh Audio &amp; Ảnh Bìa Podcast</h2>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">Tạo video podcast âm thanh đọc nội dung kèm phụ đề. <b>Bắt buộc</b> tải lên ảnh bìa (Thumbnail 16:9) để xuất bản.</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Tạo video podcast âm thanh đọc nội dung kèm phụ đề. <b>Bắt buộc</b> tải lên ảnh bìa Podcast (chuẩn vuông 1:1, ví dụ 1200x1200 px).</p>
         </div>
         <span class="scene-badge" id="podcastStatusBadge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700;">Chế độ Podcast Audio</span>
       </div>
@@ -1362,15 +1362,15 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 1.2rem;">🎨</span>
-            <span style="font-weight: 700; font-size: 0.95rem; color: #fbbf24;">Gợi Ý Prompt Tạo Ảnh Bìa (Thumbnail 16:9)</span>
+            <span style="font-weight: 700; font-size: 0.95rem; color: #fbbf24;">Gợi Ý Prompt Tạo Ảnh Bìa Podcast (Vuông 1:1)</span>
             <span style="font-size: 0.72rem; background: rgba(245, 158, 11, 0.15); color: #fbbf24; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.3);">Tự động sinh từ kịch bản</span>
           </div>
           <button type="button" class="btn btn-sm" id="btnCopyPodcastPrompt" onclick="copyPodcastThumbnailPrompt()" style="font-size: 0.82rem; padding: 6px 14px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; cursor: pointer;">
-            📋 Sao chép Prompt Thumbnail
+            📋 Sao chép Prompt Ảnh Bìa (1:1)
           </button>
         </div>
         <p style="font-size: 0.8rem; color: #cbd5e1; margin-bottom: 10px; line-height: 1.4;">
-          Sao chép prompt tiếng Anh này và dán vào các công cụ AI tạo ảnh miễn phí để tạo Thumbnail 16:9 đậm chất tài liệu lịch sử, sau đó tải ảnh đã tạo vào ô bên dưới.
+          Sao chép prompt tiếng Anh này và dán vào các công cụ AI tạo ảnh miễn phí để tạo Ảnh bìa Podcast tỉ lệ vuông 1:1 (ví dụ 1200x1200 px) đậm chất tài liệu lịch sử.
         </p>
         <textarea id="podcastThumbnailPromptText" rows="3" style="width: 100%; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 10px 12px; color: #f1f5f9; font-size: 0.84rem; font-family: monospace; resize: vertical; margin-bottom: 10px;" placeholder="Prompt tạo ảnh bìa đang được tạo..."></textarea>
         
@@ -1406,7 +1406,7 @@
         <div>
           <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; color: #f3f4f6; display: flex; align-items: center; justify-content: space-between;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span>🖼️</span> Ảnh Bìa Đại Diện (Thumbnail 16:9)
+              <span>🖼️</span> Ảnh Bìa Podcast (Vuông 1:1, ví dụ 1200 × 1200 px)
               <span style="color: #ef4444; font-weight: 800;">*</span>
             </div>
             <span style="font-size: 0.72rem; color: #f87171; background: rgba(239, 68, 68, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.25); font-weight: 600;">Bắt buộc</span>
@@ -1416,12 +1416,12 @@
                ondragover="handlePodcastCoverDragOver(event)"
                ondragleave="handlePodcastCoverDragLeave(event)"
                ondrop="handlePodcastCoverDrop(event)"
-               style="border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+               style="border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 240px; max-width: 270px; aspect-ratio: 1 / 1; margin: 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
             <input type="file" id="podcastCoverInput" accept="image/*" style="display: none;" onchange="handlePodcastCoverUpload(this)">
             <div id="podcastCoverPlaceholder" style="pointer-events: none;">
               <div style="font-size: 2.2rem; margin-bottom: 8px;">📤</div>
-              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh Thumbnail vào đây hoặc bấm để chọn tệp</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Hỗ trợ kéo thả ảnh 16:9 (PNG, JPG, WEBP) - Lưu trực tiếp Cloudinary</div>
+              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh bìa vuông 1:1 vào đây hoặc bấm chọn tệp</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Khuyên dùng ảnh vuông 1:1 (ví dụ 1200x1200 px) - Lưu nguyên bản Cloudinary cho Mobile</div>
               <div style="margin-top: 12px; display: inline-block; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700;">
                 ⚠️ BẮT BUỘC: Phải có ảnh bìa để xuất bản video
               </div>
@@ -3177,7 +3177,7 @@
         if ($('promptInputLabel')) $('promptInputLabel').textContent = 'Chủ đề podcast hoặc Kịch bản văn bản có sẵn';
         if ($('promptInput')) $('promptInput').placeholder = 'Nhập hoặc dán toàn bộ kịch bản / bài viết thuyết minh lịch sử bạn muốn đọc...\nHOẶC nhập chủ đề ngắn để AI tự động tra cứu sử liệu (RAG) và soạn kịch bản audio...';
         if ($('studioHeroTitle')) $('studioHeroTitle').textContent = 'Xưởng Thuyết Minh & Audio Podcast Lịch Sử AI';
-        if ($('studioHeroDesc')) $('studioHeroDesc').textContent = 'Tạo video podcast âm thanh chất lượng cao kèm ảnh bìa 16:9 sắc nét và phụ đề đồng bộ. Tự động lưu Content (AI_PODCAST) và xuất bản lên kênh của bạn!';
+        if ($('studioHeroDesc')) $('studioHeroDesc').textContent = 'Tạo video podcast âm thanh chất lượng cao kèm ảnh bìa vuông 1:1 sắc nét và phụ đề đồng bộ. Tự động lưu Content (AI_PODCAST) và xuất bản lên kênh của bạn!';
         if ($('studioWorkbench') && $('studioWorkbench').style.display !== 'none') {
           $('studioWorkbench').style.display = 'none';
           openPodcastWorkbench();
@@ -3276,7 +3276,7 @@
 
       if (!promptSuggestion) {
         const topicClean = text.split('\n')[0].replace(/^[#\s\-*]+/, '').substring(0, 80) || 'Lịch Sử Việt Nam';
-        promptSuggestion = `Epic cinematic historical documentary podcast cover art illustration of ${topicClean}, dramatic atmosphere, volumetric lighting, rich historical color palette, classical oil painting art style, highly detailed, masterwork, 16:9 aspect ratio, strictly NO text, NO typography, NO watermark`;
+        promptSuggestion = `Epic cinematic historical documentary podcast cover art illustration of ${topicClean}, dramatic atmosphere, volumetric lighting, rich historical color palette, classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark`;
       }
 
       btn.disabled = false;
@@ -3336,7 +3336,7 @@
       const promptBox = $('podcastThumbnailPromptText');
       if (promptBox) {
         promptBox.value = currentStoryboard.thumbnail_prompt || 
-          `Epic cinematic historical documentary podcast cover art illustration of ${(currentStoryboard.title || 'Vietnam History')}, dramatic atmosphere, volumetric lighting, rich historical color tones, classical oil painting art style, highly detailed, masterwork, 16:9 aspect ratio, strictly NO text, NO typography, NO watermark`;
+          `Epic cinematic historical documentary podcast cover art illustration of ${(currentStoryboard.title || 'Vietnam History')}, dramatic atmosphere, volumetric lighting, rich historical color tones, classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark`;
       }
 
       const vReport = currentStoryboard.verification;
@@ -3519,7 +3519,7 @@
             <input type="file" id="fileInput_${sIdx}" accept="image/*" onchange="uploadToCloudinary(${sIdx}, this.files)">
             <span style="font-size: 1.8rem;">🖼️</span>
             <p class="dropzone-text">Kéo thả ảnh <b>Cảnh ${sIdx}</b> vào đây hoặc <b>Bấm để tải lên Cloudinary</b></p>
-            <span style="font-size: 0.72rem; color: var(--text-muted);">(Tỷ lệ 16:9, hình minh họa hoạt họa nét đen nền be)</span>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">(Thumbnail video ngang 16:9, ví dụ 1280 × 720 px)</span>
           </div>
 
           <div class="preview-container" id="previewContainer_${sIdx}" style="display: ${hasImg ? 'block' : 'none'}">
@@ -3858,8 +3858,8 @@
         $('podcastCoverPlaceholder').style.display = 'block';
         $('podcastCoverPlaceholder').innerHTML = `
           <div style="font-size: 2.2rem; margin-bottom: 8px;">📤</div>
-          <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh Thumbnail hoặc bấm để chọn</div>
-          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Tải lên ảnh 16:9 (sẽ lưu trực tiếp lên Cloudinary)</div>
+          <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh bìa vuông 1:1 vào đây hoặc bấm chọn tệp</div>
+          <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Khuyên dùng ảnh vuông 1:1 (ví dụ 1200x1200 px) - Lưu nguyên bản Cloudinary cho Mobile</div>
           <div style="margin-top: 12px; display: inline-block; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700;">
             ⚠️ BẮT BUỘC: Phải có ảnh bìa để xuất bản video
           </div>
@@ -3876,7 +3876,7 @@
       }
 
       if (!customPodcastCover) {
-        alert('⚠️ BẮT BUỘC: Vui lòng tải lên ảnh Thumbnail 16:9 cho Podcast trước khi xuất bản!');
+        alert('⚠️ BẮT BUỘC: Vui lòng tải lên ảnh bìa cho Podcast trước khi xuất bản!');
         if ($('podcastCoverDropZone')) $('podcastCoverDropZone').scrollIntoView({ behavior: 'smooth' });
         return;
       }

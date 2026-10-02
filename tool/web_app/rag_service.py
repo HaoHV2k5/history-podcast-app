@@ -276,7 +276,7 @@ NHIỆM VỤ CỦA BẠN (CỰC KỲ NGHIÊM NGẶT VÀ CỤ THỂ):
    - overall_score: Thang điểm 0 - 100. Trừ điểm nghiêm khắc nếu có hiểu sai về địa lý/quân sự hoặc thiếu dữ kiện cốt lõi (ví dụ: nhầm lẫn thế hiểm Hoa Lư chỉ được tối đa 65-75 điểm).
    - status: "verified" (nếu score >= 85), "needs_revision" (nếu score từ 50 - 84), hoặc "critical_errors" (nếu score < 50).
    - summary: Nhận xét thẳng thắn, sắc bén, chỉ rõ điểm được và điểm sai lệch/thiếu sót của kịch bản.
-   - thumbnail_prompt: 1 prompt tiếng Anh (16:9) chuyên dụng để người dùng đưa vào Midjourney/DALL-E 3/Bing Image Creator tạo ảnh bìa Thumbnail cho bản thu Audio Podcast lịch sử này (Epic cinematic historical documentary podcast cover art illustration representing the topic, dramatic atmospheric lighting, rich classical oil painting style, highly detailed, masterwork, 16:9 aspect ratio, strictly NO text, NO typography, NO watermark).
+   - thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa Podcast tỉ lệ VUÔNG 1:1 (ví dụ 1200x1200px) (Epic cinematic historical documentary podcast cover art illustration representing the topic, dramatic atmospheric lighting, rich classical oil painting style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark).
    - revised_script: Viết lại kịch bản hoàn chỉnh, sửa sạch lỗi sai, đưa vào mốc năm 1010, Chiếu dời đô, thế đất Đại La, sự tích rồng vàng bay lên ở thuyền ngự, và loại bỏ hoàn toàn các từ nối rập khuôn AI.
 
 HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ```json):
@@ -335,7 +335,7 @@ HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ``
                         parsed["thumbnail_prompt"] = (
                             f"Epic cinematic historical podcast thumbnail illustration representing {clean_sample}, "
                             "atmospheric dramatic lighting, rich historical color tones, classical oil painting art style, "
-                            "epic composition, 16:9 aspect ratio, strictly NO text, NO typography, NO watermark"
+                            "epic composition, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark"
                         )
                     parsed["source_citations"] = [
                         {
