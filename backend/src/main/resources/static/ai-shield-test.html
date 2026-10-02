@@ -692,6 +692,8 @@
           </div>
 
           <div id="verifyResultContent" style="display: none;">
+            <div id="resultVideoTitle" style="font-size: 0.95rem; font-weight: 600; color: var(--gold); margin-bottom: 14px; padding: 8px 12px; background: rgba(245, 158, 11, 0.08); border-left: 3px solid var(--gold); border-radius: 6px;">
+            </div>
             <!-- Score Meter -->
             <div class="score-display">
               <div class="score-circle good" id="scoreCircle">
@@ -907,7 +909,6 @@
       updateUserUI();
       checkServiceHealth();
       loadPolicyConfigs();
-      loadSample('good');
     });
 
     // HEALTH CHECKS
@@ -1143,16 +1144,25 @@
       }
       document.getElementById("subPaneClaims").innerHTML = claimsHtml || "<p class='text-muted'>Không có luận điểm vi phạm nào.</p>";
 
+      const titleVal = document.getElementById("verifyTitle").value.trim();
+      document.getElementById("resultVideoTitle").innerHTML = `<i class="fa-solid fa-film"></i> Tiêu đề video gửi thẩm định: <strong>${titleVal || 'Chưa đặt tiêu đề'}</strong>`;
+
       // Context RAG
-      let ctxHtml = `<h4 style="margin-bottom: 10px;"><i class="fa-solid fa-book"></i> Trích đoạn đối chiếu từ Đại Việt Sử Ký Toàn Thư / An Nam Chí Lược:</h4>`;
-      if (data.context_chunks && data.context_chunks.length > 0) {
-        data.context_chunks.forEach((chunk, i) => {
+      let ctxHtml = `<h4 style="margin-bottom: 12px;"><i class="fa-solid fa-book"></i> Nguồn sử liệu đối chiếu từ kho tài liệu (doc/):</h4>`;
+      const citations = data.source_citations || [];
+      if (citations.length > 0) {
+        citations.forEach((c, i) => {
+          const simPercent = Math.round((c.similarity || 0) * 100);
           ctxHtml += `<div style="padding: 12px; background: #0d1117; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 10px; font-size: 0.84rem; line-height: 1.5;">
-            <strong style="color: var(--gold);">[Tư liệu ${i + 1}]</strong>: ${chunk}
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+              <strong style="color: var(--gold);"><i class="fa-solid fa-bookmark"></i> [${i + 1}] ${c.book || 'Sử liệu Việt Nam'}</strong>
+              <span class="role-tag" style="background: rgba(255,255,255,0.08);">Trang ${c.page || 0} &bull; Độ khớp: ${simPercent}%</span>
+            </div>
+            ${c.snippet ? `<div style="color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 6px; font-size: 0.8rem; border-left: 2px solid rgba(245, 158, 11, 0.4);">&ldquo;${c.snippet}&rdquo;</div>` : ''}
           </div>`;
         });
       } else {
-        ctxHtml += "<p class='text-muted'>Không có trích đoạn tương thích từ RAG.</p>";
+        ctxHtml += "<p class='text-muted'>Không tìm thấy trích đoạn tương thích từ kho tư liệu nội bộ.</p>";
       }
       document.getElementById("subPaneContext").innerHTML = ctxHtml;
 
