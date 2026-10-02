@@ -2,6 +2,7 @@ package com.prm.creator.dto.response;
 
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
@@ -32,7 +33,7 @@ public class CreatorVideoDetailResponse {
     private List<CreatorCommentItemResponse> comments;
 
     // Chỉ số & Trạng thái kiểm duyệt AI Shield
-    private java.math.BigDecimal aiShieldScore;
+    private BigDecimal aiShieldScore;
     private String aiShieldTier;
     private String aiShieldTierLabel;
     private String aiShieldReason;
