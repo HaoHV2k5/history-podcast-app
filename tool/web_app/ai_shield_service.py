@@ -197,8 +197,8 @@ def verify_content_ai_shield(
     if key_to_use:
         try:
             prompt = f"""Bạn là Hệ Thống Kiểm Duyệt Nội Dung & AI Shield Thẩm Định Sử Liệu Lịch Sử Việt Nam.
-HỆ THỐNG ÁP DỤNG CHÍNH SÁCH RÀNG BUỘC SỬ LIỆU NGHIÊM NGẶT (STRICT RAG GROUNDING POLICY):
-Mọi video muốn đạt mức TỐT (>=80%) hoặc XUẤT SẮC (>90%) BẮT BUỘC PHẢI CÓ CĂN CỨ SỬ LIỆU ĐỐI CHIẾU TRỰC TIẾP từ kho sách nội bộ được cung cấp dưới đây.
+HỆ THỐNG ÁP DỤNG CHÍNH SÁCH B - RÀNG BUỘC SỬ LIỆU NGHIÊM NGẶT TUYỆT ĐỐI (STRICT RAG GROUNDING POLICY):
+Kho tài liệu số hóa nội bộ (`doc/`) là CƠ SỞ BẮT BUỘC ĐỂ XÁC THỰC MỌI VIDEO.
 
 Nội dung video vừa được trích xuất sang định dạng Markdown (bằng Microsoft MarkItDown) dưới đây:
 \"\"\"markdown
@@ -208,32 +208,34 @@ Nội dung video vừa được trích xuất sang định dạng Markdown (bằ
 CÁC TRÍCH ĐOẠN SỬ LIỆU GỐC ĐỐI CHIẾU TỪ KHO SÁCH NỘI BỘ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):
 {context_str}
 
-QUY TẮC ĐÁNH GIÁ VÀ PHÂN TẦNG ĐIỂM SỐ (STRICT POLICY - BẮT BUỘC TUÂN THỦ CHÍNH XÁC):
-1. QUY TẮC RÀNG BUỘC KHO SỬ LIỆU (STRICT GROUNDING):
-   - Nếu nội dung kịch bản/video KHÔNG CÓ TRÍCH ĐOẠN SỬ LIỆU ĐỐI CHIẾU trong kho tài liệu được cấp ở trên (hoặc các trích đoạn cung cấp không liên quan đến thời kỳ/sự kiện/nhân vật trong video):
-     * TUYỆT ĐỐI KHÔNG ĐƯỢC CHẤM ĐIỂM TỐT (>= 80%) HAY XUẤT SẮC (> 90%).
-     * Điểm số TỐI ĐA BẮT BUỘC PHẢI DƯỚI 80% (chỉ được xếp mức KHÁ - FAIR từ 50% đến 75%).
-     * Phải ghi rõ trong "violations" hoặc "reason": "Nội dung video không có tài liệu sử liệu đối chiếu trực tiếp từ kho sách nội bộ (doc/), cần Admin kiểm tra và thẩm định thủ công."
-     * Các tuyên bố (claims) không tìm thấy chứng cứ trong trích đoạn phải đánh dấu verdict: "warning" (chưa đối chiếu được qua kho sách).
+QUY TẮC ĐÁNH GIÁ VÀ PHÂN TẦNG ĐIỂM SỐ (CHÍNH SÁCH B - BẮT BUỘC TUÂN THỦ CHÍNH XÁC):
+1. QUY TẮC RÀNG BUỘC KHO SỬ LIỆU TUYỆT ĐỐI:
+   - Nếu nội dung kịch bản/video KHÔNG CÓ TRÍCH ĐOẠN SỬ LIỆU ĐỐI CHIẾU trong kho tài liệu được cấp ở trên (hoặc các trích đoạn cung cấp không liên quan đến thời kỳ/sự kiện/nhân vật trong video, ví dụ: kho sách chỉ có thời phong kiến mà video nói về Điện Biên Phủ 1954, thời hiện đại, hoặc nhân vật hư cấu):
+     * BẮT BUỘC PHẢI CHẤM ĐIỂM DƯỚI 50% (< 50% - BÁO ĐỘNG ĐỎ / RED_ALERT, điểm đề xuất từ 30% đến 45%).
+     * Phải ghi rõ trong "violations" và "reason": "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/), không có tài liệu đối chiếu xác thực theo chính sách hệ thống. Đề xuất Admin Từ chối (Reject)."
+     * Đề xuất ("recommendation"): "Admin Từ chối (Reject) video vì chủ đề nằm ngoài kho tư liệu hỗ trợ của hệ thống. Yêu cầu tác giả chọn chủ đề thuộc phạm vi sử liệu được hỗ trợ."
+     * Các tuyên bố (claims) không tìm thấy chứng cứ trong trích đoạn phải đánh dấu verdict: "error" hoặc "warning" (không có căn cứ trong kho sách).
 
-2. THANG ĐIỂM TỔNG THỂ (0 - 100):
-   - Dưới 50% (< 50): Báo động đỏ (RED_ALERT) - Xảy ra khi có sai lệch sự thật lịch sử nghiêm trọng, xuyên tạc nhân vật/sự kiện, chứa ngôn từ thù hận, kích động, hoặc vi phạm nghiêm trọng chính sách nội dung. Kèm lý do vi phạm chi tiết.
-   - Từ 50% tới < 80%: Khá (FAIR) - Khi nội dung không có lỗi sai nghiêm trọng nhưng THIẾU TƯ LIỆU ĐỐI CHIẾU trong kho sách, hoặc kịch bản còn sơ sài, cần lưu ý chỉnh sửa và Admin duyệt thủ công.
-   - Từ 80% tới 90%: Tốt (GOOD) - Kịch bản ĐÃ ĐƯỢC ĐỐI CHIẾU KHỚP VÀ CHUẨN XÁC VỚI KHO SỬ LIỆU GỐC ĐƯỢC CẤP, thông tin rõ ràng, đáp ứng đầy đủ tiêu chuẩn xuất bản.
-   - Trên 90% (> 90): Xuất sắc (EXCELLENT) - Sử liệu mẫu mực, đối chiếu khớp chặt chẽ và sâu sắc với trích dẫn từ sách gốc, hấp dẫn, độ tin cậy tuyệt đối.
+2. ĐIỀU KIỆN ĐẠT ĐIỂM >= 50% (BẮT BUỘC PHẢI CÓ TƯ LIỆU TRONG KHO SÁCH ĐỐI CHIẾU):
+   - Từ 50% tới < 80%: Khá (FAIR) - Khi nội dung ĐÃ CÓ TRONG KHO SÁCH nhưng kịch bản còn tồn tại lỗi sai sót nhỏ về số liệu/năm tháng/địa danh, hoặc kịch bản còn sơ sài chưa phản ánh đầy đủ sử liệu.
+   - Từ 80% tới 90%: Tốt (GOOD) - Kịch bản ĐÃ ĐƯỢC ĐỐI CHIẾU KHỚP VÀ CHUẨN XÁC VỚI KHO SỬ LIỆU GỐC ĐƯỢC CẤP, thông tin rõ ràng, không có lỗi sai, đáp ứng đầy đủ tiêu chuẩn xuất bản.
+   - Trên 90% (> 90): Xuất sắc (EXCELLENT) - Sử liệu mẫu mực, đối chiếu khớp chặt chẽ và sâu sắc với trích dẫn từ sách gốc (có trích dẫn văn bia/hịch/lời bình của sử gia), văn phong xuất sắc, độ tin cậy tuyệt đối.
+   - Dưới 50% (< 50): Báo động đỏ (RED_ALERT) - Xảy ra khi:
+     (1) Nội dung NẰM NGOÀI KHO SỬ LIỆU NỘI BỘ (không có tài liệu đối chiếu).
+     (2) Có sai lệch lịch sử nghiêm trọng, xuyên tạc sự thật, ngôn từ thù hận, kích động, hoặc vi phạm nghiêm trọng chính sách nội dung.
 
 3. Hãy phân tích các luận điểm (claims), chỉ ra điểm đúng, điểm sai hoặc thiếu căn cứ từ kho sách.
 
 HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code fences ```json):
 {{
-  "score": 68.0,
-  "reason": "Tóm tắt nhận định tổng thể về chất lượng, nêu rõ tình trạng đối chiếu với kho sách nội bộ...",
-  "violations": ["Điểm vi phạm hoặc cảnh báo thiếu nguồn trích dẫn từ kho sách 1"],
-  "positive_points": ["Điểm tốt 1", "Điểm tốt 2"],
+  "score": 38.0,
+  "reason": "Tóm tắt nhận định tổng thể, nêu rõ tình trạng đối chiếu với kho sách nội bộ...",
+  "violations": ["Điểm vi phạm hoặc cảnh báo nằm ngoài kho sách"],
+  "positive_points": ["Điểm tốt (nếu có)"],
   "claims": [
     {{
       "claim": "...",
-      "verdict": "verified / error / warning",
+      "verdict": "error / warning / verified",
       "explanation": "..."
     }}
   ],
@@ -266,32 +268,34 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                             if text_resp.startswith("json"):
                                 text_resp = text_resp[4:].strip()
                         parsed = json.loads(text_resp)
-                        raw_score = float(parsed.get("score", 70.0))
+                        raw_score = float(parsed.get("score", 35.0))
 
-                        # STRICT GROUNDING GUARDRAIL (Enforcement Code Layer):
-                        # Kiểm tra xem có trích đoạn sử liệu đối chiếu tin cậy không
-                        has_grounding = False
-                        if context_chunks:
-                            max_sim = max([float(c.get("similarity", 0.0)) for c in context_chunks] + [0.0])
-                            # Có ít nhất 1 chunk đạt similarity đối chiếu tương đối (>= 0.40)
-                            if max_sim >= 0.40:
-                                has_grounding = True
+                        # HƯỚNG B: STRICT GROUNDING GUARDRAIL (Enforcement Code Layer):
+                        # Nhận diện nếu nội dung nằm ngoài kho sách từ nhận định của Gemini hoặc lack of grounding
+                        reason_text = (parsed.get("reason", "") + " " + " ".join([str(v) for v in parsed.get("violations", [])])).lower()
+                        is_out_of_scope = any(
+                            k in reason_text for k in [
+                                "nằm ngoài", "không có tài liệu đối chiếu", "không chứa tư liệu",
+                                "thiếu trích dẫn chứng cứ lịch sử từ kho", "không tìm thấy trích đoạn",
+                                "không có trích đoạn sử liệu", "chưa có tư liệu đối chiếu", "không có trong kho",
+                                "ngoài phạm vi kho", "thiếu trích dẫn chứng cứ", "không tìm thấy tài liệu"
+                            ]
+                        )
 
-                        # Nếu không có trích dẫn sử liệu đối chiếu trong kho sách nội bộ doc/
-                        # mà điểm số lại >= 80 (Tốt hoặc Xuất sắc), lập tức kẹp điểm xuống mức Khá (tối đa 75.0)
-                        if not has_grounding and raw_score >= 80.0:
-                            raw_score = 75.0
+                        # Nếu nội dung nằm ngoài kho sách hoặc không có căn cứ đối chiếu:
+                        # BẮT BUỘC kẹp điểm (clamp) xuống dưới 50% (BÁO ĐỘNG ĐỎ - RED_ALERT, 38.0)
+                        if (not context_chunks or is_out_of_scope) and raw_score >= 50.0:
+                            raw_score = 38.0
                             orig_reason = parsed.get("reason", "")
-                            parsed["reason"] = f"[Strict Grounding] Không có sử liệu đối chiếu trực tiếp từ kho sách nội bộ (doc/). Điểm số được giới hạn tối đa ở mức Khá (FAIR) để Admin thẩm định thủ công. Nhận định: {orig_reason}"
+                            parsed["reason"] = f"[Báo động đỏ - Strict Grounding] Chủ đề hoặc sự kiện nằm ngoài phạm vi kho sử liệu nội bộ (doc/). Theo chính sách B, video bị xếp loại Báo động đỏ để Admin từ chối. Nhận định: {orig_reason}"
                             violations = parsed.get("violations", [])
                             if not isinstance(violations, list):
                                 violations = []
-                            warning_msg = "Cảnh báo RAG Strict Grounding: Nội dung chưa có tư liệu đối chiếu trực tiếp từ kho sách nội bộ (doc/), cần Admin kiểm duyệt kỹ lưỡng."
-                            if not any("kho sách" in str(v).lower() or "đối chiếu" in str(v).lower() for v in violations):
+                            warning_msg = "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/), không có tài liệu đối chiếu xác thực theo chính sách hệ thống."
+                            if not any("kho sách" in str(v).lower() or "báo động đỏ" in str(v).lower() for v in violations):
                                 violations.insert(0, warning_msg)
                             parsed["violations"] = violations
-                            rec = parsed.get("recommendation", "")
-                            parsed["recommendation"] = f"Admin cần thẩm định kỹ lưỡng do video chưa có tài liệu đối chiếu từ kho sách nội bộ. {rec}".strip()
+                            parsed["recommendation"] = "Admin Từ chối (Reject) video vì chủ đề nằm ngoài kho tư liệu hỗ trợ của hệ thống."
 
                         # Clamp score between 0 and 100
                         score = max(0.0, min(100.0, raw_score))
@@ -340,12 +344,12 @@ def rule_based_policy_evaluation(
     context_chunks: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
     """
-    Quy tắc kiểm duyệt dự phòng khi Gemini API không khả dụng:
+    Quy tắc kiểm duyệt dự phòng khi Gemini API không khả dụng (Chính sách B):
     Tuân thủ nghiêm ngặt chính sách Strict RAG Grounding:
-    - Nếu không có trích dẫn từ kho sách nội bộ: Tối đa mức Khá (FAIR: < 80%)
+    - Nếu không có trích dẫn từ kho sách nội bộ: Bắt buộc rơi vào Báo động đỏ (RED_ALERT: < 50%)
     - < 50: Báo động đỏ (RED_ALERT)
-    - 50 - <80: Khá (FAIR)
-    - 80 - 90: Tốt (GOOD - chỉ khi có trích dẫn sử liệu từ kho sách)
+    - 50 - <80: Khá (FAIR - chỉ khi có trích dẫn trong kho sách nhưng còn lỗi nhỏ)
+    - 80 - 90: Tốt (GOOD - chỉ khi có trích dẫn sử liệu chuẩn xác từ kho sách)
     - > 90: Xuất sắc (EXCELLENT - chỉ khi có trích dẫn sử liệu khớp cao từ kho sách)
     """
     content_lower = (title + " " + script_text).lower()
@@ -377,13 +381,13 @@ def rule_based_policy_evaluation(
     if not has_grounding:
         warnings.append("Chưa tìm thấy đoạn trích sử liệu đối chiếu trực tiếp từ kho sách nội bộ (doc/).")
 
-    # Tính điểm theo Strict Grounding
+    # Tính điểm theo Strict Grounding (Hướng B: Không có trong sách => Báo động đỏ)
     if critical_violations:
         score = 35.0  # Dưới 50% => Báo động đỏ
         reason = f"Báo động đỏ: Nội dung vi phạm chính sách hoặc sai lệch tiêu chuẩn. Chi tiết: {'; '.join(critical_violations)}"
     elif not has_grounding:
-        score = 68.0 if max_sim > 0.25 else 58.0  # Không có tài liệu đối chiếu trong kho sách => Khá (FAIR)
-        reason = "[Strict Grounding] Nội dung đạt mức Khá: Chưa có tư liệu đối chiếu trực tiếp từ kho sách nội bộ (doc/), cần Admin kiểm tra thẩm định trước khi phê duyệt."
+        score = 38.0  # Dưới 50% => Báo động đỏ vì nằm ngoài kho sách
+        reason = "[Báo động đỏ - Strict Grounding] Chủ đề/nội dung nằm ngoài phạm vi kho sách nội bộ (doc/), không có tư liệu đối chiếu trực tiếp để xác thực."
     elif warnings:
         score = 68.0  # 50% - <80% => Khá
         reason = f"Nội dung đạt mức Khá. Cần lưu ý các điểm sau trước khi xuất bản: {'; '.join(warnings)}"
@@ -404,7 +408,7 @@ def rule_based_policy_evaluation(
         "violations": critical_violations + ([w for w in warnings if "kho sách" in w] if not has_grounding and not critical_violations else []),
         "positive_points": ["Đã được trích xuất thành định dạng Markdown chuẩn qua MarkItDown"] if not critical_violations else [],
         "claims": [],
-        "recommendation": "Admin cần xem xét chi tiết lý do và báo cáo trước khi đưa ra quyết định." if score < 80.0 else "Nội dung đáp ứng tiêu chuẩn để Admin phê duyệt.",
+        "recommendation": "Admin Từ chối (Reject) video vì chủ đề nằm ngoài kho tư liệu hỗ trợ của hệ thống." if not has_grounding or critical_violations else ("Admin xem xét chi tiết trước khi phê duyệt." if score < 80.0 else "Nội dung đáp ứng tiêu chuẩn để Admin phê duyệt."),
         "markdown_content": markdown_content,
         "source_citations": [
             {
