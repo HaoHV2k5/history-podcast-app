@@ -101,4 +101,11 @@ public interface CreatorStudioService {
      * Đối chiếu kịch bản nhập tay với kho tài liệu lịch sử RAG và sinh gợi ý prompt thumbnail 16:9.
      */
     Object verifyScript(String email, String script);
+
+    /**
+     * Creator kích hoạt kiểm duyệt AI Shield & Gửi yêu cầu xuất bản video.
+     * Video sẽ qua lớp AI Shield (Microsoft MarkItDown + RAG Embedding & Policy Check)
+     * và chuyển vào hàng đợi Admin xem xét duyệt.
+     */
+    CreatorVideoItemResponse submitVideoForPublish(String email, Long contentId);
 }

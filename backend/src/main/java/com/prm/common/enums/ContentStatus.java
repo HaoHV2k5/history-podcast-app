@@ -8,8 +8,12 @@ public enum ContentStatus {
     DRAFT,
     /** Render xong nhưng chưa được creator publish */
     COMPLETED,
+    /** Đang chờ duyệt qua AI Shield & Admin kiểm duyệt */
+    PENDING_REVIEW,
     /** Đã publish — hiển thị công khai, dùng optimizedUrl cho CDN */
     PUBLISHED,
+    /** Bị Admin từ chối phê duyệt */
+    REJECTED,
     /** Creator ẩn video khỏi public */
     HIDDEN,
     /** Quá trình render/xử lý thất bại */

@@ -30,4 +30,12 @@ public class CreatorVideoDetailResponse {
     private long commentCount;
 
     private List<CreatorCommentItemResponse> comments;
+
+    // Chỉ số & Trạng thái kiểm duyệt AI Shield
+    private java.math.BigDecimal aiShieldScore;
+    private String aiShieldTier;
+    private String aiShieldTierLabel;
+    private String aiShieldReason;
+    private String moderationDecision;
+    private String moderationReason;
 }
