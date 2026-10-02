@@ -36,10 +36,6 @@ public class AdminModerationController {
     private final AdminModerationService adminModerationService;
     private final AiShieldPolicyService aiShieldPolicyService;
 
-    public AdminModerationController(AdminModerationService adminModerationService) {
-        this(adminModerationService, null);
-    }
-
     @GetMapping("/reviews")
     @Operation(
             summary = "1. Danh sách hàng đợi kiểm duyệt video (Có phân trang & lọc)",

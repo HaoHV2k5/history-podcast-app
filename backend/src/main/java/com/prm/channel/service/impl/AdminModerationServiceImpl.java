@@ -43,14 +43,6 @@ public class AdminModerationServiceImpl implements AdminModerationService {
     private final UserRepository userRepository;
     private final AiShieldPolicyService aiShieldPolicyService;
 
-    public AdminModerationServiceImpl(
-            ModerationReviewRepository moderationReviewRepository,
-            AiFilterLogRepository aiFilterLogRepository,
-            ContentRepository contentRepository,
-            UserRepository userRepository
-    ) {
-        this(moderationReviewRepository, aiFilterLogRepository, contentRepository, userRepository, null);
-    }
 
     @Override
     @Transactional(readOnly = true)
