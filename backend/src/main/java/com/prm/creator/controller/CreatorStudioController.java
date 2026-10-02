@@ -59,6 +59,15 @@ public class CreatorStudioController {
         return ApiResponse.success("Tạo kịch bản thành công", storyboard);
     }
 
+    @Operation(summary = "Thẩm định kịch bản sử liệu & Gợi ý Prompt Thumbnail 16:9", description = "Đối chiếu kịch bản nhập tay với kho tài liệu lịch sử RAG và sinh gợi ý prompt thumbnail")
+    @PostMapping("/verify-script")
+    public ApiResponse<Object> verifyScript(@RequestBody Map<String, String> request) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        String script = request != null ? request.get("script") : "";
+        Object verification = creatorStudioService.verifyScript(email, script);
+        return ApiResponse.success("Thẩm định kịch bản thành công", verification);
+    }
+
     @Operation(summary = "Chấp nhận kịch bản & Xuất bản Video (Lưu DB)", description = "Lưu Content, Artifact, Transcript vào DB và gửi yêu cầu render sang engine")
     @PostMapping("/render")
     public ApiResponse<CreatorRenderResponse> renderVideo(@Valid @RequestBody CreatorRenderRequest request) {

@@ -187,6 +187,49 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     }
 
     @Override
+    public Object verifyScript(String email, String script) {
+        if (!StringUtils.hasText(script)) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Nội dung kịch bản cần thẩm định không được để trống");
+        }
+
+        User user = getUserByEmail(email);
+        String geminiKey = creatorAiSettingRepository.findByUserId(user.getId())
+                .map(CreatorAiSetting::getGeminiApiKey)
+                .orElse("");
+
+        Map<String, Object> toolPayload = new HashMap<>();
+        toolPayload.put("script", script.trim());
+        if (StringUtils.hasText(geminiKey)) {
+            toolPayload.put("gemini_api_key", geminiKey.trim());
+        }
+
+        try {
+            String jsonBody = objectMapper.writeValueAsString(toolPayload);
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(toolUrl + "/api/script/verify"))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(60))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                String errorDetail = extractErrorDetail(response.body(), response.statusCode());
+                log.error("Tool verify-script failed with HTTP {}: {}", response.statusCode(), errorDetail);
+                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi thẩm định kịch bản: " + errorDetail);
+            }
+
+            return objectMapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
+        } catch (AppException ae) {
+            throw ae;
+        } catch (Exception e) {
+            log.error("Failed to communicate with Tool verify-script API", e);
+            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Không thể kết nối đến dịch vụ thẩm định kịch bản: " + e.getMessage());
+        }
+    }
+
+    @Override
     @Transactional
     public CreatorRenderResponse renderAndSaveVideo(String email, CreatorRenderRequest request) {
         User user = getUserByEmail(email);
