@@ -19,10 +19,8 @@ public class CreatorRenderRequest {
     @Builder.Default
     private Integer durationSec = 60;
 
-    @NotNull(message = "Kịch bản (storyboard) không được để trống")
     private Map<String, Object> storyboard;
 
-    @NotNull(message = "Danh sách ảnh minh họa cảnh không được để trống")
     private Map<String, String> sceneImages;
 
     private String ttsEngine;
@@ -30,4 +28,22 @@ public class CreatorRenderRequest {
     private String voiceName;
 
     private Long channelId;
+
+    /**
+     * Chế độ render:
+     * - "whiteboard" (Mặc định): Render hoạt họa vẽ tay bảng trắng từng cảnh
+     * - "audio_podcast" hoặc "podcast": Render video Podcast dạng Audio thuyết minh kèm ảnh bìa & phụ đề
+     */
+    @Builder.Default
+    private String renderMode = "whiteboard";
+
+    /**
+     * Kịch bản thuyết minh dạng văn bản thuần túy (cho chế độ audio_podcast)
+     */
+    private String scriptText;
+
+    /**
+     * URL hoặc Base64 ảnh bìa đại diện của video Podcast (tùy chọn)
+     */
+    private String coverImage;
 }
