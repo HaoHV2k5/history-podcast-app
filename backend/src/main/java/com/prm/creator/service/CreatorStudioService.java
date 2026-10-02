@@ -96,4 +96,9 @@ public interface CreatorStudioService {
      * Tạo âm thanh nghe thử trực tiếp câu tiếng Việt theo giọng đọc và engine được chọn.
      */
     Map<String, Object> previewVoice(String email, CreatorVoicePreviewRequest request);
+
+    /**
+     * Đối chiếu kịch bản nhập tay với kho tài liệu lịch sử RAG và sinh gợi ý prompt thumbnail 16:9.
+     */
+    Object verifyScript(String email, String script);
 }
