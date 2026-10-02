@@ -215,14 +215,20 @@ QUY TẮC ĐÁNH GIÁ VÀ PHÂN TẦNG ĐIỂM SỐ (CHÍNH SÁCH B - BẮT BU�
      * Phải ghi rõ trong "violations" và "reason": "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/), không có tài liệu đối chiếu xác thực theo chính sách hệ thống. Đề xuất Admin Từ chối (Reject)."
      * Đề xuất ("recommendation"): "Admin Từ chối (Reject) video vì chủ đề nằm ngoài kho tư liệu hỗ trợ của hệ thống. Yêu cầu tác giả chọn chủ đề thuộc phạm vi sử liệu được hỗ trợ."
      * Các tuyên bố (claims) không tìm thấy chứng cứ trong trích đoạn phải đánh dấu verdict: "error" hoặc "warning" (không có căn cứ trong kho sách).
+   - Nếu TIÊU ĐỀ và NỘI DUNG KỊCH BẢN MÂU THUẪN THỜI ĐẠI / NHÂN VẬT (ví dụ: Tiêu đề đặt tên nhân vật thời Lý như "Lý Thường Kiệt" nhưng nội dung thuyết minh lại kể về sự kiện thời Trần như "Hội nghị Diên Hồng năm 1284", hoặc ngược lại):
+     * Đây là lỗi sai lệch lịch sử nghiêm trọng (gán sai nhân vật, lệch niên đại hàng trăm năm).
+     * BẮT BUỘC PHẢI CHẤM ĐIỂM DƯỚI 50% (< 50% - BÁO ĐỘNG ĐỎ / RED_ALERT, điểm đề xuất từ 30% đến 40%).
+     * Phải ghi rõ trong "violations" và "reason": "Báo động đỏ: Mâu thuẫn thời đại và nhân vật lịch sử giữa tiêu đề và nội dung kịch bản (Tiêu đề đề cập đến [nhân vật/thời đại ở tiêu đề], nhưng kịch bản lại thuyết minh về [sự kiện/thời đại ở nội dung], sai lệch hoàn toàn về niên đại và nhân vật). Đề xuất Admin Từ chối (Reject)."
+     * Đề xuất ("recommendation"): "Admin Từ chối (Reject) video vì tiêu đề và nội dung mâu thuẫn thời đại lịch sử. Yêu cầu tác giả chỉnh sửa tiêu đề hoặc nội dung cho đồng nhất đúng với sự thật lịch sử."
 
-2. ĐIỀU KIỆN ĐẠT ĐIỂM >= 50% (BẮT BUỘC PHẢI CÓ TƯ LIỆU TRONG KHO SÁCH ĐỐI CHIẾU):
+2. ĐIỀU KIỆN ĐẠT ĐIỂM >= 50% (BẮT BUỘC PHẢI CÓ TƯ LIỆU TRONG KHO SÁCH ĐỐI CHIẾU VÀ ĐỒNG NHẤT VỀ LỊCH SỬ):
    - Từ 50% tới < 80%: Khá (FAIR) - Khi nội dung ĐÃ CÓ TRONG KHO SÁCH nhưng kịch bản còn tồn tại lỗi sai sót nhỏ về số liệu/năm tháng/địa danh, hoặc kịch bản còn sơ sài chưa phản ánh đầy đủ sử liệu.
-   - Từ 80% tới 90%: Tốt (GOOD) - Kịch bản ĐÃ ĐƯỢC ĐỐI CHIẾU KHỚP VÀ CHUẨN XÁC VỚI KHO SỬ LIỆU GỐC ĐƯỢC CẤP, thông tin rõ ràng, không có lỗi sai, đáp ứng đầy đủ tiêu chuẩn xuất bản.
+   - Từ 80% tới 90%: Tốt (GOOD) - Kịch bản ĐÃ ĐƯỢC ĐỐI CHIẾU KHỚP VÀ CHUẨN XÁC VỚI KHO SỬ LIỆU GỐC ĐƯỢC CẤP, tiêu đề và nội dung đồng nhất, thông tin rõ ràng, không có lỗi sai, đáp ứng đầy đủ tiêu chuẩn xuất bản.
    - Trên 90% (> 90): Xuất sắc (EXCELLENT) - Sử liệu mẫu mực, đối chiếu khớp chặt chẽ và sâu sắc với trích dẫn từ sách gốc (có trích dẫn văn bia/hịch/lời bình của sử gia), văn phong xuất sắc, độ tin cậy tuyệt đối.
    - Dưới 50% (< 50): Báo động đỏ (RED_ALERT) - Xảy ra khi:
      (1) Nội dung NẰM NGOÀI KHO SỬ LIỆU NỘI BỘ (không có tài liệu đối chiếu).
-     (2) Có sai lệch lịch sử nghiêm trọng, xuyên tạc sự thật, ngôn từ thù hận, kích động, hoặc vi phạm nghiêm trọng chính sách nội dung.
+     (2) Tiêu đề và nội dung kịch bản mâu thuẫn thời kỳ / nhân vật lịch sử.
+     (3) Có sai lệch lịch sử nghiêm trọng, xuyên tạc sự thật, ngôn từ thù hận, kích động, hoặc vi phạm nghiêm trọng chính sách nội dung.
 
 3. Hãy phân tích các luận điểm (claims), chỉ ra điểm đúng, điểm sai hoặc thiếu căn cứ từ kho sách.
 
