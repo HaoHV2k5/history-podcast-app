@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Shield & Moderation Studio - History Podcast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #090b10;
+      --card-bg: rgba(18, 22, 34, 0.82);
+      --card-bg-solid: #121622;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --primary-glow: rgba(59, 130, 246, 0.25);
+      --accent: #8b5cf6;
+      --gold: #f59e0b;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --info: #06b6d4;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 12% 18%, rgba(59, 130, 246, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 88% 82%, rgba(139, 92, 246, 0.12) 0%, transparent 45%);
+      background-attachment: fixed;
+    }
+
+    /* HEADER */
+    header {
+      padding: 14px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      background: rgba(9, 11, 16, 0.88);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .brand-title {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+    .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.offline { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      font-size: 0.8rem;
+    }
+
+    .role-tag {
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .role-tag.admin { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .role-tag.creator { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .btn-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(59, 130, 246, 0.45); }
+    .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3); }
+    .btn-success:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45); }
+    .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+    .btn-danger:hover { transform: translateY(-1px); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: var(--text); border: 1px solid var(--card-border); }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.14); }
+    .btn-outline { background: transparent; color: var(--text-muted); border: 1px solid var(--card-border); }
+    .btn-outline:hover { color: var(--text); border-color: rgba(255, 255, 255, 0.2); }
+    .btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+
+    /* MAIN CONTAINER */
+    main {
+      flex: 1;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    /* TOP BAR TABS */
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 12px;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(139, 92, 246, 0.18));
+      color: white;
+      border-color: rgba(59, 130, 246, 0.45);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+    }
+    .tab-badge {
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* TAB CONTENTS */
+    .tab-pane {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .tab-pane.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* CARDS */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      margin-bottom: 24px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 14px;
+    }
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* GRID LAYOUTS */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+    }
+    @media (max-width: 1024px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .grid-4 { grid-template-columns: 1fr; }
+    }
+
+    /* FORMS */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .form-control {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius-sm);
+      color: white;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+    textarea.form-control {
+      resize: vertical;
+      min-height: 120px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    /* SAMPLE CHIPS */
+    .sample-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--card-border);
+      background: rgba(255, 255, 255, 0.04);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: scale(1.02);
+    }
+    .chip.red { color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+    .chip.fair { color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+    .chip.good { color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+    .chip.excellent { color: #c084fc; border-color: rgba(192, 132, 252, 0.3); }
+
+    /* TIER BADGES */
+    .tier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tier-badge.RED_ALERT {
+      background: rgba(239, 68, 68, 0.18);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.2);
+    }
+    .tier-badge.FAIR {
+      background: rgba(245, 158, 11, 0.18);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+    .tier-badge.GOOD {
+      background: rgba(16, 185, 129, 0.18);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+    .tier-badge.EXCELLENT {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.25), rgba(245, 158, 11, 0.25));
+      color: #e9d5ff;
+      border: 1px solid rgba(168, 85, 247, 0.5);
+      box-shadow: 0 0 16px rgba(168, 85, 247, 0.25);
+    }
+
+    /* SCORE GAUGE DISPLAY */
+    .score-display {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--card-border);
+      margin-bottom: 20px;
+    }
+    .score-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.4rem;
+      border: 4px solid var(--primary);
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+    .score-circle.red { border-color: var(--danger); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); color: #f87171; }
+    .score-circle.fair { border-color: var(--warning); box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); color: #fbbf24; }
+    .score-circle.good { border-color: var(--success); box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); color: #34d399; }
+    .score-circle.excellent { border-color: var(--accent); box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); color: #c084fc; }
+
+    .score-meta {
+      flex: 1;
+    }
+    .score-tier-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .score-reason {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    /* MARKDOWN PREVIEW */
+    .md-preview {
+      background: #0d1117;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-sm);
+      padding: 18px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .md-preview h1, .md-preview h2, .md-preview h3 {
+      color: white;
+      margin: 16px 0 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+    }
+    .md-preview ul, .md-preview ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+    .md-preview blockquote {
+      border-left: 4px solid var(--primary);
+      padding-left: 14px;
+      color: #93c5fd;
+      margin: 10px 0;
+    }
+    .md-preview code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* POLICY CONFIG CARD */
+    .policy-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: all 0.25s ease;
+    }
+    .policy-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+      transform: translateY(-2px);
+    }
+    .policy-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* REVIEWS LIST TABLE / CARDS */
+    .review-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+    .review-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* TOAST */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 14px 22px;
+      background: #1f2937;
+      color: white;
+      border-radius: var(--radius);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    #toast.success { border-color: var(--success); }
+    #toast.error { border-color: var(--danger); }
+
+    /* LOADING SPINNER */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="brand-title">
+        <span>AI Shield & Moderation Studio</span>
+        <span class="brand-sub">Microsoft MarkItDown &bull; RAG Embedding &bull; Spring Boot</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Service health status -->
+      <div class="status-pill" id="backendStatusPill" title="Spring Boot Backend 8080">
+        <span class="status-dot" id="backendDot"></span>
+        <span>Backend (8080)</span>
+      </div>
+
+      <div class="status-pill" id="toolStatusPill" title="Python AI Shield Tool 8000">
+        <span class="status-dot" id="toolDot"></span>
+        <span>AI Tool (8000)</span>
+      </div>
+
+      <!-- Quick Login buttons -->
+      <button class="btn btn-sm btn-outline" id="quickAdminBtn" onclick="quickLogin('admin@historypodcast.com', 'Admin@123', 'ADMIN')">
+        <i class="fa-solid fa-crown text-gold"></i> Đăng nhập Admin
+      </button>
+
+      <button class="btn btn-sm btn-outline" id="quickCreatorBtn" onclick="quickLogin('creator@historypodcast.com', 'Creator@123', 'CREATOR')">
+        <i class="fa-solid fa-clapperboard text-primary"></i> Đăng nhập Creator
+      </button>
+
+      <div class="user-badge" id="userBadge" style="display: none;">
+        <i class="fa-solid fa-user-circle"></i>
+        <span id="userEmailText">admin@historypodcast.com</span>
+        <span class="role-tag admin" id="userRoleTag">ADMIN</span>
+        <button class="btn btn-sm btn-outline" onclick="logout()" title="Đăng xuất" style="padding: 2px 6px;">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main>
+    <!-- NAV TABS -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" onclick="switchTab('tabVerify')">
+        <i class="fa-solid fa-bolt-lightning"></i>
+        <span>1. Thử Nghiệm Trực Tiếp AI Shield</span>
+        <span class="tab-badge">MarkItDown</span>
+      </button>
+
+      <button class="tab-btn" onclick="switchTab('tabCreator')">
+        <i class="fa-solid fa-video"></i>
+        <span>2. Creator Studio: Gửi Duyệt Video</span>
+      </button>
+
+      <button class="tab-btn" onclick="switchTab('tabModeration')">
+        <i class="fa-solid fa-scale-balanced"></i>
+        <span>3. Admin: Hàng Đợi Kiểm Duyệt</span>
+        <span class="tab-badge" id="pendingCountBadge">0</span>
+      </button>
+
+      <button class="tab-btn" onclick="switchTab('tabPolicyConfig')">
+        <i class="fa-solid fa-sliders"></i>
+        <span>4. Admin: Cấu Hình Động Policy %</span>
+        <span class="tab-badge">Enum Config</span>
+      </button>
+    </div>
+
+    <!-- ==================== TAB 1: THỬ NGHIỆM TRỰC TIẾP AI SHIELD ==================== -->
+    <div id="tabVerify" class="tab-pane active">
+      <div class="grid-2">
+        <!-- Input Form -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title"><i class="fa-solid fa-file-pen text-primary"></i> Nhập Kịch Bản / Media Để Thẩm Định</h2>
+            <span class="text-muted" style="font-size: 0.8rem;">Quy trình bóc tách MarkItDown & RAG</span>
+          </div>
+
+          <!-- Sample template chips -->
+          <label class="form-label">Chọn kịch bản mẫu thử nghiệm:</label>
+          <div class="sample-chips">
+            <div class="chip red" onclick="loadSample('red')">
+              <i class="fa-solid fa-circle-exclamation"></i> Mẫu 1: Báo động đỏ (&lt; 50%)
+            </div>
+            <div class="chip fair" onclick="loadSample('fair')">
+              <i class="fa-solid fa-triangle-exclamation"></i> Mẫu 2: Khá (Thời Trần - Sai sót)
+            </div>
+            <div class="chip good" onclick="loadSample('ly_nhunguyet')">
+              <i class="fa-solid fa-shield-halved"></i> Mẫu 3: Tốt (Thời Lý - Sông Như Nguyệt)
+            </div>
+            <div class="chip good" onclick="loadSample('ly_thaito')">
+              <i class="fa-solid fa-landmark"></i> Mẫu 4: Tốt (Thời Lý - Chiếu Dời Đô)
+            </div>
+            <div class="chip good" onclick="loadSample('good')">
+              <i class="fa-solid fa-circle-check"></i> Mẫu 5: Tốt (Ngô Quyền 938)
+            </div>
+            <div class="chip excellent" onclick="loadSample('excellent')">
+              <i class="fa-solid fa-award"></i> Mẫu 6: Xuất sắc (Thời Trần - Hịch Tướng Sĩ)
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tiêu đề video / Podcast:</label>
+            <input type="text" id="verifyTitle" class="form-control" placeholder="Ví dụ: Chiến Thắng Bạch Đằng Năm 938">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Nội dung kịch bản văn bản:</label>
+            <textarea id="verifyScript" class="form-control" rows="8" placeholder="Nhập lời dẫn, phân cảnh, sự kiện lịch sử..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Đường dẫn tệp Video / Audio (Tùy chọn):</label>
+            <input type="text" id="verifyVideoUrl" class="form-control" placeholder="https://res.cloudinary.com/.../video.mp4">
+            <small class="text-muted" style="display: block; margin-top: 4px; font-size: 0.75rem;">
+              * Microsoft MarkItDown sẽ tự động bóc tách âm thanh, metadata và văn bản từ đường dẫn nếu có.
+            </small>
+          </div>
+
+          <div style="display: flex; gap: 12px; margin-top: 20px;">
+            <button class="btn btn-primary" id="btnRunVerify" onclick="runAiShieldVerification()" style="flex: 1;">
+              <i class="fa-solid fa-shield-virus"></i>
+              <span>Chạy Thẩm Định AI Shield</span>
+            </button>
+            <button class="btn btn-secondary" onclick="clearVerifyForm()">
+              <i class="fa-solid fa-rotate-left"></i> Xóa
+            </button>
+          </div>
+        </div>
+
+        <!-- Evaluation Results Display -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title"><i class="fa-solid fa-square-poll-vertical text-accent"></i> Kết Quả Thẩm Định & Báo Cáo Markdown</h2>
+            <div id="resultTierBadge">
+              <span class="tier-badge GOOD">SẴN SÀNG</span>
+            </div>
+          </div>
+
+          <div id="verifyLoadingState" style="display: none; text-align: center; padding: 48px 0;">
+            <div class="spinner" style="width: 36px; height: 36px; margin: 0 auto 16px auto; border-top-color: var(--primary);"></div>
+            <p style="font-weight: 600;">Đang khởi chạy Microsoft MarkItDown & RAG Embedding...</p>
+            <p class="text-muted" style="font-size: 0.8rem; margin-top: 6px;">Bóc tách Markdown &bull; Đối chiếu sử liệu &bull; Đánh giá chính sách</p>
+          </div>
+
+          <div id="verifyEmptyState" style="text-align: center; padding: 48px 24px; color: var(--text-muted);">
+            <i class="fa-solid fa-file-waveform" style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;"></i>
+            <p>Chọn một kịch bản mẫu bên trái hoặc nhập nội dung rồi bấm <strong>"Chạy Thẩm Định AI Shield"</strong>.</p>
+          </div>
+
+          <div id="verifyResultContent" style="display: none;">
+            <div id="resultVideoTitle" style="font-size: 0.95rem; font-weight: 600; color: var(--gold); margin-bottom: 14px; padding: 8px 12px; background: rgba(245, 158, 11, 0.08); border-left: 3px solid var(--gold); border-radius: 6px;">
+            </div>
+            <!-- Score Meter -->
+            <div class="score-display">
+              <div class="score-circle good" id="scoreCircle">
+                <span id="scoreNumber">85%</span>
+              </div>
+              <div class="score-meta">
+                <div class="score-tier-title">
+                  <span id="scoreTierLabel">Tốt</span>
+                  <span class="tier-badge GOOD" id="scoreTierBadge">GOOD</span>
+                </div>
+                <p class="score-reason" id="scoreReasonText">Nội dung đạt chuẩn sử liệu và độ tin cậy cao.</p>
+              </div>
+            </div>
+
+            <!-- Score Breakdown Rubric -->
+            <div id="scoreBreakdownBox" style="display: none; margin-bottom: 20px; padding: 14px 16px; background: rgba(255,255,255,0.02); border: 1px solid var(--card-border); border-radius: var(--radius-sm);">
+              <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-list-check text-primary"></i> Chi tiết chấm điểm 4 tiêu chí (Rubric)</span>
+                <span id="breakdownTotal" style="color: var(--primary); font-weight: 700;"></span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; font-size: 0.82rem;">
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #3b82f6;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Sử liệu gốc (doc/)</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdGrounding">-- / 50 đ</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #8b5cf6;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Chiều sâu bối cảnh</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdContext">-- / 25 đ</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #10b981;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Ăn khớp tiêu đề</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdTitle">-- / 15 đ</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                  <div class="text-muted" style="font-size: 0.72rem;">Chuẩn mực văn hóa</div>
+                  <div style="font-weight: 700; font-size: 0.92rem; margin-top: 2px;" id="bdTone">-- / 10 đ</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tabs inside results: Markdown vs Violations vs Context -->
+            <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+              <button class="btn btn-sm btn-secondary active" id="btnSubMd" onclick="showSubTab('md')">
+                <i class="fa-brands fa-markdown"></i> Markdown (MarkItDown)
+              </button>
+              <button class="btn btn-sm btn-secondary" id="btnSubClaims" onclick="showSubTab('claims')">
+                <i class="fa-solid fa-list-check"></i> Luận Điểm & Vi Phạm
+              </button>
+              <button class="btn btn-sm btn-secondary" id="btnSubContext" onclick="showSubTab('context')">
+                <i class="fa-solid fa-book-bookmark"></i> Tư Liệu Sử Gốc (RAG)
+              </button>
+            </div>
+
+            <div id="subPaneMd" class="md-preview"></div>
+            <div id="subPaneClaims" style="display: none; max-height: 480px; overflow-y: auto;"></div>
+            <div id="subPaneContext" style="display: none; max-height: 480px; overflow-y: auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: CREATOR STUDIO (GỬI DUYỆT VIDEO) ==================== -->
+    <div id="tabCreator" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title"><i class="fa-solid fa-clapperboard text-primary"></i> Quản Lý Video & Gửi Duyệt Lên Hệ Thống</h2>
+            <p class="text-muted" style="font-size: 0.82rem; margin-top: 4px;">
+              Creator gửi video (khi render xong ở trạng thái <code>COMPLETED</code>) qua lớp thẩm định AI Shield để đưa vào hàng đợi Admin phê duyệt.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary btn-sm" onclick="loadCreatorVideos()">
+              <i class="fa-solid fa-rotate"></i> Làm mới danh sách
+            </button>
+          </div>
+        </div>
+
+        <div id="creatorAuthNotice" style="display: none; padding: 24px; text-align: center;">
+          <p class="text-muted" style="margin-bottom: 12px;">Bạn cần đăng nhập tài khoản <strong>Creator</strong> để xem và gửi duyệt video.</p>
+          <button class="btn btn-primary" onclick="quickLogin('creator@historypodcast.com', 'Creator@123', 'CREATOR')">
+            <i class="fa-solid fa-right-to-bracket"></i> Đăng nhập tài khoản Creator mẫu
+          </button>
+        </div>
+
+        <div id="creatorVideoList">
+          <!-- Dynamic creator video items -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: ADMIN HÀNG ĐỢI KIỂM DUYỆT ==================== -->
+    <div id="tabModeration" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title"><i class="fa-solid fa-gavel text-gold"></i> Hàng Đợi Kiểm Duyệt & Thẩm Định Video</h2>
+            <p class="text-muted" style="font-size: 0.82rem; margin-top: 4px;">
+              Admin xem xét các báo cáo phân tầng từ AI Shield (Microsoft MarkItDown + RAG) để Phê duyệt hoặc Từ chối video.
+            </p>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-secondary btn-sm" onclick="loadAdminReviews()">
+              <i class="fa-solid fa-rotate"></i> Tải lại hàng đợi
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter bar -->
+        <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 200px;">
+            <input type="text" id="filterSearch" class="form-control" placeholder="Tìm kiếm theo tiêu đề video hoặc tên kênh..." onkeyup="if(event.key==='Enter') loadAdminReviews()">
+          </div>
+
+          <div style="width: 160px;">
+            <select id="filterDecision" class="form-control" onchange="loadAdminReviews()">
+              <option value="">Tất cả quyết định</option>
+              <option value="PENDING" selected>Chờ duyệt (PENDING)</option>
+              <option value="APPROVED">Đã duyệt (APPROVED)</option>
+              <option value="REJECTED">Bị từ chối (REJECTED)</option>
+            </select>
+          </div>
+
+          <div style="width: 160px;">
+            <select id="filterTier" class="form-control" onchange="loadAdminReviews()">
+              <option value="">Tất cả phân tầng AI</option>
+              <option value="RED_ALERT">Báo động đỏ (RED_ALERT)</option>
+              <option value="FAIR">Khá (FAIR)</option>
+              <option value="GOOD">Tốt (GOOD)</option>
+              <option value="EXCELLENT">Xuất sắc (EXCELLENT)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="adminAuthNotice" style="display: none; padding: 24px; text-align: center;">
+          <p class="text-muted" style="margin-bottom: 12px;">Bạn cần đăng nhập tài khoản <strong>Admin</strong> để xem hàng đợi và phê duyệt video.</p>
+          <button class="btn btn-primary" onclick="quickLogin('admin@historypodcast.com', 'Admin@123', 'ADMIN')">
+            <i class="fa-solid fa-crown"></i> Đăng nhập tài khoản Admin mẫu
+          </button>
+        </div>
+
+        <div id="reviewsList">
+          <!-- Dynamic moderation review items -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: ADMIN CẤU HÌNH ĐỘNG POLICY % ==================== -->
+    <div id="tabPolicyConfig" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2 class="card-title"><i class="fa-solid fa-sliders text-accent"></i> Cấu Hình Động Phân Tầng AI Shield Policy</h2>
+            <p class="text-muted" style="font-size: 0.82rem; margin-top: 4px;">
+              Admin có toàn quyền tùy chỉnh mức % ngưỡng điểm và nhãn hiển thị cho 4 trạng thái Enum: <code>RED_ALERT</code>, <code>FAIR</code>, <code>GOOD</code>, <code>EXCELLENT</code>.
+            </p>
+          </div>
+
+          <button class="btn btn-secondary btn-sm" onclick="resetDefaultPolicyConfigs()">
+            <i class="fa-solid fa-arrow-rotate-left"></i> Khôi phục mặc định
+          </button>
+        </div>
+
+        <div class="grid-4" id="policyCardsGrid">
+          <!-- 4 Policy Cards loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL ADMIN DECISION (REJECT REASON) -->
+  <div id="decisionModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(6px); z-index: 200; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 500px; width: 90%; margin: auto;">
+      <div class="card-header">
+        <h3 class="card-title"><i class="fa-solid fa-triangle-exclamation text-danger"></i> Từ Chối Video Này</h3>
+        <button class="btn btn-sm btn-outline" onclick="closeDecisionModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+        Vui lòng cung cấp lý do từ chối cụ thể để gửi lại cho Creator chỉnh sửa:
+      </p>
+
+      <textarea id="rejectReasonInput" class="form-control" rows="4" placeholder="Ví dụ: Kịch bản bị sai mốc năm lịch sử ở phân cảnh 2; cần kiểm chứng lại thông tin triều đại..."></textarea>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+        <button class="btn btn-secondary" onclick="closeDecisionModal()">Hủy</button>
+        <button class="btn btn-danger" id="btnConfirmReject" onclick="confirmReject()">
+          <i class="fa-solid fa-ban"></i> Xác Nhận Từ Chối
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast">
+    <i class="fa-solid fa-circle-check text-success" id="toastIcon"></i>
+    <span id="toastMsg">Thao tác thành công!</span>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // CONFIGS
+    const API_BASE = window.location.origin;
+    const TOOL_URL = "http://localhost:8000";
+
+    let currentToken = localStorage.getItem("prm_token") || "";
+    let currentUserEmail = localStorage.getItem("prm_email") || "";
+    let currentUserRole = localStorage.getItem("prm_role") || "";
+
+    let currentReviewIdForReject = null;
+    let lastVerifyResult = null;
+
+    // SAMPLES
+    const SAMPLES = {
+      red: {
+        title: "Chiến dịch Tây Sơn và sự thật chưa từng công bố",
+        script: "Nguyễn Huệ đã dùng phù phép và tà thuật để hạ thành Thăng Long trong 1 đêm. Vua Quang Trung thực chất không hề có tài cầm quân mà do mượn quân của thế lực nước ngoài, toàn bộ số liệu 29 vạn quân Thanh bị phóng đại gấp 10 lần. Kêu gọi lật đổ mọi di tích lịch sử triều Tây Sơn!",
+        videoUrl: ""
+      },
+      fair: {
+        title: "Khái Lược Về Nhà Trần Và Ba Lần Thắng Quân Mông Nguyên",
+        script: "Năm 1258, quân Mông Cổ tràn vào Thăng Long nhưng bị Trần Hưng Đạo đánh lui ở Đông Bộ Đầu năm 1260. Lần thứ 2 diễn ra vào khoảng năm 1284-1285. Nhìn chung các mốc thời gian cơ bản, nhưng cần chỉnh lại chính xác vai trò của vua Trần Thái Tông trong lần kháng chiến thứ nhất.",
+        videoUrl: ""
+      },
+      ly_nhunguyet: {
+        title: "Lý Thường Kiệt và Phòng Tuyến Sông Như Nguyệt 1077",
+        script: "Năm 1077, quân Tống do Quách Quỳ chỉ huy tràn sang xâm lược. Thái úy Lý Thường Kiệt lập phòng tuyến trên sông Như Nguyệt, đêm đêm cho người ngâm bài thơ Nam quốc sơn hà để khích lệ tinh thần quân sĩ, sau đó mở cuộc phản công tiêu diệt quân giặc.",
+        videoUrl: ""
+      },
+      ly_thaito: {
+        title: "Triều Đại Nhà Lý Và Chiếu Dời Đô 1010",
+        script: "Năm 1010, vua Lý Thái Tổ tức Lý Công Uẩn quyết định dời đô từ Hoa Lư về thành Đại La và đổi tên thành Thăng Long. Ông ban bố bài Chiếu dời đô khẳng định địa thế Thăng Long là nơi rồng cuộn hổ ngồi, trung tâm của trời đất.",
+        videoUrl: ""
+      },
+      good: {
+        title: "Trận Bạch Đằng 938: Nghệ Thuật Cắm Cọc Đánh Tan Quân Nam Hán",
+        script: "Mùa đông năm 938, đoàn thuyền chiến của Hoằng Tháo vượt biển tiến vào cửa sông Bạch Đằng. Ngô Quyền cho quân đóng cọc gỗ bịt sắt nhọn chìm dưới lòng sông, lợi dụng thủy triều lên nhử địch vào bẫy, khi thủy triều rút xuống dốc toàn lực phản công, chém Hoằng Tháo tại trận, chấm dứt hơn 1000 năm Bắc thuộc.",
+        videoUrl: ""
+      },
+      excellent: {
+        title: "Hịch Tướng Sĩ và Khí Phách Hào Khí Đông A Thời Trần",
+        script: "Trích Đại Việt Sử Ký Toàn Thư: 'Ta thường nghe: Kỷ Tín đem mình chết thay, cứu thoát cho Cao Đế; Do Vu chìa lưng chịu giáo, che chở cho Chiêu Vương... Huống chi ta cùng các ngươi sinh phải thời loạn lạc, lớn gặp buổi gian nan'. Bài văn hịch của Tiết chế Quốc công Trần Hưng Đạo khơi dậy tinh thần yêu nước quật cường, dẫn tới hội nghị Diên Hồng và chiến thắng lẫy lừng năm 1285 và 1288.",
+        videoUrl: ""
+      }
+    };
+
+    // ON LOAD
+    document.addEventListener("DOMContentLoaded", () => {
+      updateUserUI();
+      checkServiceHealth();
+      loadPolicyConfigs();
+    });
+
+    // HEALTH CHECKS
+    async function checkServiceHealth() {
+      // Backend
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/contents/search/public?keyword=test&size=1`);
+        if (res.ok) {
+          document.getElementById("backendDot").className = "status-dot online";
+        } else {
+          document.getElementById("backendDot").className = "status-dot offline";
+        }
+      } catch (e) {
+        document.getElementById("backendDot").className = "status-dot offline";
+      }
+
+      // Tool
+      try {
+        const res = await fetch(`${TOOL_URL}/api/rag/status`);
+        if (res.ok) {
+          document.getElementById("toolDot").className = "status-dot online";
+        } else {
+          document.getElementById("toolDot").className = "status-dot offline";
+        }
+      } catch (e) {
+        document.getElementById("toolDot").className = "status-dot offline";
+      }
+    }
+
+    // AUTH HELPER
+    async function quickLogin(email, password, role) {
+      showToast("Đang xác thực đăng nhập...", "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success && data.data && data.data.accessToken) {
+          currentToken = data.data.accessToken;
+          currentUserEmail = email;
+          currentUserRole = role;
+          localStorage.setItem("prm_token", currentToken);
+          localStorage.setItem("prm_email", currentUserEmail);
+          localStorage.setItem("prm_role", currentUserRole);
+          updateUserUI();
+          showToast(`Đăng nhập thành công với vai trò ${role}!`, "success");
+          if (role === 'ADMIN') {
+            loadAdminReviews();
+            loadPolicyConfigs();
+          } else {
+            loadCreatorVideos();
+          }
+        } else {
+          showToast(`Đăng nhập thất bại: ${data.message || 'Lỗi xác thực'}`, "error");
+        }
+      } catch (e) {
+        showToast("Không thể kết nối đến Backend: " + e.message, "error");
+      }
+    }
+
+    function logout() {
+      currentToken = "";
+      currentUserEmail = "";
+      currentUserRole = "";
+      localStorage.removeItem("prm_token");
+      localStorage.removeItem("prm_email");
+      localStorage.removeItem("prm_role");
+      updateUserUI();
+      showToast("Đã đăng xuất tài khoản", "info");
+    }
+
+    function updateUserUI() {
+      const badge = document.getElementById("userBadge");
+      const quickAdmin = document.getElementById("quickAdminBtn");
+      const quickCreator = document.getElementById("quickCreatorBtn");
+
+      if (currentToken && currentUserEmail) {
+        badge.style.display = "flex";
+        document.getElementById("userEmailText").textContent = currentUserEmail;
+        const roleTag = document.getElementById("userRoleTag");
+        roleTag.textContent = currentUserRole || 'USER';
+        roleTag.className = "role-tag " + (currentUserRole.toLowerCase() === 'admin' ? 'admin' : 'creator');
+        quickAdmin.style.display = "none";
+        quickCreator.style.display = "none";
+        document.getElementById("creatorAuthNotice").style.display = "none";
+        document.getElementById("adminAuthNotice").style.display = "none";
+      } else {
+        badge.style.display = "none";
+        quickAdmin.style.display = "inline-flex";
+        quickCreator.style.display = "inline-flex";
+      }
+    }
+
+    // TAB SWITCHER
+    function switchTab(tabId) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
+
+      const targetPane = document.getElementById(tabId);
+      if (targetPane) targetPane.classList.add("active");
+
+      // Set active button
+      event.currentTarget.classList.add("active");
+
+      if (tabId === "tabCreator") {
+        if (!currentToken) {
+          document.getElementById("creatorAuthNotice").style.display = "block";
+        } else {
+          loadCreatorVideos();
+        }
+      } else if (tabId === "tabModeration") {
+        if (!currentToken || currentUserRole !== 'ADMIN') {
+          document.getElementById("adminAuthNotice").style.display = "block";
+        } else {
+          loadAdminReviews();
+        }
+      } else if (tabId === "tabPolicyConfig") {
+        loadPolicyConfigs();
+      }
+    }
+
+    // ==================== TAB 1 LOGIC ====================
+    function loadSample(key) {
+      const s = SAMPLES[key];
+      if (!s) return;
+      document.getElementById("verifyTitle").value = s.title;
+      document.getElementById("verifyScript").value = s.script;
+      document.getElementById("verifyVideoUrl").value = s.videoUrl || "";
+    }
+
+    function clearVerifyForm() {
+      document.getElementById("verifyTitle").value = "";
+      document.getElementById("verifyScript").value = "";
+      document.getElementById("verifyVideoUrl").value = "";
+      document.getElementById("verifyResultContent").style.display = "none";
+      document.getElementById("verifyEmptyState").style.display = "block";
+    }
+
+    async function runAiShieldVerification() {
+      const title = document.getElementById("verifyTitle").value.trim();
+      const script_text = document.getElementById("verifyScript").value.trim();
+      const video_url = document.getElementById("verifyVideoUrl").value.trim();
+
+      if (!title) {
+        showToast("Vui lòng nhập tiêu đề video!", "error");
+        return;
+      }
+
+      document.getElementById("verifyEmptyState").style.display = "none";
+      document.getElementById("verifyResultContent").style.display = "none";
+      document.getElementById("verifyLoadingState").style.display = "block";
+
+      const btn = document.getElementById("btnRunVerify");
+      btn.disabled = true;
+
+      try {
+        // Gọi thẳng vào Python AI Shield service
+        const res = await fetch(`${TOOL_URL}/api/ai-shield/verify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            script_text,
+            video_url: video_url || null
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "Lỗi thẩm định AI Shield");
+        }
+
+        const data = await res.json();
+        lastVerifyResult = data;
+        renderVerifyResult(data);
+        showToast("Thẩm định AI Shield hoàn tất!", "success");
+      } catch (e) {
+        showToast("Lỗi kiểm duyệt: " + e.message, "error");
+        document.getElementById("verifyEmptyState").style.display = "block";
+      } finally {
+        document.getElementById("verifyLoadingState").style.display = "none";
+        btn.disabled = false;
+      }
+    }
+
+    function renderVerifyResult(data) {
+      document.getElementById("verifyResultContent").style.display = "block";
+
+      const scoreVal = typeof data.score === "number" ? data.score : parseFloat(data.score || 0);
+      const tier = data.tier || "GOOD";
+      const tierLabel = data.tier_label || "Tốt";
+
+      // Score Circle
+      const circle = document.getElementById("scoreCircle");
+      circle.className = "score-circle " + (tier === "RED_ALERT" ? "red" : tier === "FAIR" ? "fair" : tier === "GOOD" ? "good" : "excellent");
+      document.getElementById("scoreNumber").textContent = (Number.isInteger(scoreVal) ? scoreVal : scoreVal.toFixed(1)) + "%";
+
+      // Meta
+      document.getElementById("scoreTierLabel").textContent = tierLabel;
+      const tierBadge = document.getElementById("scoreTierBadge");
+      tierBadge.className = "tier-badge " + tier;
+      tierBadge.textContent = tier;
+
+      document.getElementById("resultTierBadge").innerHTML = `<span class="tier-badge ${tier}">${tier} &bull; ${tierLabel}</span>`;
+      document.getElementById("scoreReasonText").textContent = data.reason || "Không có nhận định bổ sung.";
+
+      // Rubric Breakdown
+      if (data.score_breakdown) {
+        document.getElementById("scoreBreakdownBox").style.display = "block";
+        document.getElementById("bdGrounding").textContent = (data.score_breakdown.grounding_accuracy || 0) + " / 50 đ";
+        document.getElementById("bdContext").textContent = (data.score_breakdown.completeness_context || 0) + " / 25 đ";
+        document.getElementById("bdTitle").textContent = (data.score_breakdown.title_alignment || 0) + " / 15 đ";
+        document.getElementById("bdTone").textContent = (data.score_breakdown.tone_integrity || 0) + " / 10 đ";
+        document.getElementById("breakdownTotal").textContent = "Tổng: " + (Number.isInteger(scoreVal) ? scoreVal : scoreVal.toFixed(1)) + " / 100 đ";
+      } else {
+        document.getElementById("scoreBreakdownBox").style.display = "none";
+      }
+
+      // Markdown preview
+      const mdHtml = marked.parse(data.markdown_content || "*Không có kịch bản markdown*");
+      document.getElementById("subPaneMd").innerHTML = mdHtml;
+
+      // Claims & Violations
+      let claimsHtml = "";
+      if (data.violations && data.violations.length > 0) {
+        claimsHtml += `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <h4 style="color: #f87171; margin-bottom: 6px;"><i class="fa-solid fa-triangle-exclamation"></i> Danh sách vi phạm / Sai lệch phát hiện:</h4>
+          <ul style="padding-left: 20px; color: #fca5a5;">
+            ${data.violations.map(v => `<li>${v}</li>`).join('')}
+          </ul>
+        </div>`;
+      }
+
+      if (data.claims && data.claims.length > 0) {
+        claimsHtml += `<h4 style="margin: 12px 0 8px 0;"><i class="fa-solid fa-magnifying-glass"></i> Chi tiết thẩm định từng luận điểm:</h4>`;
+        data.claims.forEach(c => {
+          const isError = (c.verdict || "").toLowerCase().includes("error") || (c.verdict || "").toLowerCase().includes("violate");
+          claimsHtml += `<div style="padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.03); border-left: 3px solid ${isError ? 'var(--danger)' : 'var(--success)'}; margin-bottom: 8px;">
+            <div style="font-weight: 600; font-size: 0.85rem;">${c.claim}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">${c.explanation || ''}</div>
+          </div>`;
+        });
+      }
+      document.getElementById("subPaneClaims").innerHTML = claimsHtml || "<p class='text-muted'>Không có luận điểm vi phạm nào.</p>";
+
+      const titleVal = document.getElementById("verifyTitle").value.trim();
+      document.getElementById("resultVideoTitle").innerHTML = `<i class="fa-solid fa-film"></i> Tiêu đề video gửi thẩm định: <strong>${titleVal || 'Chưa đặt tiêu đề'}</strong>`;
+
+      // Context RAG
+      let ctxHtml = `<h4 style="margin-bottom: 12px;"><i class="fa-solid fa-book"></i> Nguồn sử liệu đối chiếu từ kho tài liệu (doc/):</h4>`;
+      const citations = data.source_citations || [];
+      if (citations.length > 0) {
+        citations.forEach((c, i) => {
+          const simPercent = Math.round((c.similarity || 0) * 100);
+          ctxHtml += `<div style="padding: 12px; background: #0d1117; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); margin-bottom: 10px; font-size: 0.84rem; line-height: 1.5;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; flex-wrap: wrap; gap: 6px;">
+              <strong style="color: var(--gold);"><i class="fa-solid fa-bookmark"></i> [${i + 1}] ${c.book || 'Sử liệu Việt Nam'}</strong>
+              <span class="role-tag" style="background: rgba(255,255,255,0.08);">Trang ${c.page || 0} &bull; Độ khớp: ${simPercent}%</span>
+            </div>
+            ${c.snippet ? `<div style="color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.25); padding: 8px 10px; border-radius: 6px; font-size: 0.8rem; border-left: 2px solid rgba(245, 158, 11, 0.4);">&ldquo;${c.snippet}&rdquo;</div>` : ''}
+          </div>`;
+        });
+      } else {
+        ctxHtml += "<p class='text-muted'>Không tìm thấy trích đoạn tương thích từ kho tư liệu nội bộ.</p>";
+      }
+      document.getElementById("subPaneContext").innerHTML = ctxHtml;
+
+      showSubTab('md');
+    }
+
+    function showSubTab(tab) {
+      document.getElementById("btnSubMd").className = "btn btn-sm btn-secondary " + (tab === 'md' ? 'active' : '');
+      document.getElementById("btnSubClaims").className = "btn btn-sm btn-secondary " + (tab === 'claims' ? 'active' : '');
+      document.getElementById("btnSubContext").className = "btn btn-sm btn-secondary " + (tab === 'context' ? 'active' : '');
+
+      document.getElementById("subPaneMd").style.display = tab === 'md' ? 'block' : 'none';
+      document.getElementById("subPaneClaims").style.display = tab === 'claims' ? 'block' : 'none';
+      document.getElementById("subPaneContext").style.display = tab === 'context' ? 'block' : 'none';
+    }
+
+    // ==================== TAB 2: CREATOR STUDIO ====================
+    async function loadCreatorVideos() {
+      if (!currentToken) return;
+      const listEl = document.getElementById("creatorVideoList");
+      listEl.innerHTML = `<div style="text-align: center; padding: 24px;"><div class="spinner" style="margin: 0 auto 10px auto;"></div>Đang tải danh sách video của bạn...</div>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/creator/studio/videos`, {
+          headers: { "Authorization": `Bearer ${currentToken}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const videos = data.data;
+          if (videos.length === 0) {
+            listEl.innerHTML = `<div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              <i class="fa-solid fa-film" style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.3;"></i>
+              <p>Bạn chưa có video nào trong Studio.</p>
+            </div>`;
+            return;
+          }
+
+          let html = "";
+          videos.forEach(v => {
+            const isCompleted = v.status === "COMPLETED";
+            const isPending = v.status === "PENDING_REVIEW";
+            const isPublished = v.status === "PUBLISHED";
+            const isRejected = v.status === "REJECTED";
+
+            const statusClass = isPublished ? "status-success" : isPending ? "status-warning" : isRejected ? "status-danger" : "";
+
+            html += `<div class="review-item">
+              <div style="display: flex; gap: 16px; align-items: center;">
+                <div style="width: 50px; height: 50px; border-radius: 8px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                  <i class="fa-solid fa-play text-primary"></i>
+                </div>
+                <div>
+                  <h4 style="font-size: 0.95rem; margin-bottom: 4px;">${v.title || 'Video #' + v.contentId}</h4>
+                  <div style="display: flex; gap: 10px; align-items: center; font-size: 0.78rem; color: var(--text-muted);">
+                    <span>ID: ${v.contentId}</span>
+                    <span>&bull;</span>
+                    <span class="role-tag" style="background: rgba(255,255,255,0.08);">${v.status}</span>
+                    ${v.aiShieldScore ? `<span>&bull;</span> <span>AI Shield: <strong>${v.aiShieldScore}%</strong></span>` : ''}
+                    ${v.aiShieldTier ? `<span class="tier-badge ${v.aiShieldTier}">${v.aiShieldTierLabel || v.aiShieldTier}</span>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                ${(isCompleted || isRejected) ? `
+                  <button class="btn btn-primary btn-sm" onclick="submitVideoForPublish(${v.contentId})">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Gửi Thẩm Định & Publish
+                  </button>
+                ` : isPending ? `
+                  <span class="tier-badge FAIR"><i class="fa-solid fa-clock"></i> Đang chờ Admin duyệt</span>
+                ` : isPublished ? `
+                  <span class="tier-badge GOOD"><i class="fa-solid fa-circle-check"></i> Đã xuất bản công khai</span>
+                ` : ''}
+              </div>
+            </div>`;
+          });
+          listEl.innerHTML = html;
+        } else {
+          listEl.innerHTML = `<p class="text-danger" style="text-align: center; padding: 20px;">Lỗi: ${data.message || 'Không thể tải danh sách video'}</p>`;
+        }
+      } catch (e) {
+        listEl.innerHTML = `<p class="text-danger" style="text-align: center; padding: 20px;">Lỗi kết nối: ${e.message}</p>`;
+      }
+    }
+
+    async function submitVideoForPublish(contentId) {
+      if (!confirm(`Bạn có chắc chắn muốn gửi video ID ${contentId} qua lớp AI Shield để Admin phê duyệt không?`)) return;
+
+      showToast(`Đang gửi video #${contentId} qua AI Shield...`, "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/creator/studio/videos/${contentId}/submit-publish`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${currentToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Đã gửi duyệt thành công! Điểm AI: ${data.data.aiShieldScore}%, Xếp loại: ${data.data.aiShieldTierLabel}`, "success");
+          loadCreatorVideos();
+        } else {
+          showToast(`Thất bại: ${data.message}`, "error");
+        }
+      } catch (e) {
+        showToast("Lỗi gửi duyệt: " + e.message, "error");
+      }
+    }
+
+    // ==================== TAB 3: ADMIN MODERATION ====================
+    async function loadAdminReviews() {
+      if (!currentToken || currentUserRole !== 'ADMIN') return;
+
+      const listEl = document.getElementById("reviewsList");
+      listEl.innerHTML = `<div style="text-align: center; padding: 24px;"><div class="spinner" style="margin: 0 auto 10px auto;"></div>Đang tải hàng đợi kiểm duyệt...</div>`;
+
+      const search = document.getElementById("filterSearch").value.trim();
+      const decision = document.getElementById("filterDecision").value;
+      const tier = document.getElementById("filterTier").value;
+
+      let url = `${API_BASE}/api/v1/admin/moderation/reviews?size=20`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+      if (decision) url += `&decision=${decision}`;
+      if (tier) url += `&tier=${tier}`;
+
+      try {
+        const res = await fetch(url, {
+          headers: { "Authorization": `Bearer ${currentToken}` }
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const items = data.data.items || [];
+          document.getElementById("pendingCountBadge").textContent = data.data.totalElements || 0;
+
+          if (items.length === 0) {
+            listEl.innerHTML = `<div style="text-align: center; padding: 32px; color: var(--text-muted);">
+              <i class="fa-solid fa-inbox" style="font-size: 2.5rem; margin-bottom: 12px; opacity: 0.3;"></i>
+              <p>Không có video nào trong hàng đợi phù hợp với bộ lọc.</p>
+            </div>`;
+            return;
+          }
+
+          let html = "";
+          items.forEach(item => {
+            const isPending = item.decision === "PENDING";
+            const isApproved = item.decision === "APPROVED";
+            const isRejected = item.decision === "REJECTED";
+
+            html += `<div class="review-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 14px; align-items: center;">
+                  <div style="width: 44px; height: 44px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: var(--primary);">
+                    <i class="fa-solid fa-film"></i>
+                  </div>
+                  <div>
+                    <h3 style="font-size: 1.05rem; font-weight: 700;">${item.title || 'Bản ghi #' + item.reviewId}</h3>
+                    <div style="display: flex; gap: 12px; font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                      <span>Kênh: <strong>${item.channelName || 'N/A'}</strong></span>
+                      <span>&bull;</span>
+                      <span>Tác giả: ${item.creatorEmail || 'Ẩn danh'}</span>
+                      <span>&bull;</span>
+                      <span>Trạng thái: <strong>${item.decision}</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  ${item.aiShieldScore ? `<span class="score-circle ${item.aiShieldTier ? item.aiShieldTier.toLowerCase() : ''}" style="width: 44px; height: 44px; font-size: 0.85rem;">${item.aiShieldScore}%</span>` : ''}
+                  ${item.aiShieldTier ? `<span class="tier-badge ${item.aiShieldTier}">${item.aiShieldTierLabel || item.aiShieldTier}</span>` : ''}
+                </div>
+              </div>
+
+              <!-- Content Preview snippet -->
+              <div style="background: rgba(0,0,0,0.3); border-radius: 6px; padding: 10px 14px; font-size: 0.82rem; color: var(--text-muted);">
+                <strong>Nhận định AI Shield:</strong> ${item.aiShieldReason || 'Chưa có thông tin'}
+              </div>
+
+              <!-- Action Buttons -->
+              <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--card-border); padding-top: 10px;">
+                <div style="font-size: 0.78rem; color: var(--text-muted);">
+                  ${item.fileUrl ? `<a href="${item.fileUrl}" target="_blank" style="color: var(--primary); text-decoration: none;"><i class="fa-solid fa-arrow-up-right-from-square"></i> Mở tệp video trực tiếp</a>` : ''}
+                </div>
+
+                <div style="display: flex; gap: 8px;">
+                  ${isPending ? `
+                    <button class="btn btn-success btn-sm" onclick="approveReview(${item.reviewId})">
+                      <i class="fa-solid fa-check"></i> Phê Duyệt & Xuất Bản
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="openRejectModal(${item.reviewId})">
+                      <i class="fa-solid fa-xmark"></i> Từ Chối Video
+                    </button>
+                  ` : isApproved ? `
+                    <span class="tier-badge GOOD"><i class="fa-solid fa-check-double"></i> Đã phê duyệt công khai</span>
+                  ` : `
+                    <span class="tier-badge RED_ALERT"><i class="fa-solid fa-ban"></i> Đã từ chối (${item.adminReason || ''})</span>
+                  `}
+                </div>
+              </div>
+            </div>`;
+          });
+          listEl.innerHTML = html;
+        }
+      } catch (e) {
+        listEl.innerHTML = `<p class="text-danger" style="text-align: center; padding: 20px;">Lỗi: ${e.message}</p>`;
+      }
+    }
+
+    async function approveReview(reviewId) {
+      if (!confirm(`Bạn có chắc chắn muốn PHÊ DUYỆT video #${reviewId} xuất bản lên hệ thống không?`)) return;
+
+      showToast("Đang phê duyệt video...", "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/admin/moderation/reviews/${reviewId}/decision`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({
+            decision: "APPROVED",
+            reason: "Nội dung chuẩn xác, cho phép xuất bản công khai"
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("Đã phê duyệt video thành công!", "success");
+          loadAdminReviews();
+        } else {
+          showToast(`Lỗi phê duyệt: ${data.message}`, "error");
+        }
+      } catch (e) {
+        showToast("Lỗi: " + e.message, "error");
+      }
+    }
+
+    function openRejectModal(reviewId) {
+      currentReviewIdForReject = reviewId;
+      document.getElementById("rejectReasonInput").value = "";
+      document.getElementById("decisionModal").style.display = "flex";
+    }
+
+    function closeDecisionModal() {
+      currentReviewIdForReject = null;
+      document.getElementById("decisionModal").style.display = "none";
+    }
+
+    async function confirmReject() {
+      if (!currentReviewIdForReject) return;
+      const reason = document.getElementById("rejectReasonInput").value.trim();
+      if (!reason) {
+        alert("Vui lòng nhập lý do từ chối!");
+        return;
+      }
+
+      showToast("Đang từ chối video...", "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/admin/moderation/reviews/${currentReviewIdForReject}/decision`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({
+            decision: "REJECTED",
+            reason: reason
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("Đã từ chối video và gửi lý do cho Creator!", "success");
+          closeDecisionModal();
+          loadAdminReviews();
+        } else {
+          showToast(`Lỗi từ chối: ${data.message}`, "error");
+        }
+      } catch (e) {
+        showToast("Lỗi: " + e.message, "error");
+      }
+    }
+
+    // ==================== TAB 4: POLICY CONFIGS ====================
+    async function loadPolicyConfigs() {
+      const grid = document.getElementById("policyCardsGrid");
+      grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 24px;"><div class="spinner" style="margin: 0 auto 10px auto;"></div>Đang tải cấu hình chính sách...</div>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/admin/moderation/policy-configs`, {
+          headers: currentToken ? { "Authorization": `Bearer ${currentToken}` } : {}
+        });
+        const data = await res.json();
+        if (data.success && data.data) {
+          const configs = data.data;
+          let html = "";
+          configs.forEach(cfg => {
+            const tier = cfg.tier;
+            const borderCol = tier === 'RED_ALERT' ? '#ef4444' : tier === 'FAIR' ? '#f59e0b' : tier === 'GOOD' ? '#10b981' : '#a855f7';
+
+            html += `<div class="policy-card" style="border-top: 3px solid ${borderCol};">
+              <div class="policy-header">
+                <span class="tier-badge ${tier}">${tier}</span>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Thứ tự: ${cfg.displayOrder || 0}</span>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 8px;">
+                <label class="form-label">Tên Nhãn Tiếng Việt:</label>
+                <input type="text" id="label_${tier}" class="form-control" value="${cfg.label || ''}">
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label class="form-label">Từ (%):</label>
+                  <input type="number" step="0.1" min="0" max="100" id="min_${tier}" class="form-control" value="${cfg.minScore}">
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label class="form-label">Đến (%):</label>
+                  <input type="number" step="0.1" min="0" max="100" id="max_${tier}" class="form-control" value="${cfg.maxScore}">
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 8px;">
+                <label class="form-label">Mô tả chính sách:</label>
+                <textarea id="desc_${tier}" class="form-control" rows="3" style="font-size: 0.78rem;">${cfg.description || ''}</textarea>
+              </div>
+
+              <button class="btn btn-primary btn-sm" onclick="savePolicyConfig('${tier}')" style="margin-top: auto;">
+                <i class="fa-solid fa-floppy-disk"></i> Lưu Cấu Hình [${tier}]
+              </button>
+            </div>`;
+          });
+          grid.innerHTML = html;
+        }
+      } catch (e) {
+        grid.innerHTML = `<p class="text-danger" style="grid-column: 1/-1; text-align: center; padding: 20px;">Lỗi: ${e.message}</p>`;
+      }
+    }
+
+    async function savePolicyConfig(tier) {
+      if (!currentToken || currentUserRole !== 'ADMIN') {
+        alert("Bạn cần đăng nhập tài khoản ADMIN để lưu cấu hình này!");
+        return;
+      }
+
+      const label = document.getElementById(`label_${tier}`).value.trim();
+      const minScore = parseFloat(document.getElementById(`min_${tier}`).value);
+      const maxScore = parseFloat(document.getElementById(`max_${tier}`).value);
+      const description = document.getElementById(`desc_${tier}`).value.trim();
+
+      if (isNaN(minScore) || isNaN(maxScore) || minScore >= maxScore) {
+        alert("Ngưỡng điểm không hợp lệ! Mức điểm tối thiểu phải nhỏ hơn mức điểm tối đa.");
+        return;
+      }
+
+      showToast(`Đang cập nhật cấu hình cho ${tier}...`, "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/admin/moderation/policy-configs/${tier}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({
+            tier,
+            label,
+            minScore,
+            maxScore,
+            description,
+            actionType: "MANUAL_REVIEW",
+            isActive: true
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Đã lưu cấu hình cho [${tier}] thành công!`, "success");
+          loadPolicyConfigs();
+        } else {
+          showToast(`Lỗi: ${data.message}`, "error");
+        }
+      } catch (e) {
+        showToast("Lỗi: " + e.message, "error");
+      }
+    }
+
+    async function resetDefaultPolicyConfigs() {
+      if (!currentToken || currentUserRole !== 'ADMIN') {
+        alert("Bạn cần đăng nhập tài khoản ADMIN để thực hiện hành động này!");
+        return;
+      }
+
+      if (!confirm("Bạn có chắc chắn muốn khôi phục toàn bộ các mức % về mặc định ban đầu không?")) return;
+
+      showToast("Đang khôi phục cài đặt mặc định...", "info");
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/admin/moderation/policy-configs/reset-defaults`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${currentToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast("Đã khôi phục cài đặt phân tầng mặc định thành công!", "success");
+          loadPolicyConfigs();
+        } else {
+          showToast(`Lỗi: ${data.message}`, "error");
+        }
+      } catch (e) {
+        showToast("Lỗi: " + e.message, "error");
+      }
+    }
+
+    // TOAST HELPER
+    let toastTimeout = null;
+    function showToast(msg, type = "info") {
+      const toast = document.getElementById("toast");
+      const icon = document.getElementById("toastIcon");
+      const text = document.getElementById("toastMsg");
+
+      text.textContent = msg;
+      toast.className = "show " + type;
+
+      if (type === "success") {
+        icon.className = "fa-solid fa-circle-check text-success";
+      } else if (type === "error") {
+        icon.className = "fa-solid fa-circle-xmark text-danger";
+      } else {
+        icon.className = "fa-solid fa-circle-info text-primary";
+      }
+
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.className = "";
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
