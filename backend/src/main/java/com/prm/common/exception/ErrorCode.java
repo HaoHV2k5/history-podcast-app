@@ -28,6 +28,10 @@ public enum ErrorCode {
     OTP_COOLDOWN("AUTH_2012", "Vui lòng đợi trước khi yêu cầu mã OTP mới", HttpStatus.TOO_MANY_REQUESTS),
     RESET_TOKEN_INVALID("AUTH_2013", "Mã xác nhận đặt lại mật khẩu không hợp lệ hoặc chưa được xác thực", HttpStatus.BAD_REQUEST),
     RESET_TOKEN_ALREADY_USED("AUTH_2014", "Yêu cầu đặt lại mật khẩu này đã được sử dụng trước đó", HttpStatus.BAD_REQUEST),
+    OLD_PASSWORD_INCORRECT("AUTH_2015", "Mật khẩu hiện tại không chính xác", HttpStatus.BAD_REQUEST),
+    CANNOT_MODIFY_OWN_ROLE("AUTH_2016", "Quản trị viên không thể tự thay đổi vai trò của chính mình", HttpStatus.BAD_REQUEST),
+    CANNOT_DEACTIVATE_OWN_ACCOUNT("AUTH_2017", "Quản trị viên không thể tự khóa hoặc vô hiệu hóa tài khoản của chính mình", HttpStatus.BAD_REQUEST),
+    CANNOT_DELETE_OWN_ACCOUNT("AUTH_2018", "Quản trị viên không thể tự xóa tài khoản của chính mình", HttpStatus.BAD_REQUEST),
 
     // KYC Creator Verification Errors (3000 - 3999)
     KYC_NOT_FOUND("KYC_3000", "Không tìm thấy hồ sơ KYC", HttpStatus.NOT_FOUND),
