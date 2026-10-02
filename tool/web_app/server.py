@@ -31,7 +31,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import io
-from PIL import Image, ImageOps
+import textwrap
+from PIL import Image, ImageOps, ImageDraw, ImageFont
 
 # Thư mục gốc dự án
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -39,7 +40,7 @@ sys.path.insert(0, str(ROOT_DIR / "scripts"))
 
 import stream_render as sr
 from add_subtitles import add_subtitles, get_font, parse_annotation
-from export_srt import export_srt
+from export_srt import export_srt, format_srt_time
 from rag_service import search_history_context, verify_script_with_gemini, get_chroma_collection
 
 app = FastAPI(title="Whiteboard AI Studio")
@@ -85,6 +86,9 @@ class VideoRequest(BaseModel):
     elevenlabs_api_key: Optional[str] = None
     tts_engine: str = "edge-tts"  # 'edge-tts' hoặc 'elevenlabs'
     voice_name: str = "vi-VN-NamMinhNeural"  # 'vi-VN-NamMinhNeural', 'Brian', 'Liam', etc.
+    render_mode: Optional[str] = "whiteboard"  # 'whiteboard' hoặc 'audio_podcast'
+    script_text: Optional[str] = None
+    cover_image_b64: Optional[str] = None
 
 
 
@@ -214,17 +218,22 @@ async def get_rag_status_endpoint():
 @app.post("/api/render")
 async def create_video(req: VideoRequest, background_tasks: BackgroundTasks):
     job_id = f"job_{int(time.time())}_{uuid.uuid4().hex[:6]}"
-    display_title = (req.topic or (req.storyboard.get("title") if req.storyboard else "Whiteboard Animation"))[:40]
+    render_mode = getattr(req, "render_mode", "whiteboard") or "whiteboard"
+    total_steps = 5 if render_mode in ["audio_podcast", "podcast", "audio"] else 6
+    default_title = "Bản Thuyết Minh Audio" if render_mode in ["audio_podcast", "podcast", "audio"] else "Whiteboard Animation"
+    display_title = (req.topic or (req.storyboard.get("title") if req.storyboard else default_title))[:40]
     JOBS[job_id] = {
         "job_id": job_id,
         "status": "queued",
+        "render_mode": render_mode,
         "step": 0,
-        "total_steps": 6,
+        "total_steps": total_steps,
         "step_name": "Đang khởi tạo",
         "logs": ["Đã nhận yêu cầu tạo video..."],
         "title": display_title,
         "created_at": time.strftime("%H:%M:%S %d/%m/%Y"),
         "video_url": None,
+        "audio_url": None,
         "srt_url": None,
         "error": None
     }
@@ -1236,10 +1245,320 @@ def mix_scene_audio(
     return out_wav
 
 
+
+# ──────────────────────────────────────────────────────────────
+# TÍNH NĂNG MỚI: VIDEO PODCAST / THUYẾT MINH ÂM THANH
+# ──────────────────────────────────────────────────────────────
+def draw_mic_icon(draw, cx: int, cy: int, color=(251, 191, 36)):
+    """Vẽ icon micro phong cách thanh lịch, tránh lỗi hiển thị font emoji."""
+    draw.rounded_rectangle([(cx - 5, cy - 10), (cx + 5, cy + 2)], radius=5, fill=color)
+    draw.arc([(cx - 8, cy - 6), (cx + 8, cy + 5)], start=0, end=180, fill=color, width=2)
+    draw.line([(cx, cy + 5), (cx, cy + 9)], fill=color, width=2)
+    draw.line([(cx - 5, cy + 9), (cx + 5, cy + 9)], fill=color, width=2)
+
+
+def generate_podcast_cover(title: str, out_path: Path):
+    """Tạo ảnh bìa podcast phong cách sang trọng, hiện đại với tỷ lệ 16:9 (1376x768)."""
+    width, height = 1376, 768
+    img = Image.new("RGB", (width, height), (15, 23, 42))
+    draw = ImageDraw.Draw(img)
+
+    for y in range(height):
+        ratio = y / height
+        r = int(15 + ratio * 20)
+        g = int(23 + ratio * 12)
+        b = int(42 + ratio * 45)
+        draw.line([(0, y), (width, y)], fill=(r, g, b))
+
+    margin = 36
+    draw.rounded_rectangle(
+        [(margin, margin), (width - margin, height - margin)],
+        radius=20,
+        outline=(217, 119, 6),
+        width=2
+    )
+
+    corner_len = 30
+    for cx, cy in [(margin, margin), (width - margin, margin), (margin, height - margin), (width - margin, height - margin)]:
+        dx = 1 if cx == margin else -1
+        dy = 1 if cy == margin else -1
+        draw.line([(cx, cy), (cx + dx * corner_len, cy)], fill=(245, 158, 11), width=4)
+        draw.line([(cx, cy), (cx, cy + dy * corner_len)], fill=(245, 158, 11), width=4)
+
+    badge_w, badge_h = 340, 42
+    badge_x = (width - badge_w) // 2
+    badge_y = margin + 40
+    draw.rounded_rectangle(
+        [(badge_x, badge_y), (badge_x + badge_w, badge_y + badge_h)],
+        radius=21,
+        fill=(30, 41, 59),
+        outline=(245, 158, 11),
+        width=1
+    )
+    badge_font = get_font(16)
+    badge_text = "PODCAST LỊCH SỬ VIỆT NAM"
+    bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
+    bw, bh = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    text_x = badge_x + (badge_w - bw) // 2 + 10
+    text_y = badge_y + (badge_h - bh) // 2 - 2
+    draw_mic_icon(draw, text_x - 18, badge_y + badge_h // 2, color=(251, 191, 36))
+    draw.text((text_x, text_y), badge_text, font=badge_font, fill=(251, 191, 36))
+
+    title_font = get_font(40)
+    lines = textwrap.wrap(title or "Kể Chuyện Lịch Sử", width=36)
+    line_spacing = 16
+    line_bboxes = [draw.textbbox((0, 0), ln, font=title_font) for ln in lines]
+    line_hs = [b[3] - b[1] for b in line_bboxes]
+    line_ws = [b[2] - b[0] for b in line_bboxes]
+    total_title_h = sum(line_hs) + (len(lines) - 1) * line_spacing
+    title_start_y = (height - total_title_h) // 2 - 20
+
+    curr_y = title_start_y
+    for i, ln in enumerate(lines):
+        lw = line_ws[i]
+        lx = (width - lw) // 2
+        draw.text((lx + 2, curr_y + 2), ln, font=title_font, fill=(0, 0, 0))
+        draw.text((lx, curr_y), ln, font=title_font, fill=(255, 255, 255))
+        curr_y += line_hs[i] + line_spacing
+
+    div_y = curr_y + 12
+    draw.line([(width // 2 - 120, div_y), (width // 2 + 120, div_y)], fill=(217, 119, 6), width=2)
+    draw.ellipse([(width // 2 - 5, div_y - 5), (width // 2 + 5, div_y + 5)], fill=(245, 158, 11))
+
+    sub_font = get_font(20)
+    sub_text = "THUYẾT MINH AI • DIỄN ĐỌC CHUYÊN SÂU"
+    s_bbox = draw.textbbox((0, 0), sub_text, font=sub_font)
+    sw, sh = s_bbox[2] - s_bbox[0], s_bbox[3] - s_bbox[1]
+    draw.text(((width - sw) // 2, div_y + 24), sub_text, font=sub_font, fill=(148, 163, 184))
+
+    num_bars = 48
+    bar_w = 8
+    gap = 10
+    total_eq_w = num_bars * bar_w + (num_bars - 1) * gap
+    eq_x = (width - total_eq_w) // 2
+    eq_base_y = height - margin - 50
+
+    random_seed = int(hashlib.md5(title.encode()).hexdigest(), 16) % 1000
+    for idx in range(num_bars):
+        wave = math.sin(idx * 0.25 + random_seed) * 0.5 + 0.5
+        b_h = max(10, int(wave * 45 + 10))
+        bx = eq_x + idx * (bar_w + gap)
+        draw.rounded_rectangle(
+            [(bx, eq_base_y - b_h), (bx + bar_w, eq_base_y)],
+            radius=4,
+            fill=(245, 158, 11) if idx % 2 == 0 else (217, 119, 6)
+        )
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(out_path, "PNG")
+
+
+def split_script_into_sentences(text: str) -> list[str]:
+    """Tách đoạn văn kịch bản thành các câu thoại ngắn, tự nhiên (dưới 120 ký tự hoặc 25 từ)."""
+    if not text:
+        return []
+    clean = re.sub(r"\r\n|\r", "\n", text.strip())
+    raw_parts = re.split(r"(?<=[.?!…\n])\s+", clean)
+    sentences = []
+    for part in raw_parts:
+        part = part.strip()
+        if not part:
+            continue
+        if len(part) > 120 or len(part.split()) > 25:
+            subparts = re.split(r"(?<=[,;:\n])\s+", part)
+            buf = ""
+            for sp in subparts:
+                sp = sp.strip()
+                if not sp:
+                    continue
+                if buf and (len(buf) + len(sp) > 100 or len((buf + " " + sp).split()) > 22):
+                    sentences.append(buf.strip())
+                    buf = sp
+                else:
+                    buf = f"{buf} {sp}".strip() if buf else sp
+            if buf:
+                sentences.append(buf.strip())
+        else:
+            sentences.append(part)
+    return [s for s in sentences if len(s) > 2]
+
+
+def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
+    try:
+        job_dir = OUTPUTS_DIR / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+        JOBS[job_id]["status"] = "running"
+        user_key = sanitize_gemini_key(req.gemini_api_key)
+
+        # 1. KỊCH BẢN THUYẾT MINH
+        sentences: list[str] = []
+        display_title = req.topic or "Bản Thuyết Minh Audio Lịch Sử"
+
+        if req.script_text and req.script_text.strip():
+            log(job_id, "📝 Bước 1: Tiếp nhận kịch bản người dùng cung cấp...", 1, "Nội dung thuyết minh")
+            sentences = split_script_into_sentences(req.script_text.strip())
+            display_title = req.topic.strip() if req.topic and req.topic.strip() else sentences[0][:40]
+            log(job_id, f"✅ Đã phân tích kịch bản thành {len(sentences)} đoạn đọc nối tiếp.")
+        elif req.storyboard and req.storyboard.get("scenes"):
+            log(job_id, "📝 Bước 1: Trích xuất lời thuyết minh từ kịch bản đã duyệt...", 1, "Nội dung thuyết minh")
+            sb = req.storyboard
+            display_title = sb.get("title", req.topic or display_title)
+            for sc in sb.get("scenes", []):
+                for el in sc.get("elements", []):
+                    sub = el.get("subtitle", "").strip()
+                    if sub:
+                        sentences.append(sub)
+            log(job_id, f"✅ Đã trích xuất {len(sentences)} câu thuyết minh từ Storyboard.")
+        else:
+            log(job_id, f"🔍 Bước 1: AI nghiên cứu sử liệu (RAG) để viết kịch bản audio...", 1, "Nghiên cứu & Kịch bản")
+            duration_sec = req.duration_sec or 60
+            if not user_key:
+                raise ValueError("⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân. Vui lòng mở Cài đặt (⚙️) và nhập API Key của bạn.")
+            sb = call_gemini_storyboard(req.topic, user_key, duration_sec=duration_sec, use_rag=True)
+            display_title = sb.get("title", req.topic or display_title)
+            for sc in sb.get("scenes", []):
+                for el in sc.get("elements", []):
+                    sub = el.get("subtitle", "").strip()
+                    if sub:
+                        sentences.append(sub)
+            log(job_id, f"✅ Gemini AI đã nghiên cứu và hoàn thành kịch bản ({len(sentences)} đoạn): {display_title}")
+
+        if not sentences:
+            raise ValueError("Kịch bản không có nội dung chữ để lồng tiếng!")
+
+        display_title = display_title[:50]
+        JOBS[job_id]["title"] = display_title
+        (job_dir / "script.txt").write_text("\n\n".join(sentences), encoding="utf-8")
+
+        # 2. ẢNH BÌA PODCAST
+        log(job_id, "🖼️ Bước 2: Chuẩn bị ảnh bìa Podcast 16:9...", 2, "Ảnh bìa Podcast")
+        cover_png = job_dir / "cover.png"
+        cover_b64 = req.cover_image_b64
+        if not cover_b64 and req.custom_images:
+            cover_b64 = req.custom_images.get("cover") or req.custom_images.get("1")
+
+        if cover_b64 and (cover_b64.strip().startswith("http") or len(cover_b64.strip()) > 50):
+            log(job_id, "   🖼️ Sử dụng ảnh bìa bạn đã tải lên!")
+            raw_bytes = decode_base64_image(cover_b64)
+            process_uploaded_image(raw_bytes, cover_png)
+        else:
+            log(job_id, "   🎨 Tự động tạo ảnh bìa Podcast nghệ thuật phong cách lịch sử...")
+            generate_podcast_cover(display_title, cover_png)
+
+        # 3. LỒNG TIẾNG AI & PHỤ ĐỀ ĐỒNG BỘ
+        log(job_id, f"🎙️ Bước 3: Đang sinh giọng đọc AI ({req.tts_engine.upper()}) & tạo phụ đề...", 3, "Lồng tiếng & Phụ đề")
+        audio_dir = job_dir / "audio_clips"
+        audio_dir.mkdir(exist_ok=True)
+
+        clip_paths_and_starts: list[tuple[Path, float]] = []
+        cues: list[dict] = []
+        current_time = 0.5
+        PAUSE_BETWEEN = 0.45
+
+        for idx, sentence in enumerate(sentences):
+            clip_idx = idx + 1
+            mp3_p = audio_dir / f"clip_{clip_idx}.mp3"
+            wav_p = audio_dir / f"clip_{clip_idx}.wav"
+            log(job_id, f"   Đang đọc câu {clip_idx}/{len(sentences)}: {sentence[:35]}...")
+            dur = generate_single_audio_clip(sentence, mp3_p, wav_p, req.tts_engine, req.voice_name, req.elevenlabs_api_key)
+            start_s = current_time
+            end_s = start_s + dur
+            clip_paths_and_starts.append((wav_p, start_s))
+            cues.append({
+                "startMs": int(round(start_s * 1000)),
+                "endMs": int(round(end_s * 1000)),
+                "text": sentence
+            })
+            current_time = end_s + PAUSE_BETWEEN
+
+        total_audio_duration = current_time + 0.8
+        podcast_wav = job_dir / "podcast_voice.wav"
+        mix_scene_audio(clip_paths_and_starts, podcast_wav, total_audio_duration)
+
+        # Xuất MP3 để người dùng có thể tải file audio riêng
+        podcast_mp3 = job_dir / "podcast_voice.mp3"
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(podcast_wav),
+            "-c:a", "libmp3lame",
+            "-b:a", "192k",
+            str(podcast_mp3)
+        ], check=True)
+
+        # Xuất file SRT chuẩn
+        srt_full = job_dir / "subtitles.srt"
+        lines = []
+        for i, cue in enumerate(cues, start=1):
+            lines.append(str(i))
+            lines.append(f"{format_srt_time(cue['startMs'])} --> {format_srt_time(cue['endMs'])}")
+            lines.append(cue["text"])
+            lines.append("")
+        srt_full.write_text("\n".join(lines), encoding="utf-8")
+        log(job_id, f"✅ Đã tạo phụ đề chuẩn và đồng bộ giọng đọc: {srt_full.name}")
+
+        # 4. XUẤT BẢN VIDEO PODCAST AUDIO (MP4)
+        log(job_id, f"🎬 Bước 4: Đang render video Podcast MP4 ({total_audio_duration:.1f}s)...", 4, "Xuất bản Video Podcast")
+
+        raw_video_p = job_dir / "podcast_base.mp4"
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-loop", "1",
+            "-i", str(cover_png),
+            "-c:v", "libx264",
+            "-tune", "stillimage",
+            "-pix_fmt", "yuv420p",
+            "-r", "25",
+            "-t", f"{total_audio_duration:.3f}",
+            str(raw_video_p)
+        ], check=True)
+
+        sub_video_p = job_dir / "podcast_subbed.mp4"
+        add_subtitles(raw_video_p, cues, sub_video_p)
+
+        final_video = job_dir / "final_whiteboard_video.mp4"
+        podcast_video = job_dir / "final_audio_podcast.mp4"
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(sub_video_p),
+            "-i", str(podcast_wav),
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-b:a", "192k",
+            "-movflags", "+faststart",
+            "-t", f"{total_audio_duration:.3f}",
+            str(final_video)
+        ], check=True)
+
+        shutil.copyfile(final_video, podcast_video)
+
+        # 5. HOÀN TẤT
+        JOBS[job_id]["step"] = 5
+        JOBS[job_id]["total_steps"] = 5
+        JOBS[job_id]["step_name"] = "Hoàn tất"
+        JOBS[job_id]["status"] = "completed"
+        JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
+        JOBS[job_id]["audio_url"] = f"/outputs/{job_id}/podcast_voice.mp3"
+        JOBS[job_id]["srt_url"] = f"/outputs/{job_id}/subtitles.srt"
+        log(job_id, f"🎉 XUẤT BẢN THÀNH CÔNG! Video Podcast ({total_audio_duration:.1f}s) đã sẵn sàng: âm thanh đọc liền mạch, ảnh bìa sắc nét và phụ đề đồng bộ!")
+
+    except Exception as e:
+        import traceback
+        err_msg = f"{str(e)}\n{traceback.format_exc()}"
+        print(f"Error in podcast job {job_id}: {err_msg}")
+        JOBS[job_id]["status"] = "failed"
+        JOBS[job_id]["error"] = str(e)
+        log(job_id, f"❌ LỖI: {str(e)}")
+
+
 # ──────────────────────────────────────────────────────────────
 # QUY TRÌNH TỰ ĐỘNG CHÍNH (MAIN PIPELINE)
 # ──────────────────────────────────────────────────────────────
 def run_pipeline(job_id: str, req: VideoRequest):
+    render_mode = getattr(req, "render_mode", "whiteboard") or "whiteboard"
+    if render_mode in ["audio_podcast", "podcast", "audio"]:
+        run_audio_podcast_pipeline(job_id, req)
+        return
+
     try:
         job_dir = OUTPUTS_DIR / job_id
         job_dir.mkdir(parents=True, exist_ok=True)

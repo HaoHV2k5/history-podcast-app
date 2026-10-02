@@ -703,6 +703,72 @@
       color: #64748b;
       font-style: italic;
     }
+
+    /* MODE SELECTOR */
+    .mode-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 640px) {
+      .mode-selector {
+        grid-template-columns: 1fr;
+      }
+    }
+    .mode-card {
+      background: var(--card-bg);
+      border: 2px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      text-align: left;
+    }
+    .mode-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-2px);
+    }
+    .mode-card.active {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: #3b82f6;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+    }
+    .mode-card.podcast.active {
+      background: rgba(168, 85, 247, 0.12);
+      border-color: #a855f7;
+      box-shadow: 0 4px 20px rgba(168, 85, 247, 0.25);
+    }
+    .mode-icon {
+      font-size: 2rem;
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .mode-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .mode-desc {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+    .cover-dropzone:hover {
+      border-color: var(--accent) !important;
+      background: rgba(168, 85, 247, 0.05) !important;
+    }
   </style>
 </head>
 <body>
@@ -724,6 +790,23 @@
       <p class="hero-desc">Tự động dựng kịch bản chuẩn sử liệu thời Lý - Trần ➔ Đối chiếu Đại Việt Sử Ký Toàn Thư & An Nam Chí Lược ➔ Render bảng trắng & Lồng tiếng AI.</p>
     </div>
 
+    <!-- MODE SELECTOR -->
+    <div class="mode-selector">
+      <div class="mode-card active" id="modeCardWhiteboard" onclick="switchStudioMode('whiteboard')">
+        <div class="mode-icon">🎨</div>
+        <div>
+          <div class="mode-title">Hoạt Họa Bảng Trắng (Whiteboard)</div>
+          <div class="mode-desc">Vẽ tay từng phân cảnh đồng bộ giọng đọc & phụ đề</div>
+        </div>
+      </div>
+      <div class="mode-card podcast" id="modeCardPodcast" onclick="switchStudioMode('audio_podcast')">
+        <div class="mode-icon">🎙️</div>
+        <div>
+          <div class="mode-title">Podcast / Thuyết Minh Audio (Audio Story)</div>
+          <div class="mode-desc">Nhập hoặc dán script, tạo video âm thanh đọc kèm ảnh bìa & phụ đề (xuất bản siêu tốc)</div>
+        </div>
+      </div>
+    </div>
 
     <!-- PROMPT INPUT CARD -->
     <div class="card" id="inputCard">
@@ -779,6 +862,9 @@
           <button id="btnVerifyScript" class="btn" style="background: linear-gradient(135deg, #059669, #10b981); color: #ffffff; border: none; font-weight: 600;" onclick="verifyUserScript()">
             🛡️ Thẩm Định Kịch Bản (Fact-Check)
           </button>
+          <button id="btnUseDirectScript" class="btn btn-accent" style="display: none;" onclick="useDirectScriptForPodcast()">
+            🎙️ Dùng Kịch Bản Này &amp; Tiếp Tục →
+          </button>
           <button id="btnGenPrompts" class="btn btn-accent" onclick="generateStudioStoryboard()">
             ✨ Tạo Kịch Bản &amp; Gợi Ý Prompt
           </button>
@@ -829,7 +915,7 @@
     <div class="card studio-section" id="studioWorkbench">
       <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 14px;">
         <div>
-          <h2 style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">🎨 Studio Soạn Kịch Bản & Tranh Minh Họa</h2>
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">🎨 Studio Soạn Kịch Bản &amp; Tranh Minh Họa</h2>
           <p style="font-size: 0.85rem; color: var(--text-muted);">Sao chép prompt bên dưới để tạo ảnh tại Midjourney / DALL-E / Ideogram rồi tải ảnh vào đây, hoặc để AI tự vẽ.</p>
         </div>
         <span class="scene-badge" id="studioStatusBadge">Đã sẵn sàng</span>
@@ -853,7 +939,86 @@
       <!-- ACTION BUTTON -->
       <div style="display: flex; justify-content: center; margin-top: 10px;">
         <button id="btnRenderStudio" class="btn btn-primary" style="padding: 14px 32px; font-size: 1.05rem;" onclick="renderStudioVideo()">
-          🎬 Bắt Đầu Ghép Hoạt Họa Bảng Trắng & Lồng Tiếng
+          🎬 Bắt Đầu Ghép Hoạt Họa Bảng Trắng &amp; Lồng Tiếng
+        </button>
+      </div>
+    </div>
+
+    <!-- PODCAST AUDIO WORKBENCH -->
+    <div class="card studio-section" id="podcastWorkbench" style="display:none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--card-border); padding-bottom: 14px; margin-bottom: 20px;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">🎙️ Studio Thuyết Minh Audio &amp; Ảnh Bìa Podcast</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">Tạo video podcast âm thanh đọc nội dung kèm phụ đề. Tải lên 1 ảnh bìa đại diện hoặc để AI tự tạo ảnh bìa nghệ thuật.</p>
+        </div>
+        <span class="scene-badge" id="podcastStatusBadge" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">Chế độ Podcast Audio</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start;">
+        <!-- LEFT: COVER IMAGE UPLOAD -->
+        <div>
+          <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 8px; color: #f3f4f6; display: flex; align-items: center; gap: 8px;">
+            <span>🖼️</span> Ảnh Bìa Đại Diện (16:9 Thumbnail)
+          </div>
+          <div class="cover-dropzone" id="coverDropZone" onclick="$('podcastCoverInput').click()" style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+            <input type="file" id="podcastCoverInput" accept="image/*" style="display: none;" onchange="handlePodcastCoverUpload(this)">
+            <div id="coverPlaceholder">
+              <div style="font-size: 2.2rem; margin-bottom: 8px;">📤</div>
+              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh bìa hoặc bấm để chọn</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Khuyến nghị tỷ lệ 16:9 (1376x768 hoặc 1920x1080)</div>
+              <div style="margin-top: 12px; display: inline-block; font-size: 0.75rem; background: rgba(59, 130, 246, 0.15); color: #93c5fd; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(59, 130, 246, 0.25);">
+                ✨ Nếu bỏ trống: Tự động tạo ảnh bìa nghệ thuật
+              </div>
+            </div>
+            <img id="coverPreviewImg" src="" style="display:none; width: 100%; height: 100%; object-fit: cover; border-radius: 8px; position: absolute; inset: 0;" />
+          </div>
+          <div id="coverActions" style="display:none; margin-top: 10px; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="$('podcastCoverInput').click()">Đổi ảnh</button>
+            <button type="button" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.8rem; color: #ef4444;" onclick="removePodcastCover()">Xóa ảnh</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: AUDIO SPECS & VOICE PICKER -->
+        <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--card-border); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+          <div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tiêu đề bản thu</div>
+            <div id="podcastTitleDisplay" style="font-size: 1.1rem; font-weight: 700; color: #ffffff; margin-top: 4px;">Bản Thuyết Minh Audio Lịch Sử</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Số câu thoại đọc</div>
+              <div id="podcastSentenceCount" style="font-size: 1.2rem; font-weight: 700; color: #a855f7;">0 câu</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; border: 1px solid var(--card-border);">
+              <div style="font-size: 0.75rem; color: var(--text-muted);">Ước tính thời lượng</div>
+              <div id="podcastEstDuration" style="font-size: 1.2rem; font-weight: 700; color: #10b981;">~0s</div>
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; font-weight: 600; color: #e2e8f0; display: block; margin-bottom: 6px;">Giọng đọc thuyết minh:</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <select id="podcastVoiceSelect" class="form-select" style="flex: 1; padding: 10px 12px; background: #131722; border: 1px solid var(--card-border); border-radius: 8px; color: #fff; font-family: inherit;">
+                <option value="vi-VN-NamMinhNeural">Nam Minh (Edge-TTS - Trầm ấm, truyền cảm)</option>
+                <option value="vi-VN-HoaiMyNeural">Hoài My (Edge-TTS - Nữ dịu dàng, tự nhiên)</option>
+                <option value="Brian">Brian (ElevenLabs - Trầm hùng, phim tài liệu)</option>
+                <option value="Adam">Adam (ElevenLabs - Tự sự, sâu lắng)</option>
+              </select>
+              <button type="button" class="btn btn-secondary" onclick="previewSelectedPodcastVoice()" style="padding: 10px 14px; font-size: 0.85rem;" title="Nghe thử giọng">🔊 Thử</button>
+            </div>
+          </div>
+
+          <div style="font-size: 0.78rem; color: #94a3b8; line-height: 1.4; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 10px 12px;">
+            ⚡ <b>Tốc độ siêu nhanh:</b> Chế độ Audio Podcast không cần render nét vẽ tay từng cảnh, xuất bản video hoàn chỉnh chỉ trong <b>5 - 15 giây</b>!
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTION BUTTON -->
+      <div style="display: flex; justify-content: center; margin-top: 24px;">
+        <button id="btnRenderPodcast" class="btn btn-accent" style="padding: 14px 36px; font-size: 1.05rem;" onclick="renderPodcastVideo()">
+          🎙️ Bắt Đầu Xuất Bản Video Podcast Audio
         </button>
       </div>
     </div>
@@ -868,27 +1033,27 @@
       <div class="step-bar">
         <div class="step-item" id="step1">
           <div class="step-circle">1</div>
-          <span class="step-label">Kịch bản</span>
+          <span class="step-label" id="step1Label">Kịch bản</span>
         </div>
         <div class="step-item" id="step2">
           <div class="step-circle">2</div>
-          <span class="step-label">Tranh 16:9</span>
+          <span class="step-label" id="step2Label">Tranh 16:9</span>
         </div>
         <div class="step-item" id="step3">
           <div class="step-circle">3</div>
-          <span class="step-label">Lồng tiếng & Đồng bộ</span>
+          <span class="step-label" id="step3Label">Lồng tiếng &amp; Đồng bộ</span>
         </div>
         <div class="step-item" id="step4">
           <div class="step-circle">4</div>
-          <span class="step-label">Vẽ bảng trắng</span>
+          <span class="step-label" id="step4Label">Vẽ bảng trắng</span>
         </div>
         <div class="step-item" id="step5">
           <div class="step-circle">5</div>
-          <span class="step-label">Ghép cảnh & Nhạc</span>
+          <span class="step-label" id="step5Label">Ghép cảnh &amp; Nhạc</span>
         </div>
         <div class="step-item" id="step6">
           <div class="step-circle">6</div>
-          <span class="step-label">Hoàn tất</span>
+          <span class="step-label" id="step6Label">Hoàn tất</span>
         </div>
       </div>
 
@@ -903,6 +1068,7 @@
       <video id="videoPlayer" controls playsinline></video>
       <div class="action-row">
         <a id="btnDownloadVideo" class="btn btn-primary" download>⬇️ Tải Video MP4</a>
+        <a id="btnDownloadAudio" class="btn btn-accent" download style="display:none;">🎵 Tải Âm Thanh MP3</a>
         <a id="btnDownloadSrt" class="btn btn-secondary" download>📝 Tải Phụ Đề (.SRT)</a>
       </div>
     </div>
@@ -1094,6 +1260,214 @@
     let timerInterval = null;
     let startTime = 0;
     let currentMode = 'studio';
+    let currentStudioMode = 'whiteboard'; // 'whiteboard' | 'audio_podcast'
+    let customCoverImage = null;
+
+    function switchStudioMode(mode) {
+      currentStudioMode = mode;
+      if (mode === 'audio_podcast') {
+        $('modeCardPodcast').className = 'mode-card podcast active';
+        $('modeCardWhiteboard').className = 'mode-card';
+        $('btnUseDirectScript').style.display = 'inline-flex';
+        $('btnGenPrompts').innerHTML = '✨ AI Soạn Kịch Bản (RAG)';
+        $('promptInput').placeholder = 'Nhập hoặc dán toàn bộ bài viết / kịch bản thuyết minh lịch sử bạn muốn đọc (Ví dụ: bài viết về Trần Hưng Đạo, Lý Thường Kiệt...)\nHOẶC nhập chủ đề ngắn để AI tự động nghiên cứu sử liệu (RAG) và soạn kịch bản audio...';
+        $('btnApproveScript').innerHTML = '✅ Chấp nhận kịch bản &amp; Chọn ảnh bìa Podcast →';
+        if ($('studioWorkbench').style.display !== 'none') {
+          $('studioWorkbench').style.display = 'none';
+          openPodcastWorkbench();
+        }
+      } else {
+        $('modeCardWhiteboard').className = 'mode-card active';
+        $('modeCardPodcast').className = 'mode-card podcast';
+        $('btnUseDirectScript').style.display = 'none';
+        $('btnGenPrompts').innerHTML = '✨ Tạo Kịch Bản &amp; Gợi Ý Prompt';
+        $('promptInput').placeholder = 'Nhập sự kiện hoặc nhân vật lịch sử thời Lý - Trần (Ví dụ: Vì sao Lý Thái Tổ dời đô về Thăng Long, Lý Thường Kiệt và phòng tuyến Như Nguyệt, Trần Hưng Đạo đại phá quân Nguyên Mông, Hịch tướng sĩ, Hội nghị Diên Hồng...) HOẶC dán bài viết để đối chiếu chính sử...';
+        $('btnApproveScript').innerHTML = '✅ Chấp nhận &amp; Tiếp tục tạo ảnh →';
+        if ($('podcastWorkbench').style.display !== 'none') {
+          $('podcastWorkbench').style.display = 'none';
+          if (currentStoryboard && currentStoryboard.scenes) {
+            renderStudioScenes(currentStoryboard.scenes);
+            $('studioWorkbench').style.display = 'flex';
+          }
+        }
+      }
+    }
+
+    function splitScriptIntoSentencesJS(text) {
+      if (!text) return [];
+      const clean = text.replace(/\r\n|\r/g, '\n').trim();
+      const rawParts = clean.split(/(?<=[.?!…\n])\s+/);
+      const sentences = [];
+      for (let part of rawParts) {
+        part = part.trim();
+        if (!part) continue;
+        if (part.length > 120 || part.split(/\s+/).length > 25) {
+          const subparts = part.split(/(?<=[,;:\n])\s+/);
+          let buf = '';
+          for (let sp of subparts) {
+            sp = sp.trim();
+            if (!sp) continue;
+            if (buf && (buf.length + sp.length > 100 || (buf + ' ' + sp).split(/\s+/).length > 22)) {
+              sentences.push(buf.trim());
+              buf = sp;
+            } else {
+              buf = buf ? (buf + ' ' + sp).trim() : sp;
+            }
+          }
+          if (buf) sentences.push(buf.trim());
+        } else {
+          sentences.push(part);
+        }
+      }
+      return sentences.filter(s => s.length > 2);
+    }
+
+    function useDirectScriptForPodcast() {
+      const text = $('promptInput').value.trim();
+      if (!text) {
+        alert('Vui lòng nhập hoặc dán nội dung kịch bản văn bản cần đọc!');
+        $('promptInput').focus();
+        return;
+      }
+      const sentences = splitScriptIntoSentencesJS(text);
+      if (sentences.length === 0) {
+        alert('Nội dung quá ngắn, vui lòng nhập đầy đủ câu thoại!');
+        return;
+      }
+
+      currentStoryboard = {
+        title: text.split('\n')[0].replace(/^[#\s\-*]+/, '').substring(0, 45) || 'Bản Thuyết Minh Audio',
+        scenes: [
+          {
+            scene_index: 1,
+            scene_title: 'Nội dung thuyết minh',
+            elements: sentences.map((s, idx) => ({
+              element_index: idx + 1,
+              subtitle: s,
+              visual_prompt: ''
+            }))
+          }
+        ]
+      };
+
+      showScriptPreview(currentStoryboard);
+      $('btnApproveScript').innerHTML = '✅ Chấp nhận kịch bản &amp; Chọn ảnh bìa Podcast →';
+      $('scriptPreviewCard').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function openPodcastWorkbench() {
+      const wb = $('podcastWorkbench');
+      wb.style.display = 'block';
+
+      let totalSentences = 0;
+      let totalWords = 0;
+      (currentStoryboard.scenes || []).forEach(sc => {
+        (sc.elements || []).forEach(el => {
+          if (el.subtitle) {
+            totalSentences++;
+            totalWords += el.subtitle.split(/\s+/).length;
+          }
+        });
+      });
+
+      const estSec = Math.round(totalWords / 2.4 + totalSentences * 0.45);
+
+      $('podcastTitleDisplay').textContent = currentStoryboard.title || 'Bản Thuyết Minh Audio';
+      $('podcastSentenceCount').textContent = `${totalSentences} câu`;
+      $('podcastEstDuration').textContent = `~${estSec}s (${formatTime(estSec)})`;
+
+      wb.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function handlePodcastCoverUpload(input) {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        customCoverImage = e.target.result;
+        $('coverPreviewImg').src = customCoverImage;
+        $('coverPreviewImg').style.display = 'block';
+        $('coverPlaceholder').style.display = 'none';
+        $('coverActions').style.display = 'flex';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removePodcastCover() {
+      customCoverImage = null;
+      $('podcastCoverInput').value = '';
+      $('coverPreviewImg').src = '';
+      $('coverPreviewImg').style.display = 'none';
+      $('coverPlaceholder').style.display = 'block';
+      $('coverActions').style.display = 'none';
+    }
+
+    async function previewSelectedPodcastVoice() {
+      const voice = $('podcastVoiceSelect').value;
+      const sampleText = 'Vào năm 1075, Lý Thường Kiệt chủ động tiến công để tự vệ, lập phòng tuyến vững chắc trên sông Như Nguyệt.';
+      const isEleven = ['Brian', 'Adam', 'Sarah', 'George'].includes(voice);
+      const engine = isEleven ? 'elevenlabs' : 'edge-tts';
+      const elKey = localStorage.getItem('elevenlabs_api_key');
+      if (isEleven && (!elKey || !elKey.trim())) {
+        openSettingsModal();
+        alert('Vui lòng nhập ElevenLabs API Key trong Cài đặt (⚙️) để nghe thử giọng này!');
+        return;
+      }
+      try {
+        const res = await fetch('/api/voice/preview', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            tts_engine: engine,
+            voice_name: voice,
+            text: sampleText,
+            elevenlabs_api_key: elKey
+          })
+        });
+        const data = await res.json();
+        if (data.audio_url) {
+          const audio = new Audio(data.audio_url);
+          audio.play();
+        } else {
+          alert('Không thể phát âm thanh nghe thử');
+        }
+      } catch (err) {
+        alert('Lỗi nghe thử giọng: ' + err.message);
+      }
+    }
+
+    async function renderPodcastVideo() {
+      if (!currentStoryboard || !currentStoryboard.scenes) {
+        alert('Vui lòng nhập hoặc duyệt kịch bản trước!');
+        return;
+      }
+
+      const lines = [];
+      currentStoryboard.scenes.forEach(sc => {
+        (sc.elements || []).forEach(el => {
+          if (el.subtitle && el.subtitle.trim()) {
+            lines.push(el.subtitle.trim());
+          }
+        });
+      });
+      const fullScript = lines.join('\n\n');
+
+      const voice = $('podcastVoiceSelect').value;
+      const isEleven = ['Brian', 'Adam', 'Sarah', 'George'].includes(voice);
+      const engine = isEleven ? 'elevenlabs' : 'edge-tts';
+
+      const payload = {
+        topic: currentStoryboard.title || $('promptInput').value.trim() || 'Bản Thuyết Minh Audio',
+        duration_sec: selectedDuration,
+        render_mode: 'audio_podcast',
+        script_text: fullScript,
+        cover_image_b64: customCoverImage,
+        tts_engine: engine,
+        voice_name: voice
+      };
+
+      startJobSubmission(payload);
+    }
 
     let selectedDuration = 60;
     let currentStoryboard = null;
@@ -1503,7 +1877,7 @@
       });
     }
 
-    // NGƯỜI DÙNG CHẤP NHẬN KỊCH BẢN → TIẾN TỚI STUDIO WORKBENCH
+    // NGƯỜI DÙNG CHẤP NHẬN KỊCH BẢN → TIẾN TỚI WORKBENCH TƯƠNG ỨNG
     function approveScript() {
       if (!currentStoryboard || !currentStoryboard.scenes) return;
 
@@ -1516,11 +1890,17 @@
         });
       });
 
-      // Ẩn preview, hiện workbench
+      // Ẩn preview, hiện workbench phù hợp
       $('scriptPreviewCard').style.display = 'none';
-      renderStudioScenes(currentStoryboard.scenes);
-      $('studioWorkbench').style.display = 'flex';
-      $('studioWorkbench').scrollIntoView({ behavior: 'smooth' });
+      if (currentStudioMode === 'audio_podcast') {
+        $('studioWorkbench').style.display = 'none';
+        openPodcastWorkbench();
+      } else {
+        $('podcastWorkbench').style.display = 'none';
+        renderStudioScenes(currentStoryboard.scenes);
+        $('studioWorkbench').style.display = 'flex';
+        $('studioWorkbench').scrollIntoView({ behavior: 'smooth' });
+      }
     }
 
     // RENDER STUDIO SCENES CARD DYNAMICALLY
@@ -1686,25 +2066,26 @@
 
 
     async function startJobSubmission(payload) {
-      const engine = localStorage.getItem('tts_engine') || 'edge-tts';
-      const vName = engine === 'elevenlabs' ? localStorage.getItem('eleven_voice') : localStorage.getItem('edge_voice');
+      const defaultEngine = localStorage.getItem('tts_engine') || 'edge-tts';
+      const defaultVName = defaultEngine === 'elevenlabs' ? localStorage.getItem('eleven_voice') : localStorage.getItem('edge_voice');
 
       const bodyData = {
-        ...payload,
+        image_engine: 'doodle',
+        tts_engine: payload.tts_engine || defaultEngine,
+        voice_name: payload.voice_name || defaultVName,
         gemini_api_key: (localStorage.getItem('gemini_api_key') || '').trim(),
         elevenlabs_api_key: localStorage.getItem('elevenlabs_api_key'),
-        image_engine: 'doodle',
-        tts_engine: engine,
-        voice_name: vName
+        ...payload
       };
 
-      $('btnRenderStudio').disabled = true;
+      if ($('btnRenderStudio')) $('btnRenderStudio').disabled = true;
+      if ($('btnRenderPodcast')) $('btnRenderPodcast').disabled = true;
       $('progressCard').style.display = 'block';
       $('resultCard').style.display = 'none';
       $('consoleBox').innerHTML = '<p class="highlight">🚀 Đang khởi động tiến trình...</p>';
       $('progressCard').scrollIntoView({ behavior: 'smooth' });
 
-      resetSteps();
+      resetSteps(payload.render_mode || currentStudioMode);
       startTime = Date.now();
       timerInterval = setInterval(() => {
         const sec = Math.floor((Date.now() - startTime) / 1000);
@@ -1723,18 +2104,57 @@
       } catch (err) {
         alert('Lỗi khởi tạo job: ' + err.message);
         clearInterval(timerInterval);
+        if ($('btnRenderStudio')) $('btnRenderStudio').disabled = false;
+        if ($('btnRenderPodcast')) $('btnRenderPodcast').disabled = false;
       }
     }
 
-    function resetSteps() {
-      for (let i = 1; i <= 6; i++) {
-        $('step' + i).className = 'step-item';
+    function resetSteps(mode) {
+      const isPodcast = (mode || currentStudioMode) === 'audio_podcast';
+      if (isPodcast) {
+        if ($('step1Label')) $('step1Label').textContent = 'Kịch bản';
+        if ($('step2Label')) $('step2Label').textContent = 'Ảnh bìa';
+        if ($('step3Label')) $('step3Label').textContent = 'Lồng tiếng AI';
+        if ($('step4Label')) $('step4Label').textContent = 'Render Video';
+        if ($('step5Label')) $('step5Label').textContent = 'Hoàn tất';
+        if ($('step6')) $('step6').style.display = 'none';
+      } else {
+        if ($('step1Label')) $('step1Label').textContent = 'Kịch bản';
+        if ($('step2Label')) $('step2Label').textContent = 'Tranh 16:9';
+        if ($('step3Label')) $('step3Label').textContent = 'Lồng tiếng & Đồng bộ';
+        if ($('step4Label')) $('step4Label').textContent = 'Vẽ bảng trắng';
+        if ($('step5Label')) $('step5Label').textContent = 'Ghép cảnh & Nhạc';
+        if ($('step6Label')) $('step6Label').textContent = 'Hoàn tất';
+        if ($('step6')) $('step6').style.display = '';
       }
-    }
-
-    function setStepProgress(step) {
       for (let i = 1; i <= 6; i++) {
         const el = $('step' + i);
+        if (el) el.className = 'step-item';
+      }
+    }
+
+    function setStepProgress(step, mode) {
+      const isPodcast = (mode || currentStudioMode) === 'audio_podcast';
+      const maxSteps = isPodcast ? 5 : 6;
+      if (isPodcast) {
+        if ($('step1Label')) $('step1Label').textContent = 'Kịch bản';
+        if ($('step2Label')) $('step2Label').textContent = 'Ảnh bìa';
+        if ($('step3Label')) $('step3Label').textContent = 'Lồng tiếng AI';
+        if ($('step4Label')) $('step4Label').textContent = 'Render Video';
+        if ($('step5Label')) $('step5Label').textContent = 'Hoàn tất';
+        if ($('step6')) $('step6').style.display = 'none';
+      } else {
+        if ($('step1Label')) $('step1Label').textContent = 'Kịch bản';
+        if ($('step2Label')) $('step2Label').textContent = 'Tranh 16:9';
+        if ($('step3Label')) $('step3Label').textContent = 'Lồng tiếng & Đồng bộ';
+        if ($('step4Label')) $('step4Label').textContent = 'Vẽ bảng trắng';
+        if ($('step5Label')) $('step5Label').textContent = 'Ghép cảnh & Nhạc';
+        if ($('step6Label')) $('step6Label').textContent = 'Hoàn tất';
+        if ($('step6')) $('step6').style.display = '';
+      }
+      for (let i = 1; i <= maxSteps; i++) {
+        const el = $('step' + i);
+        if (!el) continue;
         if (i < step) el.className = 'step-item done';
         else if (i === step) el.className = 'step-item active';
         else el.className = 'step-item';
@@ -1751,25 +2171,39 @@
         $('consoleBox').innerHTML = logHtml;
         $('consoleBox').scrollTop = $('consoleBox').scrollHeight;
 
-        if (job.step) setStepProgress(job.step);
+        const jobMode = job.render_mode || currentStudioMode;
+        if (job.step) setStepProgress(job.step, jobMode);
         if (job.step_name) $('jobStatusTitle').textContent = job.step_name;
 
         if (job.status === 'completed') {
           clearInterval(pollInterval);
           clearInterval(timerInterval);
-          setStepProgress(7);
+          setStepProgress(7, jobMode);
           $('jobStatusTitle').textContent = '✅ Đã hoàn thành xuất bản video!';
+
+          if ($('btnRenderStudio')) $('btnRenderStudio').disabled = false;
+          if ($('btnRenderPodcast')) $('btnRenderPodcast').disabled = false;
 
           $('resultCard').style.display = 'flex';
           $('videoResultTitle').textContent = '🎉 ' + job.title;
           $('videoPlayer').src = job.video_url;
           $('btnDownloadVideo').href = job.video_url;
           $('btnDownloadSrt').href = job.srt_url;
+
+          if (job.audio_url) {
+            $('btnDownloadAudio').href = job.audio_url;
+            $('btnDownloadAudio').style.display = 'inline-flex';
+          } else {
+            $('btnDownloadAudio').style.display = 'none';
+          }
+
           $('resultCard').scrollIntoView({ behavior: 'smooth' });
         } else if (job.status === 'failed') {
           clearInterval(pollInterval);
           clearInterval(timerInterval);
           $('jobStatusTitle').textContent = '❌ Quá trình tạo video thất bại';
+          if ($('btnRenderStudio')) $('btnRenderStudio').disabled = false;
+          if ($('btnRenderPodcast')) $('btnRenderPodcast').disabled = false;
         }
       } catch (e) {
         console.error('Lỗi kiểm tra tiến trình:', e);
