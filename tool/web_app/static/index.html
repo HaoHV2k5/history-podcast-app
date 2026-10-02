@@ -1028,11 +1028,16 @@
             </div>
             <span style="font-size: 0.72rem; color: #f87171; background: rgba(239, 68, 68, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.25); font-weight: 600;">Bắt buộc</span>
           </div>
-          <div class="cover-dropzone" id="coverDropZone" onclick="$('podcastCoverInput').click()" style="border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+          <div class="cover-dropzone" id="coverDropZone"
+               onclick="$('podcastCoverInput').click()"
+               ondragover="handlePodcastCoverDragOver(event)"
+               ondragleave="handlePodcastCoverDragLeave(event)"
+               ondrop="handlePodcastCoverDrop(event)"
+               style="border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
             <input type="file" id="podcastCoverInput" accept="image/*" style="display: none;" onchange="handlePodcastCoverUpload(this)">
-            <div id="coverPlaceholder">
+            <div id="coverPlaceholder" style="pointer-events: none;">
               <div style="font-size: 2.2rem; margin-bottom: 8px;">📤</div>
-              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh Thumbnail hoặc bấm để chọn</div>
+              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh Thumbnail vào đây hoặc bấm để chọn tệp</div>
               <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Khuyến nghị tỷ lệ 16:9 (1376x768 hoặc 1920x1080)</div>
               <div style="margin-top: 12px; display: inline-block; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700;">
                 ⚠️ BẮT BUỘC: Phải có ảnh bìa để xuất bản video
@@ -1570,17 +1575,82 @@
       verifyUserScript();
     }
 
-    function handlePodcastCoverUpload(input) {
-      const file = input.files && input.files[0];
+    function handlePodcastCoverDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('coverDropZone');
+      if (dz) {
+        dz.style.borderColor = '#38bdf8';
+        dz.style.background = 'rgba(56, 189, 248, 0.12)';
+        dz.style.transform = 'scale(1.01)';
+      }
+    }
+
+    function handlePodcastCoverDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('coverDropZone');
+      if (dz) {
+        dz.style.borderColor = customCoverImage ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.4)';
+        dz.style.background = 'rgba(255, 255, 255, 0.02)';
+        dz.style.transform = 'none';
+      }
+    }
+
+    function handlePodcastCoverDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('coverDropZone');
+      if (dz) {
+        dz.style.background = 'rgba(255, 255, 255, 0.02)';
+        dz.style.transform = 'none';
+      }
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (!file.type || !file.type.startsWith('image/')) {
+          alert('Vui lòng kéo thả tệp hình ảnh hợp lệ (PNG, JPG, WEBP)!');
+          return;
+        }
+        handlePodcastCoverUpload(file);
+      }
+    }
+
+    function handlePodcastCoverUpload(inputOrFile) {
+      let file = null;
+      if (inputOrFile instanceof File) {
+        file = inputOrFile;
+      } else if (inputOrFile && inputOrFile.files && inputOrFile.files.length > 0) {
+        file = inputOrFile.files[0];
+      } else if (inputOrFile instanceof FileList && inputOrFile.length > 0) {
+        file = inputOrFile[0];
+      }
       if (!file) return;
+
+      const dz = $('coverDropZone');
+      const placeholder = $('coverPlaceholder');
+      const preview = $('coverPreviewImg');
+      const actions = $('coverActions');
+
+      if (placeholder) {
+        placeholder.style.display = 'block';
+        placeholder.innerHTML = '<div style="font-size:2.2rem; animation: pulse 1s infinite;">⏳</div><div style="font-weight:600; color:#38bdf8; margin-top:8px;">Đang tải ảnh...</div>';
+      }
+      if (preview) preview.style.display = 'none';
+
       const reader = new FileReader();
       reader.onload = e => {
         customCoverImage = e.target.result;
-        $('coverPreviewImg').src = customCoverImage;
-        $('coverPreviewImg').style.display = 'block';
-        $('coverPlaceholder').style.display = 'none';
-        $('coverActions').style.display = 'flex';
-        $('coverDropZone').style.borderColor = 'rgba(16, 185, 129, 0.6)';
+        if (preview) {
+          preview.src = customCoverImage;
+          preview.style.display = 'block';
+        }
+        if (placeholder) placeholder.style.display = 'none';
+        if (actions) actions.style.display = 'flex';
+        if (dz) {
+          dz.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+          dz.style.background = 'rgba(16, 185, 129, 0.05)';
+        }
       };
       reader.readAsDataURL(file);
     }
