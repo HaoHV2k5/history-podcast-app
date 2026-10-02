@@ -272,29 +272,31 @@ NHIỆM VỤ CỦA BẠN (CỰC KỲ NGHIÊM NGẶT VÀ CỤ THỂ):
    - Cung cấp giải thích chi tiết, khách quan, trích dẫn chính xác sách sử (sách nào, bối cảnh nào).
    - BẮT BUỘC cung cấp "suggested_fix" chuẩn xác cho mọi luận điểm bị đánh giá "error" hoặc "unverified".
 
-3. TỔNG KẾT ĐIỂM SỐ VÀ BẢN SỬA ĐỔI HOÀN HẢO:
+3. TỔNG KẾT ĐIỂM SỐ, THUMBNAIL PROMPT VÀ BẢN SỬA ĐỔI HOÀN HẢO:
    - overall_score: Thang điểm 0 - 100. Trừ điểm nghiêm khắc nếu có hiểu sai về địa lý/quân sự hoặc thiếu dữ kiện cốt lõi (ví dụ: nhầm lẫn thế hiểm Hoa Lư chỉ được tối đa 65-75 điểm).
    - status: "verified" (nếu score >= 85), "needs_revision" (nếu score từ 50 - 84), hoặc "critical_errors" (nếu score < 50).
    - summary: Nhận xét thẳng thắn, sắc bén, chỉ rõ điểm được và điểm sai lệch/thiếu sót của kịch bản.
+   - thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa Podcast tỉ lệ VUÔNG 1:1 (ví dụ 1200x1200px) (Epic cinematic historical documentary podcast cover art illustration representing the topic, dramatic atmospheric lighting, rich classical oil painting style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark).
    - revised_script: Viết lại kịch bản hoàn chỉnh, sửa sạch lỗi sai, đưa vào mốc năm 1010, Chiếu dời đô, thế đất Đại La, sự tích rồng vàng bay lên ở thuyền ngự, và loại bỏ hoàn toàn các từ nối rập khuôn AI.
 
 HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ```json):
-{{
+{
   "in_scope": true,
   "overall_score": 70,
   "status": "needs_revision",
   "summary": "...",
+  "thumbnail_prompt": "Epic cinematic historical podcast thumbnail illustration...",
   "claims": [
-    {{
+    {
       "claim_text": "...",
       "verdict": "error",
       "explanation": "...",
       "source_reference": "Đại Việt Sử Ký Toàn Thư - Bản Kỷ - Quyển II (Trang 80-81)",
       "suggested_fix": "..."
-    }}
+    }
   ],
   "revised_script": "..."
-}}
+}
 """
 
     payload = {
@@ -327,6 +329,14 @@ HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ``
                         if text_out.startswith("json"):
                             text_out = text_out[4:].strip()
                     parsed = json.loads(text_out)
+                    if not parsed.get("thumbnail_prompt"):
+                        import re
+                        clean_sample = re.sub(r'[\r\n\t"]+', ' ', script_text[:120]).strip()
+                        parsed["thumbnail_prompt"] = (
+                            f"Epic cinematic historical podcast thumbnail illustration representing {clean_sample}, "
+                            "atmospheric dramatic lighting, rich historical color tones, classical oil painting art style, "
+                            "epic composition, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark"
+                        )
                     parsed["source_citations"] = [
                         {
                             "id": idx,

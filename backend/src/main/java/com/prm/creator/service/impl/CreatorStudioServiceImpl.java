@@ -187,6 +187,49 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     }
 
     @Override
+    public Object verifyScript(String email, String script) {
+        if (!StringUtils.hasText(script)) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Nội dung kịch bản cần thẩm định không được để trống");
+        }
+
+        User user = getUserByEmail(email);
+        String geminiKey = creatorAiSettingRepository.findByUserId(user.getId())
+                .map(CreatorAiSetting::getGeminiApiKey)
+                .orElse("");
+
+        Map<String, Object> toolPayload = new HashMap<>();
+        toolPayload.put("script", script.trim());
+        if (StringUtils.hasText(geminiKey)) {
+            toolPayload.put("gemini_api_key", geminiKey.trim());
+        }
+
+        try {
+            String jsonBody = objectMapper.writeValueAsString(toolPayload);
+            HttpRequest httpRequest = HttpRequest.newBuilder()
+                    .uri(URI.create(toolUrl + "/api/script/verify"))
+                    .version(HttpClient.Version.HTTP_1_1)
+                    .header("Content-Type", "application/json")
+                    .timeout(Duration.ofSeconds(60))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() != 200) {
+                String errorDetail = extractErrorDetail(response.body(), response.statusCode());
+                log.error("Tool verify-script failed with HTTP {}: {}", response.statusCode(), errorDetail);
+                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi thẩm định kịch bản: " + errorDetail);
+            }
+
+            return objectMapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
+        } catch (AppException ae) {
+            throw ae;
+        } catch (Exception e) {
+            log.error("Failed to communicate with Tool verify-script API", e);
+            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Không thể kết nối đến dịch vụ thẩm định kịch bản: " + e.getMessage());
+        }
+    }
+
+    @Override
     @Transactional
     public CreatorRenderResponse renderAndSaveVideo(String email, CreatorRenderRequest request) {
         User user = getUserByEmail(email);
@@ -202,25 +245,73 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 ? request.getVoiceName()
                 : settingOpt.map(CreatorAiSetting::getVoiceName).orElse("vi-VN-NamMinhNeural");
 
-        if (!StringUtils.hasText(geminiKey)) {
-            throw new AppException(
-                    ErrorCode.INVALID_REQUEST_DATA,
-                    "⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân trong Cài đặt (⚙️)!"
-            );
+        String renderMode = StringUtils.hasText(request.getRenderMode()) ? request.getRenderMode().trim().toLowerCase() : "whiteboard";
+        boolean isAudioPodcast = "audio_podcast".equals(renderMode) || "podcast".equals(renderMode) || "audio".equals(renderMode);
+
+        String coverB64 = null;
+        if (!isAudioPodcast) {
+            if (request.getStoryboard() == null || request.getStoryboard().isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Kịch bản (storyboard) không được để trống");
+            }
+            if (request.getSceneImages() == null || request.getSceneImages().isEmpty()) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Danh sách ảnh minh họa cảnh không được để trống");
+            }
+            if (!StringUtils.hasText(geminiKey)) {
+                throw new AppException(
+                        ErrorCode.INVALID_REQUEST_DATA,
+                        "⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân trong Cài đặt (⚙️)!"
+                );
+            }
+        } else {
+            // Cho phép dán trực tiếp kịch bản HOẶC phân cảnh
+            if (!StringUtils.hasText(request.getScriptText()) && (request.getStoryboard() == null || request.getStoryboard().isEmpty())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Vui lòng nhập nội dung kịch bản thuyết minh (scriptText) hoặc phân cảnh (storyboard)");
+            }
+            if (!StringUtils.hasText(geminiKey) && !StringUtils.hasText(request.getScriptText()) && request.getStoryboard() == null) {
+                throw new AppException(
+                        ErrorCode.INVALID_REQUEST_DATA,
+                        "⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân trong Cài đặt (⚙️)!"
+                );
+            }
+            // Bắt buộc phải có ảnh bìa (thumbnail) cho video Audio Podcast
+            coverB64 = StringUtils.hasText(request.getCoverImage()) ? request.getCoverImage().trim() : null;
+            if (coverB64 == null && request.getSceneImages() != null && !request.getSceneImages().isEmpty()) {
+                coverB64 = request.getSceneImages().get("cover");
+                if (coverB64 == null) {
+                    coverB64 = request.getSceneImages().get("1");
+                }
+                if (coverB64 == null) {
+                    coverB64 = request.getSceneImages().values().iterator().next();
+                }
+            }
+            if (!StringUtils.hasText(coverB64)) {
+                throw new AppException(
+                        ErrorCode.INVALID_REQUEST_DATA,
+                        "⚠️ Bắt buộc phải có ảnh bìa (thumbnail) cho video Audio Podcast!"
+                );
+            }
         }
 
         // 2. Tìm hoặc tự động tạo Kênh cho Creator
         Channel channel = resolveOrCreateChannel(user, request.getChannelId());
 
-        // 3. Trích xuất nội dung văn bản kịch bản từ storyboard để lưu vào DB
-        String scriptNarration = extractNarrationScript(request.getStoryboard());
+        // 3. Trích xuất nội dung văn bản kịch bản từ scriptText hoặc storyboard để lưu vào DB
+        String scriptNarration;
+        if (StringUtils.hasText(request.getScriptText())) {
+            scriptNarration = request.getScriptText().trim();
+        } else {
+            scriptNarration = extractNarrationScript(request.getStoryboard());
+        }
 
         // 4. LƯU VÀO DATABASE (Content & Artifact & Transcript)
+        String contentSourceType = isAudioPodcast ? "AI_PODCAST" : "AI_WHITEBOARD";
+        String artifactSourceType = isAudioPodcast ? "PODCAST_STUDIO" : "WHITEBOARD_STUDIO";
+
         Content content = Content.builder()
                 .channel(channel)
                 .title(request.getTitle().trim())
                 .textBody(scriptNarration)
-                .sourceType("AI_WHITEBOARD")
+                .sourceType(contentSourceType)
                 .status("PROCESSING")
                 .isExclusive(false)
                 .createdAt(Instant.now())
@@ -232,7 +323,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .content(content)
                 .type("VIDEO")
                 .fileUrl(null)
-                .sourceType("WHITEBOARD_STUDIO")
+                .sourceType(artifactSourceType)
                 .durationSeconds(request.getDurationSec())
                 .status("PROCESSING")
                 .createdAt(Instant.now())
@@ -246,15 +337,28 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .build();
         transcriptRepository.save(transcript);
 
-        log.info("Saved Content (ID: {}), Artifact (ID: {}), Transcript for Creator '{}'",
-                content.getId(), artifact.getId(), email);
+        log.info("Saved Content (ID: {}, mode: {}), Artifact (ID: {}), Transcript for Creator '{}'",
+                content.getId(), renderMode, artifact.getId(), email);
 
         // 5. Chuyển tiếp tác vụ tạo video sang Python Rendering Engine (kèm Cloudinary Image URLs)
         Map<String, Object> toolPayload = new HashMap<>();
         toolPayload.put("topic", request.getTitle().trim());
         toolPayload.put("duration_sec", request.getDurationSec());
-        toolPayload.put("storyboard", request.getStoryboard());
-        toolPayload.put("custom_images", request.getSceneImages());
+        toolPayload.put("render_mode", isAudioPodcast ? "audio_podcast" : "whiteboard");
+        if (StringUtils.hasText(request.getScriptText())) {
+            toolPayload.put("script_text", request.getScriptText().trim());
+        }
+        if (StringUtils.hasText(coverB64)) {
+            toolPayload.put("cover_image_b64", coverB64);
+        } else if (StringUtils.hasText(request.getCoverImage())) {
+            toolPayload.put("cover_image_b64", request.getCoverImage().trim());
+        }
+        if (request.getStoryboard() != null) {
+            toolPayload.put("storyboard", request.getStoryboard());
+        }
+        if (request.getSceneImages() != null) {
+            toolPayload.put("custom_images", request.getSceneImages());
+        }
         toolPayload.put("gemini_api_key", geminiKey);
         toolPayload.put("elevenlabs_api_key", elevenKey);
         toolPayload.put("tts_engine", ttsEngine);
@@ -262,27 +366,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
         try {
             String jsonBody = objectMapper.writeValueAsString(toolPayload);
-            HttpRequest httpRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(toolUrl + "/api/render"))
-                    .version(HttpClient.Version.HTTP_1_1)
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(30))
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                    .build();
+            String responseBody = callToolRenderApi(jsonBody);
 
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() != 200) {
-                String errorDetail = extractErrorDetail(response.body(), response.statusCode());
-                log.error("Tool render initiation failed with HTTP {}: {}", response.statusCode(), errorDetail);
-                artifact.setStatus(ArtifactStatus.FAILED.name());
-                content.setStatus(ContentStatus.FAILED.name());
-                artifactRepository.save(artifact);
-                contentRepository.save(content);
-                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khởi tạo render video: " + errorDetail);
-            }
-
-            JsonNode resJson = objectMapper.readTree(response.body());
+            JsonNode resJson = objectMapper.readTree(responseBody);
             String jobId = resJson.path("job_id").asText();
 
             log.info("Video rendering job started: jobId='{}' for Artifact ID: {}", jobId, artifact.getId());
@@ -297,6 +383,10 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                     .build();
 
         } catch (AppException ae) {
+            artifact.setStatus(ArtifactStatus.FAILED.name());
+            content.setStatus(ContentStatus.FAILED.name());
+            artifactRepository.save(artifact);
+            contentRepository.save(content);
             throw ae;
         } catch (Exception e) {
             log.error("Failed to connect to Python render service", e);
@@ -306,6 +396,25 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             contentRepository.save(content);
             throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Không thể kết nối đến máy chủ dựng video: " + e.getMessage());
         }
+    }
+
+    protected String callToolRenderApi(String jsonBody) throws Exception {
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(toolUrl + "/api/render"))
+                .version(HttpClient.Version.HTTP_1_1)
+                .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(30))
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            String errorDetail = extractErrorDetail(response.body(), response.statusCode());
+            log.error("Tool render initiation failed with HTTP {}: {}", response.statusCode(), errorDetail);
+            throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khởi tạo render video: " + errorDetail);
+        }
+        return response.body();
     }
 
     @Override
