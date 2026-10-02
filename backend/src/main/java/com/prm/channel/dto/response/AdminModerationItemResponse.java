@@ -1,5 +1,6 @@
 package com.prm.channel.dto.response;
 
+import com.prm.common.enums.AiShieldTier;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -31,7 +32,7 @@ public class AdminModerationItemResponse {
     private Instant createdAt;
 
     // AI Shield Evaluation
-    private String aiShieldTier; // RED_ALERT, FAIR, GOOD, EXCELLENT
+    private AiShieldTier aiShieldTier; // RED_ALERT, FAIR, GOOD, EXCELLENT
     private String aiShieldTierLabel; // Báo động đỏ, Khá, Tốt, Xuất sắc
     private BigDecimal aiShieldScore;
     private String aiShieldReason;

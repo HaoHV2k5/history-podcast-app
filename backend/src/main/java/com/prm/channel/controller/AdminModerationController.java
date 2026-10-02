@@ -16,7 +16,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.prm.channel.dto.request.AiShieldPolicyConfigRequest;
+import com.prm.channel.dto.request.BatchUpdatePolicyConfigRequest;
+import com.prm.channel.dto.response.AiShieldPolicyConfigResponse;
+import com.prm.channel.service.AiShieldPolicyService;
+import com.prm.common.enums.AiShieldTier;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin/moderation")
@@ -27,6 +34,11 @@ import org.springframework.web.bind.annotation.*;
 public class AdminModerationController {
 
     private final AdminModerationService adminModerationService;
+    private final AiShieldPolicyService aiShieldPolicyService;
+
+    public AdminModerationController(AdminModerationService adminModerationService) {
+        this(adminModerationService, null);
+    }
 
     @GetMapping("/reviews")
     @Operation(
@@ -73,5 +85,60 @@ public class AdminModerationController {
                 ? "Đã phê duyệt video thành công. Video hiện đã được xuất bản công khai!"
                 : "Đã từ chối video. Lý do từ chối đã được gửi về cho Creator.";
         return ResponseEntity.ok(ApiResponse.success(msg, response));
+    }
+
+    @GetMapping("/policy-configs")
+    @Operation(
+            summary = "4. Admin xem danh sách cấu hình mức % và trạng thái Enum của AI Shield",
+            description = "Truy xuất danh sách toàn bộ các mức phân tầng chính sách (RED_ALERT, FAIR, GOOD, EXCELLENT) kèm ngưỡng %, nhãn tiếng Việt và hành động tương ứng."
+    )
+    public ResponseEntity<ApiResponse<List<AiShieldPolicyConfigResponse>>> getPolicyConfigs() {
+        List<AiShieldPolicyConfigResponse> configs = aiShieldPolicyService.getAllConfigs();
+        return ResponseEntity.ok(ApiResponse.success(configs));
+    }
+
+    @GetMapping("/policy-configs/{tier}")
+    @Operation(
+            summary = "5. Admin xem cấu hình chi tiết của một trạng thái Enum AI Shield",
+            description = "Truy xuất thông tin cấu hình ngưỡng %, nhãn hiển thị và mô tả cho một trạng thái cụ thể: RED_ALERT, FAIR, GOOD, EXCELLENT."
+    )
+    public ResponseEntity<ApiResponse<AiShieldPolicyConfigResponse>> getConfigByTier(@PathVariable AiShieldTier tier) {
+        AiShieldPolicyConfigResponse config = aiShieldPolicyService.getConfigByTier(tier);
+        return ResponseEntity.ok(ApiResponse.success(config));
+    }
+
+    @PutMapping("/policy-configs/{tier}")
+    @Operation(
+            summary = "6. Admin cập nhật mức % và nhãn trạng thái Enum cho AI Shield",
+            description = "Cho phép Admin thay đổi ngưỡng % (minScore, maxScore), nhãn hiển thị tiếng Việt, mô tả và trạng thái kích hoạt của một phân tầng."
+    )
+    public ResponseEntity<ApiResponse<AiShieldPolicyConfigResponse>> updatePolicyConfig(
+            @PathVariable AiShieldTier tier,
+            @Valid @RequestBody AiShieldPolicyConfigRequest request
+    ) {
+        AiShieldPolicyConfigResponse updated = aiShieldPolicyService.updateConfig(tier, request);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật cấu hình chính sách AI Shield cho [" + tier + "] thành công", updated));
+    }
+
+    @PutMapping("/policy-configs")
+    @Operation(
+            summary = "7. Admin cập nhật hàng loạt các mức % chính sách AI Shield",
+            description = "Cho phép Admin cập nhật danh sách các mức % và nhãn trạng thái Enum của AI Shield cùng một lúc."
+    )
+    public ResponseEntity<ApiResponse<List<AiShieldPolicyConfigResponse>>> batchUpdatePolicyConfigs(
+            @Valid @RequestBody BatchUpdatePolicyConfigRequest request
+    ) {
+        List<AiShieldPolicyConfigResponse> updatedList = aiShieldPolicyService.batchUpdateConfigs(request.getConfigs());
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật hàng loạt cấu hình chính sách AI Shield thành công", updatedList));
+    }
+
+    @PostMapping("/policy-configs/reset-defaults")
+    @Operation(
+            summary = "8. Admin khôi phục cấu hình chính sách AI Shield về mặc định",
+            description = "Khôi phục lại tất cả các mức % (0-50%, 50-80%, 80-90%, >90%) và nhãn hiển thị ban đầu của hệ thống."
+    )
+    public ResponseEntity<ApiResponse<List<AiShieldPolicyConfigResponse>>> resetDefaultConfigs() {
+        List<AiShieldPolicyConfigResponse> resetList = aiShieldPolicyService.resetDefaultConfigs();
+        return ResponseEntity.ok(ApiResponse.success("Đã khôi phục cài đặt phân tầng AI Shield về mặc định thành công", resetList));
     }
 }
