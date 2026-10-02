@@ -11,9 +11,13 @@ import java.time.Instant;
 public class UserResponse {
     private Long id;
     private Long roleId;
+    private String roleName;
     private String email;
     private String phone;
-    private String passwordHash;
+    private String fullName;
+    private String avatarUrl;
+    private String bio;
     private String status;
     private Instant createdAt;
+    private Instant updatedAt;
 }
