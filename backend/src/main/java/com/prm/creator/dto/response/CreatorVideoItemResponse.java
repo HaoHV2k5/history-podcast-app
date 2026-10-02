@@ -28,4 +28,12 @@ public class CreatorVideoItemResponse {
     private long likeCount;
     private long dislikeCount;
     private long commentCount;
+
+    // Chỉ số & Trạng thái kiểm duyệt AI Shield
+    private java.math.BigDecimal aiShieldScore;
+    private String aiShieldTier;
+    private String aiShieldTierLabel;
+    private String aiShieldReason;
+    private String moderationDecision;
+    private String moderationReason;
 }

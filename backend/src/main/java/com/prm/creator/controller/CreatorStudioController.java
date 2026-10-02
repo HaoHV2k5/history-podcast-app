@@ -135,6 +135,14 @@ public class CreatorStudioController {
         return ApiResponse.success(msg, updated);
     }
 
+    @Operation(summary = "Gửi video kiểm duyệt AI Shield & Xuất bản", description = "Creator kích hoạt kiểm duyệt AI Shield (MarkItDown + RAG Embedding Policy) và chuyển video vào hàng đợi Admin xem xét duyệt")
+    @PostMapping("/videos/{contentId}/submit-publish")
+    public ApiResponse<CreatorVideoItemResponse> submitVideoForPublish(@PathVariable Long contentId) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorVideoItemResponse response = creatorStudioService.submitVideoForPublish(email, contentId);
+        return ApiResponse.success("Đã gửi video kiểm duyệt AI Shield và chuyển vào hàng đợi Admin xem xét", response);
+    }
+
     @Operation(summary = "Danh sách bình luận của video", description = "Xem tất cả bình luận của người xem dưới video")
     @GetMapping("/videos/{contentId}/comments")
     public ApiResponse<List<CreatorCommentItemResponse>> getVideoComments(@PathVariable Long contentId) {
