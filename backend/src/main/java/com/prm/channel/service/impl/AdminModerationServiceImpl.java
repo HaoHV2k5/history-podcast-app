@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -150,7 +151,7 @@ public class AdminModerationServiceImpl implements AdminModerationService {
 
         String aiShieldTier = null;
         String aiShieldTierLabel = null;
-        java.math.BigDecimal aiShieldScore = null;
+        BigDecimal aiShieldScore = null;
         String aiShieldReason = null;
 
         if (aiLogOpt.isPresent()) {
