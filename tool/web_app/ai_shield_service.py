@@ -311,7 +311,8 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                                 {
                                     "book": c.get("book_title", ""),
                                     "page": c.get("page", 0),
-                                    "similarity": c.get("similarity", 0)
+                                    "similarity": c.get("similarity", 0),
+                                    "snippet": (c.get("text", "")[:280] + "...") if len(c.get("text", "")) > 280 else c.get("text", "")
                                 }
                                 for c in context_chunks
                             ],
@@ -409,7 +410,8 @@ def rule_based_policy_evaluation(
             {
                 "book": c.get("book_title", ""),
                 "page": c.get("page", 0),
-                "similarity": c.get("similarity", 0)
+                "similarity": c.get("similarity", 0),
+                "snippet": (c.get("text", "")[:280] + "...") if len(c.get("text", "")) > 280 else c.get("text", "")
             }
             for c in context_chunks
         ],
