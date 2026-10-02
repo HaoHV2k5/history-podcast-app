@@ -40,8 +40,8 @@ import com.prm.identity.repository.UserRepository;
 import com.prm.social.entity.Comment;
 import com.prm.social.repository.CommentRepository;
 import com.prm.social.repository.ReactionRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,7 +59,6 @@ import java.util.*;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class CreatorStudioServiceImpl implements CreatorStudioService {
 
     private final UserRepository userRepository;
@@ -75,6 +74,37 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
     private final AiFilterLogRepository aiFilterLogRepository;
     private final ModerationReviewRepository moderationReviewRepository;
     private final AiShieldPolicyService aiShieldPolicyService;
+
+    @Autowired
+    public CreatorStudioServiceImpl(
+            UserRepository userRepository,
+            CreatorAiSettingRepository creatorAiSettingRepository,
+            ChannelRepository channelRepository,
+            ContentRepository contentRepository,
+            ArtifactRepository artifactRepository,
+            TranscriptRepository transcriptRepository,
+            ReactionRepository reactionRepository,
+            CommentRepository commentRepository,
+            FileStorageService fileStorageService,
+            ObjectMapper objectMapper,
+            AiFilterLogRepository aiFilterLogRepository,
+            ModerationReviewRepository moderationReviewRepository,
+            AiShieldPolicyService aiShieldPolicyService
+    ) {
+        this.userRepository = userRepository;
+        this.creatorAiSettingRepository = creatorAiSettingRepository;
+        this.channelRepository = channelRepository;
+        this.contentRepository = contentRepository;
+        this.artifactRepository = artifactRepository;
+        this.transcriptRepository = transcriptRepository;
+        this.reactionRepository = reactionRepository;
+        this.commentRepository = commentRepository;
+        this.fileStorageService = fileStorageService;
+        this.objectMapper = objectMapper;
+        this.aiFilterLogRepository = aiFilterLogRepository;
+        this.moderationReviewRepository = moderationReviewRepository;
+        this.aiShieldPolicyService = aiShieldPolicyService;
+    }
 
     public CreatorStudioServiceImpl(
             UserRepository userRepository,
