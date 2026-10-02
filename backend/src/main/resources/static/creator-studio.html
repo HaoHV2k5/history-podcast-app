@@ -1411,12 +1411,17 @@
             </div>
             <span style="font-size: 0.72rem; color: #f87171; background: rgba(239, 68, 68, 0.12); padding: 2px 8px; border-radius: 4px; border: 1px solid rgba(239, 68, 68, 0.25); font-weight: 600;">Bắt buộc</span>
           </div>
-          <div class="cover-dropzone" id="podcastCoverDropZone" onclick="$('podcastCoverInput').click()" style="border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+          <div class="cover-dropzone" id="podcastCoverDropZone"
+               onclick="$('podcastCoverInput').click()"
+               ondragover="handlePodcastCoverDragOver(event)"
+               ondragleave="handlePodcastCoverDragLeave(event)"
+               ondrop="handlePodcastCoverDrop(event)"
+               style="border: 2px dashed rgba(239, 68, 68, 0.4); border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(255,255,255,0.02); min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden;">
             <input type="file" id="podcastCoverInput" accept="image/*" style="display: none;" onchange="handlePodcastCoverUpload(this)">
-            <div id="podcastCoverPlaceholder">
+            <div id="podcastCoverPlaceholder" style="pointer-events: none;">
               <div style="font-size: 2.2rem; margin-bottom: 8px;">📤</div>
-              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh Thumbnail hoặc bấm để chọn</div>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Tải lên ảnh 16:9 (sẽ lưu trực tiếp lên Cloudinary)</div>
+              <div style="font-weight: 600; font-size: 0.9rem; color: #ffffff;">Kéo thả ảnh Thumbnail vào đây hoặc bấm để chọn tệp</div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Hỗ trợ kéo thả ảnh 16:9 (PNG, JPG, WEBP) - Lưu trực tiếp Cloudinary</div>
               <div style="margin-top: 12px; display: inline-block; font-size: 0.75rem; background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700;">
                 ⚠️ BẮT BUỘC: Phải có ảnh bìa để xuất bản video
               </div>
@@ -3727,8 +3732,56 @@
     }
 
     // --- PODCAST WORKBENCH HANDLERS ---
-    async function handlePodcastCoverUpload(input) {
-      const file = input.files && input.files[0];
+    function handlePodcastCoverDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('podcastCoverDropZone');
+      if (dz) {
+        dz.style.borderColor = '#38bdf8';
+        dz.style.background = 'rgba(56, 189, 248, 0.12)';
+        dz.style.transform = 'scale(1.01)';
+      }
+    }
+
+    function handlePodcastCoverDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('podcastCoverDropZone');
+      if (dz) {
+        dz.style.borderColor = customPodcastCover ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.4)';
+        dz.style.background = 'rgba(255, 255, 255, 0.02)';
+        dz.style.transform = 'none';
+      }
+    }
+
+    function handlePodcastCoverDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('podcastCoverDropZone');
+      if (dz) {
+        dz.style.background = 'rgba(255, 255, 255, 0.02)';
+        dz.style.transform = 'none';
+      }
+      const files = e.dataTransfer ? e.dataTransfer.files : null;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (!file.type || !file.type.startsWith('image/')) {
+          alert('Vui lòng kéo thả tệp hình ảnh hợp lệ (PNG, JPG, WEBP)!');
+          return;
+        }
+        handlePodcastCoverUpload(file);
+      }
+    }
+
+    async function handlePodcastCoverUpload(inputOrFile) {
+      let file = null;
+      if (inputOrFile instanceof File) {
+        file = inputOrFile;
+      } else if (inputOrFile && inputOrFile.files && inputOrFile.files.length > 0) {
+        file = inputOrFile.files[0];
+      } else if (inputOrFile instanceof FileList && inputOrFile.length > 0) {
+        file = inputOrFile[0];
+      }
       if (!file) return;
 
       const dz = $('podcastCoverDropZone');
@@ -3737,8 +3790,10 @@
       const actions = $('podcastCoverActions');
 
       if (placeholder) {
-        placeholder.innerHTML = '<div style="font-size:2rem; animation: pulse 1s infinite;">⏳</div><div style="font-weight:600; color:#38bdf8; margin-top:8px;">Đang tải ảnh lên Cloudinary...</div>';
+        placeholder.style.display = 'block';
+        placeholder.innerHTML = '<div style="font-size:2.2rem; animation: pulse 1s infinite;">⏳</div><div style="font-weight:600; color:#38bdf8; margin-top:8px;">Đang tải ảnh lên Cloudinary...</div><div style="font-size:0.75rem; color:#94a3b8; margin-top:4px;">' + escapeHtml(file.name) + '</div>';
       }
+      if (preview) preview.style.display = 'none';
 
       const formData = new FormData();
       formData.append('file', file);
@@ -3768,9 +3823,12 @@
         }
         if (placeholder) placeholder.style.display = 'none';
         if (actions) actions.style.display = 'flex';
-        if (dz) dz.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+        if (dz) {
+          dz.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+          dz.style.background = 'rgba(16, 185, 129, 0.05)';
+        }
       } catch (err) {
-        // Fallback to local DataURL for preview if upload fails
+        console.warn('Cloudinary upload error, using local data URL fallback:', err);
         const reader = new FileReader();
         reader.onload = e => {
           customPodcastCover = e.target.result;
@@ -3780,7 +3838,10 @@
           }
           if (placeholder) placeholder.style.display = 'none';
           if (actions) actions.style.display = 'flex';
-          if (dz) dz.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+          if (dz) {
+            dz.style.borderColor = 'rgba(16, 185, 129, 0.6)';
+            dz.style.background = 'rgba(16, 185, 129, 0.05)';
+          }
         };
         reader.readAsDataURL(file);
       }
