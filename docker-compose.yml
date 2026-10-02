@@ -43,6 +43,7 @@ services:
       - ./tool/web_app/outputs:/app/web_app/outputs
       - ./tool/data:/app/data
       - ./doc:/app/doc:ro
+      - ./tool/web_app:/app/web_app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/jobs"]
       interval: 10s
