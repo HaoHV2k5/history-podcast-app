@@ -208,36 +208,47 @@ Nội dung video vừa được trích xuất sang định dạng Markdown (bằ
 CÁC TRÍCH ĐOẠN SỬ LIỆU GỐC ĐỐI CHIẾU TỪ KHO SÁCH NỘI BỘ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):
 {context_str}
 
-QUY TẮC ĐÁNH GIÁ VÀ PHÂN TẦNG ĐIỂM SỐ (CHÍNH SÁCH B - BẮT BUỘC TUÂN THỦ CHÍNH XÁC):
-1. QUY TẮC RÀNG BUỘC KHO SỬ LIỆU TUYỆT ĐỐI:
-   - Nếu nội dung kịch bản/video KHÔNG CÓ TRÍCH ĐOẠN SỬ LIỆU ĐỐI CHIẾU trong kho tài liệu được cấp ở trên (hoặc các trích đoạn cung cấp không liên quan đến thời kỳ/sự kiện/nhân vật trong video, ví dụ: kho sách chỉ có thời phong kiến mà video nói về Điện Biên Phủ 1954, thời hiện đại, hoặc nhân vật hư cấu):
-     * BẮT BUỘC PHẢI CHẤM ĐIỂM DƯỚI 50% (< 50% - BÁO ĐỘNG ĐỎ / RED_ALERT, điểm đề xuất từ 30% đến 45%).
-     * Phải ghi rõ trong "violations" và "reason": "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/), không có tài liệu đối chiếu xác thực theo chính sách hệ thống. Đề xuất Admin Từ chối (Reject)."
-     * Đề xuất ("recommendation"): "Admin Từ chối (Reject) video vì chủ đề nằm ngoài kho tư liệu hỗ trợ của hệ thống. Yêu cầu tác giả chọn chủ đề thuộc phạm vi sử liệu được hỗ trợ."
-     * Các tuyên bố (claims) không tìm thấy chứng cứ trong trích đoạn phải đánh dấu verdict: "error" hoặc "warning" (không có căn cứ trong kho sách).
-   - Nếu TIÊU ĐỀ và NỘI DUNG KỊCH BẢN MÂU THUẪN THỜI ĐẠI / NHÂN VẬT (ví dụ: Tiêu đề đặt tên nhân vật thời Lý như "Lý Thường Kiệt" nhưng nội dung thuyết minh lại kể về sự kiện thời Trần như "Hội nghị Diên Hồng năm 1284", hoặc ngược lại):
-     * Đây là lỗi sai lệch lịch sử nghiêm trọng (gán sai nhân vật, lệch niên đại hàng trăm năm).
-     * BẮT BUỘC PHẢI CHẤM ĐIỂM DƯỚI 50% (< 50% - BÁO ĐỘNG ĐỎ / RED_ALERT, điểm đề xuất từ 30% đến 40%).
-     * Phải ghi rõ trong "violations" và "reason": "Báo động đỏ: Mâu thuẫn thời đại và nhân vật lịch sử giữa tiêu đề và nội dung kịch bản (Tiêu đề đề cập đến [nhân vật/thời đại ở tiêu đề], nhưng kịch bản lại thuyết minh về [sự kiện/thời đại ở nội dung], sai lệch hoàn toàn về niên đại và nhân vật). Đề xuất Admin Từ chối (Reject)."
-     * Đề xuất ("recommendation"): "Admin Từ chối (Reject) video vì tiêu đề và nội dung mâu thuẫn thời đại lịch sử. Yêu cầu tác giả chỉnh sửa tiêu đề hoặc nội dung cho đồng nhất đúng với sự thật lịch sử."
+QUY TẮC ĐÁNH GIÁ VÀ CÁCH TÍNH ĐIỂM SỐ (CHÍNH SÁCH B - CHẤM ĐIỂM CHI TIẾT THEO RUBRIC 100 ĐIỂM):
+Hãy tính điểm số tổng thể ("score" từ 0.0 đến 100.0) bằng cách cộng dồn điểm của 4 tiêu chí cụ thể (chấm điểm chi tiết, khách quan, KHÔNG làm tròn thành một con số cố định):
 
-2. ĐIỀU KIỆN ĐẠT ĐIỂM >= 50% (BẮT BUỘC PHẢI CÓ TƯ LIỆU TRONG KHO SÁCH ĐỐI CHIẾU VÀ ĐỒNG NHẤT VỀ LỊCH SỬ):
-   - Từ 50% tới < 80%: Khá (FAIR) - Khi nội dung ĐÃ CÓ TRONG KHO SÁCH nhưng kịch bản còn tồn tại lỗi sai sót nhỏ về số liệu/năm tháng/địa danh, hoặc kịch bản còn sơ sài chưa phản ánh đầy đủ sử liệu.
-   - Từ 80% tới 90%: Tốt (GOOD) - Kịch bản ĐÃ ĐƯỢC ĐỐI CHIẾU KHỚP VÀ CHUẨN XÁC VỚI KHO SỬ LIỆU GỐC ĐƯỢC CẤP, tiêu đề và nội dung đồng nhất, thông tin rõ ràng, không có lỗi sai, đáp ứng đầy đủ tiêu chuẩn xuất bản.
-   - Trên 90% (> 90): Xuất sắc (EXCELLENT) - Sử liệu mẫu mực, đối chiếu khớp chặt chẽ và sâu sắc với trích dẫn từ sách gốc (có trích dẫn văn bia/hịch/lời bình của sử gia), văn phong xuất sắc, độ tin cậy tuyệt đối.
-   - Dưới 50% (< 50): Báo động đỏ (RED_ALERT) - Xảy ra khi:
-     (1) Nội dung NẰM NGOÀI KHO SỬ LIỆU NỘI BỘ (không có tài liệu đối chiếu).
-     (2) Tiêu đề và nội dung kịch bản mâu thuẫn thời kỳ / nhân vật lịch sử.
-     (3) Có sai lệch lịch sử nghiêm trọng, xuyên tạc sự thật, ngôn từ thù hận, kích động, hoặc vi phạm nghiêm trọng chính sách nội dung.
+1. ĐỘ XÁC THỰC VÀ ĐỐI CHIẾU SỬ LIỆU (GROUNDING ACCURACY) [Tối đa 50 điểm]:
+   - 40 - 50 điểm: Các luận điểm, niên đại, địa danh, nhân vật đều khớp và được chứng thực trực tiếp bởi trích đoạn sử liệu gốc từ kho sách nội bộ (doc/).
+   - 20 - 39 điểm: Nội dung có trong kho sách nhưng còn một số chi tiết chưa kiểm chứng được hoặc còn thiếu sót nhỏ.
+   - 0 - 19 điểm: Nội dung nằm ngoài kho sử liệu (như thời hiện đại, Điện Biên Phủ, nhân vật hư cấu) HOẶC tiêu đề và nội dung mâu thuẫn thời đại (râu ông nọ cắm cằm bà kia).
 
-3. Hãy phân tích các luận điểm (claims), chỉ ra điểm đúng, điểm sai hoặc thiếu căn cứ từ kho sách.
+2. CHIỀU SÂU BỐI CẢNH VÀ ĐỘ ĐẦY ĐỦ CỦA KỊCH BẢN (COMPLETENESS & CONTEXT) [Tối đa 25 điểm]:
+   - 20 - 25 điểm: Kịch bản có mở đầu, diễn biến, ý nghĩa lịch sử sâu sắc, dẫn dắt mạch lạc.
+   - 10 - 19 điểm: Kịch bản tương đối ngắn, nêu được sự kiện chính nhưng thiếu phân tích bối cảnh hoặc còn vắn tắt.
+   - 0 - 9 điểm: Kịch bản quá sơ sài, cụt lủn (chỉ 1-2 câu ngắn).
+
+3. ĐỘ ĂN KHỚP GIỮA TIÊU ĐỀ VÀ NỘI DUNG (TITLE-CONTENT ALIGNMENT) [Tối đa 15 điểm]:
+   - 12 - 15 điểm: Tiêu đề phản ánh chính xác 100% nội dung kịch bản.
+   - 0 - 5 điểm: Tiêu đề một đằng nội dung một nẻo (ví dụ: Tiêu đề là Lý Thường Kiệt nhưng kịch bản lại kể về Hội nghị Diên Hồng thời Trần).
+
+4. VĂN PHONG, CHUẨN MỰC VĂN HÓA & KHÁCH QUAN (TONE & INTEGRITY) [Tối đa 10 điểm]:
+   - 8 - 10 điểm: Tôn trọng lịch sử, chuẩn mực văn hóa, ngôn từ trang trọng, khách quan.
+   - 0 - 4 điểm: Có từ ngữ xuyên tạc, thù hằn, xúc phạm hoặc kích động.
+
+TỔNG ĐIỂM = Tiêu chí 1 + Tiêu chí 2 + Tiêu chí 3 + Tiêu chí 4 (Điểm số thực tế linh hoạt theo chất lượng kịch bản, ví dụ: 82.5, 87.0, 74.0, 36.5, 41.0, 93.5...).
+
+QUY ĐỊNH BẮT BUỘC VỀ PHÂN TẦNG (TIER):
+- Dưới 50% (< 50.0): Báo động đỏ (RED_ALERT) - Xảy ra khi Tiêu chí 1 bị điểm thấp (ngoài kho sách / mâu thuẫn thời đại) hoặc vi phạm chính sách nghiêm trọng. Đề xuất Admin Từ chối (Reject).
+- Từ 50.0% đến < 80.0%: Khá (FAIR) - Đã có trong kho sách nhưng kịch bản còn sơ sài hoặc có chi tiết cần chỉnh sửa.
+- Từ 80.0% đến 90.0%: Tốt (GOOD) - Kịch bản chuẩn xác, thông tin rõ ràng, đối chiếu tốt với sách sử.
+- Trên 90.0% (> 90.0): Xuất sắc (EXCELLENT) - Sử liệu mẫu mực, đối chiếu khớp sâu sắc (có dẫn thơ văn, hịch, lời bình sử gia), kịch bản hoàn hảo.
 
 HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code fences ```json):
 {{
-  "score": 38.0,
+  "score_breakdown": {{
+    "grounding_accuracy": 45.0,
+    "completeness_context": 20.0,
+    "title_alignment": 15.0,
+    "tone_integrity": 9.0
+  }},
+  "score": 89.0,
   "reason": "Tóm tắt nhận định tổng thể, nêu rõ tình trạng đối chiếu với kho sách nội bộ...",
-  "violations": ["Điểm vi phạm hoặc cảnh báo nằm ngoài kho sách"],
-  "positive_points": ["Điểm tốt (nếu có)"],
+  "violations": ["Điểm vi phạm hoặc cảnh báo nằm ngoài kho sách (nếu có)"],
+  "positive_points": ["Điểm tốt của kịch bản"],
   "claims": [
     {{
       "claim": "...",
@@ -252,7 +263,7 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
                     "response_mime_type": "application/json",
-                    "temperature": 0.1
+                    "temperature": 0.25
                 }
             }
 
@@ -276,6 +287,20 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                         parsed = json.loads(text_resp)
                         raw_score = float(parsed.get("score", 35.0))
 
+                        # Đồng bộ score_breakdown
+                        breakdown = parsed.get("score_breakdown")
+                        if isinstance(breakdown, dict) and all(k in breakdown for k in ["grounding_accuracy", "completeness_context", "title_alignment", "tone_integrity"]):
+                            calc_score = sum(float(breakdown.get(k, 0)) for k in ["grounding_accuracy", "completeness_context", "title_alignment", "tone_integrity"])
+                            if 0.0 <= calc_score <= 100.0:
+                                raw_score = calc_score
+                        else:
+                            breakdown = {
+                                "grounding_accuracy": round(raw_score * 0.5, 1),
+                                "completeness_context": round(raw_score * 0.25, 1),
+                                "title_alignment": round(raw_score * 0.15, 1),
+                                "tone_integrity": round(raw_score * 0.1, 1),
+                            }
+
                         # HƯỚNG B: STRICT GROUNDING GUARDRAIL (Enforcement Code Layer):
                         # Nhận diện nếu nội dung nằm ngoài kho sách từ nhận định của Gemini hoặc lack of grounding
                         reason_text = (parsed.get("reason", "") + " " + " ".join([str(v) for v in parsed.get("violations", [])])).lower()
@@ -287,21 +312,34 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                                 "ngoài phạm vi kho", "thiếu trích dẫn chứng cứ", "không tìm thấy tài liệu"
                             ]
                         )
+                        is_mismatch = any(
+                            k in reason_text for k in [
+                                "mâu thuẫn thời đại", "mâu thuẫn nhân vật", "râu ông nọ cắm cằm bà kia",
+                                "sai lệch bối cảnh", "lệch pha nghiêm trọng", "tiêu đề và nội dung mâu thuẫn"
+                            ]
+                        ) or (isinstance(breakdown, dict) and float(breakdown.get("title_alignment", 10.0)) <= 3.0)
 
-                        # Nếu nội dung nằm ngoài kho sách hoặc không có căn cứ đối chiếu:
-                        # BẮT BUỘC kẹp điểm (clamp) xuống dưới 50% (BÁO ĐỘNG ĐỎ - RED_ALERT, 38.0)
-                        if (not context_chunks or is_out_of_scope) and raw_score >= 50.0:
-                            raw_score = 38.0
+                        # Nếu nội dung nằm ngoài kho sách hoặc có mâu thuẫn thời đại/nhân vật:
+                        # BẮT BUỘC kẹp điểm (clamp) xuống dưới 50% (BÁO ĐỘNG ĐỎ - RED_ALERT)
+                        # Tính điểm linh hoạt theo mức độ tương đồng thay vì một hằng số cố định
+                        if (not context_chunks or is_out_of_scope or is_mismatch) and raw_score >= 50.0:
+                            sim_factor = max([float(c.get("similarity", 0.0)) for c in context_chunks] + [0.0])
+                            raw_score = round(max(24.0, min(43.5, 20.0 + sim_factor * 25.0)), 1)
+                            if isinstance(breakdown, dict):
+                                breakdown["grounding_accuracy"] = round(raw_score * 0.4, 1)
+                                breakdown["completeness_context"] = round(raw_score * 0.3, 1)
+                                breakdown["title_alignment"] = round(raw_score * 0.15, 1)
+                                breakdown["tone_integrity"] = round(raw_score * 0.15, 1)
                             orig_reason = parsed.get("reason", "")
-                            parsed["reason"] = f"[Báo động đỏ - Strict Grounding] Chủ đề hoặc sự kiện nằm ngoài phạm vi kho sử liệu nội bộ (doc/). Theo chính sách B, video bị xếp loại Báo động đỏ để Admin từ chối. Nhận định: {orig_reason}"
+                            parsed["reason"] = f"[Báo động đỏ - Strict Grounding] Chủ đề hoặc sự kiện nằm ngoài phạm vi kho sử liệu nội bộ (doc/) hoặc mâu thuẫn thời đại. Theo chính sách B, video bị xếp loại Báo động đỏ để Admin từ chối. Nhận định: {orig_reason}"
                             violations = parsed.get("violations", [])
                             if not isinstance(violations, list):
                                 violations = []
-                            warning_msg = "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/), không có tài liệu đối chiếu xác thực theo chính sách hệ thống."
+                            warning_msg = "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/) hoặc mâu thuẫn nhân vật/thời đại."
                             if not any("kho sách" in str(v).lower() or "báo động đỏ" in str(v).lower() for v in violations):
                                 violations.insert(0, warning_msg)
                             parsed["violations"] = violations
-                            parsed["recommendation"] = "Admin Từ chối (Reject) video vì chủ đề nằm ngoài kho tư liệu hỗ trợ của hệ thống."
+                            parsed["recommendation"] = "Admin Từ chối (Reject) video vì chủ đề không đáp ứng tính chân thực sử liệu theo chính sách hệ thống."
 
                         # Clamp score between 0 and 100
                         score = max(0.0, min(100.0, raw_score))
@@ -310,7 +348,8 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                         return {
                             "tier": tier,
                             "tier_label": tier_label,
-                            "score": round(score, 2),
+                            "score": round(score, 1),
+                            "score_breakdown": breakdown,
                             "reason": parsed.get("reason", "Đã hoàn thành kiểm duyệt AI Shield."),
                             "violations": parsed.get("violations", []),
                             "positive_points": parsed.get("positive_points", []),
@@ -389,19 +428,19 @@ def rule_based_policy_evaluation(
 
     # Tính điểm theo Strict Grounding (Hướng B: Không có trong sách => Báo động đỏ)
     if critical_violations:
-        score = 35.0  # Dưới 50% => Báo động đỏ
+        score = round(max(15.0, 32.0 - len(critical_violations) * 4.5), 1)
         reason = f"Báo động đỏ: Nội dung vi phạm chính sách hoặc sai lệch tiêu chuẩn. Chi tiết: {'; '.join(critical_violations)}"
     elif not has_grounding:
-        score = 38.0  # Dưới 50% => Báo động đỏ vì nằm ngoài kho sách
+        score = round(max(26.0, min(43.5, 22.0 + max_sim * 25.0)), 1)
         reason = "[Báo động đỏ - Strict Grounding] Chủ đề/nội dung nằm ngoài phạm vi kho sách nội bộ (doc/), không có tư liệu đối chiếu trực tiếp để xác thực."
     elif warnings:
-        score = 68.0  # 50% - <80% => Khá
+        score = round(min(77.5, 55.0 + max_sim * 26.0), 1)
         reason = f"Nội dung đạt mức Khá. Cần lưu ý các điểm sau trước khi xuất bản: {'; '.join(warnings)}"
-    elif max_sim >= 0.70:
-        score = 92.5  # > 90% => Xuất sắc
+    elif max_sim >= 0.78:
+        score = round(min(96.5, 88.0 + max_sim * 9.5), 1)
         reason = "Nội dung xuất sắc: Kịch bản khớp rất cao với các tư liệu sử học gốc từ kho sách, cấu trúc mạch lạc và chuẩn mực."
     else:
-        score = 84.0  # 80% - 90% => Tốt
+        score = round(min(89.5, 80.5 + max_sim * 10.0), 1)
         reason = "Nội dung đạt chuẩn Tốt: Thông tin rõ ràng, đối chiếu phù hợp với nguồn sử liệu trong kho sách nội bộ."
 
     tier, tier_label = evaluate_tier(score)
