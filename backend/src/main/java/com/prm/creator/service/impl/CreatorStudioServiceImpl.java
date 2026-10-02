@@ -205,7 +205,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         String renderMode = StringUtils.hasText(request.getRenderMode()) ? request.getRenderMode().trim().toLowerCase() : "whiteboard";
         boolean isAudioPodcast = "audio_podcast".equals(renderMode) || "podcast".equals(renderMode) || "audio".equals(renderMode);
 
-        // Validation theo chế độ
+        String coverB64 = null;
         if (!isAudioPodcast) {
             if (request.getStoryboard() == null || request.getStoryboard().isEmpty()) {
                 throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Kịch bản (storyboard) không được để trống");
@@ -228,6 +228,23 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 throw new AppException(
                         ErrorCode.INVALID_REQUEST_DATA,
                         "⚠️ Bạn chưa cấu hình Google Gemini API Key cá nhân trong Cài đặt (⚙️)!"
+                );
+            }
+            // Bắt buộc phải có ảnh bìa (thumbnail) cho video Audio Podcast
+            coverB64 = StringUtils.hasText(request.getCoverImage()) ? request.getCoverImage().trim() : null;
+            if (coverB64 == null && request.getSceneImages() != null && !request.getSceneImages().isEmpty()) {
+                coverB64 = request.getSceneImages().get("cover");
+                if (coverB64 == null) {
+                    coverB64 = request.getSceneImages().get("1");
+                }
+                if (coverB64 == null) {
+                    coverB64 = request.getSceneImages().values().iterator().next();
+                }
+            }
+            if (!StringUtils.hasText(coverB64)) {
+                throw new AppException(
+                        ErrorCode.INVALID_REQUEST_DATA,
+                        "⚠️ Bắt buộc phải có ảnh bìa (thumbnail) cho video Audio Podcast!"
                 );
             }
         }
@@ -288,7 +305,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         if (StringUtils.hasText(request.getScriptText())) {
             toolPayload.put("script_text", request.getScriptText().trim());
         }
-        if (StringUtils.hasText(request.getCoverImage())) {
+        if (StringUtils.hasText(coverB64)) {
+            toolPayload.put("cover_image_b64", coverB64);
+        } else if (StringUtils.hasText(request.getCoverImage())) {
             toolPayload.put("cover_image_b64", request.getCoverImage().trim());
         }
         if (request.getStoryboard() != null) {

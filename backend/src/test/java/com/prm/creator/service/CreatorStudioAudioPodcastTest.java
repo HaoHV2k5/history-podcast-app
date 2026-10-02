@@ -115,12 +115,13 @@ class CreatorStudioAudioPodcastTest {
     }
 
     @Test
-    @DisplayName("Audio Podcast Mode: Gửi scriptText thành công, lưu Content AI_PODCAST và Artifact PODCAST_STUDIO")
+    @DisplayName("Audio Podcast Mode: Gửi scriptText kèm ảnh bìa thành công, lưu Content AI_PODCAST và Artifact PODCAST_STUDIO")
     void testRenderAndSaveVideo_AudioPodcastMode_Success() {
         CreatorRenderRequest request = CreatorRenderRequest.builder()
                 .title("Lý Thường Kiệt và phòng tuyến sông Như Nguyệt")
                 .renderMode("audio_podcast")
                 .scriptText("Vào năm 1075, Lý Thường Kiệt chủ động đem quân tấn công sang đất Tống để tự vệ.")
+                .coverImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
                 .durationSec(60)
                 .ttsEngine("edge-tts")
                 .voiceName("vi-VN-NamMinhNeural")
@@ -147,12 +148,31 @@ class CreatorStudioAudioPodcastTest {
     }
 
     @Test
+    @DisplayName("Audio Podcast Mode: Thiếu ảnh bìa (thumbnail) -> Ném ngoại lệ AppException")
+    void testRenderAndSaveVideo_AudioPodcastMode_MissingCoverImage_ThrowsException() {
+        CreatorRenderRequest request = CreatorRenderRequest.builder()
+                .title("Podcast nhưng không có ảnh bìa")
+                .renderMode("audio_podcast")
+                .scriptText("Kịch bản đầy đủ nhưng thiếu ảnh thumbnail.")
+                .coverImage(null)
+                .sceneImages(null)
+                .durationSec(60)
+                .build();
+
+        AppException ex = assertThrows(AppException.class, () ->
+                creatorStudioService.renderAndSaveVideo("creator@example.com", request)
+        );
+        assertTrue(ex.getMessage().contains("ảnh bìa") || ex.getMessage().contains("thumbnail"));
+    }
+
+    @Test
     @DisplayName("Audio Podcast Mode: Thiếu cả scriptText lẫn storyboard -> Ném ngoại lệ AppException")
     void testRenderAndSaveVideo_AudioPodcastMode_MissingScript_ThrowsException() {
         CreatorRenderRequest request = CreatorRenderRequest.builder()
                 .title("Chưa có kịch bản")
                 .renderMode("audio_podcast")
                 .scriptText("   ")
+                .coverImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
                 .durationSec(60)
                 .build();
 
