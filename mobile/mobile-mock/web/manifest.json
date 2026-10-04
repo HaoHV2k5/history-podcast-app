@@ -1,0 +1,19 @@
+{
+  "name": "Sử Ký",
+  "short_name": "Sử Ký",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FAF9F6",
+  "theme_color": "#FAF9F6",
+  "description": "Bản thử giao diện mobile podcast lịch sử.",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "purpose": "any",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
