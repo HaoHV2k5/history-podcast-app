@@ -20,6 +20,13 @@ public class FreelancerOnboardRequest {
 
     private String skills;
 
+    private String serviceTypes;
+
+    @Size(max = 1000, message = "Đường dẫn voice demo không vượt quá 1000 ký tự")
+    private String voiceDemoUrl;
+
+    private java.math.BigDecimal referencePrice;
+
     @Size(max = 1000, message = "Đường dẫn portfolio không vượt quá 1000 ký tự")
     private String portfolioUrl;
 }
