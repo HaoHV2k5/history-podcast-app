@@ -29,18 +29,28 @@ public class JwtProvider {
         this.refreshTokenExpirationMs = refreshTokenExpirationMs;
     }
 
-    public String generateAccessToken(Long userId, String email, String role) {
+    public String generateAccessToken(Long userId, String email, java.util.Collection<String> roles) {
         Instant now = Instant.now();
         Instant expiry = now.plusMillis(accessTokenExpirationMs);
+        java.util.List<String> roleList = roles != null ? new java.util.ArrayList<>(roles) : java.util.Collections.emptyList();
+        String primaryRole = roleList.contains("ADMIN") ? "ADMIN"
+                : (roleList.contains("CREATOR") ? "CREATOR"
+                : (roleList.contains("FREELANCER") ? "FREELANCER"
+                : (roleList.isEmpty() ? "USER" : roleList.get(0))));
 
         return Jwts.builder()
                 .subject(email)
                 .claim("userId", userId)
-                .claim("role", role)
+                .claim("role", primaryRole)
+                .claim("roles", roleList)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
                 .signWith(key)
                 .compact();
+    }
+
+    public String generateAccessToken(Long userId, String email, String role) {
+        return generateAccessToken(userId, email, role != null ? java.util.List.of(role) : java.util.Collections.emptyList());
     }
 
     public String generateRefreshToken(Long userId, String email) {

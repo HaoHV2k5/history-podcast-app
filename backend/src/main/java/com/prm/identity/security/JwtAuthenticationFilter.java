@@ -35,11 +35,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(token) && jwtProvider.validateToken(token)) {
             Claims claims = jwtProvider.getClaims(token);
             String email = claims.getSubject();
-            String role = claims.get("role", String.class);
-
-            List<SimpleGrantedAuthority> authorities = role != null
-                    ? List.of(new SimpleGrantedAuthority("ROLE_" + role))
-                    : Collections.emptyList();
+            Object rolesObj = claims.get("roles");
+            List<SimpleGrantedAuthority> authorities;
+            if (rolesObj instanceof List<?> list && !list.isEmpty()) {
+                authorities = list.stream()
+                        .map(Object::toString)
+                        .filter(StringUtils::hasText)
+                        .map(r -> new SimpleGrantedAuthority("ROLE_" + r.toUpperCase()))
+                        .toList();
+            } else {
+                String role = claims.get("role", String.class);
+                authorities = StringUtils.hasText(role)
+                        ? List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                        : Collections.emptyList();
+            }
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(email, null, authorities);
