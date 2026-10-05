@@ -31,6 +31,15 @@ public class FreelancerProfile {
     @Column(name = "skills", columnDefinition = "TEXT")
     private String skills;
 
+    @Column(name = "service_types")
+    private String serviceTypes; // CONTENT, VOICE, or CONTENT,VOICE
+
+    @Column(name = "voice_demo_url", length = 1000)
+    private String voiceDemoUrl;
+
+    @Column(name = "reference_price")
+    private java.math.BigDecimal referencePrice;
+
     @Column(name = "portfolio_url", length = 1000)
     private String portfolioUrl;
 

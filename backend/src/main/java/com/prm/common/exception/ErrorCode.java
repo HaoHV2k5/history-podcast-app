@@ -70,7 +70,41 @@ public enum ErrorCode {
     // Channel Membership Errors (7000 - 7999)
     MEMBERSHIP_PLAN_NOT_FOUND("MEM_7001", "Kênh chưa thiết lập gói hội viên hoặc gói đang tạm đóng", HttpStatus.NOT_FOUND),
     ALREADY_ACTIVE_MEMBER("MEM_7002", "Bạn đã là hội viên còn hiệu lực của kênh này", HttpStatus.CONFLICT),
-    CANNOT_SUBSCRIBE_OWN_CHANNEL("MEM_7003", "Chủ kênh không thể tự mua gói hội viên của chính mình", HttpStatus.BAD_REQUEST);
+    CANNOT_SUBSCRIBE_OWN_CHANNEL("MEM_7003", "Chủ kênh không thể tự mua gói hội viên của chính mình", HttpStatus.BAD_REQUEST),
+
+    // Creator - Freelancer Booking & Contract Errors (8000 - 8999)
+    POST_NOT_FOUND("POST_8001", "Không tìm thấy bài đăng", HttpStatus.NOT_FOUND),
+    POST_ACCESS_DENIED("POST_8002", "Bạn không có quyền thao tác với bài đăng này", HttpStatus.FORBIDDEN),
+    POST_NOT_OPEN("POST_8003", "Bài đăng hiện không mở nhận ứng tuyển", HttpStatus.BAD_REQUEST),
+    APPLICATION_NOT_FOUND("POST_8004", "Không tìm thấy đơn ứng tuyển", HttpStatus.NOT_FOUND),
+    APPLICATION_ALREADY_EXISTS("POST_8005", "Bạn đã gửi đơn ứng tuyển cho bài đăng này", HttpStatus.CONFLICT),
+    CANNOT_APPLY_OWN_POST("POST_8006", "Không thể tự ứng tuyển vào bài đăng của chính mình", HttpStatus.BAD_REQUEST),
+    CREATOR_ROLE_REQUIRED("POST_8007", "Chỉ tài khoản Creator (đã xác thực SĐT) mới có quyền đăng bài booking hoặc tạo hợp đồng", HttpStatus.FORBIDDEN),
+    FREELANCER_ROLE_REQUIRED("POST_8008", "Chỉ tài khoản Freelancer mới có quyền đăng bài tìm việc hoặc ứng tuyển", HttpStatus.FORBIDDEN),
+    BANK_VERIFICATION_REQUIRED("POST_8009", "Cần xác thực tài khoản ngân hàng để thực hiện rút tiền", HttpStatus.FORBIDDEN),
+
+    CONTRACT_NOT_FOUND("CTR_8010", "Không tìm thấy hợp đồng", HttpStatus.NOT_FOUND),
+    CONTRACT_ACCESS_DENIED("CTR_8011", "Bạn không thuộc thành viên của hợp đồng này", HttpStatus.FORBIDDEN),
+    CONTRACT_INVALID_STATE("CTR_8012", "Trạng thái hợp đồng không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+    CANNOT_CONTRACT_SELF("CTR_8013", "Không thể tự tạo hợp đồng với chính mình", HttpStatus.BAD_REQUEST),
+    INVALID_CONTRACT_DATA("CTR_8014", "Dữ liệu hợp đồng hoặc các milestone không hợp lệ", HttpStatus.BAD_REQUEST),
+
+    MILESTONE_NOT_FOUND("MLS_8020", "Không tìm thấy milestone", HttpStatus.NOT_FOUND),
+    MILESTONE_INVALID_STATE("MLS_8021", "Trạng thái milestone không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+    MILESTONE_NOT_TURN("MLS_8022", "Chưa tới lượt thực hiện milestone này", HttpStatus.BAD_REQUEST),
+    MAX_REVISIONS_REACHED("MLS_8023", "Đã hết số lượt yêu cầu sửa đổi cho milestone này", HttpStatus.BAD_REQUEST),
+    MILESTONE_NOT_OVERDUE("MLS_8024", "Milestone chưa quá hạn deadline để thực hiện thao tác hủy", HttpStatus.BAD_REQUEST),
+
+    ESCROW_PAYMENT_NOT_FOUND("ESC_8030", "Không tìm thấy khoản ký quỹ milestone", HttpStatus.NOT_FOUND),
+    ESCROW_ALREADY_FUNDED("ESC_8031", "Milestone này đã được ký quỹ trước đó", HttpStatus.BAD_REQUEST),
+    ESCROW_INVALID_STATE("ESC_8032", "Trạng thái khoản ký quỹ không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+
+    DISPUTE_NOT_FOUND("DSP_8040", "Không tìm thấy tranh chấp", HttpStatus.NOT_FOUND),
+    DISPUTE_ALREADY_EXISTS("DSP_8041", "Milestone này đang có tranh chấp chờ xử lý", HttpStatus.CONFLICT),
+    DISPUTE_INVALID_STATE("DSP_8042", "Trạng thái tranh chấp không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+
+    REVIEW_ALREADY_EXISTS("REV_8050", "Bạn đã đánh giá hợp đồng này rồi", HttpStatus.CONFLICT),
+    CONTRACT_NOT_COMPLETED("REV_8051", "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String message;

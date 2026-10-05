@@ -68,6 +68,19 @@ app:
   tool:
     url: ${TOOL_URL:http://localhost:8000}
 
+# Creator - Freelancer Booking & Escrow Configuration
+booking-escrow:
+  contract-accept-hours: ${CONTRACT_ACCEPT_HOURS:48}
+  fund-hours: ${FUND_HOURS:48}
+  fund-pause-max-days: ${FUND_PAUSE_MAX_DAYS:7}
+  review-days: ${REVIEW_DAYS:3}
+  release-hold-days: ${RELEASE_HOLD_DAYS:3}
+  revision-days: ${REVISION_DAYS:2}
+  max-milestones: ${MAX_MILESTONES:5}
+  max-revisions-default: ${MAX_REVISIONS_DEFAULT:2}
+  platform-fee-percent: ${PLATFORM_FEE_PERCENT:5.0}
+  job-interval-minutes: ${JOB_INTERVAL_MINUTES:60}
+
 # SpringDoc OpenAPI configuration
 springdoc:
   api-docs:
@@ -76,3 +89,4 @@ springdoc:
     path: /swagger-ui.html
     tags-sorter: alpha
     operations-sorter: alpha
+

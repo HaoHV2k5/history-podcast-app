@@ -21,6 +21,9 @@ public class FreelancerProfileResponse {
     private String headline;
     private String bio;
     private String skills;
+    private String serviceTypes;
+    private String voiceDemoUrl;
+    private java.math.BigDecimal referencePrice;
     private String portfolioUrl;
     private String status;
     private Set<String> roles;

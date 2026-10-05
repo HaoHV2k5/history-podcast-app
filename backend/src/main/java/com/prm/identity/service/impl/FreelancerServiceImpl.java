@@ -47,6 +47,9 @@ public class FreelancerServiceImpl implements FreelancerService {
         profile.setHeadline(request.getHeadline());
         profile.setBio(request.getBio());
         profile.setSkills(request.getSkills());
+        profile.setServiceTypes(request.getServiceTypes());
+        profile.setVoiceDemoUrl(request.getVoiceDemoUrl());
+        profile.setReferencePrice(request.getReferencePrice());
         profile.setPortfolioUrl(request.getPortfolioUrl());
         profile.setStatus("ACTIVE");
         profile.setUpdatedAt(Instant.now());
@@ -93,6 +96,15 @@ public class FreelancerServiceImpl implements FreelancerService {
         }
         if (request.getSkills() != null) {
             profile.setSkills(request.getSkills());
+        }
+        if (request.getServiceTypes() != null) {
+            profile.setServiceTypes(request.getServiceTypes());
+        }
+        if (request.getVoiceDemoUrl() != null) {
+            profile.setVoiceDemoUrl(request.getVoiceDemoUrl());
+        }
+        if (request.getReferencePrice() != null) {
+            profile.setReferencePrice(request.getReferencePrice());
         }
         if (request.getPortfolioUrl() != null) {
             profile.setPortfolioUrl(request.getPortfolioUrl());
