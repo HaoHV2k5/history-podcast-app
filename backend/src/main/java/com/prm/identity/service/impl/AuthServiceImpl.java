@@ -80,6 +80,7 @@ public class AuthServiceImpl implements AuthService {
                 .createdAt(Instant.now())
                 .role(role)
                 .build();
+        user.addRole(role);
 
         User savedUser = userRepository.save(user);
 
@@ -120,8 +121,14 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = storedToken.getUser();
-        String roleName = user.getRole() != null ? user.getRole().getName() : "USER";
-        String newAccessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail(), roleName);
+        java.util.Set<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        if (roleNames.isEmpty()) {
+            roleNames = java.util.Set.of(user.getRole() != null ? user.getRole().getName() : "USER");
+        }
+        String primaryRole = user.getRole() != null ? user.getRole().getName() : roleNames.iterator().next();
+        String newAccessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail(), roleNames);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
@@ -130,13 +137,20 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .phone(user.getPhone())
-                .role(roleName)
+                .role(primaryRole)
+                .roles(roleNames)
                 .build();
     }
 
     private AuthResponse createAuthResponse(User user) {
-        String roleName = user.getRole() != null ? user.getRole().getName() : "USER";
-        String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail(), roleName);
+        java.util.Set<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(java.util.stream.Collectors.toSet());
+        if (roleNames.isEmpty()) {
+            roleNames = java.util.Set.of(user.getRole() != null ? user.getRole().getName() : "USER");
+        }
+        String primaryRole = user.getRole() != null ? user.getRole().getName() : roleNames.iterator().next();
+        String accessToken = jwtProvider.generateAccessToken(user.getId(), user.getEmail(), roleNames);
         String refreshToken = jwtProvider.generateRefreshToken(user.getId(), user.getEmail());
 
         RefreshToken rt = RefreshToken.builder()
@@ -155,7 +169,8 @@ public class AuthServiceImpl implements AuthService {
                 .userId(user.getId())
                 .email(user.getEmail())
                 .phone(user.getPhone())
-                .role(roleName)
+                .role(primaryRole)
+                .roles(roleNames)
                 .build();
     }
 

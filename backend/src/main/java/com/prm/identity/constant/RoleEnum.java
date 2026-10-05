@@ -4,5 +4,6 @@ public enum RoleEnum {
     VIEWER,
     CREATOR,
     NARRATOR,
+    FREELANCER,
     ADMIN
 }

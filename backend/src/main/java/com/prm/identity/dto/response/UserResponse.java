@@ -2,6 +2,7 @@ package com.prm.identity.dto.response;
 
 import lombok.*;
 import java.time.Instant;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -12,6 +13,10 @@ public class UserResponse {
     private Long id;
     private Long roleId;
     private String roleName;
+    private Set<String> roles;
+    private Boolean isCreator;
+    private Boolean isFreelancer;
+    private Boolean isAdmin;
     private String email;
     private String phone;
     private String fullName;

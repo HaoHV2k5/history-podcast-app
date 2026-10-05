@@ -53,11 +53,19 @@ public class SecurityConfig {
     @Bean
     public UserDetailsService userDetailsService(UserRepository userRepository) {
         return username -> userRepository.findByEmail(username)
-                .map(user -> org.springframework.security.core.userdetails.User.builder()
-                        .username(user.getEmail())
-                        .password(user.getPasswordHash())
-                        .roles(user.getRole() != null ? user.getRole().getName() : "USER")
-                        .build())
+                .map(user -> {
+                    String[] userRoles = user.getRoles().stream()
+                            .map(com.prm.identity.entity.Role::getName)
+                            .toArray(String[]::new);
+                    if (userRoles.length == 0) {
+                        userRoles = new String[]{"USER"};
+                    }
+                    return org.springframework.security.core.userdetails.User.builder()
+                            .username(user.getEmail())
+                            .password(user.getPasswordHash())
+                            .roles(userRoles)
+                            .build();
+                })
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy user với email: " + username));
     }
 
