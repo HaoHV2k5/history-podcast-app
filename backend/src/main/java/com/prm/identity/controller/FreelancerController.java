@@ -22,7 +22,7 @@ public class FreelancerController {
 
     private final FreelancerService freelancerService;
 
-    @PostMapping(value = {"/onboard", "/become-freelancer"})
+    @PostMapping("/become-freelancer")
     @Operation(summary = "Trở thành Freelancer", description = "Kích hoạt vai trò FREELANCER trên tài khoản hiện tại, lưu thông tin hồ sơ và portfolio để bắt đầu nhận việc")
     public ResponseEntity<ApiResponse<FreelancerProfileResponse>> becomeFreelancer(@Valid @RequestBody FreelancerOnboardRequest request) {
         FreelancerProfileResponse response = freelancerService.onboard(request);
