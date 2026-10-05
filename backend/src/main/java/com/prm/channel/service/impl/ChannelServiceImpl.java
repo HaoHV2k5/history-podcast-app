@@ -42,9 +42,7 @@ public class ChannelServiceImpl implements ChannelService {
         User currentUser = getCurrentUser();
 
         // 1. Verify KYC status: User must be CREATOR role or have an APPROVED KYC profile
-        boolean hasCreatorRole = currentUser.getRole() != null &&
-                ("CREATOR".equalsIgnoreCase(currentUser.getRole().getName()) ||
-                 "ADMIN".equalsIgnoreCase(currentUser.getRole().getName()));
+        boolean hasCreatorRole = currentUser.hasRole("CREATOR") || currentUser.hasRole("ADMIN");
 
         if (!hasCreatorRole) {
             KycProfile kycProfile = kycProfileRepository.findTopByUserIdOrderByIdDesc(currentUser.getId())

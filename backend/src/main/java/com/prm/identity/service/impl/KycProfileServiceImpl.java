@@ -153,7 +153,17 @@ public class KycProfileServiceImpl implements KycProfileService {
         profile.setOtpVerifiedAt(Instant.now());
         repository.save(profile);
 
-        log.info("Phone verification completed successfully for user {} with phone {}", currentUser.getEmail(), verifiedPhone);
+        // Auto-assign CREATOR role upon phone verification (Cách B)
+        Role creatorRole = roleRepository.findByName("CREATOR")
+                .orElseGet(() -> roleRepository.save(Role.builder()
+                        .name("CREATOR")
+                        .description("Content Creator Role")
+                        .build()));
+        currentUser.addRole(creatorRole);
+        userRepository.save(currentUser);
+
+        log.info("Phone verification completed successfully for user {} with phone {}, auto-assigned CREATOR role",
+                currentUser.getEmail(), verifiedPhone);
     }
 
     private String verifyFirebaseTokenAndGetPhone(String firebaseToken) {
@@ -296,7 +306,7 @@ public class KycProfileServiceImpl implements KycProfileService {
             if (user != null) {
                 Role creatorRole = roleRepository.findByName("CREATOR")
                         .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND, "Không tìm thấy vai trò CREATOR trong hệ thống"));
-                user.setRole(creatorRole);
+                user.addRole(creatorRole);
                 userRepository.save(user);
                 log.info("Upgraded user {} to role CREATOR following KYC approval", user.getEmail());
             }
