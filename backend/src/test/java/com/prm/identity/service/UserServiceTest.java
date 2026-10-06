@@ -263,6 +263,36 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("searchUsers: Tìm kiếm với tham số null hoặc rỗng")
+    void testSearchUsers_WithNullAndEmptyParams() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> page = new PageImpl<>(List.of(sampleUser), pageable, 1);
+
+        when(userRepository.searchUsers(null, null, null, pageable)).thenReturn(page);
+        when(userMapper.toResponse(sampleUser)).thenReturn(sampleResponse);
+
+        PageResponse<UserResponse> response = userService.searchUsers("   ", null, "", pageable);
+
+        assertNotNull(response);
+        verify(userRepository).searchUsers(null, null, null, pageable);
+    }
+
+    @Test
+    @DisplayName("searchUsers: Tự động chuyển role và status sang chữ in hoa")
+    void testSearchUsers_WithLowerCaseRoleAndStatus() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<User> page = new PageImpl<>(List.of(sampleUser), pageable, 1);
+
+        when(userRepository.searchUsers("john", "CREATOR", "ACTIVE", pageable)).thenReturn(page);
+        when(userMapper.toResponse(sampleUser)).thenReturn(sampleResponse);
+
+        PageResponse<UserResponse> response = userService.searchUsers(" john ", " creator ", " active ", pageable);
+
+        assertNotNull(response);
+        verify(userRepository).searchUsers("john", "CREATOR", "ACTIVE", pageable);
+    }
+
+    @Test
     @DisplayName("adminCreateUser: Admin tạo người dùng mới thành công")
     void testAdminCreateUser_Success() {
         AdminCreateUserRequest request = AdminCreateUserRequest.builder()
