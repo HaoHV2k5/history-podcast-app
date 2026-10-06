@@ -51,7 +51,8 @@ public class AdminModerationController {
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        String validSortBy = "createdAt".equalsIgnoreCase(sortBy) ? "id" : sortBy;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, validSortBy));
         PageResponse<AdminModerationItemResponse> response = adminModerationService.searchReviews(decision, tier, search, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

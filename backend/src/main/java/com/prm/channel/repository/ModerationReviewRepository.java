@@ -25,9 +25,10 @@ public interface ModerationReviewRepository extends JpaRepository<ModerationRevi
         LEFT JOIN r.artifact a
         LEFT JOIN a.content c
         LEFT JOIN c.channel ch
-        WHERE (:decision IS NULL OR r.decision = :decision)
-          AND (:search IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))
-                             OR LOWER(ch.name) LIKE LOWER(CONCAT('%', :search, '%')))
+        WHERE (:decision IS NULL OR UPPER(r.decision) = :decision)
+          AND (:search IS NULL OR :search = ''
+                             OR LOWER(COALESCE(c.title, '')) LIKE LOWER(CONCAT('%', :search, '%'))
+                             OR LOWER(COALESCE(ch.name, '')) LIKE LOWER(CONCAT('%', :search, '%')))
     """)
     Page<ModerationReview> searchReviews(
             @Param("decision") String decision,

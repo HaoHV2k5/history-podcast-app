@@ -95,6 +95,29 @@ class AdminModerationControllerTest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/admin/moderation/reviews: Chuẩn hóa sortBy=createdAt về id")
+    void testSearchReviews_SortByCreatedAtFallbackToId() {
+        PageResponse<AdminModerationItemResponse> pageResponse = PageResponse.<AdminModerationItemResponse>builder()
+                .items(List.of())
+                .page(0)
+                .size(10)
+                .totalElements(0)
+                .totalPages(0)
+                .build();
+
+        when(adminModerationService.searchReviews(isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(pageResponse);
+
+        ResponseEntity<ApiResponse<PageResponse<AdminModerationItemResponse>>> response =
+                adminModerationController.searchReviews(null, null, null, 0, 10, "createdAt", "desc");
+
+        assertNotNull(response);
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(adminModerationService).searchReviews(isNull(), isNull(), isNull(), argThat(pageable ->
+                pageable.getSort().getOrderFor("id") != null));
+    }
+
+    @Test
     @DisplayName("GET /api/v1/admin/moderation/reviews/{id}: Lấy chi tiết phiên duyệt")
     void testGetReviewDetail() {
         AdminModerationItemResponse item = AdminModerationItemResponse.builder()
