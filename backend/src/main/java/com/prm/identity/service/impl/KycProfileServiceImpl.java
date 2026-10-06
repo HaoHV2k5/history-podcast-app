@@ -287,7 +287,8 @@ public class KycProfileServiceImpl implements KycProfileService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<KycProfileResponse> getKycProfiles(String status, Pageable pageable) {
-        Page<KycProfile> page = repository.findByStatusFilter(status, pageable);
+        String sanitizedStatus = StringUtils.hasText(status) ? status.trim().toUpperCase() : null;
+        Page<KycProfile> page = repository.findByStatusFilter(sanitizedStatus, pageable);
         return PageResponse.of(page, page.getContent().stream().map(mapper::toResponse).toList());
     }
 

@@ -22,6 +22,6 @@ public interface KycProfileRepository extends JpaRepository<KycProfile, Long> {
 
     Page<KycProfile> findAllByStatus(String status, Pageable pageable);
 
-    @Query("SELECT k FROM KycProfile k WHERE (:status IS NULL OR k.status = :status)")
+    @Query("SELECT k FROM KycProfile k WHERE (:status IS NULL OR UPPER(k.status) = :status)")
     Page<KycProfile> findByStatusFilter(@Param("status") String status, Pageable pageable);
 }
