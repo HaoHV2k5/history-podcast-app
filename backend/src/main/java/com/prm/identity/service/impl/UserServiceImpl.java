@@ -173,8 +173,8 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public PageResponse<UserResponse> searchUsers(String keyword, String role, String status, Pageable pageable) {
         String sanitizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
-        String sanitizedRole = StringUtils.hasText(role) ? role.trim() : null;
-        String sanitizedStatus = StringUtils.hasText(status) ? status.trim() : null;
+        String sanitizedRole = StringUtils.hasText(role) ? role.trim().toUpperCase() : null;
+        String sanitizedStatus = StringUtils.hasText(status) ? status.trim().toUpperCase() : null;
 
         Page<User> page = repository.searchUsers(sanitizedKeyword, sanitizedRole, sanitizedStatus, pageable);
         List<UserResponse> mappedItems = page.getContent().stream()
