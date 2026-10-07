@@ -67,6 +67,10 @@ app:
     return-url: ${VNPAY_RETURN_URL:http://localhost:3000/payment/vnpay-return}
   tool:
     url: ${TOOL_URL:http://localhost:8000}
+  agora:
+    app-id: ${AGORA_APP_ID:}
+    app-certificate: ${AGORA_APP_CERTIFICATE:}
+    token-expiration-in-seconds: ${AGORA_TOKEN_EXPIRATION:3600}
 
 # Creator - Freelancer Booking & Escrow Configuration
 booking-escrow:

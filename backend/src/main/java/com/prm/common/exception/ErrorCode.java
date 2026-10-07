@@ -104,7 +104,12 @@ public enum ErrorCode {
     DISPUTE_INVALID_STATE("DSP_8042", "Trạng thái tranh chấp không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
 
     REVIEW_ALREADY_EXISTS("REV_8050", "Bạn đã đánh giá hợp đồng này rồi", HttpStatus.CONFLICT),
-    CONTRACT_NOT_COMPLETED("REV_8051", "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành", HttpStatus.BAD_REQUEST);
+    CONTRACT_NOT_COMPLETED("REV_8051", "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành", HttpStatus.BAD_REQUEST),
+
+    LIVESTREAM_NOT_FOUND("LIVE_4001", "Không tìm thấy phiên livestream", HttpStatus.NOT_FOUND),
+    LIVESTREAM_ALREADY_ENDED("LIVE_4002", "Phiên livestream này đã kết thúc", HttpStatus.BAD_REQUEST),
+    LIVESTREAM_MEMBER_REQUIRED("LIVE_4003", "Phiên livestream này chỉ dành cho hội viên độc quyền của kênh", HttpStatus.FORBIDDEN),
+    CHAT_NOT_ALLOWED("CHAT_4001", "Bạn không có quyền tham gia cuộc trò chuyện này", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String message;
