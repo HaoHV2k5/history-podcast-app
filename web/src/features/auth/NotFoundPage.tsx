@@ -8,7 +8,7 @@ export const NotFoundPage: React.FC = () => {
 
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-canvas px-4 py-12">
-      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-xs">
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-8 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-surface-subtle text-muted">
           <Compass className="h-7 w-7" />
         </div>

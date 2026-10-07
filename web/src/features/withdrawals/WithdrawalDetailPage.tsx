@@ -66,7 +66,7 @@ export const WithdrawalDetailPage: React.FC = () => {
 
   if (isError || !item) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-8 text-center">
+      <div className="rounded-lg border border-border bg-surface p-8 text-center">
         <AlertTriangle className="mx-auto h-8 w-8 text-status-error-text mb-3" />
         <h2 className="font-serif text-lg font-bold text-ink mb-1">
           Không tìm thấy yêu cầu rút tiền
@@ -74,7 +74,7 @@ export const WithdrawalDetailPage: React.FC = () => {
         <p className="text-xs text-muted mb-4">
           Yêu cầu rút tiền ID #{withdrawalId} không tồn tại hoặc đã xử lý xong.
         </p>
-        <Button variant="outline" onClick={() => navigate('/admin/withdrawals')}>
+        <Button variant="outline" onClick={() => navigate('/admin/withdrawals')} className="min-h-[44px]">
           Quay lại danh sách
         </Button>
       </div>
@@ -95,7 +95,7 @@ export const WithdrawalDetailPage: React.FC = () => {
   const mainContent = (
     <div className="space-y-6">
       {/* Request Amount & Wallet Details Card */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-accent" />
@@ -111,7 +111,7 @@ export const WithdrawalDetailPage: React.FC = () => {
             <span className="text-muted block text-[11px] uppercase tracking-wider font-semibold">
               Số tiền yêu cầu rút
             </span>
-            <span className="font-mono font-bold text-ink text-2xl block text-accent">
+            <span className="font-mono tabular-nums font-bold text-ink text-2xl block text-accent">
               {formatVND(item.amount)}
             </span>
             <span className="text-[11px] text-muted block mt-1">
@@ -126,8 +126,8 @@ export const WithdrawalDetailPage: React.FC = () => {
             <span className="font-mono font-semibold text-ink text-sm block">
               WITHDRAW-REQ-#{item.id}
             </span>
-            <div className="flex items-center gap-1.5 text-muted pt-2 text-[11px] font-mono">
-              <Calendar className="h-3.5 w-3.5 text-border" />
+            <div className="flex items-center gap-1.5 text-muted pt-2 text-[11px] font-mono tabular-nums">
+              <Calendar className="h-3.5 w-3.5 text-muted" />
               <span>Thời điểm tạo: {formatDateTime(item.requestedAt)}</span>
             </div>
           </div>
@@ -135,7 +135,7 @@ export const WithdrawalDetailPage: React.FC = () => {
       </div>
 
       {/* Payout Destination Card (Masked) */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Landmark className="h-5 w-5 text-status-processing-text" />
@@ -162,7 +162,7 @@ export const WithdrawalDetailPage: React.FC = () => {
               <CreditCard className="h-3.5 w-3.5" />
               <span>Số tài khoản</span>
             </div>
-            <p className="font-mono font-semibold text-ink text-sm">
+            <p className="font-mono tabular-nums font-semibold text-ink text-sm">
               {maskIdentifier(item.accountNumber)}
             </p>
           </div>
@@ -182,7 +182,7 @@ export const WithdrawalDetailPage: React.FC = () => {
           <p className="font-semibold text-ink mb-1 text-[11px] uppercase tracking-wide">
             Chính sách đối soát và hoàn tiền:
           </p>
-          Nếu yêu cầu này bị từ chối, số tiền {formatVND(item.amount)} sẽ được hệ thống tự động hoàn trả nguyên vẹn về số dư khả dụng trong ví của Nhà sáng tạo.
+          Nếu yêu cầu này bị từ chối, số tiền <span className="font-mono tabular-nums font-medium">{formatVND(item.amount)}</span> sẽ được hệ thống tự động hoàn trả nguyên vẹn về số dư khả dụng trong ví của Nhà sáng tạo.
         </div>
       </div>
     </div>
@@ -192,7 +192,7 @@ export const WithdrawalDetailPage: React.FC = () => {
   const inspectorContent = (
     <div className="space-y-5">
       {/* Reviewer Checklist */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Danh mục thẩm định của Điều hành viên
         </h4>
@@ -218,7 +218,7 @@ export const WithdrawalDetailPage: React.FC = () => {
       </div>
 
       {/* Decision Metadata History */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3 text-xs">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3 text-xs">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Tiến trình yêu cầu
         </h4>
@@ -228,13 +228,13 @@ export const WithdrawalDetailPage: React.FC = () => {
           <StatusBadge status={item.status} />
         </div>
 
-        <div className="flex justify-between py-1 border-b border-border font-mono">
+        <div className="flex justify-between py-1 border-b border-border font-mono tabular-nums">
           <span className="text-muted">Khởi tạo:</span>
           <span className="text-muted">{formatDateTime(item.requestedAt)}</span>
         </div>
 
         {item.processedAt && (
-          <div className="flex justify-between py-1 border-b border-border font-mono">
+          <div className="flex justify-between py-1 border-b border-border font-mono tabular-nums">
             <span className="text-muted">Thời điểm xử lý:</span>
             <span className="text-muted">{formatDateTime(item.processedAt)}</span>
           </div>
@@ -265,7 +265,7 @@ export const WithdrawalDetailPage: React.FC = () => {
         <Button
           variant="outline"
           onClick={() => setModalType('REJECT')}
-          className="border-status-error-text text-status-error-text hover:bg-status-error-bg"
+          className="border-status-error-text/40 text-status-error-text hover:bg-status-error-bg min-h-[44px] px-4"
         >
           <ShieldAlert className="mr-1.5 h-4 w-4" />
           Từ chối yêu cầu
@@ -273,10 +273,10 @@ export const WithdrawalDetailPage: React.FC = () => {
         <Button
           variant="primary"
           onClick={() => setModalType('APPROVE')}
-          className="bg-status-success-text hover:bg-status-success-text/90"
+          className="min-h-[44px] px-5"
         >
           <CheckCircle2 className="mr-1.5 h-4 w-4" />
-          Chấp thuận yêu cầu
+          Phê duyệt yêu cầu
         </Button>
       </div>
     </>
@@ -286,7 +286,7 @@ export const WithdrawalDetailPage: React.FC = () => {
         <ShieldCheck className="h-4 w-4 text-status-success-text" />
         <span>Yêu cầu rút tiền này đã được xử lý</span>
       </div>
-      <Button variant="outline" size="sm" onClick={() => navigate('/admin/withdrawals')}>
+      <Button variant="outline" className="min-h-[44px] px-4" onClick={() => navigate('/admin/withdrawals')}>
         Quay lại hàng đợi
       </Button>
     </div>

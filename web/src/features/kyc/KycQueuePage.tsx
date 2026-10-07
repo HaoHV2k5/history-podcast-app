@@ -136,12 +136,11 @@ export const KycQueuePage: React.FC = () => {
       render: (item) => (
         <Button
           variant="outline"
-          size="sm"
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/admin/kyc/${item.id}`);
           }}
-          className="h-8 px-2.5 text-xs text-ink hover:text-accent hover:border-accent"
+          className="min-h-[44px] px-3.5 text-xs text-ink hover:text-accent hover:border-accent"
         >
           <span>Xem xét</span>
           <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
@@ -169,7 +168,7 @@ export const KycQueuePage: React.FC = () => {
                 setStatus(tab.id);
                 setPage(0);
               }}
-              className={`h-10 px-4 text-xs font-medium border-b-2 transition-colors duration-150 ${
+              className={`min-h-[44px] px-4 text-xs font-medium border-b-2 transition-colors duration-150 ${
                 isActive
                   ? 'border-accent text-accent font-semibold'
                   : 'border-transparent text-muted hover:text-ink hover:border-border'
@@ -201,7 +200,7 @@ export const KycQueuePage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách hồ sơ KYC. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -214,17 +213,18 @@ export const KycQueuePage: React.FC = () => {
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
         onRowClick={(item) => navigate(`/admin/kyc/${item.id}`)}
-        emptyTitle="Không có hồ sơ KYC"
-        emptyDescription="Hiện chưa có hồ sơ xác thực nào khớp với trạng thái đã chọn."
-      />
-
-      {/* Pagination Bar */}
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có hồ sơ định danh KYC"
+        emptyDescription="Hiện chưa có hồ sơ xác thực danh tính nào khớp với bộ lọc đã chọn."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

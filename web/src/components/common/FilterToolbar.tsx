@@ -70,7 +70,7 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
                   <button
                     type="button"
                     onClick={handleClear}
-                    className="p-1 text-muted hover:text-ink transition-colors rounded-sm focus:outline-hidden focus:ring-1 focus:ring-accent"
+                    className="p-1 text-muted hover:text-ink transition-colors rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     title="Xóa tìm kiếm"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -89,7 +89,7 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
             variant="ghost"
             size="sm"
             onClick={onReset}
-            className="text-muted hover:text-ink h-9 px-2.5"
+            className="text-muted hover:text-ink min-h-[44px] px-3 text-xs"
           >
             <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
             Đặt lại

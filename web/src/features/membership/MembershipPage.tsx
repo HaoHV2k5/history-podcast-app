@@ -41,8 +41,8 @@ export const MembershipPage: React.FC = () => {
       header: 'Giao dịch thanh toán',
       render: (item) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
-            <Crown className="h-4 w-4" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+            <Crown className="h-5 w-5" />
           </div>
           <div className="flex flex-col">
             <span className="font-mono text-xs font-semibold text-ink">
@@ -58,8 +58,9 @@ export const MembershipPage: React.FC = () => {
     {
       key: 'amount',
       header: 'Số tiền thanh toán',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs font-semibold text-ink">
+        <span className="font-mono tabular-nums text-xs font-semibold text-ink">
           {formatVND(item.amount)}
         </span>
       ),
@@ -67,8 +68,9 @@ export const MembershipPage: React.FC = () => {
     {
       key: 'creatorEarning',
       header: 'Thu nhập Creator (80%)',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs text-status-success-text font-medium">
+        <span className="font-mono tabular-nums text-xs text-status-success-text font-medium">
           {formatVND(item.creatorEarning)}
         </span>
       ),
@@ -76,8 +78,9 @@ export const MembershipPage: React.FC = () => {
     {
       key: 'commissionAmount',
       header: 'Phí nền tảng (20%)',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs text-muted">
+        <span className="font-mono tabular-nums text-xs text-muted">
           {formatVND(item.commissionAmount)}
         </span>
       ),
@@ -91,8 +94,8 @@ export const MembershipPage: React.FC = () => {
       key: 'paidAt',
       header: 'Thời điểm thanh toán',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono">
-          <Calendar className="h-3.5 w-3.5 text-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
+          <Calendar className="h-3.5 w-3.5 text-muted" />
           <span>{item.paidAt ? formatDateTime(item.paidAt) : 'Chưa ghi nhận'}</span>
         </div>
       ),
@@ -123,7 +126,7 @@ export const MembershipPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải dữ liệu thanh toán gói hội viên. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -134,16 +137,18 @@ export const MembershipPage: React.FC = () => {
         data={paginatedItems}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Chưa có dữ liệu thanh toán hội viên"
-        emptyDescription="Hiện tại hệ thống chưa ghi nhận giao dịch thanh toán gói hội viên nào."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có giao dịch hội viên"
+        emptyDescription="Chưa phát sinh thanh toán hội viên trong dữ liệu hiện tại."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

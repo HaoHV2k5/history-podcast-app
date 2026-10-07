@@ -69,8 +69,8 @@ export const PoliciesPage: React.FC = () => {
         description="Quản trị các phân tầng quy chuẩn kiểm duyệt tự động AI Shield và ngưỡng xử lý nội dung"
       />
 
-      {/* Scope Disclaimer (Mandatory Correction 6) */}
-      <div className="rounded-xl border border-border bg-surface-subtle p-4 text-xs text-muted leading-relaxed">
+      {/* Scope Disclaimer */}
+      <div className="rounded-lg border border-border bg-surface-subtle p-4 text-xs text-muted leading-relaxed">
         <div className="flex items-center gap-2 font-semibold text-ink mb-1">
           <Sliders className="h-4 w-4 text-accent" />
           <span>Phạm vi cấu hình phân quyền quản trị</span>
@@ -83,7 +83,7 @@ export const PoliciesPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách chính sách AI Shield. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -99,12 +99,12 @@ export const PoliciesPage: React.FC = () => {
           configs.map((cfg) => (
             <div
               key={cfg.tier}
-              className="rounded-xl border border-border bg-surface p-5 shadow-xs flex flex-col justify-between space-y-4"
+              className="rounded-lg border border-border bg-surface p-5 flex flex-col justify-between space-y-4"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <AiShieldBadge tier={cfg.tier} label={cfg.label} />
-                  <span className="font-mono text-xs font-semibold text-ink bg-canvas px-2.5 py-1 rounded-sm border border-border">
+                  <span className="font-mono tabular-nums text-xs font-semibold text-ink bg-canvas px-2.5 py-1 rounded-sm border border-border">
                     Ngưỡng: {cfg.thresholdScore} điểm
                   </span>
                 </div>
@@ -131,9 +131,8 @@ export const PoliciesPage: React.FC = () => {
               <div className="pt-3 border-t border-border flex justify-end">
                 <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => handleOpenEdit(cfg)}
-                  className="h-8 px-3 text-xs text-ink hover:text-accent hover:border-accent"
+                  className="min-h-[44px] px-3.5 text-xs text-ink hover:text-accent hover:border-accent"
                 >
                   <Edit3 className="h-3.5 w-3.5 mr-1.5" />
                   <span>Điều chỉnh cấu hình</span>
@@ -142,7 +141,7 @@ export const PoliciesPage: React.FC = () => {
             </div>
           ))
         ) : (
-          <div className="col-span-2 rounded-xl border border-border bg-surface p-8 text-center text-xs text-muted">
+          <div className="col-span-2 rounded-lg border border-border bg-surface p-8 text-center text-xs text-muted">
             Chưa có phân tầng chính sách AI Shield nào được cấu hình.
           </div>
         )}
@@ -204,13 +203,14 @@ export const PoliciesPage: React.FC = () => {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingConfig(null)}>
+              <Button variant="outline" onClick={() => setEditingConfig(null)} className="min-h-[44px]">
                 Hủy bỏ
               </Button>
               <Button
                 variant="primary"
                 isLoading={updateMutation.isPending}
                 onClick={handleSave}
+                className="min-h-[44px]"
               >
                 <CheckCircle2 className="h-4 w-4 mr-1.5" />
                 Lưu cấu hình

@@ -17,7 +17,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-canvas">
         <div className="flex flex-col items-center gap-4 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent text-canvas shadow-xs">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent text-canvas">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
           <div className="space-y-1">

@@ -84,7 +84,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     <aside
       className={cn(
         'relative flex flex-col h-screen border-r border-border bg-surface-subtle transition-all duration-200 select-none z-30 shrink-0',
-        collapsed ? 'w-[72px]' : 'w-[240px]',
+        collapsed ? 'w-[72px]' : 'w-[232px]',
         className
       )}
     >
@@ -92,7 +92,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       <div className="h-16 flex items-center px-4 border-b border-border bg-surface-subtle">
         <div className="flex items-center gap-3 overflow-hidden">
           {/* Book Seal Icon */}
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent text-canvas shadow-xs">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-canvas">
             <svg
               className="h-5 w-5"
               viewBox="0 0 24 24"
@@ -141,9 +141,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     title={collapsed ? `${item.id} ${item.label}` : undefined}
                     className={({ isActive }) =>
                       cn(
-                        'group relative flex items-center gap-3 rounded-md px-2.5 py-2 text-xs font-medium transition-colors duration-150',
+                        'group relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 min-h-[44px] text-xs font-medium transition-colors duration-150',
                         isActive
-                          ? 'bg-accent-soft text-accent font-semibold before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-[3px] before:rounded-r-sm before:bg-accent'
+                          ? 'bg-accent-soft text-accent font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm before:bg-accent'
                           : 'text-ink/80 hover:bg-surface hover:text-ink'
                       )
                     }
@@ -170,7 +170,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <button
           type="button"
           onClick={onToggleCollapse}
-          className="flex h-9 w-full items-center justify-center rounded-md border border-border bg-surface text-ink-muted hover:bg-surface-subtle hover:text-ink transition-colors text-xs font-medium gap-2"
+          className="flex h-11 min-h-[44px] w-full items-center justify-center rounded-lg border border-border bg-surface text-ink-muted hover:bg-surface-subtle hover:text-ink transition-colors text-xs font-medium gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           aria-label={collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
         >
           {collapsed ? (

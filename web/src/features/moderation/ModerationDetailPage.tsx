@@ -59,7 +59,7 @@ export const ModerationDetailPage: React.FC = () => {
 
   if (isError || !item) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-8 text-center">
+      <div className="rounded-lg border border-border bg-surface p-8 text-center">
         <AlertTriangle className="mx-auto h-8 w-8 text-status-error-text mb-3" />
         <h2 className="font-serif text-lg font-bold text-ink mb-1">
           Không tìm thấy hồ sơ kiểm duyệt
@@ -67,7 +67,7 @@ export const ModerationDetailPage: React.FC = () => {
         <p className="text-xs text-muted mb-4">
           Hồ sơ kiểm duyệt ID #{reviewId} không tồn tại hoặc đã bị xóa.
         </p>
-        <Button variant="outline" onClick={() => navigate('/admin/moderation')}>
+        <Button variant="outline" onClick={() => navigate('/admin/moderation')} className="min-h-[44px]">
           Quay lại danh sách
         </Button>
       </div>
@@ -88,7 +88,7 @@ export const ModerationDetailPage: React.FC = () => {
   const mainContent = (
     <div className="space-y-6">
       {/* Media Player Card */}
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-xs">
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div className="border-b border-border bg-surface-subtle/50 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold text-ink">
             <Video className="h-4 w-4 text-muted" />
@@ -145,7 +145,7 @@ export const ModerationDetailPage: React.FC = () => {
       </div>
 
       {/* AI Shield Qualitative Analysis & Transcript Citations */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-accent" />
@@ -173,7 +173,7 @@ export const ModerationDetailPage: React.FC = () => {
   const inspectorContent = (
     <div className="space-y-5">
       {/* Qualitative AI Shield Finding Card */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Thẩm định AI Shield
         </h4>
@@ -197,7 +197,7 @@ export const ModerationDetailPage: React.FC = () => {
       </div>
 
       {/* Human Review Checklist */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Danh mục kiểm tra của Điều hành viên
         </h4>
@@ -223,7 +223,7 @@ export const ModerationDetailPage: React.FC = () => {
       </div>
 
       {/* Decision Metadata History */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3 text-xs">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3 text-xs">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Thông tin quyết định
         </h4>
@@ -270,7 +270,7 @@ export const ModerationDetailPage: React.FC = () => {
         <Button
           variant="outline"
           onClick={() => setModalType('REJECTED')}
-          className="border-status-error-text text-status-error-text hover:bg-status-error-bg"
+          className="border-status-error-text/40 text-status-error-text hover:bg-status-error-bg min-h-[44px] px-4"
         >
           <ShieldAlert className="mr-1.5 h-4 w-4" />
           Từ chối nội dung
@@ -278,7 +278,7 @@ export const ModerationDetailPage: React.FC = () => {
         <Button
           variant="primary"
           onClick={() => setModalType('APPROVED')}
-          className="bg-status-success-text hover:bg-status-success-text/90"
+          className="min-h-[44px] px-5"
         >
           <CheckCircle2 className="mr-1.5 h-4 w-4" />
           Phê duyệt xuất bản
@@ -291,7 +291,7 @@ export const ModerationDetailPage: React.FC = () => {
         <ShieldCheck className="h-4 w-4 text-status-success-text" />
         <span>Hồ sơ này đã có kết luận phê duyệt</span>
       </div>
-      <Button variant="outline" size="sm" onClick={() => navigate('/admin/moderation')}>
+      <Button variant="outline" className="min-h-[44px]" onClick={() => navigate('/admin/moderation')}>
         Quay lại hàng đợi
       </Button>
     </div>

@@ -22,6 +22,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { UsersChannelsNav } from './components/UsersChannelsNav';
 import { usersApi, UserQueryParams } from '@/services/api/users';
 import { UserResponse } from '@/types/auth';
 import { formatDateTime, maskPhone } from '@/utils/formatters';
@@ -178,7 +179,7 @@ export const UsersListPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => handleOpenRoleModal(item)}
-              className="h-8 px-2 text-xs text-muted hover:text-ink hover:border-accent"
+              className="min-h-[44px] px-3 text-xs text-muted hover:text-ink hover:border-accent"
               title="Phân vai trò tài khoản"
             >
               <Shield className="h-3.5 w-3.5 mr-1" />
@@ -189,7 +190,7 @@ export const UsersListPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setStatusTarget(item)}
-              className={`h-8 px-2 text-xs ${
+              className={`min-h-[44px] px-3 text-xs ${
                 isLocked
                   ? 'border-status-success-text/40 text-status-success-text hover:bg-status-success-bg'
                   : 'border-status-error-text/40 text-status-error-text hover:bg-status-error-bg'
@@ -220,6 +221,9 @@ export const UsersListPage: React.FC = () => {
         title="Quản lý Người dùng"
         description="Tra cứu danh bạ người dùng, trạng thái kích hoạt và thiết lập vai trò hệ thống"
       />
+
+      {/* Sub-navigation between Users and Channels */}
+      <UsersChannelsNav />
 
       {/* Filter Toolbar */}
       <FilterToolbar
@@ -277,13 +281,13 @@ export const UsersListPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải dữ liệu danh sách người dùng. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="min-h-[44px] px-3.5 text-xs">
             Tải lại
           </Button>
         </div>
       )}
 
-      {/* Data Table */}
+      {/* Data Table with embedded Pagination */}
       <DataTable
         columns={columns}
         data={items}
@@ -291,15 +295,16 @@ export const UsersListPage: React.FC = () => {
         isLoading={isLoading}
         emptyTitle="Không tìm thấy người dùng"
         emptyDescription="Không có người dùng nào khớp với các tiêu chí tìm kiếm và bộ lọc hiện tại."
-      />
-
-      {/* Pagination Bar */}
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
 
       {/* Lock / Unlock Confirmation Modal */}

@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/utils/cn';
 
 export interface PaginationBarProps {
   page: number; // 0-indexed
@@ -8,6 +9,7 @@ export interface PaginationBarProps {
   totalPages: number;
   onPageChange: (newPage: number) => void;
   className?: string;
+  embedded?: boolean;
 }
 
 export function PaginationBar({
@@ -17,6 +19,7 @@ export function PaginationBar({
   totalPages,
   onPageChange,
   className,
+  embedded = false,
 }: PaginationBarProps) {
   if (totalElements === 0) return null;
 
@@ -24,7 +27,13 @@ export function PaginationBar({
   const end = Math.min((page + 1) * size, totalElements);
 
   return (
-    <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2 border-t border-border select-none ${className || ''}`}>
+    <div
+      className={cn(
+        'flex flex-col sm:flex-row items-center justify-between gap-3 py-3 px-4 select-none',
+        !embedded && 'border-t border-border',
+        className
+      )}
+    >
       <div className="text-xs text-ink-muted tabular-nums">
         Hiển thị <span className="font-semibold text-ink">{start}</span>–<span className="font-semibold text-ink">{end}</span> trong tổng số{' '}
         <span className="font-semibold text-ink">{totalElements}</span> bản ghi
@@ -36,13 +45,13 @@ export function PaginationBar({
           size="sm"
           disabled={page <= 0}
           onClick={() => onPageChange(page - 1)}
-          className="h-9 px-2.5 text-xs text-ink"
+          className="min-h-[44px] px-3.5 text-xs text-ink"
         >
           <ChevronLeft className="w-4 h-4 mr-1" />
           Trước
         </Button>
 
-        <div className="text-xs px-2 font-medium text-ink tabular-nums">
+        <div className="text-xs px-2.5 font-medium text-ink tabular-nums">
           Trang {page + 1} / {Math.max(totalPages, 1)}
         </div>
 
@@ -51,7 +60,7 @@ export function PaginationBar({
           size="sm"
           disabled={page >= totalPages - 1}
           onClick={() => onPageChange(page + 1)}
-          className="h-9 px-2.5 text-xs text-ink"
+          className="min-h-[44px] px-3.5 text-xs text-ink"
         >
           Sau
           <ChevronRight className="w-4 h-4 ml-1" />
@@ -60,3 +69,4 @@ export function PaginationBar({
     </div>
   );
 }
+

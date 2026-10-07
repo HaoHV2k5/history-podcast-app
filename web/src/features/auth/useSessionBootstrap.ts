@@ -12,6 +12,11 @@ export const useSessionBootstrap = () => {
     let isMounted = true;
 
     const bootstrap = async () => {
+      if (useAuthStore.getState().isAuthenticated) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       // In development mode, allow activating local visual QA session if flagged in sessionStorage
       if (import.meta.env.DEV && sessionStorage.getItem('su_ky_admin_dev_mode') === 'true') {
         setAuth(

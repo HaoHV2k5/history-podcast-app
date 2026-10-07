@@ -87,8 +87,9 @@ export const TransactionsPage: React.FC = () => {
     {
       key: 'amount',
       header: 'Số tiền',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs font-semibold text-ink">
+        <span className="font-mono tabular-nums text-xs font-semibold text-ink">
           {formatVND(item.amount)}
         </span>
       ),
@@ -116,8 +117,8 @@ export const TransactionsPage: React.FC = () => {
       key: 'createdAt',
       header: 'Thời điểm ghi sổ',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono">
-          <Calendar className="h-3.5 w-3.5 text-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
+          <Calendar className="h-3.5 w-3.5 text-muted" />
           <span>{formatDateTime(item.createdAt)}</span>
         </div>
       ),
@@ -148,7 +149,7 @@ export const TransactionsPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải dữ liệu sổ cái giao dịch ví. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -159,16 +160,18 @@ export const TransactionsPage: React.FC = () => {
         data={paginatedItems}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Chưa có giao dịch biến động ví"
-        emptyDescription="Hiện tại hệ thống chưa ghi nhận biến động số dư nào."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có biến động số dư"
+        emptyDescription="Các giao dịch ví sẽ xuất hiện tại đây khi phát sinh."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

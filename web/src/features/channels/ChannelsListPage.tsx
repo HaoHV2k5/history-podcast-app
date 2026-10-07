@@ -7,6 +7,7 @@ import { FilterToolbar } from '@/components/common/FilterToolbar';
 import { PaginationBar } from '@/components/common/PaginationBar';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { UsersChannelsNav } from '../users/components/UsersChannelsNav';
 import { channelsApi } from '@/services/api/channels';
 import { ChannelItem } from '@/types/channel';
 import { formatDateTime } from '@/utils/formatters';
@@ -98,6 +99,9 @@ export const ChannelsListPage: React.FC = () => {
         description="Tra cứu các kênh podcast của Nhà sáng tạo đã được xuất bản và hoạt động trên Sử Ký"
       />
 
+      {/* Sub-navigation between Users and Channels */}
+      <UsersChannelsNav />
+
       {/* Filter Toolbar */}
       <FilterToolbar
         searchPlaceholder="Tìm kiếm theo tên kênh hoặc nội dung mô tả..."
@@ -117,29 +121,30 @@ export const ChannelsListPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách kênh podcast. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="min-h-[44px] px-3.5 text-xs">
             Tải lại
           </Button>
         </div>
       )}
 
-      {/* Data Table */}
+      {/* Data Table with embedded Pagination */}
       <DataTable
         columns={columns}
         data={items}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Không có kênh podcast nào"
+        emptyTitle="Chưa có kênh podcast nào"
         emptyDescription="Hiện chưa có kênh podcast nào hoạt động hoặc khớp với từ khóa tìm kiếm."
-      />
-
-      {/* Pagination Bar */}
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

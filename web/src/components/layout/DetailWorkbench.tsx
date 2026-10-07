@@ -46,9 +46,9 @@ export const DetailWorkbench: React.FC<DetailWorkbenchProps> = ({
           <button
             type="button"
             onClick={handleBack}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted hover:text-ink transition-colors mb-2 focus:outline-hidden focus:ring-1 focus:ring-accent rounded-sm"
+            className="inline-flex items-center gap-1.5 min-h-[44px] px-1 text-xs font-medium text-muted hover:text-ink transition-colors mb-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-md"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft className="h-4 w-4" />
             <span>{backLabel}</span>
           </button>
 
@@ -84,7 +84,7 @@ export const DetailWorkbench: React.FC<DetailWorkbenchProps> = ({
 
       {/* Optional Persistent Decision/Bottom Bar */}
       {bottomBar && (
-        <div className="sticky bottom-0 z-10 -mx-6 -mb-12 mt-6 flex items-center justify-between border-t border-border bg-surface/95 backdrop-blur-xs px-6 py-4 shadow-sm">
+        <div className="sticky bottom-0 z-10 -mx-6 -mb-12 mt-6 flex items-center justify-between border-t border-border bg-surface/95 backdrop-blur-sm px-6 py-4 shadow-subtle">
           {bottomBar}
         </div>
       )}

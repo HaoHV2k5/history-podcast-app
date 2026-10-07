@@ -130,12 +130,11 @@ export const NarratorsListPage: React.FC = () => {
         return (
           <Button
             variant="outline"
-            size="sm"
             disabled={demoCount === 0}
             onClick={() => setSelectedNarrator(item)}
-            className="h-8 px-2.5 text-xs text-muted hover:text-ink hover:border-accent disabled:opacity-40"
+            className="min-h-[44px] px-3 text-xs text-muted hover:text-ink hover:border-accent disabled:opacity-40"
           >
-            <Play className="h-3.5 w-3.5 mr-1" />
+            <Play className="h-3.5 w-3.5 mr-1.5" />
             <span>Nghe mẫu ({demoCount})</span>
           </Button>
         );
@@ -167,7 +166,7 @@ export const NarratorsListPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh bạ thuyết minh viên. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -178,16 +177,18 @@ export const NarratorsListPage: React.FC = () => {
         data={paginatedNarrators}
         keyExtractor={(item) => item.id}
         isLoading={narratorsLoading}
-        emptyTitle="Không tìm thấy thuyết minh viên nào"
-        emptyDescription="Hiện chưa có hồ sơ thuyết minh viên nào được đăng ký hoặc khớp với bộ lọc."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có hồ sơ thuyết minh viên"
+        emptyDescription="Hồ sơ giọng đọc được đăng ký sẽ xuất hiện tại đây."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
 
       {/* Audio Demo Player Modal */}

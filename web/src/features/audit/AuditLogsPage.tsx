@@ -94,8 +94,8 @@ export const AuditLogsPage: React.FC = () => {
       key: 'createdAt',
       header: 'Thời điểm ghi sổ',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono">
-          <Calendar className="h-3.5 w-3.5 text-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
+          <Calendar className="h-3.5 w-3.5 text-muted" />
           <span>{formatDateTime(item.createdAt)}</span>
         </div>
       ),
@@ -126,7 +126,7 @@ export const AuditLogsPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải dữ liệu nhật ký hệ thống. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -137,16 +137,18 @@ export const AuditLogsPage: React.FC = () => {
         data={paginatedItems}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Chưa có bản ghi nhật ký"
-        emptyDescription="Hiện chưa có nhật ký thao tác nào được ghi nhận trên hệ thống."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có nhật ký phù hợp"
+        emptyDescription="Thử thay đổi bộ lọc hoặc kiểm tra lại sau khi có thao tác quản trị."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

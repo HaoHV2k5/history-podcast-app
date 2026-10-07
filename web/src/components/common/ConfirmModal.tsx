@@ -21,6 +21,7 @@ export interface ConfirmModalProps {
   variant?: 'primary' | 'destructive';
   requireReason?: boolean;
   reasonPlaceholder?: string;
+  quickReasons?: string[];
   isLoading?: boolean;
 }
 
@@ -35,6 +36,7 @@ export function ConfirmModal({
   variant = 'primary',
   requireReason = false,
   reasonPlaceholder = 'Nhập lý do cụ thể...',
+  quickReasons,
   isLoading = false,
 }: ConfirmModalProps) {
   const [reason, setReason] = React.useState('');
@@ -65,10 +67,27 @@ export function ConfirmModal({
         </DialogHeader>
 
         {requireReason && (
-          <div className="space-y-1.5 pt-2">
+          <div className="space-y-2 pt-2">
             <label className="text-xs font-semibold text-ink-muted">
               Lý do xem xét <span className="text-accent">*</span>
             </label>
+            {quickReasons && quickReasons.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {quickReasons.map((qr) => (
+                  <button
+                    key={qr}
+                    type="button"
+                    onClick={() => {
+                      setReason(qr);
+                      setError('');
+                    }}
+                    className="rounded border border-border bg-surface-subtle px-2 py-1 text-[11px] text-muted hover:border-accent hover:text-accent transition-colors"
+                  >
+                    {qr}
+                  </button>
+                ))}
+              </div>
+            )}
             <Textarea
               value={reason}
               onChange={(e) => {
@@ -84,13 +103,14 @@ export function ConfirmModal({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" onClick={onClose} disabled={isLoading} className="min-h-[44px]">
             {cancelText}
           </Button>
           <Button
             variant={variant}
             onClick={handleConfirm}
             isLoading={isLoading}
+            className="min-h-[44px]"
           >
             {confirmText}
           </Button>

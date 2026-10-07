@@ -29,14 +29,20 @@ export const DisputesListPage: React.FC = () => {
     queryFn: () => disputesApi.getAllDisputes(),
   });
 
-  const rawItems = data?.data || [];
+  const rawData = data?.data;
+  const rawItems: DisputeItem[] = Array.isArray(rawData)
+    ? rawData
+    : rawData && 'items' in rawData && Array.isArray(rawData.items)
+      ? rawData.items
+      : [];
 
   const filteredItems = search.trim()
     ? rawItems.filter(
         (d) =>
           d.id.toString().includes(search.trim()) ||
           d.contractId.toString().includes(search.trim()) ||
-          d.reason?.toLowerCase().includes(search.toLowerCase())
+          (d.contractTitle && d.contractTitle.toLowerCase().includes(search.toLowerCase())) ||
+          (d.reason && d.reason.toLowerCase().includes(search.toLowerCase()))
       )
     : rawItems;
 
@@ -109,9 +115,8 @@ export const DisputesListPage: React.FC = () => {
       render: (item) => (
         <Button
           variant="outline"
-          size="sm"
           onClick={() => setSelectedDispute(item)}
-          className="h-8 px-2.5 text-xs text-ink hover:text-accent hover:border-accent"
+          className="min-h-[44px] px-3 text-xs text-ink hover:text-accent hover:border-accent"
         >
           <span>Xem thụ lý</span>
         </Button>
@@ -143,7 +148,7 @@ export const DisputesListPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách khiếu nại. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -154,16 +159,18 @@ export const DisputesListPage: React.FC = () => {
         data={paginatedItems}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Chưa có khiếu nại nào"
-        emptyDescription="Hiện chưa có tranh chấp hoặc khiếu nại hợp đồng nào được ghi nhận trên hệ thống."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có khiếu nại"
+        emptyDescription="Hiện không có tranh chấp hợp đồng cần theo dõi."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
 
       {/* Dispute Details Dialog */}

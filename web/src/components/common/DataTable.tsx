@@ -23,6 +23,7 @@ interface DataTableProps<T> {
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
   onRowClick?: (item: T) => void;
+  pagination?: React.ReactNode;
   className?: string;
 }
 
@@ -35,6 +36,7 @@ export function DataTable<T>({
   emptyDescription,
   emptyAction,
   onRowClick,
+  pagination,
   className,
 }: DataTableProps<T>) {
   if (isLoading) {
@@ -43,8 +45,9 @@ export function DataTable<T>({
 
   if (!data || data.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-8">
+      <div className={cn('w-full overflow-hidden rounded-lg border border-border bg-surface', className)}>
         <EmptyState
+          embedded
           title={emptyTitle}
           description={emptyDescription}
           action={emptyAction}
@@ -56,14 +59,14 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        'w-full overflow-hidden rounded-lg border border-border bg-surface shadow-xs',
+        'w-full overflow-hidden rounded-lg border border-border bg-surface',
         className
       )}
     >
       <div className="w-full overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="border-b border-border bg-surface-subtle/60 text-xs font-semibold uppercase tracking-wider text-muted">
+            <tr className="border-b border-border bg-surface-subtle/70 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -74,7 +77,7 @@ export function DataTable<T>({
                     col.align === 'center' && 'text-center',
                     col.align === 'right' && 'text-right',
                     col.stickyRight &&
-                      'sticky right-0 bg-surface-subtle/90 backdrop-blur-xs shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.04)]',
+                      'sticky right-0 bg-surface-subtle/90 backdrop-blur-sm shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.04)]',
                     col.headerClassName
                   )}
                 >
@@ -108,7 +111,7 @@ export function DataTable<T>({
                       <td
                         key={col.key}
                         className={cn(
-                          'min-h-[56px] py-3.5 px-4 text-ink align-middle text-sm font-normal',
+                          'py-3.5 px-4 text-ink align-middle text-sm font-normal',
                           col.align === 'center' && 'text-center',
                           col.align === 'right' && 'text-right',
                           col.stickyRight &&
@@ -126,6 +129,12 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
+      {pagination && (
+        <div className="border-t border-border bg-surface">
+          {pagination}
+        </div>
+      )}
     </div>
   );
 }
+

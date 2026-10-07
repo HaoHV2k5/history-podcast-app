@@ -31,7 +31,7 @@ export const AdminLayout: React.FC = () => {
       {/* Mobile Drawer Backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}

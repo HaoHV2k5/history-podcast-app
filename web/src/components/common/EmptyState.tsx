@@ -7,6 +7,7 @@ export interface EmptyStateProps {
   description?: string;
   action?: React.ReactNode;
   icon?: React.ReactNode;
+  embedded?: boolean;
   className?: string;
 }
 
@@ -15,16 +16,28 @@ export function EmptyState({
   description = 'Hiện chưa có bản ghi nào phù hợp với bộ lọc hoặc tìm kiếm này trong hệ thống.',
   action,
   icon,
+  embedded = false,
   className,
 }: EmptyStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center p-12 text-center bg-surface rounded-lg border border-border border-dashed', className)}>
-      <div className="w-12 h-12 rounded-full bg-surface-subtle flex items-center justify-center text-ink-muted mb-4">
-        {icon || <BookOpen className="w-6 h-6 stroke-[1.5]" />}
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center text-center py-10 px-6',
+        !embedded && 'bg-surface rounded-lg border border-border',
+        className
+      )}
+    >
+      <div className="w-12 h-12 rounded-full bg-surface-subtle flex items-center justify-center text-ink-muted mb-3.5 border border-border/70">
+        {icon || <BookOpen className="w-5 h-5 text-accent stroke-[1.75]" />}
       </div>
-      <h3 className="font-serif text-lg font-medium text-ink mb-1.5">{title}</h3>
-      <p className="text-sm text-ink-muted max-w-sm mb-6 leading-relaxed">{description}</p>
-      {action && <div>{action}</div>}
+      <h3 className="font-serif text-base font-semibold text-ink mb-1 tracking-tight">
+        {title}
+      </h3>
+      <p className="text-xs text-ink-muted max-w-md mb-4 leading-relaxed">
+        {description}
+      </p>
+      {action && <div className="flex items-center gap-2">{action}</div>}
     </div>
   );
 }
+

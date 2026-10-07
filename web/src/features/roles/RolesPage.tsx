@@ -70,7 +70,7 @@ export const RolesPage: React.FC = () => {
       />
 
       {/* Semantic Guidance Card */}
-      <div className="rounded-xl border border-border bg-surface-subtle p-5 shadow-xs space-y-3 text-xs leading-relaxed">
+      <div className="rounded-lg border border-border bg-surface-subtle p-5 space-y-3 text-xs leading-relaxed">
         <div className="flex items-center gap-2 font-semibold text-ink">
           <Info className="h-4 w-4 text-accent" />
           <span>Nguyên tắc Phân quyền Đa vai trò (Multi-Role Architecture)</span>
@@ -99,7 +99,7 @@ export const RolesPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách vai trò hệ thống. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>

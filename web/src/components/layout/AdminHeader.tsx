@@ -27,7 +27,8 @@ const ROUTE_NAME_MAP: Record<string, string> = {
   overview: 'Tổng quan',
   moderation: 'Kiểm duyệt nội dung',
   kyc: 'Xác thực KYC',
-  users: 'Người dùng & Kênh',
+  users: 'Người dùng',
+  channels: 'Kênh Podcast',
   membership: 'Gói hội viên',
   transactions: 'Biến động số dư',
   withdrawals: 'Yêu cầu rút tiền',
@@ -63,7 +64,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           variant="ghost"
           size="sm"
           onClick={onToggleMobileMenu}
-          className="lg:hidden h-9 w-9 p-0 text-muted hover:text-ink"
+          className="lg:hidden min-h-[44px] min-w-[44px] h-11 w-11 p-0 text-muted hover:text-ink"
           aria-label="Mở danh mục điều hướng"
         >
           <Menu className="h-5 w-5" />
@@ -98,9 +99,9 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-canvas px-3 py-1.5 text-left transition-colors hover:bg-surface-subtle focus:outline-hidden focus:ring-2 focus:ring-accent"
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-canvas px-3.5 py-1.5 min-h-[44px] text-left transition-colors hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold text-xs">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold text-xs border border-accent/20">
                   {currentUser.fullName ? (
                     currentUser.fullName.charAt(0).toUpperCase()
                   ) : (

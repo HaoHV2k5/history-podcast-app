@@ -29,14 +29,20 @@ export const ContractsListPage: React.FC = () => {
     queryFn: () => contractsApi.getAllContracts(),
   });
 
-  const rawItems = data?.data || [];
+  const rawData = data?.data;
+  const rawItems: ContractItem[] = Array.isArray(rawData)
+    ? rawData
+    : rawData && 'items' in rawData && Array.isArray(rawData.items)
+      ? rawData.items
+      : [];
 
   const filteredItems = search.trim()
     ? rawItems.filter(
         (c) =>
           c.id.toString().includes(search.trim()) ||
-          c.hireRequestId.toString().includes(search.trim()) ||
-          c.termsText?.toLowerCase().includes(search.toLowerCase())
+          (c.hireRequestId != null && c.hireRequestId.toString().includes(search.trim())) ||
+          (c.title && c.title.toLowerCase().includes(search.toLowerCase())) ||
+          (c.termsText && c.termsText.toLowerCase().includes(search.toLowerCase()))
       )
     : rawItems;
 
@@ -70,8 +76,9 @@ export const ContractsListPage: React.FC = () => {
     {
       key: 'price',
       header: 'Giá trị hợp đồng',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs font-semibold text-ink">
+        <span className="font-mono tabular-nums text-xs font-semibold text-ink">
           {formatVND(item.price)}
         </span>
       ),
@@ -80,7 +87,7 @@ export const ContractsListPage: React.FC = () => {
       key: 'deadline',
       header: 'Hạn giao bài',
       render: (item) => (
-        <span className="font-mono text-xs text-ink">
+        <span className="font-mono tabular-nums text-xs text-ink">
           {item.deadline ? formatDate(item.deadline) : 'Không ghi nhận'}
         </span>
       ),
@@ -123,8 +130,8 @@ export const ContractsListPage: React.FC = () => {
       key: 'createdAt',
       header: 'Thời điểm tạo',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono">
-          <Calendar className="h-3.5 w-3.5 text-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
+          <Calendar className="h-3.5 w-3.5 text-muted" />
           <span>{formatDateTime(item.createdAt)}</span>
         </div>
       ),
@@ -137,9 +144,8 @@ export const ContractsListPage: React.FC = () => {
       render: (item) => (
         <Button
           variant="outline"
-          size="sm"
           onClick={() => setSelectedContract(item)}
-          className="h-8 px-2.5 text-xs text-ink hover:text-accent hover:border-accent"
+          className="min-h-[44px] px-3 text-xs text-ink hover:text-accent hover:border-accent"
         >
           <span>Xem điều khoản</span>
         </Button>
@@ -171,7 +177,7 @@ export const ContractsListPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách hợp đồng. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -182,16 +188,18 @@ export const ContractsListPage: React.FC = () => {
         data={paginatedItems}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Chưa có hợp đồng nào"
-        emptyDescription="Hiện chưa có dữ liệu hợp đồng ghi âm nào trên hệ thống."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có hợp đồng thu âm"
+        emptyDescription="Các hợp đồng giữa Nhà sáng tạo và Thuyết minh viên sẽ được theo dõi tại đây."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
 
       {/* Contract Terms Dialog */}

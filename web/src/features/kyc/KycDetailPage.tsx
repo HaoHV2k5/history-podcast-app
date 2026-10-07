@@ -21,6 +21,16 @@ import { WorkbenchSkeleton } from '@/components/common/LoadingSkeleton';
 import { kycApi } from '@/services/api/kyc';
 import { formatDateTime, maskPhone } from '@/utils/formatters';
 
+const KYC_IDENTITY_REJECTION_REASONS = [
+  'Ảnh giấy tờ không rõ',
+  'Thông tin OCR không khớp',
+  'Ảnh chân dung không hợp lệ',
+  'Xác minh liveness không đạt',
+  'Khuôn mặt không khớp',
+  'Chưa đáp ứng điều kiện độ tuổi',
+  'Cần bổ sung giấy tờ',
+];
+
 export const KycDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -57,7 +67,7 @@ export const KycDetailPage: React.FC = () => {
 
   if (isError || !item) {
     return (
-      <div className="rounded-xl border border-border bg-surface p-8 text-center">
+      <div className="rounded-lg border border-border bg-surface p-8 text-center">
         <AlertTriangle className="mx-auto h-8 w-8 text-status-error-text mb-3" />
         <h2 className="font-serif text-lg font-bold text-ink mb-1">
           Không tìm thấy hồ sơ KYC
@@ -65,7 +75,7 @@ export const KycDetailPage: React.FC = () => {
         <p className="text-xs text-muted mb-4">
           Hồ sơ định danh ID #{kycId} không tồn tại hoặc đã được xử lý.
         </p>
-        <Button variant="outline" onClick={() => navigate('/admin/kyc')}>
+        <Button variant="outline" onClick={() => navigate('/admin/kyc')} className="min-h-[44px]">
           Quay lại danh sách
         </Button>
       </div>
@@ -86,7 +96,7 @@ export const KycDetailPage: React.FC = () => {
   const mainContent = (
     <div className="space-y-6">
       {/* Identity Card */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <UserCheck className="h-5 w-5 text-accent" />
@@ -139,7 +149,7 @@ export const KycDetailPage: React.FC = () => {
       </div>
 
       {/* Verification OTP Metadata */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-status-success-text" />
@@ -170,7 +180,7 @@ export const KycDetailPage: React.FC = () => {
       </div>
 
       {/* Creator Profile / Bio */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Globe className="h-5 w-5 text-accent" />
@@ -215,8 +225,8 @@ export const KycDetailPage: React.FC = () => {
   // Inspector Content (35%)
   const inspectorContent = (
     <div className="space-y-5">
-      {/* Role Elevation Notice (Mandatory Correction 3) */}
-      <div className="rounded-xl border border-accent/30 bg-accent-soft p-5 shadow-xs space-y-2">
+      {/* Role Elevation Notice */}
+      <div className="rounded-lg border border-accent/30 bg-accent-soft p-5 space-y-2">
         <div className="flex items-center gap-2 text-accent font-semibold text-xs">
           <Sparkles className="h-4 w-4" />
           <span>Cơ chế tự động nâng cấp vai trò</span>
@@ -228,7 +238,7 @@ export const KycDetailPage: React.FC = () => {
       </div>
 
       {/* Reviewer Checklist */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Danh mục kiểm tra của Điều hành viên
         </h4>
@@ -254,7 +264,7 @@ export const KycDetailPage: React.FC = () => {
       </div>
 
       {/* Decision Metadata History */}
-      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3 text-xs">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-3 text-xs">
         <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
           Tiến trình hồ sơ
         </h4>
@@ -301,7 +311,7 @@ export const KycDetailPage: React.FC = () => {
         <Button
           variant="outline"
           onClick={() => setModalType('REJECTED')}
-          className="border-status-error-text text-status-error-text hover:bg-status-error-bg"
+          className="border-status-error-text/40 text-status-error-text hover:bg-status-error-bg min-h-[44px] px-4"
         >
           <ShieldAlert className="mr-1.5 h-4 w-4" />
           Từ chối hồ sơ
@@ -309,7 +319,7 @@ export const KycDetailPage: React.FC = () => {
         <Button
           variant="primary"
           onClick={() => setModalType('APPROVED')}
-          className="bg-status-success-text hover:bg-status-success-text/90"
+          className="min-h-[44px] px-5"
         >
           <ShieldCheck className="mr-1.5 h-4 w-4" />
           Phê duyệt làm Creator
@@ -322,7 +332,7 @@ export const KycDetailPage: React.FC = () => {
         <ShieldCheck className="h-4 w-4 text-status-success-text" />
         <span>Hồ sơ này đã có kết luận phê duyệt</span>
       </div>
-      <Button variant="outline" size="sm" onClick={() => navigate('/admin/kyc')}>
+      <Button variant="outline" className="min-h-[44px] px-4" onClick={() => navigate('/admin/kyc')}>
         Quay lại hàng đợi
       </Button>
     </div>
@@ -358,6 +368,7 @@ export const KycDetailPage: React.FC = () => {
         variant={modalType === 'APPROVED' ? 'primary' : 'destructive'}
         requireReason={modalType === 'REJECTED'}
         reasonPlaceholder="Nhập lý do từ chối hồ sơ định danh..."
+        quickReasons={KYC_IDENTITY_REJECTION_REASONS}
         isLoading={statusMutation.isPending}
         onConfirm={(reason?: string) => handleDecisionSubmit(reason)}
       />

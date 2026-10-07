@@ -64,6 +64,11 @@ export const LoginPage: React.FC = () => {
       }
 
       // Store in memory & sessionStorage
+      try {
+        sessionStorage.removeItem('su_ky_admin_dev_mode');
+      } catch {
+        // ignore
+      }
       setAuth(authData);
 
       // Navigate to intended destination or overview
@@ -86,7 +91,7 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Masthead Header */}
         <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-accent text-canvas shadow-xs">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-accent text-canvas">
             <svg
               className="h-8 w-8"
               viewBox="0 0 24 24"
@@ -111,7 +116,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Card */}
-        <div className="rounded-xl border border-border bg-surface p-8 shadow-xs">
+        <div className="rounded-lg border border-border bg-surface p-8">
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-ink">Đăng nhập tài khoản</h2>
             <p className="text-xs text-muted mt-1">
@@ -197,12 +202,11 @@ export const LoginPage: React.FC = () => {
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
                   onClick={() => {
                     sessionStorage.setItem('su_ky_admin_dev_mode', 'true');
                     window.location.href = '/admin/overview';
                   }}
-                  className="text-xs text-muted hover:text-ink h-8 px-2"
+                  className="text-xs text-muted hover:text-ink min-h-[44px] px-3"
                 >
                   Chế độ xem xét giao diện (Dev QA)
                 </Button>

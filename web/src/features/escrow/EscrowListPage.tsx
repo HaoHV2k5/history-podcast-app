@@ -58,8 +58,9 @@ export const EscrowListPage: React.FC = () => {
     {
       key: 'amount',
       header: 'Số tiền ký quỹ',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs font-semibold text-ink">
+        <span className="font-mono tabular-nums text-xs font-semibold text-ink">
           {formatVND(item.amount)}
         </span>
       ),
@@ -67,8 +68,9 @@ export const EscrowListPage: React.FC = () => {
     {
       key: 'commissionAmount',
       header: 'Phí dịch vụ nền tảng',
+      align: 'right',
       render: (item) => (
-        <span className="font-mono text-xs text-muted">
+        <span className="font-mono tabular-nums text-xs text-muted">
           {formatVND(item.commissionAmount)}
         </span>
       ),
@@ -82,8 +84,8 @@ export const EscrowListPage: React.FC = () => {
       key: 'lockedAt',
       header: 'Thời điểm khóa tiền',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono">
-          <Calendar className="h-3.5 w-3.5 text-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
+          <Calendar className="h-3.5 w-3.5 text-muted" />
           <span>{item.lockedAt ? formatDateTime(item.lockedAt) : '—'}</span>
         </div>
       ),
@@ -92,8 +94,8 @@ export const EscrowListPage: React.FC = () => {
       key: 'releasedAt',
       header: 'Thời điểm giải ngân',
       render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono">
-          <Calendar className="h-3.5 w-3.5 text-border" />
+        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
+          <Calendar className="h-3.5 w-3.5 text-muted" />
           <span>{item.releasedAt ? formatDateTime(item.releasedAt) : 'Chưa giải ngân'}</span>
         </div>
       ),
@@ -124,7 +126,7 @@ export const EscrowListPage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải dữ liệu ký quỹ Escrow. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
             Tải lại
           </Button>
         </div>
@@ -135,16 +137,18 @@ export const EscrowListPage: React.FC = () => {
         data={paginatedItems}
         keyExtractor={(item) => item.id}
         isLoading={isLoading}
-        emptyTitle="Chưa có giao dịch ký quỹ nào"
-        emptyDescription="Hiện chưa có bản ghi ký quỹ hợp đồng nào được khởi tạo trên hệ thống."
-      />
-
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        emptyTitle="Chưa có giao dịch ký quỹ"
+        emptyDescription="Khoản ký quỹ liên quan đến hợp đồng sẽ xuất hiện tại đây."
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

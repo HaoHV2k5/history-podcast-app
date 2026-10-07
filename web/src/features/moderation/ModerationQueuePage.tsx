@@ -129,12 +129,11 @@ export const ModerationQueuePage: React.FC = () => {
       render: (item) => (
         <Button
           variant="outline"
-          size="sm"
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/admin/moderation/${item.reviewId}`);
           }}
-          className="h-8 px-2.5 text-xs text-ink hover:text-accent hover:border-accent"
+          className="min-h-[44px] px-3.5 text-xs text-ink hover:text-accent hover:border-accent"
         >
           <span>Xem xét</span>
           <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
@@ -151,18 +150,20 @@ export const ModerationQueuePage: React.FC = () => {
       />
 
       {/* Decision Tabs */}
-      <div className="flex border-b border-border space-x-1">
+      <div className="flex border-b border-border space-x-1" role="tablist">
         {DECISION_TABS.map((tab) => {
           const isActive = decision === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => {
                 setDecision(tab.id);
                 setPage(0);
               }}
-              className={`h-10 px-4 text-xs font-medium border-b-2 transition-colors duration-150 ${
+              className={`min-h-[44px] px-4 text-xs font-medium border-b-2 transition-colors duration-150 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t-sm ${
                 isActive
                   ? 'border-accent text-accent font-semibold'
                   : 'border-transparent text-muted hover:text-ink hover:border-border'
@@ -207,13 +208,13 @@ export const ModerationQueuePage: React.FC = () => {
       {isError && (
         <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
           <span>Không thể tải danh sách hàng đợi kiểm duyệt. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="h-7 text-xs">
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="min-h-[44px] px-3.5 text-xs">
             Tải lại
           </Button>
         </div>
       )}
 
-      {/* Data Table */}
+      {/* Data Table with embedded Pagination */}
       <DataTable
         columns={columns}
         data={items}
@@ -222,15 +223,16 @@ export const ModerationQueuePage: React.FC = () => {
         onRowClick={(item) => navigate(`/admin/moderation/${item.reviewId}`)}
         emptyTitle="Hàng đợi kiểm duyệt trống"
         emptyDescription="Hiện không có video nào cần kiểm duyệt hoặc khớp với bộ lọc hiện tại."
-      />
-
-      {/* Pagination Bar */}
-      <PaginationBar
-        page={page}
-        totalPages={totalPages}
-        totalElements={totalElements}
-        size={size}
-        onPageChange={setPage}
+        pagination={
+          <PaginationBar
+            embedded
+            page={page}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            size={size}
+            onPageChange={setPage}
+          />
+        }
       />
     </div>
   );

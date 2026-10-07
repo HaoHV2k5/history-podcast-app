@@ -17,6 +17,7 @@ import { moderationApi } from '@/services/api/moderation';
 import { kycApi } from '@/services/api/kyc';
 import { withdrawalsApi } from '@/services/api/withdrawals';
 import { disputesApi } from '@/services/api/disputes';
+import { DisputeItem } from '@/types/dispute';
 import { formatDateTime, formatVND } from '@/utils/formatters';
 
 export const OverviewPage: React.FC = () => {
@@ -57,8 +58,13 @@ export const OverviewPage: React.FC = () => {
   const pendingWithItems = allWithdrawals.filter((w) => w.status?.toUpperCase() === 'PENDING');
   const pendingWithCount = pendingWithItems.length;
 
-  const allDisputes = disputeData?.data || [];
-  const openDisputes = allDisputes.filter((d) => d.status?.toUpperCase() !== 'RESOLVED');
+  const rawDisputes = disputeData?.data;
+  const allDisputes: DisputeItem[] = Array.isArray(rawDisputes)
+    ? rawDisputes
+    : rawDisputes && 'items' in rawDisputes && Array.isArray(rawDisputes.items)
+      ? (rawDisputes.items as DisputeItem[])
+      : [];
+  const openDisputes = allDisputes.filter((d: DisputeItem) => d.status?.toUpperCase() !== 'RESOLVED');
   const openDisputeCount = openDisputes.length;
 
   const statCards = [
@@ -119,7 +125,7 @@ export const OverviewPage: React.FC = () => {
             <div
               key={card.title}
               onClick={() => navigate(card.to)}
-              className="group cursor-pointer rounded-xl border border-border bg-surface p-5 shadow-xs transition-all duration-150 hover:border-accent hover:shadow-sm flex flex-col justify-between"
+              className="group cursor-pointer rounded-lg border border-border bg-surface p-5 transition-colors duration-150 hover:border-accent hover:bg-surface-subtle/30 flex flex-col justify-between"
             >
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -144,7 +150,7 @@ export const OverviewPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="pt-3 mt-3 border-t border-border flex items-center justify-between text-xs font-medium text-ink group-hover:text-accent">
+              <div className="pt-3 mt-3 border-t border-border flex items-center justify-between text-xs font-medium text-ink group-hover:text-accent min-h-[44px]">
                 <span>Vào hàng đợi</span>
                 <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </div>
@@ -156,7 +162,7 @@ export const OverviewPage: React.FC = () => {
       {/* Two Column Operational Queue Preview */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Pending Moderation Queue */}
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+        <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-accent" />
@@ -168,7 +174,7 @@ export const OverviewPage: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => navigate('/admin/moderation')}
-              className="h-8 text-xs text-muted hover:text-ink"
+              className="min-h-[44px] px-3 text-xs text-muted hover:text-ink"
             >
               <span>Xem tất cả</span>
               <ExternalLink className="ml-1 h-3.5 w-3.5" />
@@ -181,7 +187,7 @@ export const OverviewPage: React.FC = () => {
                 <div
                   key={item.reviewId}
                   onClick={() => navigate(`/admin/moderation/${item.reviewId}`)}
-                  className="py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
+                  className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
                     <Video className="h-4 w-4 text-muted shrink-0 mt-0.5" />
@@ -195,7 +201,7 @@ export const OverviewPage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono text-[10px] text-muted">
+                    <span className="font-mono text-[10px] text-muted tabular-nums">
                       {formatDateTime(item.createdAt)}
                     </span>
                     <StatusBadge status={item.decision} />
@@ -211,7 +217,7 @@ export const OverviewPage: React.FC = () => {
         </div>
 
         {/* Recent Pending KYC Queue */}
-        <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+        <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <UserCheck className="h-5 w-5 text-status-pending-text" />
@@ -223,7 +229,7 @@ export const OverviewPage: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={() => navigate('/admin/kyc')}
-              className="h-8 text-xs text-muted hover:text-ink"
+              className="min-h-[44px] px-3 text-xs text-muted hover:text-ink"
             >
               <span>Xem tất cả</span>
               <ExternalLink className="ml-1 h-3.5 w-3.5" />
@@ -236,7 +242,7 @@ export const OverviewPage: React.FC = () => {
                 <div
                   key={item.id}
                   onClick={() => navigate(`/admin/kyc/${item.id}`)}
-                  className="py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
+                  className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
                 >
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-semibold text-ink truncate">
@@ -247,7 +253,7 @@ export const OverviewPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono text-[10px] text-muted">
+                    <span className="font-mono text-[10px] text-muted tabular-nums">
                       {formatDateTime(item.createdAt)}
                     </span>
                     <StatusBadge status={item.status} />
@@ -264,7 +270,7 @@ export const OverviewPage: React.FC = () => {
       </div>
 
       {/* Pending Withdrawals Quick Review Strip */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-status-processing-text" />
@@ -276,7 +282,7 @@ export const OverviewPage: React.FC = () => {
             variant="ghost"
             size="sm"
             onClick={() => navigate('/admin/withdrawals')}
-            className="h-8 text-xs text-muted hover:text-ink"
+            className="min-h-[44px] px-3 text-xs text-muted hover:text-ink"
           >
             <span>Tất cả yêu cầu rút</span>
             <ExternalLink className="ml-1 h-3.5 w-3.5" />
@@ -289,7 +295,7 @@ export const OverviewPage: React.FC = () => {
               <div
                 key={item.id}
                 onClick={() => navigate(`/admin/withdrawals/${item.id}`)}
-                className="py-3 flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
+                className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="font-mono text-xs font-semibold text-ink">
@@ -300,7 +306,7 @@ export const OverviewPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-xs font-semibold text-accent">
+                  <span className="font-mono text-xs font-semibold text-accent tabular-nums">
                     {formatVND(item.amount)}
                   </span>
                   <StatusBadge status={item.status} />

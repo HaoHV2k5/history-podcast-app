@@ -22,7 +22,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const sizes = {
       default: 'min-h-[44px] px-4 py-2.5 text-sm gap-2',
-      sm: 'min-h-[38px] px-3 py-1.5 text-xs gap-1.5',
+      sm: 'min-h-[44px] px-3.5 py-2 text-xs gap-1.5',
       lg: 'min-h-[48px] px-6 py-3 text-base gap-2.5',
       icon: 'w-11 h-11 min-h-[44px] min-w-[44px] p-2 justify-center',
     };

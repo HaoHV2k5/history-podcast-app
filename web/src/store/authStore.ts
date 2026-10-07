@@ -1,7 +1,29 @@
 import { create } from 'zustand';
 import { UserResponse, AuthResponse } from '@/types/auth';
 
+const ACCESS_TOKEN_KEY = 'su_ky_admin_access_token';
 const REFRESH_TOKEN_KEY = 'su_ky_admin_refresh_token';
+const USER_DATA_KEY = 'su_ky_admin_user_data';
+
+const getInitialAccessToken = (): string | null => {
+  try {
+    return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+
+const getInitialUser = (): UserResponse | null => {
+  try {
+    const raw = sessionStorage.getItem(USER_DATA_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const initialAccessToken = getInitialAccessToken();
+const initialUser = getInitialUser();
 
 interface AuthState {
   accessToken: string | null;
@@ -25,16 +47,24 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
-  accessToken: null,
-  user: null,
-  isAuthenticated: false,
-  isLoading: true, // starts loading until session restored
+  accessToken: initialAccessToken,
+  user: initialUser,
+  isAuthenticated: Boolean(initialAccessToken && initialUser),
+  isLoading: false,
   error: null,
 
   setAuth: (authData: AuthResponse, userData?: UserResponse) => {
-    // Store refresh token in sessionStorage
-    if (authData.refreshToken) {
-      sessionStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
+    // Store tokens in sessionStorage
+    try {
+      if (authData.accessToken) {
+        sessionStorage.setItem(ACCESS_TOKEN_KEY, authData.accessToken);
+      }
+      if (authData.refreshToken) {
+        sessionStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
+      }
+      sessionStorage.removeItem('su_ky_admin_dev_mode');
+    } catch {
+      // ignore
     }
 
     const roles = authData.roles || (authData.role ? [authData.role] : []);
@@ -49,6 +79,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
 
+    try {
+      sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(mergedUser));
+    } catch {
+      // ignore
+    }
+
     set({
       accessToken: authData.accessToken,
       user: mergedUser,
@@ -59,10 +95,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setAccessToken: (token: string) => {
+    try {
+      sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
+    } catch {
+      // ignore
+    }
     set({ accessToken: token, isAuthenticated: true });
   },
 
   setUser: (userData: UserResponse) => {
+    try {
+      sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
+    } catch {
+      // ignore
+    }
     set({ user: userData });
   },
 
@@ -75,7 +121,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    try {
+      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+      sessionStorage.removeItem(USER_DATA_KEY);
+      sessionStorage.removeItem('su_ky_admin_dev_mode');
+    } catch {
+      // ignore
+    }
     set({
       accessToken: null,
       user: null,
