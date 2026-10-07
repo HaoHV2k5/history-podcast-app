@@ -40,7 +40,8 @@ public class AdminUserController {
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         Sort.Direction direction = "asc".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        String validSortBy = ("role".equalsIgnoreCase(sortBy) || "roleName".equalsIgnoreCase(sortBy)) ? "id" : sortBy;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, validSortBy));
         PageResponse<UserResponse> response = userService.searchUsers(search, role, status, pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
