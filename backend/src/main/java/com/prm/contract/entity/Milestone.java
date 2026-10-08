@@ -1,5 +1,6 @@
 package com.prm.contract.entity;
 
+import com.prm.contract.constant.EscrowStatus;
 import com.prm.contract.constant.MilestoneStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -65,8 +66,26 @@ public class Milestone {
     @Column(name = "release_at")
     private Instant releaseAt;
 
-    @OneToOne(mappedBy = "milestone", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private EscrowPayment escrowPayment;
+    @Column(name = "platform_fee", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal platformFee = BigDecimal.ZERO;
+
+    @Column(name = "net_amount", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal netAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "escrow_status", length = 50)
+    private EscrowStatus escrowStatus;
+
+    @Column(name = "funded_at")
+    private Instant fundedAt;
+
+    @Column(name = "released_at")
+    private Instant releasedAt;
+
+    @Column(name = "refunded_at")
+    private Instant refundedAt;
 
     @OneToMany(mappedBy = "milestone", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("versionNo DESC")
@@ -95,6 +114,12 @@ public class Milestone {
         }
         if (revisionsUsed == null) {
             revisionsUsed = 0;
+        }
+        if (platformFee == null) {
+            platformFee = BigDecimal.ZERO;
+        }
+        if (netAmount == null && amount != null) {
+            netAmount = amount.subtract(platformFee);
         }
     }
 

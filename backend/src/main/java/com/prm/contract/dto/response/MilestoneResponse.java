@@ -30,6 +30,11 @@ public class MilestoneResponse {
     private Instant reviewDueAt;
     private Instant releaseAt;
     private EscrowStatus escrowStatus;
+    private BigDecimal platformFee;
+    private BigDecimal netAmount;
+    private Instant fundedAt;
+    private Instant releasedAt;
+    private Instant refundedAt;
     private List<SubmissionResponse> submissions;
     private List<RevisionRequestResponse> revisionRequests;
     private Instant createdAt;

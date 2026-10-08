@@ -8,10 +8,8 @@ import com.prm.contract.constant.EscrowStatus;
 import com.prm.contract.constant.MilestoneStatus;
 import com.prm.contract.dto.response.EscrowPaymentResponse;
 import com.prm.contract.entity.Contract;
-import com.prm.contract.entity.EscrowPayment;
 import com.prm.contract.entity.Milestone;
 import com.prm.contract.repository.ContractRepository;
-import com.prm.contract.repository.EscrowPaymentRepository;
 import com.prm.contract.repository.MilestoneRepository;
 import com.prm.contract.service.EscrowService;
 import com.prm.identity.entity.User;
@@ -35,7 +33,6 @@ import java.util.List;
 @Transactional
 public class EscrowServiceImpl implements EscrowService {
 
-    private final EscrowPaymentRepository escrowPaymentRepository;
     private final MilestoneRepository milestoneRepository;
     private final ContractRepository contractRepository;
     private final WalletRepository walletRepository;
@@ -47,17 +44,14 @@ public class EscrowServiceImpl implements EscrowService {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone: " + milestoneId));
 
-        EscrowPayment escrow = escrowPaymentRepository.findByMilestoneId(milestoneId)
-                .orElseThrow(() -> new AppException(ErrorCode.ESCROW_PAYMENT_NOT_FOUND, "Không tìm thấy khoản ký quỹ của milestone"));
-
         // Idempotent: nếu đã release rồi thì bỏ qua
-        if (escrow.getStatus() == EscrowStatus.RELEASED) {
+        if (milestone.getEscrowStatus() == EscrowStatus.RELEASED) {
             log.warn("Escrow for milestone {} has already been released", milestoneId);
-            return toResponse(escrow);
+            return toResponse(milestone);
         }
 
-        if (escrow.getStatus() != EscrowStatus.HELD && escrow.getStatus() != EscrowStatus.FROZEN) {
-            throw new AppException(ErrorCode.ESCROW_INVALID_STATE, "Trạng thái khoản ký quỹ không hợp lệ để giải ngân: " + escrow.getStatus());
+        if (milestone.getEscrowStatus() != EscrowStatus.HELD && milestone.getEscrowStatus() != EscrowStatus.FROZEN) {
+            throw new AppException(ErrorCode.ESCROW_INVALID_STATE, "Trạng thái khoản ký quỹ không hợp lệ để giải ngân: " + milestone.getEscrowStatus());
         }
 
         Contract contract = milestone.getContract();
@@ -65,7 +59,10 @@ public class EscrowServiceImpl implements EscrowService {
 
         // 1. Khóa bi quan và cộng tiền vào ví của Freelancer (Idempotent DB Transaction)
         Wallet freelancerWallet = getOrCreateWalletForUpdate(freelancer);
-        BigDecimal netAmount = escrow.getNetAmount();
+        BigDecimal netAmount = milestone.getNetAmount() != null && milestone.getNetAmount().compareTo(BigDecimal.ZERO) > 0
+                ? milestone.getNetAmount()
+                : milestone.getAmount().subtract(milestone.getPlatformFee() != null ? milestone.getPlatformFee() : BigDecimal.ZERO);
+
         freelancerWallet.setAvailableBalance(freelancerWallet.getAvailableBalance().add(netAmount));
         walletRepository.save(freelancerWallet);
 
@@ -82,11 +79,9 @@ public class EscrowServiceImpl implements EscrowService {
                 .build();
         walletTransactionRepository.save(transaction);
 
-        // 3. Cập nhật Escrow & Milestone
-        escrow.setStatus(EscrowStatus.RELEASED);
-        escrow.setReleasedAt(Instant.now());
-        escrowPaymentRepository.save(escrow);
-
+        // 3. Cập nhật Escrow fields & Milestone status
+        milestone.setEscrowStatus(EscrowStatus.RELEASED);
+        milestone.setReleasedAt(Instant.now());
         milestone.setStatus(MilestoneStatus.RELEASED);
         milestoneRepository.save(milestone);
 
@@ -101,7 +96,7 @@ public class EscrowServiceImpl implements EscrowService {
         }
 
         log.info("Released escrow for milestone {} to freelancer {}: net {}", milestoneId, freelancer.getEmail(), netAmount);
-        return toResponse(escrow);
+        return toResponse(milestone);
     }
 
     @Override
@@ -109,16 +104,13 @@ public class EscrowServiceImpl implements EscrowService {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone: " + milestoneId));
 
-        EscrowPayment escrow = escrowPaymentRepository.findByMilestoneId(milestoneId)
-                .orElseThrow(() -> new AppException(ErrorCode.ESCROW_PAYMENT_NOT_FOUND, "Không tìm thấy khoản ký quỹ của milestone"));
-
-        if (escrow.getStatus() == EscrowStatus.REFUNDED) {
+        if (milestone.getEscrowStatus() == EscrowStatus.REFUNDED) {
             log.warn("Escrow for milestone {} has already been refunded", milestoneId);
-            return toResponse(escrow);
+            return toResponse(milestone);
         }
 
-        if (escrow.getStatus() != EscrowStatus.HELD && escrow.getStatus() != EscrowStatus.FROZEN) {
-            throw new AppException(ErrorCode.ESCROW_INVALID_STATE, "Trạng thái khoản ký quỹ không thể hoàn tiền: " + escrow.getStatus());
+        if (milestone.getEscrowStatus() != EscrowStatus.HELD && milestone.getEscrowStatus() != EscrowStatus.FROZEN) {
+            throw new AppException(ErrorCode.ESCROW_INVALID_STATE, "Trạng thái khoản ký quỹ không thể hoàn tiền: " + milestone.getEscrowStatus());
         }
 
         Contract contract = milestone.getContract();
@@ -126,7 +118,7 @@ public class EscrowServiceImpl implements EscrowService {
 
         // 1. Khóa ví Creator và hoàn trả lại toàn bộ tiền đã ký quỹ
         Wallet creatorWallet = getOrCreateWalletForUpdate(creator);
-        BigDecimal refundAmount = escrow.getAmount();
+        BigDecimal refundAmount = milestone.getAmount();
         creatorWallet.setAvailableBalance(creatorWallet.getAvailableBalance().add(refundAmount));
         walletRepository.save(creatorWallet);
 
@@ -143,16 +135,14 @@ public class EscrowServiceImpl implements EscrowService {
                 .build();
         walletTransactionRepository.save(transaction);
 
-        // 3. Cập nhật Escrow & Milestone
-        escrow.setStatus(EscrowStatus.REFUNDED);
-        escrow.setRefundedAt(Instant.now());
-        escrowPaymentRepository.save(escrow);
-
+        // 3. Cập nhật Escrow fields & Milestone status
+        milestone.setEscrowStatus(EscrowStatus.REFUNDED);
+        milestone.setRefundedAt(Instant.now());
         milestone.setStatus(MilestoneStatus.CANCELLED);
         milestoneRepository.save(milestone);
 
         log.info("Refunded escrow for milestone {} to creator {}: amount {}", milestoneId, creator.getEmail(), refundAmount);
-        return toResponse(escrow);
+        return toResponse(milestone);
     }
 
     @Override
@@ -160,14 +150,11 @@ public class EscrowServiceImpl implements EscrowService {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone: " + milestoneId));
 
-        EscrowPayment escrow = escrowPaymentRepository.findByMilestoneId(milestoneId)
-                .orElseThrow(() -> new AppException(ErrorCode.ESCROW_PAYMENT_NOT_FOUND, "Không tìm thấy khoản ký quỹ của milestone"));
-
         Contract contract = milestone.getContract();
         User creator = contract.getCreator();
         User freelancer = contract.getFreelancer();
 
-        BigDecimal totalAmount = escrow.getAmount();
+        BigDecimal totalAmount = milestone.getAmount();
         if (freelancerPercent == null || freelancerPercent.compareTo(BigDecimal.ZERO) < 0 || freelancerPercent.compareTo(new BigDecimal("100")) > 0) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Tỉ lệ phân chia phần trăm phải từ 0% đến 100%");
         }
@@ -219,35 +206,33 @@ public class EscrowServiceImpl implements EscrowService {
             walletTransactionRepository.save(crTx);
         }
 
-        escrow.setStatus(EscrowStatus.RELEASED);
-        escrow.setPlatformFee(fee);
-        escrow.setNetAmount(freelancerNet);
-        escrow.setReleasedAt(Instant.now());
-        escrowPaymentRepository.save(escrow);
-
+        milestone.setEscrowStatus(EscrowStatus.RELEASED);
+        milestone.setPlatformFee(fee);
+        milestone.setNetAmount(freelancerNet);
+        milestone.setReleasedAt(Instant.now());
         milestone.setStatus(MilestoneStatus.RELEASED);
         milestoneRepository.save(milestone);
 
         log.info("Split escrow for milestone {}: freelancer net={}, creator refund={}, fee={}", milestoneId, freelancerNet, creatorRefund, fee);
-        return toResponse(escrow);
+        return toResponse(milestone);
     }
 
     @Override
     public EscrowPaymentResponse freezeEscrow(Long milestoneId) {
-        EscrowPayment escrow = escrowPaymentRepository.findByMilestoneId(milestoneId)
-                .orElseThrow(() -> new AppException(ErrorCode.ESCROW_PAYMENT_NOT_FOUND, "Không tìm thấy khoản ký quỹ"));
-        escrow.setStatus(EscrowStatus.FROZEN);
-        escrowPaymentRepository.save(escrow);
+        Milestone milestone = milestoneRepository.findById(milestoneId)
+                .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone: " + milestoneId));
+        milestone.setEscrowStatus(EscrowStatus.FROZEN);
+        milestoneRepository.save(milestone);
         log.info("Escrow for milestone {} is FROZEN due to dispute", milestoneId);
-        return toResponse(escrow);
+        return toResponse(milestone);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EscrowPaymentResponse getEscrowByMilestoneId(Long milestoneId) {
-        EscrowPayment escrow = escrowPaymentRepository.findByMilestoneId(milestoneId)
-                .orElseThrow(() -> new AppException(ErrorCode.ESCROW_PAYMENT_NOT_FOUND, "Không tìm thấy khoản ký quỹ"));
-        return toResponse(escrow);
+        Milestone milestone = milestoneRepository.findById(milestoneId)
+                .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone: " + milestoneId));
+        return toResponse(milestone);
     }
 
     private Wallet getOrCreateWalletForUpdate(User user) {
@@ -264,14 +249,14 @@ public class EscrowServiceImpl implements EscrowService {
                 });
     }
 
-    private EscrowPaymentResponse toResponse(EscrowPayment entity) {
+    private EscrowPaymentResponse toResponse(Milestone entity) {
         return EscrowPaymentResponse.builder()
                 .id(entity.getId())
-                .milestoneId(entity.getMilestone().getId())
+                .milestoneId(entity.getId())
                 .amount(entity.getAmount())
                 .platformFee(entity.getPlatformFee())
                 .netAmount(entity.getNetAmount())
-                .status(entity.getStatus())
+                .status(entity.getEscrowStatus())
                 .fundedAt(entity.getFundedAt())
                 .releasedAt(entity.getReleasedAt())
                 .refundedAt(entity.getRefundedAt())
