@@ -17,7 +17,6 @@ import com.prm.contract.dto.response.MilestoneResponse;
 import com.prm.contract.dto.response.RevisionRequestResponse;
 import com.prm.contract.dto.response.SubmissionResponse;
 import com.prm.contract.entity.Contract;
-import com.prm.contract.entity.EscrowPayment;
 import com.prm.contract.entity.Milestone;
 import com.prm.contract.entity.Post;
 import com.prm.contract.repository.*;
@@ -49,7 +48,6 @@ public class ContractServiceImpl implements ContractService {
     private final MilestoneRepository milestoneRepository;
     private final SubmissionRepository submissionRepository;
     private final RevisionRequestRepository revisionRequestRepository;
-    private final EscrowPaymentRepository escrowPaymentRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final BookingEscrowProperties properties;
@@ -336,15 +334,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private MilestoneResponse toMilestoneResponse(Milestone m) {
-        EscrowStatus escrowStatus = null;
-        if (m.getEscrowPayment() != null) {
-            escrowStatus = m.getEscrowPayment().getStatus();
-        } else {
-            Optional<EscrowPayment> ep = escrowPaymentRepository.findByMilestoneId(m.getId());
-            if (ep.isPresent()) {
-                escrowStatus = ep.get().getStatus();
-            }
-        }
+        EscrowStatus escrowStatus = m.getEscrowStatus();
 
         List<SubmissionResponse> submissions = submissionRepository.findByMilestoneIdOrderByVersionNoDesc(m.getId()).stream()
                 .map(s -> SubmissionResponse.builder()
@@ -383,6 +373,11 @@ public class ContractServiceImpl implements ContractService {
                 .reviewDueAt(m.getReviewDueAt())
                 .releaseAt(m.getReleaseAt())
                 .escrowStatus(escrowStatus)
+                .platformFee(m.getPlatformFee())
+                .netAmount(m.getNetAmount())
+                .fundedAt(m.getFundedAt())
+                .releasedAt(m.getReleasedAt())
+                .refundedAt(m.getRefundedAt())
                 .submissions(submissions)
                 .revisionRequests(revisions)
                 .createdAt(m.getCreatedAt())

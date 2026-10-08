@@ -1,0 +1,646 @@
+// ==============================================================================
+// PRM (History Podcast Platform) - Database Diagram (DBML)
+// Hướng dẫn: Copy toàn bộ nội dung dán vào https://dbdiagram.io/
+// ==============================================================================
+
+Project PRM_History_Podcast {
+  database_type: 'PostgreSQL'
+  Note: 'Database architecture for PRM History Podcast Platform'
+}
+
+// ==============================================================================
+// MODULE: Identity_and_Auth
+// ==============================================================================
+Table users {
+  id bigint [pk, increment]
+  created_at timestamptz
+  email varchar(255)
+  password_hash varchar(255)
+  phone varchar(255)
+  status varchar(255)
+  role_id bigint
+  full_name varchar(255)
+  avatar_url varchar(1000)
+  bio text
+  updated_at timestamptz
+}
+
+Table roles {
+  id bigint [pk, increment]
+  description text
+  name varchar(255)
+}
+
+Table user_roles {
+  user_id bigint [not null]
+  role_id bigint [not null]
+  assigned_at timestamptz
+
+  indexes {
+    (user_id, role_id) [pk]
+  }
+}
+
+Table kyc_profiles {
+  id bigint [pk, increment]
+  created_at timestamptz
+  otp_code varchar(255)
+  otp_verified_at timestamptz
+  phone varchar(255)
+  status varchar(255)
+  user_id bigint
+  full_name varchar(255)
+  contact_email varchar(255)
+  bank_name varchar(100)
+  bank_account_number varchar(50)
+  bank_account_holder varchar(255)
+  bio text
+  portfolio_url varchar(500)
+  rejection_reason text
+  last_otp_sent_at timestamptz
+  verification_method varchar(20)
+  updated_at timestamptz
+}
+
+Table refresh_tokens {
+  id bigint [pk, increment]
+  expires_at timestamptz
+  issued_at timestamptz
+  revoked boolean
+  revoked_at timestamptz
+  token varchar(255)
+  user_id bigint
+}
+
+Table password_reset_tokens {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  email varchar(255) [not null]
+  otp_code varchar(10) [not null]
+  reset_token varchar(255)
+  expires_at timestamptz [not null]
+  verified boolean
+  used boolean
+  created_at timestamptz
+}
+
+// ==============================================================================
+// MODULE: Media_and_Content
+// ==============================================================================
+Table channels {
+  id bigint [pk, increment]
+  avatar_url varchar(1000)
+  cover_url varchar(1000)
+  created_at timestamptz
+  description text
+  name varchar(255)
+  status varchar(255)
+  creator_id bigint
+  updated_at timestamptz
+}
+
+Table contents {
+  id bigint [pk, increment]
+  created_at timestamptz
+  source_type varchar(255)
+  status varchar(255)
+  text_body text
+  title varchar(255)
+  updated_at timestamptz
+  channel_id bigint
+  is_exclusive boolean
+}
+
+Table artifacts {
+  id bigint [pk, increment]
+  created_at timestamptz
+  duration_seconds integer
+  file_url varchar(255)
+  source_type varchar(255)
+  status varchar(255)
+  type varchar(255)
+  content_id bigint
+  optimized_url varchar(512)
+}
+
+Table transcripts {
+  id bigint [pk, increment]
+  created_at timestamptz
+  text_body text
+  artifact_id bigint
+}
+
+// ==============================================================================
+// MODULE: Moderation_and_AI
+// ==============================================================================
+Table moderation_reviews {
+  id bigint [pk, increment]
+  decision varchar(255)
+  escalated boolean
+  reason text
+  reviewed_at timestamptz
+  artifact_id bigint
+  moderator_id bigint
+}
+
+Table ai_filter_logs {
+  id bigint [pk, increment]
+  reason text
+  result varchar(255)
+  score numeric(38,2)
+  artifact_id bigint
+}
+
+Table ai_shield_policy_configs {
+  id bigint [pk, increment]
+  tier varchar(50) [unique, not null]
+  label varchar(100) [not null]
+  min_score numeric(5,2) [not null]
+  max_score numeric(5,2) [not null]
+  description text
+  action_type varchar(50)
+  is_active boolean
+  display_order integer
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table creator_ai_settings {
+  id bigint [pk, increment]
+  user_id bigint [unique, not null]
+  gemini_api_key varchar(255)
+  elevenlabs_api_key varchar(255)
+  tts_engine varchar(50)
+  voice_name varchar(100)
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+// ==============================================================================
+// MODULE: Community_Engagement
+// ==============================================================================
+Table comments {
+  id bigint [pk, increment]
+  created_at timestamptz
+  status varchar(255)
+  text_body text
+  artifact_id bigint
+  parent_comment_id bigint
+  user_id bigint
+}
+
+Table reactions {
+  id bigint [pk, increment]
+  created_at timestamptz
+  type varchar(255)
+  artifact_id bigint
+  user_id bigint
+}
+
+// ==============================================================================
+// MODULE: Memberships_Subscriptions
+// ==============================================================================
+Table channel_membership_plans {
+  id bigint [pk, increment]
+  channel_id bigint [unique, not null]
+  name varchar(255) [not null]
+  description text
+  monthly_price numeric(38,2) [not null]
+  perks jsonb [not null]
+  status varchar(50) [not null]
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table memberships {
+  id bigint [pk, increment]
+  ended_at timestamptz
+  started_at timestamptz
+  status varchar(255)
+  channel_id bigint
+  viewer_id bigint
+  plan_id bigint
+  updated_at timestamptz
+}
+
+Table membership_payments {
+  id bigint [pk, increment]
+  amount numeric(38,2)
+  commission_amount numeric(38,2)
+  creator_earning numeric(38,2)
+  paid_at timestamptz
+  status varchar(255)
+  membership_id bigint
+}
+
+// ==============================================================================
+// MODULE: Freelancers_and_Talent
+// ==============================================================================
+Table freelancer_profiles {
+  id bigint [pk, increment]
+  user_id bigint [unique, not null]
+  headline varchar(255)
+  bio text
+  skills text
+  portfolio_url varchar(1000)
+  status varchar(50)
+  created_at timestamptz
+  updated_at timestamptz
+  service_types varchar(255)
+  voice_demo_url varchar(1000)
+  reference_price numeric(15,2)
+}
+
+Table narrator_profiles {
+  id bigint [pk, increment]
+  base_rate numeric(38,2)
+  bio text
+  created_at timestamptz
+  languages varchar(255)
+  status varchar(255)
+  user_id bigint
+}
+
+Table narrator_demos {
+  id bigint [pk, increment]
+  file_url varchar(255)
+  title varchar(255)
+  uploaded_at timestamptz
+  narrator_profile_id bigint
+}
+
+// ==============================================================================
+// MODULE: Contracts_and_Escrow
+// ==============================================================================
+Table posts {
+  id bigint [pk, increment]
+  user_id bigint [not null]
+  type varchar(50) [not null]
+  service_type varchar(50) [not null]
+  title varchar(255) [not null]
+  description text [not null]
+  reference_price numeric(15,2)
+  status varchar(50) [not null]
+  expires_at timestamptz
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table applications {
+  id bigint [pk, increment]
+  post_id bigint [not null]
+  applicant_id bigint [not null]
+  message text
+  proposed_price numeric(15,2)
+  status varchar(50) [not null]
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table hire_requests {
+  id bigint [pk, increment]
+  created_at timestamptz
+  deadline date
+  description text
+  proposed_price numeric(38,2)
+  status varchar(255)
+  channel_id bigint
+  creator_id bigint
+  narrator_id bigint
+}
+
+Table contracts {
+  id bigint [pk, increment]
+  created_at timestamptz
+  creator_signed_at timestamptz
+  deadline date
+  narrator_signed_at timestamptz
+  price numeric(38,2)
+  status varchar(255)
+  terms_text text
+  hire_request_id bigint
+  post_id bigint
+  creator_id bigint
+  freelancer_id bigint
+  service_type varchar(50)
+  title varchar(255)
+  description text
+  total_amount numeric(15,2)
+  accepted_at timestamptz
+  accept_due_at timestamptz
+  updated_at timestamptz
+}
+
+Table milestones {
+  id bigint [pk, increment]
+  contract_id bigint [not null]
+  order_no integer [not null]
+  title varchar(255) [not null]
+  requirement text [not null]
+  amount numeric(15,2) [not null]
+  duration_days integer [not null]
+  max_revisions integer [not null]
+  revisions_used integer [not null]
+  status varchar(50) [not null]
+  fund_due_at timestamptz
+  due_at timestamptz
+  review_due_at timestamptz
+  release_at timestamptz
+  platform_fee numeric(15,2)
+  net_amount numeric(15,2)
+  escrow_status varchar(50)
+  funded_at timestamptz
+  released_at timestamptz
+  refunded_at timestamptz
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table submissions {
+  id bigint [pk, increment]
+  milestone_id bigint [not null]
+  version_no integer [not null]
+  content text
+  file_url varchar(1000)
+  created_at timestamptz
+}
+
+Table deliverables {
+  id bigint [pk, increment]
+  file_url varchar(255)
+  review_note text
+  reviewed_at timestamptz
+  status varchar(255)
+  submitted_at timestamptz
+  contract_id bigint
+}
+
+Table revision_requests {
+  id bigint [pk, increment]
+  milestone_id bigint [not null]
+  submission_id bigint
+  note text [not null]
+  created_at timestamptz
+}
+
+Table disputes {
+  id bigint [pk, increment]
+  reason text
+  resolution text
+  resolved_at timestamptz
+  status varchar(255)
+  contract_id bigint
+  raised_by bigint
+  resolved_by bigint
+  milestone_id bigint
+  evidence text
+  counter_evidence text
+  result varchar(50)
+  split_percent numeric(5,2)
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+Table reviews {
+  id bigint [pk, increment]
+  contract_id bigint [not null]
+  reviewer_id bigint [not null]
+  reviewee_id bigint [not null]
+  rating integer [not null]
+  comment text
+  created_at timestamptz
+}
+
+Table booking_escrow_configs {
+  id bigint [pk, increment]
+  config_key varchar(100) [unique, not null]
+  config_value varchar(255) [not null]
+  description varchar(500)
+  updated_by bigint
+  updated_at timestamptz
+}
+
+// ==============================================================================
+// MODULE: Wallets_and_Payments
+// ==============================================================================
+Table wallets {
+  id bigint [pk, increment]
+  available_balance numeric(38,2)
+  currency varchar(255)
+  pending_balance numeric(38,2)
+  updated_at timestamptz
+  user_id bigint
+}
+
+Table wallet_transactions {
+  id bigint [pk, increment]
+  amount numeric(38,2)
+  created_at timestamptz
+  related_id bigint
+  related_type varchar(255)
+  status varchar(255)
+  type varchar(255)
+  wallet_id bigint
+  merchant_txn_ref varchar(100)
+  gateway_txn_no varchar(100)
+  gateway_provider varchar(50)
+  description text
+}
+
+Table bank_accounts {
+  id bigint [pk, increment]
+  account_holder_name varchar(255)
+  account_number varchar(255)
+  bank_name varchar(255)
+  created_at timestamptz
+  verified boolean
+  user_id bigint
+  verified_at timestamptz
+}
+
+Table withdrawals {
+  id bigint [pk, increment]
+  amount numeric(38,2)
+  failure_reason text
+  processed_at timestamptz
+  requested_at timestamptz
+  status varchar(255)
+  bank_account_id bigint
+  wallet_id bigint
+}
+
+Table escrow_transactions {
+  id bigint [pk, increment]
+  amount numeric(38,2)
+  commission_amount numeric(38,2)
+  locked_at timestamptz
+  released_at timestamptz
+  status varchar(255)
+  contract_id bigint
+}
+
+// ==============================================================================
+// MODULE: System_and_Audit
+// ==============================================================================
+Table system_configs {
+  id bigint [pk, increment]
+  key varchar(255)
+  updated_at timestamptz
+  value text
+  updated_by bigint
+}
+
+Table audit_logs {
+  id bigint [pk, increment]
+  action_type varchar(255)
+  created_at timestamptz
+  note text
+  target_id bigint
+  target_type varchar(255)
+  actor_id bigint
+}
+
+Table email_templates {
+  id bigint [pk, increment]
+  code varchar(100) [unique, not null]
+  name varchar(255) [not null]
+  subject varchar(255) [not null]
+  html_content text [not null]
+  description text
+  status varchar(50)
+  created_at timestamptz
+  updated_at timestamptz
+}
+
+// ==============================================================================
+// RELATIONSHIPS & FOREIGN KEYS
+// ==============================================================================
+Ref: applications.applicant_id > users.id
+Ref: applications.post_id > posts.id
+Ref: booking_escrow_configs.updated_by > users.id
+Ref: channel_membership_plans.channel_id > channels.id
+Ref: contracts.creator_id > users.id
+Ref: contracts.freelancer_id > users.id
+Ref: contracts.post_id > posts.id
+Ref: creator_ai_settings.user_id > users.id
+Ref: disputes.milestone_id > milestones.id
+Ref: hire_requests.creator_id > users.id
+Ref: refresh_tokens.user_id > users.id
+Ref: disputes.resolved_by > users.id
+Ref: artifacts.content_id > contents.id
+Ref: deliverables.contract_id > contracts.id
+Ref: moderation_reviews.artifact_id > artifacts.id
+Ref: system_configs.updated_by > users.id
+Ref: comments.parent_comment_id > comments.id
+Ref: comments.user_id > users.id
+Ref: wallet_transactions.wallet_id > wallets.id
+Ref: memberships.channel_id > channels.id
+Ref: bank_accounts.user_id > users.id
+Ref: hire_requests.narrator_id > users.id
+Ref: disputes.raised_by > users.id
+Ref: wallets.user_id > users.id
+Ref: narrator_demos.narrator_profile_id > narrator_profiles.id
+Ref: transcripts.artifact_id > artifacts.id
+Ref: disputes.contract_id > contracts.id
+Ref: audit_logs.actor_id > users.id
+Ref: contracts.hire_request_id > hire_requests.id
+Ref: memberships.viewer_id > users.id
+Ref: reactions.artifact_id > artifacts.id
+Ref: withdrawals.wallet_id > wallets.id
+Ref: contents.channel_id > channels.id
+Ref: withdrawals.bank_account_id > bank_accounts.id
+Ref: ai_filter_logs.artifact_id > artifacts.id
+Ref: escrow_transactions.contract_id > contracts.id
+Ref: kyc_profiles.user_id > users.id
+Ref: comments.artifact_id > artifacts.id
+Ref: narrator_profiles.user_id > users.id
+Ref: users.role_id > roles.id
+Ref: hire_requests.channel_id > channels.id
+Ref: channels.creator_id > users.id
+Ref: reactions.user_id > users.id
+Ref: membership_payments.membership_id > memberships.id
+Ref: moderation_reviews.moderator_id > users.id
+Ref: freelancer_profiles.user_id > users.id
+Ref: memberships.plan_id > channel_membership_plans.id
+Ref: milestones.contract_id > contracts.id
+Ref: password_reset_tokens.user_id > users.id
+Ref: posts.user_id > users.id
+Ref: reviews.contract_id > contracts.id
+Ref: reviews.reviewee_id > users.id
+Ref: reviews.reviewer_id > users.id
+Ref: revision_requests.milestone_id > milestones.id
+Ref: revision_requests.submission_id > submissions.id
+Ref: submissions.milestone_id > milestones.id
+Ref: user_roles.role_id > roles.id
+Ref: user_roles.user_id > users.id
+
+// ==============================================================================
+// TABLE GROUPS (Visual domain clustering in dbdiagram.io)
+// ==============================================================================
+TableGroup Identity_and_Auth {
+  users
+  roles
+  user_roles
+  kyc_profiles
+  refresh_tokens
+  password_reset_tokens
+}
+
+TableGroup Media_and_Content {
+  channels
+  contents
+  artifacts
+  transcripts
+}
+
+TableGroup Moderation_and_AI {
+  moderation_reviews
+  ai_filter_logs
+  ai_shield_policy_configs
+  creator_ai_settings
+}
+
+TableGroup Community_Engagement {
+  comments
+  reactions
+}
+
+TableGroup Memberships_Subscriptions {
+  channel_membership_plans
+  memberships
+  membership_payments
+}
+
+TableGroup Freelancers_and_Talent {
+  freelancer_profiles
+  narrator_profiles
+  narrator_demos
+}
+
+TableGroup Contracts_and_Escrow {
+  posts
+  applications
+  hire_requests
+  contracts
+  milestones
+  submissions
+  deliverables
+  revision_requests
+  disputes
+  reviews
+  booking_escrow_configs
+}
+
+TableGroup Wallets_and_Payments {
+  wallets
+  wallet_transactions
+  bank_accounts
+  withdrawals
+  escrow_transactions
+}
+
+TableGroup System_and_Audit {
+  system_configs
+  audit_logs
+  email_templates
+}
