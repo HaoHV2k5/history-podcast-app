@@ -92,6 +92,16 @@ public class Milestone {
     @Builder.Default
     private List<Submission> submissions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "milestone", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt DESC")
+    @Builder.Default
+    private List<MilestoneDeliverable> deliverables = new ArrayList<>();
+
+    @OneToMany(mappedBy = "milestone", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("createdAt DESC")
+    @Builder.Default
+    private List<MilestoneReview> reviews = new ArrayList<>();
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
