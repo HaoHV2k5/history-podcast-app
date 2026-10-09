@@ -256,6 +256,10 @@ class BookingEscrowFlowTest {
         assertEquals(new BigDecimal("5.0"), contractRes.getPlatformFeePercent());
         assertEquals(new BigDecimal("35000.00"), contractRes.getPlatformFee());
         assertEquals(new BigDecimal("665000.00"), contractRes.getNetAmount());
+        assertNotNull(contractRes.getTermsText());
+        assertTrue(contractRes.getTermsText().contains("ĐIỀU KHOẢN TIÊU CHUẨN NỀN TẢNG"));
+        assertTrue(contractRes.getTermsText().contains("5.0%"));
+        assertTrue(contractRes.getTermsText().contains("Dispute Arbitration"));
         assertEquals(2, contractRes.getMilestones().size());
 
         // --- BƯỚC 2: Freelancer chấp nhận hợp đồng ---

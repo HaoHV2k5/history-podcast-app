@@ -35,6 +35,7 @@ public class ContractResponse {
     private BigDecimal platformFeePercent;
     private BigDecimal platformFee;
     private BigDecimal netAmount;
+    private String termsText;
     private ContractStatus status;
     private Instant acceptedAt;
     private Instant acceptDueAt;
