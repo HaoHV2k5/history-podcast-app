@@ -13,7 +13,6 @@ import com.prm.contract.dto.response.ContractResponse;
 import com.prm.contract.dto.response.EscrowPaymentResponse;
 import com.prm.contract.dto.response.MilestoneResponse;
 import com.prm.contract.entity.Contract;
-import com.prm.contract.entity.EscrowPayment;
 import com.prm.contract.entity.Milestone;
 import com.prm.contract.repository.*;
 import com.prm.contract.service.impl.ContractServiceImpl;
@@ -59,8 +58,6 @@ class BookingEscrowFlowTest {
     private SubmissionRepository submissionRepository;
     @Mock
     private RevisionRequestRepository revisionRequestRepository;
-    @Mock
-    private EscrowPaymentRepository escrowPaymentRepository;
     @Mock
     private DisputeRepository disputeRepository;
     @Mock
@@ -114,7 +111,6 @@ class BookingEscrowFlowTest {
                 .build();
 
         escrowService = new EscrowServiceImpl(
-                escrowPaymentRepository,
                 milestoneRepository,
                 contractRepository,
                 walletRepository,
@@ -127,7 +123,6 @@ class BookingEscrowFlowTest {
                 contractRepository,
                 submissionRepository,
                 revisionRequestRepository,
-                escrowPaymentRepository,
                 walletRepository,
                 walletTransactionRepository,
                 userRepository,
@@ -140,7 +135,6 @@ class BookingEscrowFlowTest {
                 milestoneRepository,
                 submissionRepository,
                 revisionRequestRepository,
-                escrowPaymentRepository,
                 postRepository,
                 userRepository,
                 properties
@@ -271,7 +265,6 @@ class BookingEscrowFlowTest {
                 .currency("VND")
                 .build();
         when(walletRepository.findByUserIdForUpdate(10L)).thenReturn(Optional.of(creatorWallet));
-        when(escrowPaymentRepository.findByMilestoneId(1L)).thenReturn(Optional.empty());
 
         MilestoneResponse fundedRes = milestoneService.fundMilestone(1L);
         assertEquals(MilestoneStatus.IN_PROGRESS, fundedRes.getStatus());
@@ -310,15 +303,11 @@ class BookingEscrowFlowTest {
         assertNotNull(m2.getFundDueAt());
 
         // --- BƯỚC 7: Giải ngân Escrow Milestone 1 (Tự động hoặc sau 3 ngày) ---
-        EscrowPayment escrow = EscrowPayment.builder()
-                .id(1L)
-                .milestone(m1)
-                .amount(new BigDecimal("300000"))
-                .platformFee(new BigDecimal("15000.00")) // 5% của 300k
-                .netAmount(new BigDecimal("285000.00"))
-                .status(EscrowStatus.HELD)
-                .build();
-        when(escrowPaymentRepository.findByMilestoneId(1L)).thenReturn(Optional.of(escrow));
+        m1.setAmount(new BigDecimal("300000"));
+        m1.setPlatformFee(new BigDecimal("15000.00")); // 5% của 300k
+        m1.setNetAmount(new BigDecimal("285000.00"));
+        m1.setEscrowStatus(EscrowStatus.HELD);
+        when(milestoneRepository.findById(1L)).thenReturn(Optional.of(m1));
 
         Wallet freelancerWallet = Wallet.builder()
                 .id(2L)
@@ -342,11 +331,19 @@ class BookingEscrowFlowTest {
         User admin = User.builder().id(99L).email("admin@example.com").fullName("System Admin").roles(Set.of(adminRole)).build();
 
         Contract contract = Contract.builder().id(200L).creator(creator).freelancer(freelancer).title("Hợp đồng tranh chấp").status(ContractStatus.ACTIVE).build();
-        Milestone milestone = Milestone.builder().id(10L).contract(contract).orderNo(1).title("Milestone 1").amount(new BigDecimal("1000000")).status(MilestoneStatus.SUBMITTED).build();
-        EscrowPayment escrow = EscrowPayment.builder().id(10L).milestone(milestone).amount(new BigDecimal("1000000")).status(EscrowStatus.HELD).build();
+        Milestone milestone = Milestone.builder()
+                .id(10L)
+                .contract(contract)
+                .orderNo(1)
+                .title("Milestone 1")
+                .amount(new BigDecimal("1000000"))
+                .platformFee(new BigDecimal("50000.00"))
+                .netAmount(new BigDecimal("950000.00"))
+                .status(MilestoneStatus.SUBMITTED)
+                .escrowStatus(EscrowStatus.HELD)
+                .build();
 
         when(milestoneRepository.findById(10L)).thenReturn(Optional.of(milestone));
-        when(escrowPaymentRepository.findByMilestoneId(10L)).thenReturn(Optional.of(escrow));
         when(disputeRepository.existsByMilestoneIdAndStatus(10L, com.prm.contract.constant.DisputeStatus.OPEN)).thenReturn(false);
 
         // 1. Creator mở Dispute
@@ -369,7 +366,7 @@ class BookingEscrowFlowTest {
         com.prm.contract.dto.response.DisputeResponse disputeRes = disputeService.openDispute(openReq);
         assertEquals(com.prm.contract.constant.DisputeStatus.OPEN, disputeRes.getStatus());
         // Tiền ký quỹ bị FROZEN và Milestone chuyển sang DISPUTED
-        assertEquals(EscrowStatus.FROZEN, escrow.getStatus());
+        assertEquals(EscrowStatus.FROZEN, milestone.getEscrowStatus());
         assertEquals(MilestoneStatus.DISPUTED, milestone.getStatus());
 
         // 2. Admin phân xử SPLIT: Freelancer 60%, Creator 40%
@@ -409,18 +406,11 @@ class BookingEscrowFlowTest {
                 .orderNo(1)
                 .amount(new BigDecimal("500000"))
                 .status(MilestoneStatus.IN_PROGRESS)
+                .escrowStatus(EscrowStatus.HELD)
                 .dueAt(Instant.now().minus(2, ChronoUnit.DAYS)) // Quá hạn 2 ngày
                 .build();
 
-        EscrowPayment escrow = EscrowPayment.builder()
-                .id(30L)
-                .milestone(milestone)
-                .amount(new BigDecimal("500000"))
-                .status(EscrowStatus.HELD)
-                .build();
-
         when(milestoneRepository.findById(30L)).thenReturn(Optional.of(milestone));
-        when(escrowPaymentRepository.findByMilestoneId(30L)).thenReturn(Optional.of(escrow));
 
         Wallet creatorWallet = Wallet.builder().id(1L).user(creator).availableBalance(new BigDecimal("200000")).currency("VND").build();
         when(walletRepository.findByUserIdForUpdate(10L)).thenReturn(Optional.of(creatorWallet));

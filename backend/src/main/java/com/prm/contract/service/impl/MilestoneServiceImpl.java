@@ -44,7 +44,6 @@ public class MilestoneServiceImpl implements MilestoneService {
     private final ContractRepository contractRepository;
     private final SubmissionRepository submissionRepository;
     private final RevisionRequestRepository revisionRequestRepository;
-    private final EscrowPaymentRepository escrowPaymentRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final UserRepository userRepository;
@@ -94,21 +93,14 @@ public class MilestoneServiceImpl implements MilestoneService {
                 .build();
         walletTransactionRepository.save(tx);
 
-        // 4. Tạo hoặc cập nhật bản ghi EscrowPayment
+        // 4. Cập nhật các trường ký quỹ & hoa hồng trực tiếp trên Milestone
         BigDecimal fee = amount.multiply(properties.getPlatformFeePercent()).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
         BigDecimal net = amount.subtract(fee);
 
-        EscrowPayment escrow = escrowPaymentRepository.findByMilestoneId(milestoneId)
-                .orElseGet(() -> EscrowPayment.builder()
-                        .milestone(milestone)
-                        .build());
-
-        escrow.setAmount(amount);
-        escrow.setPlatformFee(fee);
-        escrow.setNetAmount(net);
-        escrow.setStatus(EscrowStatus.HELD);
-        escrow.setFundedAt(Instant.now());
-        escrowPaymentRepository.save(escrow);
+        milestone.setPlatformFee(fee);
+        milestone.setNetAmount(net);
+        milestone.setEscrowStatus(EscrowStatus.HELD);
+        milestone.setFundedAt(Instant.now());
 
         // 5. Chuyển trạng thái Milestone sang IN_PROGRESS và bắt đầu tính deadline
         milestone.setStatus(MilestoneStatus.IN_PROGRESS);
@@ -292,15 +284,7 @@ public class MilestoneServiceImpl implements MilestoneService {
     }
 
     private MilestoneResponse toMilestoneResponse(Milestone m) {
-        EscrowStatus escrowStatus = null;
-        if (m.getEscrowPayment() != null) {
-            escrowStatus = m.getEscrowPayment().getStatus();
-        } else {
-            Optional<EscrowPayment> ep = escrowPaymentRepository.findByMilestoneId(m.getId());
-            if (ep.isPresent()) {
-                escrowStatus = ep.get().getStatus();
-            }
-        }
+        EscrowStatus escrowStatus = m.getEscrowStatus();
 
         List<SubmissionResponse> submissions = submissionRepository.findByMilestoneIdOrderByVersionNoDesc(m.getId()).stream()
                 .map(s -> SubmissionResponse.builder()
@@ -339,6 +323,11 @@ public class MilestoneServiceImpl implements MilestoneService {
                 .reviewDueAt(m.getReviewDueAt())
                 .releaseAt(m.getReleaseAt())
                 .escrowStatus(escrowStatus)
+                .platformFee(m.getPlatformFee())
+                .netAmount(m.getNetAmount())
+                .fundedAt(m.getFundedAt())
+                .releasedAt(m.getReleasedAt())
+                .refundedAt(m.getRefundedAt())
                 .submissions(submissions)
                 .revisionRequests(revisions)
                 .createdAt(m.getCreatedAt())
