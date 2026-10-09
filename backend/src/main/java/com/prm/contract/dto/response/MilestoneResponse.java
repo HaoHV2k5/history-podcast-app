@@ -37,6 +37,8 @@ public class MilestoneResponse {
     private Instant refundedAt;
     private List<SubmissionResponse> submissions;
     private List<RevisionRequestResponse> revisionRequests;
+    private List<MilestoneDeliverableResponse> deliverables;
+    private List<MilestoneReviewResponse> reviews;
     private Instant createdAt;
     private Instant updatedAt;
 }

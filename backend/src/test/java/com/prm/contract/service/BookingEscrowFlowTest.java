@@ -59,6 +59,10 @@ class BookingEscrowFlowTest {
     @Mock
     private RevisionRequestRepository revisionRequestRepository;
     @Mock
+    private MilestoneDeliverableRepository deliverableRepository;
+    @Mock
+    private MilestoneReviewRepository milestoneReviewRepository;
+    @Mock
     private DisputeRepository disputeRepository;
     @Mock
     private ReviewRepository reviewRepository;
@@ -123,6 +127,8 @@ class BookingEscrowFlowTest {
                 contractRepository,
                 submissionRepository,
                 revisionRequestRepository,
+                deliverableRepository,
+                milestoneReviewRepository,
                 walletRepository,
                 walletTransactionRepository,
                 userRepository,
@@ -206,7 +212,13 @@ class BookingEscrowFlowTest {
                 .milestones(new ArrayList<>())
                 .build();
 
-        when(contractRepository.save(any(Contract.class))).thenReturn(contract);
+        when(contractRepository.save(any(Contract.class))).thenAnswer(invocation -> {
+            Contract c = invocation.getArgument(0);
+            if (c.getId() == null) {
+                c.setId(100L);
+            }
+            return c;
+        });
 
         Milestone m1 = Milestone.builder()
                 .id(1L)
@@ -241,6 +253,9 @@ class BookingEscrowFlowTest {
         assertNotNull(contractRes);
         assertEquals(ContractStatus.PENDING, contractRes.getStatus());
         assertEquals(new BigDecimal("700000"), contractRes.getTotalAmount());
+        assertEquals(new BigDecimal("5.0"), contractRes.getPlatformFeePercent());
+        assertEquals(new BigDecimal("35000.00"), contractRes.getPlatformFee());
+        assertEquals(new BigDecimal("665000.00"), contractRes.getNetAmount());
         assertEquals(2, contractRes.getMilestones().size());
 
         // --- BƯỚC 2: Freelancer chấp nhận hợp đồng ---
@@ -302,10 +317,10 @@ class BookingEscrowFlowTest {
         assertEquals(MilestoneStatus.UNFUNDED, m2.getStatus());
         assertNotNull(m2.getFundDueAt());
 
-        // --- BƯỚC 7: Giải ngân Escrow Milestone 1 (Tự động hoặc sau 3 ngày) ---
+        // --- BƯỚC 7: Giải ngân Escrow Milestone 1 (Giai đoạn trung gian: nhận 100%, hoa hồng = 0) ---
         m1.setAmount(new BigDecimal("300000"));
-        m1.setPlatformFee(new BigDecimal("15000.00")); // 5% của 300k
-        m1.setNetAmount(new BigDecimal("285000.00"));
+        m1.setPlatformFee(BigDecimal.ZERO); // Không trừ hoa hồng ở giai đoạn 1
+        m1.setNetAmount(new BigDecimal("300000.00"));
         m1.setEscrowStatus(EscrowStatus.HELD);
         when(milestoneRepository.findById(1L)).thenReturn(Optional.of(m1));
 
@@ -320,8 +335,21 @@ class BookingEscrowFlowTest {
         EscrowPaymentResponse releaseRes = escrowService.releaseMilestoneEscrow(1L);
         assertEquals(EscrowStatus.RELEASED, releaseRes.getStatus());
         assertEquals(MilestoneStatus.RELEASED, m1.getStatus());
-        // Freelancer nhận được 285.000 (đã trừ 15.000 phí sàn 5%)
-        assertEquals(new BigDecimal("285000.00"), freelancerWallet.getAvailableBalance());
+        // Freelancer nhận trọn vẹn 300.000 (không bị trừ hoa hồng ở giai đoạn trung gian)
+        assertEquals(new BigDecimal("300000.00"), freelancerWallet.getAvailableBalance());
+
+        // --- BƯỚC 8: Giải ngân Escrow Milestone 2 (Giai đoạn cuối cùng: khấu trừ toàn bộ 5% phí sàn của hợp đồng) ---
+        m2.setAmount(new BigDecimal("400000"));
+        m2.setPlatformFee(new BigDecimal("35000.00")); // Toàn bộ 5% của tổng hợp đồng 700k
+        m2.setNetAmount(new BigDecimal("365000.00")); // 400.000 - 35.000
+        m2.setEscrowStatus(EscrowStatus.HELD);
+        when(milestoneRepository.findById(2L)).thenReturn(Optional.of(m2));
+
+        EscrowPaymentResponse releaseM2Res = escrowService.releaseMilestoneEscrow(2L);
+        assertEquals(EscrowStatus.RELEASED, releaseM2Res.getStatus());
+        assertEquals(MilestoneStatus.RELEASED, m2.getStatus());
+        // Freelancer nhận thêm 365.000 -> Tổng nhận cả hợp đồng là 300.000 + 365.000 = 665.000 (đúng netAmount của hợp đồng)
+        assertEquals(new BigDecimal("665000.00"), freelancerWallet.getAvailableBalance());
     }
 
     @Test

@@ -43,4 +43,13 @@ public interface FileStorageService {
      * @return optimized URL with f_auto,q_auto transformations applied, or rawUrl if injection is not possible
      */
     String buildOptimizedVideoUrl(String rawUrl);
+
+    /**
+     * Upload deliverable document, archive, or code file (PDF, ZIP, DOCX, etc.) to storage.
+     *
+     * @param file   the deliverable MultipartFile
+     * @param folder destination folder on storage
+     * @return secure HTTPS URL or file path of the uploaded file
+     */
+    String uploadRawFile(MultipartFile file, String folder);
 }

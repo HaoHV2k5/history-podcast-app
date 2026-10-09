@@ -50,6 +50,18 @@ public class Contract {
     @Column(name = "total_amount", precision = 15, scale = 2)
     private BigDecimal totalAmount;
 
+    @Column(name = "platform_fee_percent", precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal platformFeePercent = new BigDecimal("5.0");
+
+    @Column(name = "platform_fee", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal platformFee = BigDecimal.ZERO;
+
+    @Column(name = "net_amount", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal netAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private ContractStatus status; // PENDING | ACTIVE | COMPLETED | REJECTED | CANCELLED
@@ -101,6 +113,15 @@ public class Contract {
         }
         if (status == null) {
             status = ContractStatus.PENDING;
+        }
+        if (platformFeePercent == null) {
+            platformFeePercent = new BigDecimal("5.0");
+        }
+        if (platformFee == null) {
+            platformFee = BigDecimal.ZERO;
+        }
+        if (netAmount == null && totalAmount != null) {
+            netAmount = totalAmount.subtract(platformFee);
         }
     }
 

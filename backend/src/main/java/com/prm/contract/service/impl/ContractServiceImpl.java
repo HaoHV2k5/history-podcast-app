@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -102,6 +103,18 @@ public class ContractServiceImpl implements ContractService {
             }
         }
 
+        // Tính toán phí nền tảng cấp Hợp đồng (Admin config cứng)
+        BigDecimal feePercent = properties.getPlatformFeePercent() != null ? properties.getPlatformFeePercent() : new BigDecimal("5.0");
+        BigDecimal platformFee = totalAmount.multiply(feePercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal netAmount = totalAmount.subtract(platformFee);
+
+        // Đảm bảo milestone cuối cùng đủ chi trả phí nền tảng của hợp đồng
+        MilestoneItemRequest lastItem = items.get(items.size() - 1);
+        if (lastItem.getAmount().compareTo(platformFee) < 0) {
+            throw new AppException(ErrorCode.INVALID_CONTRACT_DATA,
+                    "Milestone cuối cùng (Giai đoạn " + items.size() + ") phải có giá trị ít nhất bằng phí nền tảng hợp đồng (" + platformFee + " VND) để thực hiện quyết toán hoa hồng");
+        }
+
         Instant acceptDueAt = Instant.now().plus(properties.getContractAcceptHours(), ChronoUnit.HOURS);
 
         Contract contract = Contract.builder()
@@ -112,6 +125,9 @@ public class ContractServiceImpl implements ContractService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .totalAmount(totalAmount)
+                .platformFeePercent(feePercent)
+                .platformFee(platformFee)
+                .netAmount(netAmount)
                 .status(ContractStatus.PENDING)
                 .acceptDueAt(acceptDueAt)
                 .createdAt(Instant.now())
@@ -119,11 +135,14 @@ public class ContractServiceImpl implements ContractService {
 
         Contract savedContract = contractRepository.save(contract);
 
-        // Lưu các milestones
+        // Lưu các milestones: Milestone trung gian (1..k-1) nhận 100%, Milestone cuối cùng (k) khấu trừ hoa hồng hợp đồng
         List<Milestone> milestones = new ArrayList<>();
         for (int i = 0; i < items.size(); i++) {
             MilestoneItemRequest item = items.get(i);
             int maxRev = item.getMaxRevisions() != null ? item.getMaxRevisions() : properties.getMaxRevisionsDefault();
+            boolean isLast = (i == items.size() - 1);
+            BigDecimal mFee = isLast ? platformFee : BigDecimal.ZERO;
+            BigDecimal mNet = item.getAmount().subtract(mFee);
 
             Milestone m = Milestone.builder()
                     .contract(savedContract)
@@ -131,6 +150,8 @@ public class ContractServiceImpl implements ContractService {
                     .title(item.getTitle())
                     .requirement(item.getRequirement())
                     .amount(item.getAmount())
+                    .platformFee(mFee)
+                    .netAmount(mNet)
                     .durationDays(item.getDurationDays())
                     .maxRevisions(maxRev)
                     .revisionsUsed(0)
@@ -324,6 +345,9 @@ public class ContractServiceImpl implements ContractService {
                 .title(c.getTitle())
                 .description(c.getDescription())
                 .totalAmount(c.getTotalAmount())
+                .platformFeePercent(c.getPlatformFeePercent())
+                .platformFee(c.getPlatformFee())
+                .netAmount(c.getNetAmount())
                 .status(c.getStatus())
                 .acceptedAt(c.getAcceptedAt())
                 .acceptDueAt(c.getAcceptDueAt())

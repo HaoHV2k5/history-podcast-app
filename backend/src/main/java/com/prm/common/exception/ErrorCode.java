@@ -104,7 +104,10 @@ public enum ErrorCode {
     DISPUTE_INVALID_STATE("DSP_8042", "Trạng thái tranh chấp không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
 
     REVIEW_ALREADY_EXISTS("REV_8050", "Bạn đã đánh giá hợp đồng này rồi", HttpStatus.CONFLICT),
-    CONTRACT_NOT_COMPLETED("REV_8051", "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành", HttpStatus.BAD_REQUEST);
+    CONTRACT_NOT_COMPLETED("REV_8051", "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành", HttpStatus.BAD_REQUEST),
+
+    DELIVERABLE_NOT_FOUND("DLV_8060", "Không tìm thấy sản phẩm giao nộp", HttpStatus.NOT_FOUND),
+    DELIVERABLE_ACCESS_DENIED("DLV_8061", "Chỉ các bên liên quan của hợp đồng mới có quyền truy cập sản phẩm này", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String message;
