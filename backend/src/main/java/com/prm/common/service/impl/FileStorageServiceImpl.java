@@ -203,4 +203,39 @@ public class FileStorageServiceImpl implements FileStorageService {
             );
         }
     }
+
+    @Override
+    public String uploadRawFile(MultipartFile file, String folder) {
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.FILE_EMPTY, "Tệp sản phẩm không được để trống");
+        }
+        if (file.getSize() > 25 * 1024 * 1024) { // 25MB
+            throw new AppException(ErrorCode.FILE_TOO_LARGE, "Dung lượng tệp không được vượt quá 25MB");
+        }
+        if (!isConfigured) {
+            log.warn("Cloudinary not configured, returning simulated deliverable URL for file {}", file.getOriginalFilename());
+            return "https://storage.local/deliverables/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+        }
+
+        String targetFolder = buildTargetFolder(folder);
+        try {
+            Map<String, Object> params = new java.util.HashMap<>();
+            params.put("folder", targetFolder);
+            params.put("resource_type", "auto");
+            params.put("use_filename", true);
+            params.put("unique_filename", true);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), params);
+            String secureUrl = (String) uploadResult.get("secure_url");
+            if (!StringUtils.hasText(secureUrl)) {
+                throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Không nhận được URL từ dịch vụ lưu trữ");
+            }
+            log.info("Uploaded raw deliverable file '{}' to Cloudinary path '{}': {}", file.getOriginalFilename(), targetFolder, secureUrl);
+            return secureUrl;
+        } catch (IOException e) {
+            log.error("Failed to upload deliverable file to cloud storage", e);
+            throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Lỗi khi truyền dữ liệu tệp sản phẩm: " + e.getMessage());
+        }
+    }
 }

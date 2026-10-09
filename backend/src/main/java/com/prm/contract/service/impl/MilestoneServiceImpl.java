@@ -9,7 +9,9 @@ import com.prm.contract.constant.EscrowStatus;
 import com.prm.contract.constant.MilestoneStatus;
 import com.prm.contract.dto.request.RequestRevisionRequest;
 import com.prm.contract.dto.request.SubmitDeliverableRequest;
+import com.prm.contract.dto.response.MilestoneDeliverableResponse;
 import com.prm.contract.dto.response.MilestoneResponse;
+import com.prm.contract.dto.response.MilestoneReviewResponse;
 import com.prm.contract.dto.response.RevisionRequestResponse;
 import com.prm.contract.dto.response.SubmissionResponse;
 import com.prm.contract.entity.*;
@@ -44,6 +46,8 @@ public class MilestoneServiceImpl implements MilestoneService {
     private final ContractRepository contractRepository;
     private final SubmissionRepository submissionRepository;
     private final RevisionRequestRepository revisionRequestRepository;
+    private final MilestoneDeliverableRepository deliverableRepository;
+    private final MilestoneReviewRepository milestoneReviewRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final UserRepository userRepository;
@@ -93,12 +97,18 @@ public class MilestoneServiceImpl implements MilestoneService {
                 .build();
         walletTransactionRepository.save(tx);
 
-        // 4. Cập nhật các trường ký quỹ & hoa hồng trực tiếp trên Milestone
-        BigDecimal fee = amount.multiply(properties.getPlatformFeePercent()).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        BigDecimal net = amount.subtract(fee);
+        // 4. Cập nhật các trường ký quỹ & hoa hồng: Milestone trung gian phí = 0, Milestone cuối cùng chịu toàn bộ phí hợp đồng
+        if (milestone.getPlatformFee() == null || milestone.getNetAmount() == null) {
+            List<Milestone> allMilestones = milestoneRepository.findByContractIdOrderByOrderNoAsc(contract.getId());
+            boolean isLast = allMilestones.isEmpty() || allMilestones.get(allMilestones.size() - 1).getId().equals(milestone.getId());
+            BigDecimal contractFee = contract.getPlatformFee() != null
+                    ? contract.getPlatformFee()
+                    : amount.multiply(properties.getPlatformFeePercent()).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            BigDecimal fee = isLast ? contractFee : BigDecimal.ZERO;
+            milestone.setPlatformFee(fee);
+            milestone.setNetAmount(amount.subtract(fee));
+        }
 
-        milestone.setPlatformFee(fee);
-        milestone.setNetAmount(net);
         milestone.setEscrowStatus(EscrowStatus.HELD);
         milestone.setFundedAt(Instant.now());
 
@@ -307,6 +317,52 @@ public class MilestoneServiceImpl implements MilestoneService {
                         .build())
                 .toList();
 
+        List<MilestoneDeliverableResponse> deliverables = deliverableRepository.findByMilestoneIdOrderByCreatedAtDesc(m.getId()).stream()
+                .map(d -> MilestoneDeliverableResponse.builder()
+                        .id(d.getId())
+                        .milestoneId(m.getId())
+                        .milestoneOrderNo(m.getOrderNo())
+                        .milestoneTitle(m.getTitle())
+                        .postId(d.getPost() != null ? d.getPost().getId() : null)
+                        .postTitle(d.getPost() != null ? d.getPost().getTitle() : null)
+                        .contractId(m.getContract() != null ? m.getContract().getId() : null)
+                        .contractTitle(m.getContract() != null ? m.getContract().getTitle() : null)
+                        .title(d.getTitle())
+                        .description(d.getDescription())
+                        .fileName(d.getFileName())
+                        .fileSize(d.getFileSize())
+                        .contentType(d.getContentType())
+                        .versionNo(d.getVersionNo())
+                        .uploadedById(d.getUploadedBy() != null ? d.getUploadedBy().getId() : null)
+                        .uploadedByFullName(d.getUploadedBy() != null ? d.getUploadedBy().getFullName() : null)
+                        .downloadUrl("/api/v1/deliverables/" + d.getId() + "/download")
+                        .previewUrl("/api/v1/deliverables/" + d.getId() + "/view")
+                        .createdAt(d.getCreatedAt())
+                        .build())
+                .toList();
+
+        List<MilestoneReviewResponse> reviews = milestoneReviewRepository != null
+                ? milestoneReviewRepository.findByMilestoneIdOrderByCreatedAtDesc(m.getId()).stream()
+                    .map(r -> MilestoneReviewResponse.builder()
+                            .id(r.getId())
+                            .milestoneId(m.getId())
+                            .milestoneOrderNo(m.getOrderNo())
+                            .milestoneTitle(m.getTitle())
+                            .contractId(m.getContract() != null ? m.getContract().getId() : null)
+                            .contractTitle(m.getContract() != null ? m.getContract().getTitle() : null)
+                            .reviewerId(r.getReviewer().getId())
+                            .reviewerFullName(r.getReviewer().getFullName())
+                            .reviewerAvatarUrl(r.getReviewer().getAvatarUrl())
+                            .revieweeId(r.getReviewee().getId())
+                            .revieweeFullName(r.getReviewee().getFullName())
+                            .revieweeAvatarUrl(r.getReviewee().getAvatarUrl())
+                            .rating(r.getRating())
+                            .comment(r.getComment())
+                            .createdAt(r.getCreatedAt())
+                            .build())
+                    .toList()
+                : java.util.Collections.emptyList();
+
         return MilestoneResponse.builder()
                 .id(m.getId())
                 .contractId(m.getContract().getId())
@@ -330,6 +386,8 @@ public class MilestoneServiceImpl implements MilestoneService {
                 .refundedAt(m.getRefundedAt())
                 .submissions(submissions)
                 .revisionRequests(revisions)
+                .deliverables(deliverables)
+                .reviews(reviews)
                 .createdAt(m.getCreatedAt())
                 .updatedAt(m.getUpdatedAt())
                 .build();
