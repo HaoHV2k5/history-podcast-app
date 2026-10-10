@@ -38,6 +38,7 @@ public class BookingEscrowConfigServiceImpl implements BookingEscrowConfigServic
     public static final String KEY_MAX_REVISIONS_DEFAULT = "MAX_REVISIONS_DEFAULT";
     public static final String KEY_PLATFORM_FEE_PERCENT = "PLATFORM_FEE_PERCENT";
     public static final String KEY_JOB_INTERVAL_MINUTES = "JOB_INTERVAL_MINUTES";
+    public static final String KEY_TERMS_TEMPLATE = "TERMS_TEMPLATE";
 
     private final BookingEscrowConfigRepository configRepository;
     private final BookingEscrowProperties properties;
@@ -57,6 +58,7 @@ public class BookingEscrowConfigServiceImpl implements BookingEscrowConfigServic
             configRepository.findByConfigKey(KEY_MAX_REVISIONS_DEFAULT).ifPresent(c -> properties.setMaxRevisionsDefault(Integer.parseInt(c.getConfigValue())));
             configRepository.findByConfigKey(KEY_PLATFORM_FEE_PERCENT).ifPresent(c -> properties.setPlatformFeePercent(new BigDecimal(c.getConfigValue())));
             configRepository.findByConfigKey(KEY_JOB_INTERVAL_MINUTES).ifPresent(c -> properties.setJobIntervalMinutes(Integer.parseInt(c.getConfigValue())));
+            configRepository.findByConfigKey(KEY_TERMS_TEMPLATE).ifPresent(c -> properties.setTermsTemplate(c.getConfigValue()));
             log.info("BookingEscrow properties initialized successfully from Database.");
         } catch (Exception e) {
             log.warn("Could not sync BookingEscrow configs from DB on startup (table may not be ready yet): {}", e.getMessage());
@@ -82,6 +84,7 @@ public class BookingEscrowConfigServiceImpl implements BookingEscrowConfigServic
                 .maxRevisionsDefault(properties.getMaxRevisionsDefault())
                 .platformFeePercent(properties.getPlatformFeePercent())
                 .jobIntervalMinutes(properties.getJobIntervalMinutes())
+                .termsTemplate(properties.getTermsTemplate())
                 .updatedAt(latestUpdated != null ? latestUpdated.getUpdatedAt() : Instant.now())
                 .updatedByUserId(latestUpdated != null && latestUpdated.getUpdatedBy() != null ? latestUpdated.getUpdatedBy().getId() : null)
                 .updatedByUserName(latestUpdated != null && latestUpdated.getUpdatedBy() != null ? latestUpdated.getUpdatedBy().getFullName() : "SYSTEM")
@@ -132,6 +135,10 @@ public class BookingEscrowConfigServiceImpl implements BookingEscrowConfigServic
             properties.setJobIntervalMinutes(request.getJobIntervalMinutes());
             saveOrUpdateConfig(KEY_JOB_INTERVAL_MINUTES, String.valueOf(request.getJobIntervalMinutes()), "Chu kỳ chạy job quét hạn (phút)", admin);
         }
+        if (request.getTermsTemplate() != null) {
+            properties.setTermsTemplate(request.getTermsTemplate());
+            saveOrUpdateConfig(KEY_TERMS_TEMPLATE, request.getTermsTemplate(), "Mẫu văn bản điều khoản hợp đồng tiêu chuẩn", admin);
+        }
 
         log.info("Admin {} updated BookingEscrow configurations successfully", admin.getEmail());
         return getConfig();
@@ -170,6 +177,9 @@ public class BookingEscrowConfigServiceImpl implements BookingEscrowConfigServic
 
         properties.setJobIntervalMinutes(60);
         saveOrUpdateConfig(KEY_JOB_INTERVAL_MINUTES, "60", "Chu kỳ chạy job quét hạn (phút)", admin);
+
+        properties.setTermsTemplate(BookingEscrowProperties.DEFAULT_TERMS_TEMPLATE);
+        saveOrUpdateConfig(KEY_TERMS_TEMPLATE, BookingEscrowProperties.DEFAULT_TERMS_TEMPLATE, "Mẫu văn bản điều khoản hợp đồng tiêu chuẩn", admin);
 
         log.info("Admin {} reset BookingEscrow configurations to defaults", admin.getEmail());
         return getConfig();

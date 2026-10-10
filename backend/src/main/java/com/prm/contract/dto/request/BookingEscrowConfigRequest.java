@@ -54,4 +54,6 @@ public class BookingEscrowConfigRequest {
     @Min(value = 5, message = "Chu kỳ chạy job quét tối thiểu 5 phút")
     @Max(value = 1440, message = "Chu kỳ chạy job quét tối đa 1440 phút (24h)")
     private Integer jobIntervalMinutes;
+
+    private String termsTemplate;
 }
