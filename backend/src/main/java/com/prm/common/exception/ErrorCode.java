@@ -107,7 +107,14 @@ public enum ErrorCode {
     CONTRACT_NOT_COMPLETED("REV_8051", "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành", HttpStatus.BAD_REQUEST),
 
     DELIVERABLE_NOT_FOUND("DLV_8060", "Không tìm thấy sản phẩm giao nộp", HttpStatus.NOT_FOUND),
-    DELIVERABLE_ACCESS_DENIED("DLV_8061", "Chỉ các bên liên quan của hợp đồng mới có quyền truy cập sản phẩm này", HttpStatus.FORBIDDEN);
+    DELIVERABLE_ACCESS_DENIED("DLV_8061", "Chỉ các bên liên quan của hợp đồng mới có quyền truy cập sản phẩm này", HttpStatus.FORBIDDEN),
+
+    // Series Management Errors (4010 - 4019)
+    SERIES_NOT_FOUND("SERIES_4010", "Không tìm thấy Series", HttpStatus.NOT_FOUND),
+    SERIES_ACCESS_DENIED("SERIES_4011", "Bạn không có quyền quản lý Series này", HttpStatus.FORBIDDEN),
+    SERIES_TITLE_EXISTS("SERIES_4012", "Tên Series đã tồn tại trong kênh của bạn", HttpStatus.CONFLICT),
+    SERIES_ITEM_ALREADY_EXISTS("SERIES_4013", "Video này đã có trong Series", HttpStatus.CONFLICT),
+    CONTENT_NOT_FOUND("CONT_4014", "Không tìm thấy nội dung video/podcast", HttpStatus.NOT_FOUND);
 
     private final String code;
     private final String message;

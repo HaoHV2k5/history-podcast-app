@@ -16,6 +16,7 @@ import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.repository.ModerationReviewRepository;
 import com.prm.channel.repository.TranscriptRepository;
 import com.prm.channel.service.AiShieldPolicyService;
+import com.prm.channel.service.SeriesService;
 import com.prm.common.enums.AiShieldTier;
 import java.math.BigDecimal;
 import com.prm.common.exception.AppException;
@@ -144,6 +145,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
     @Value("${app.tool.url:http://localhost:8000}")
     private String toolUrl;
+
+    @Autowired(required = false)
+    private SeriesService seriesService;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .version(HttpClient.Version.HTTP_1_1)
@@ -415,6 +419,14 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
         log.info("Saved Content (ID: {}, mode: {}), Artifact (ID: {}), Transcript for Creator '{}'",
                 content.getId(), renderMode, artifact.getId(), email);
+
+        if (request.getSeriesId() != null && seriesService != null) {
+            try {
+                seriesService.addContentToSeriesDirectly(content.getId(), request.getSeriesId());
+            } catch (Exception ex) {
+                log.warn("Failed to auto-assign content {} to series {}: {}", content.getId(), request.getSeriesId(), ex.getMessage());
+            }
+        }
 
         // 5. Chuyển tiếp tác vụ tạo video sang Python Rendering Engine (kèm Cloudinary Image URLs)
         Map<String, Object> toolPayload = new HashMap<>();
