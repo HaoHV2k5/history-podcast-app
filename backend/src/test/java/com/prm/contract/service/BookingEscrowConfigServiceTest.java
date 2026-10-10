@@ -99,6 +99,7 @@ class BookingEscrowConfigServiceTest {
                 .contractAcceptHours(72)
                 .platformFeePercent(new BigDecimal("8.5"))
                 .reviewDays(5)
+                .termsTemplate("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Hạn duyệt {reviewDays}")
                 .build();
 
         BookingEscrowConfigResponse res = service.updateConfig(req);
@@ -106,11 +107,13 @@ class BookingEscrowConfigServiceTest {
         assertEquals(72, res.getContractAcceptHours());
         assertEquals(new BigDecimal("8.5"), res.getPlatformFeePercent());
         assertEquals(5, res.getReviewDays());
+        assertEquals("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Hạn duyệt {reviewDays}", res.getTermsTemplate());
 
         // Kiểm tra bean properties cũng được cập nhật ngay lập tức
         assertEquals(72, properties.getContractAcceptHours());
         assertEquals(new BigDecimal("8.5"), properties.getPlatformFeePercent());
         assertEquals(5, properties.getReviewDays());
+        assertEquals("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Hạn duyệt {reviewDays}", properties.getTermsTemplate());
         verify(configRepository, atLeastOnce()).save(any(BookingEscrowConfig.class));
     }
 
@@ -138,11 +141,14 @@ class BookingEscrowConfigServiceTest {
         // Giả sử trước đó đã bị chỉnh sửa
         properties.setPlatformFeePercent(new BigDecimal("12.0"));
         properties.setContractAcceptHours(96);
+        properties.setTermsTemplate("Tùy biến cũ");
 
         BookingEscrowConfigResponse res = service.resetDefaultConfig();
         assertEquals(48, res.getContractAcceptHours());
         assertEquals(new BigDecimal("5.0"), res.getPlatformFeePercent());
+        assertEquals(BookingEscrowProperties.DEFAULT_TERMS_TEMPLATE, res.getTermsTemplate());
         assertEquals(48, properties.getContractAcceptHours());
         assertEquals(new BigDecimal("5.0"), properties.getPlatformFeePercent());
+        assertEquals(BookingEscrowProperties.DEFAULT_TERMS_TEMPLATE, properties.getTermsTemplate());
     }
 }

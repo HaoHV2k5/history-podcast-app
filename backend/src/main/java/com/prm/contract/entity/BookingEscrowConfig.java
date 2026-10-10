@@ -22,7 +22,7 @@ public class BookingEscrowConfig {
     @Column(name = "config_key", nullable = false, unique = true, length = 100)
     private String configKey;
 
-    @Column(name = "config_value", nullable = false)
+    @Column(name = "config_value", nullable = false, columnDefinition = "TEXT")
     private String configValue;
 
     @Column(name = "description", length = 500)
