@@ -195,7 +195,10 @@ public class MilestoneServiceImpl implements MilestoneService {
 
         milestone.setRevisionsUsed(milestone.getRevisionsUsed() + 1);
         milestone.setStatus(MilestoneStatus.IN_PROGRESS);
-        milestone.setDueAt(Instant.now().plus(properties.getRevisionDays(), ChronoUnit.DAYS));
+        int revDays = (milestone.getRevisionDays() != null && milestone.getRevisionDays() > 0)
+                ? milestone.getRevisionDays()
+                : properties.getRevisionDays();
+        milestone.setDueAt(Instant.now().plus(revDays, ChronoUnit.DAYS));
         milestone.setReviewDueAt(null);
         Milestone saved = milestoneRepository.save(milestone);
 
@@ -373,6 +376,7 @@ public class MilestoneServiceImpl implements MilestoneService {
                 .durationDays(m.getDurationDays())
                 .maxRevisions(m.getMaxRevisions())
                 .revisionsUsed(m.getRevisionsUsed())
+                .revisionDays(m.getRevisionDays())
                 .status(m.getStatus())
                 .fundDueAt(m.getFundDueAt())
                 .dueAt(m.getDueAt())
