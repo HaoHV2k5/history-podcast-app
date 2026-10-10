@@ -67,8 +67,8 @@ public class EscrowServiceImpl implements EscrowService {
         walletRepository.save(freelancerWallet);
 
         String txDescription = (milestone.getPlatformFee() != null && milestone.getPlatformFee().compareTo(BigDecimal.ZERO) > 0)
-                ? "Nhận tiền giải ngân Milestone #" + milestone.getOrderNo() + " (Đã khấu trừ toàn bộ " + properties.getPlatformFeePercent() + "% phí nền tảng hợp đồng: " + milestone.getPlatformFee() + " VND)"
-                : "Nhận trọn vẹn 100% tiền giải ngân Milestone #" + milestone.getOrderNo();
+                ? "Nhận tiền giải ngân Milestone #" + milestone.getOrderNo() + " (Đã khấu trừ " + properties.getPlatformFeePercent() + "% phí nền tảng: " + milestone.getPlatformFee() + " VND)"
+                : "Nhận tiền giải ngân Milestone #" + milestone.getOrderNo();
 
         WalletTransaction transaction = WalletTransaction.builder()
                 .wallet(freelancerWallet)
