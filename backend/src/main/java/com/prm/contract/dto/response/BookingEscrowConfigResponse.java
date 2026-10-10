@@ -22,6 +22,7 @@ public class BookingEscrowConfigResponse {
     private int maxRevisionsDefault;
     private BigDecimal platformFeePercent;
     private int jobIntervalMinutes;
+    private String termsTemplate;
 
     private Instant updatedAt;
     private Long updatedByUserId;
