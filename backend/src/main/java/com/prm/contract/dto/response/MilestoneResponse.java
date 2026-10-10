@@ -24,6 +24,7 @@ public class MilestoneResponse {
     private Integer durationDays;
     private Integer maxRevisions;
     private Integer revisionsUsed;
+    private Integer revisionDays;
     private MilestoneStatus status;
     private Instant fundDueAt;
     private Instant dueAt;

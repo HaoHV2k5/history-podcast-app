@@ -50,6 +50,10 @@ public class Milestone {
     @Builder.Default
     private Integer revisionsUsed = 0;
 
+    @Column(name = "revision_days", nullable = false)
+    @Builder.Default
+    private Integer revisionDays = 2;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 50)
     private MilestoneStatus status; // WAITING | UNFUNDED | IN_PROGRESS | SUBMITTED | APPROVED | RELEASED | DISPUTED | CANCELLED
@@ -124,6 +128,9 @@ public class Milestone {
         }
         if (revisionsUsed == null) {
             revisionsUsed = 0;
+        }
+        if (revisionDays == null) {
+            revisionDays = 2;
         }
         if (platformFee == null) {
             platformFee = BigDecimal.ZERO;
