@@ -46,4 +46,9 @@ public class CreatorRenderRequest {
      * URL hoặc Base64 ảnh bìa đại diện của video Podcast (tùy chọn)
      */
     private String coverImage;
+
+    /**
+     * ID của Series muốn gán video này vào (tùy chọn)
+     */
+    private Long seriesId;
 }
