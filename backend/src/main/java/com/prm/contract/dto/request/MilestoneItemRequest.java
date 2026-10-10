@@ -30,4 +30,7 @@ public class MilestoneItemRequest {
     private Integer durationDays;
 
     private Integer maxRevisions; // Số lần sửa tối đa, mặc định theo config nếu null
+
+    @Min(value = 1, message = "Thời gian hoàn thành mỗi lần chỉnh sửa (revisionDays) tối thiểu 1 ngày")
+    private Integer revisionDays; // Số ngày cho mỗi lần chỉnh sửa, mặc định theo config sàn nếu null
 }

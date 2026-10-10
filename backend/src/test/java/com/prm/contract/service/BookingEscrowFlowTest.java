@@ -188,6 +188,7 @@ class BookingEscrowFlowTest {
                                 .amount(new BigDecimal("300000"))
                                 .durationDays(3)
                                 .maxRevisions(2)
+                                .revisionDays(3)
                                 .build(),
                         MilestoneItemRequest.builder()
                                 .title("Milestone 2: Kịch bản tập 2")
@@ -195,6 +196,7 @@ class BookingEscrowFlowTest {
                                 .amount(new BigDecimal("400000"))
                                 .durationDays(4)
                                 .maxRevisions(2)
+                                .revisionDays(4)
                                 .build()
                 ))
                 .build();
@@ -230,6 +232,7 @@ class BookingEscrowFlowTest {
                 .durationDays(3)
                 .maxRevisions(2)
                 .revisionsUsed(0)
+                .revisionDays(3)
                 .status(MilestoneStatus.WAITING)
                 .build();
 
@@ -243,6 +246,7 @@ class BookingEscrowFlowTest {
                 .durationDays(4)
                 .maxRevisions(2)
                 .revisionsUsed(0)
+                .revisionDays(4)
                 .status(MilestoneStatus.WAITING)
                 .build();
 
@@ -309,6 +313,8 @@ class BookingEscrowFlowTest {
                 RequestRevisionRequest.builder().note("Cần bổ sung thêm thông tin về triều đại").build());
         assertEquals(MilestoneStatus.IN_PROGRESS, revRes.getStatus());
         assertEquals(1, m1.getRevisionsUsed());
+        assertEquals(3, revRes.getRevisionDays());
+        assertNotNull(revRes.getDueAt());
 
         // --- BƯỚC 6: Creator Duyệt Milestone 1 ---
         m1.setStatus(MilestoneStatus.SUBMITTED);

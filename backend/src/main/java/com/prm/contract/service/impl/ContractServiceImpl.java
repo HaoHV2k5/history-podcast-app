@@ -136,6 +136,9 @@ public class ContractServiceImpl implements ContractService {
         for (int i = 0; i < items.size(); i++) {
             MilestoneItemRequest item = items.get(i);
             int maxRev = item.getMaxRevisions() != null ? item.getMaxRevisions() : properties.getMaxRevisionsDefault();
+            int revDays = (item.getRevisionDays() != null && item.getRevisionDays() > 0)
+                    ? item.getRevisionDays()
+                    : properties.getRevisionDays();
             boolean isLast = (i == items.size() - 1);
 
             BigDecimal mFee;
@@ -158,6 +161,7 @@ public class ContractServiceImpl implements ContractService {
                     .durationDays(item.getDurationDays())
                     .maxRevisions(maxRev)
                     .revisionsUsed(0)
+                    .revisionDays(revDays)
                     .status(MilestoneStatus.WAITING)
                     .build();
             milestones.add(milestoneRepository.save(m));
@@ -395,6 +399,7 @@ public class ContractServiceImpl implements ContractService {
                 .durationDays(m.getDurationDays())
                 .maxRevisions(m.getMaxRevisions())
                 .revisionsUsed(m.getRevisionsUsed())
+                .revisionDays(m.getRevisionDays())
                 .status(m.getStatus())
                 .fundDueAt(m.getFundDueAt())
                 .dueAt(m.getDueAt())
