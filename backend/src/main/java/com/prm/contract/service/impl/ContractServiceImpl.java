@@ -108,13 +108,6 @@ public class ContractServiceImpl implements ContractService {
         BigDecimal platformFee = totalAmount.multiply(feePercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
         BigDecimal netAmount = totalAmount.subtract(platformFee);
 
-        // Đảm bảo milestone cuối cùng đủ chi trả phí nền tảng của hợp đồng
-        MilestoneItemRequest lastItem = items.get(items.size() - 1);
-        if (lastItem.getAmount().compareTo(platformFee) < 0) {
-            throw new AppException(ErrorCode.INVALID_CONTRACT_DATA,
-                    "Milestone cuối cùng (Giai đoạn " + items.size() + ") phải có giá trị ít nhất bằng phí nền tảng hợp đồng (" + platformFee + " VND) để thực hiện quyết toán hoa hồng");
-        }
-
         Instant acceptDueAt = Instant.now().plus(properties.getContractAcceptHours(), ChronoUnit.HOURS);
         String standardTerms = generateStandardTerms(feePercent);
 
@@ -137,13 +130,21 @@ public class ContractServiceImpl implements ContractService {
 
         Contract savedContract = contractRepository.save(contract);
 
-        // Lưu các milestones: Milestone trung gian (1..k-1) nhận 100%, Milestone cuối cùng (k) khấu trừ hoa hồng hợp đồng
+        // Lưu các milestones: Mỗi milestone tự khấu trừ phí nền tảng cuốn chiếu theo tỷ lệ feePercent
         List<Milestone> milestones = new ArrayList<>();
+        BigDecimal accumulatedFee = BigDecimal.ZERO;
         for (int i = 0; i < items.size(); i++) {
             MilestoneItemRequest item = items.get(i);
             int maxRev = item.getMaxRevisions() != null ? item.getMaxRevisions() : properties.getMaxRevisionsDefault();
             boolean isLast = (i == items.size() - 1);
-            BigDecimal mFee = isLast ? platformFee : BigDecimal.ZERO;
+
+            BigDecimal mFee;
+            if (isLast) {
+                mFee = platformFee.subtract(accumulatedFee);
+            } else {
+                mFee = item.getAmount().multiply(feePercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+                accumulatedFee = accumulatedFee.add(mFee);
+            }
             BigDecimal mNet = item.getAmount().subtract(mFee);
 
             Milestone m = Milestone.builder()
@@ -422,8 +423,8 @@ public class ContractServiceImpl implements ContractService {
                 "- Creator có nghĩa vụ nạp đủ 100% tiền ký quỹ của từng giai đoạn (Milestone) trước khi Freelancer tiến hành công việc.\n" +
                 "- Toàn bộ tiền ký quỹ được hệ thống phong tỏa và bảo chứng an toàn, không bên nào được quyền tự ý rút tiền cho đến khi giai đoạn hoàn tất.\n\n" +
                 "2. Phí Dịch vụ Nền tảng (Platform Commission):\n" +
-                "- Phí dịch vụ nền tảng là " + feePercent + "% tính trên tổng giá trị hợp đồng (do Quản trị viên quy định cố định, không đàm phán).\n" +
-                "- Toàn bộ phí sàn được khấu trừ tự động tại giai đoạn quyết toán cuối cùng khi hoàn tất hợp đồng.\n\n" +
+                "- Phí dịch vụ nền tảng là " + feePercent + "% tính trên giá trị của từng giai đoạn (do Quản trị viên quy định cố định, không đàm phán).\n" +
+                "- Phí sàn được khấu trừ tự động trực tiếp trên từng giai đoạn (Milestone) khi được giải ngân.\n\n" +
                 "3. Quy trình Kiểm duyệt & Nghiệm thu tự động (Review & Auto-Approval):\n" +
                 "- Sau khi Freelancer nộp bài, Creator có thời hạn " + reviewDays + " ngày để thẩm định chất lượng sản phẩm.\n" +
                 "- Nếu Creator không phản hồi hoặc không yêu cầu chỉnh sửa trong vòng " + reviewDays + " ngày, hệ thống sẽ tự động chuyển giai đoạn sang trạng thái ĐÃ DUYỆT (APPROVED).\n" +
