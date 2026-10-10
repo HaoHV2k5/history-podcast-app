@@ -321,10 +321,10 @@ class BookingEscrowFlowTest {
         assertEquals(MilestoneStatus.UNFUNDED, m2.getStatus());
         assertNotNull(m2.getFundDueAt());
 
-        // --- BƯỚC 7: Giải ngân Escrow Milestone 1 (Giai đoạn trung gian: nhận 100%, hoa hồng = 0) ---
+        // --- BƯỚC 7: Giải ngân Escrow Milestone 1 (Mỗi milestone tự khấu trừ 5% phí sàn: 300k - 15k = 285k) ---
         m1.setAmount(new BigDecimal("300000"));
-        m1.setPlatformFee(BigDecimal.ZERO); // Không trừ hoa hồng ở giai đoạn 1
-        m1.setNetAmount(new BigDecimal("300000.00"));
+        m1.setPlatformFee(new BigDecimal("15000.00")); // 5% của 300.000 = 15.000
+        m1.setNetAmount(new BigDecimal("285000.00")); // 300.000 - 15.000 = 285.000
         m1.setEscrowStatus(EscrowStatus.HELD);
         when(milestoneRepository.findById(1L)).thenReturn(Optional.of(m1));
 
@@ -339,20 +339,20 @@ class BookingEscrowFlowTest {
         EscrowPaymentResponse releaseRes = escrowService.releaseMilestoneEscrow(1L);
         assertEquals(EscrowStatus.RELEASED, releaseRes.getStatus());
         assertEquals(MilestoneStatus.RELEASED, m1.getStatus());
-        // Freelancer nhận trọn vẹn 300.000 (không bị trừ hoa hồng ở giai đoạn trung gian)
-        assertEquals(new BigDecimal("300000.00"), freelancerWallet.getAvailableBalance());
+        // Freelancer nhận 285.000 (đã trừ 15.000 phí sàn của Milestone 1)
+        assertEquals(new BigDecimal("285000.00"), freelancerWallet.getAvailableBalance());
 
-        // --- BƯỚC 8: Giải ngân Escrow Milestone 2 (Giai đoạn cuối cùng: khấu trừ toàn bộ 5% phí sàn của hợp đồng) ---
+        // --- BƯỚC 8: Giải ngân Escrow Milestone 2 (Mỗi milestone tự khấu trừ 5% phí sàn: 400k - 20k = 380k) ---
         m2.setAmount(new BigDecimal("400000"));
-        m2.setPlatformFee(new BigDecimal("35000.00")); // Toàn bộ 5% của tổng hợp đồng 700k
-        m2.setNetAmount(new BigDecimal("365000.00")); // 400.000 - 35.000
+        m2.setPlatformFee(new BigDecimal("20000.00")); // 5% của 400.000 = 20.000
+        m2.setNetAmount(new BigDecimal("380000.00")); // 400.000 - 20.000 = 380.000
         m2.setEscrowStatus(EscrowStatus.HELD);
         when(milestoneRepository.findById(2L)).thenReturn(Optional.of(m2));
 
         EscrowPaymentResponse releaseM2Res = escrowService.releaseMilestoneEscrow(2L);
         assertEquals(EscrowStatus.RELEASED, releaseM2Res.getStatus());
         assertEquals(MilestoneStatus.RELEASED, m2.getStatus());
-        // Freelancer nhận thêm 365.000 -> Tổng nhận cả hợp đồng là 300.000 + 365.000 = 665.000 (đúng netAmount của hợp đồng)
+        // Freelancer nhận thêm 380.000 -> Tổng nhận cả hợp đồng là 285.000 + 380.000 = 665.000 (đúng netAmount của hợp đồng)
         assertEquals(new BigDecimal("665000.00"), freelancerWallet.getAvailableBalance());
     }
 
@@ -453,6 +453,78 @@ class BookingEscrowFlowTest {
         assertEquals(ContractStatus.CANCELLED, contract.getStatus());
         // Toàn bộ 500k được hoàn trả lại ví Creator (200k + 500k = 700k)
         assertEquals(new BigDecimal("700000"), creatorWallet.getAvailableBalance());
+    }
+
+    @Test
+    @DisplayName("Hợp đồng có mốc cuối nhỏ hơn tổng phí sàn vẫn tạo thành công và khấu trừ phí từng mốc chuẩn xác")
+    void testContractWithSmallLastMilestonePerMilestoneFee() {
+        authenticateAs(creator);
+        when(userRepository.findById(20L)).thenReturn(Optional.of(freelancer));
+
+        CreateContractRequest createReq = CreateContractRequest.builder()
+                .freelancerId(20L)
+                .serviceType(ServiceType.CONTENT)
+                .title("Hợp đồng 3 mốc kiểm tra phí sàn độc lập")
+                .description("Mốc 3 giá trị nhỏ")
+                .milestones(List.of(
+                        MilestoneItemRequest.builder()
+                                .title("M1")
+                                .requirement("Req 1")
+                                .amount(new BigDecimal("300000"))
+                                .durationDays(3)
+                                .build(),
+                        MilestoneItemRequest.builder()
+                                .title("M2")
+                                .requirement("Req 2")
+                                .amount(new BigDecimal("300000"))
+                                .durationDays(3)
+                                .build(),
+                        MilestoneItemRequest.builder()
+                                .title("M3")
+                                .requirement("Req 3 nhỏ")
+                                .amount(new BigDecimal("10000")) // Nhỏ hơn nhiều so với tổng phí sàn 30.500
+                                .durationDays(1)
+                                .build()
+                ))
+                .build();
+
+        Contract savedContract = Contract.builder()
+                .id(500L)
+                .creator(creator)
+                .freelancer(freelancer)
+                .title(createReq.getTitle())
+                .totalAmount(new BigDecimal("610000"))
+                .platformFee(new BigDecimal("30500.00"))
+                .netAmount(new BigDecimal("579500.00"))
+                .status(ContractStatus.PENDING)
+                .milestones(new ArrayList<>())
+                .build();
+
+        when(contractRepository.save(any(Contract.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Milestone> savedMilestones = new ArrayList<>();
+        when(milestoneRepository.save(any(Milestone.class))).thenAnswer(invocation -> {
+            Milestone m = invocation.getArgument(0);
+            savedMilestones.add(m);
+            return m;
+        });
+
+        ContractResponse res = contractService.createAndSendContract(createReq);
+        assertNotNull(res);
+        assertEquals(new BigDecimal("610000"), res.getTotalAmount());
+        assertEquals(new BigDecimal("30500.00"), res.getPlatformFee());
+        assertEquals(new BigDecimal("579500.00"), res.getNetAmount());
+
+        assertEquals(3, savedMilestones.size());
+        // M1: 300k, fee 15k, net 285k
+        assertEquals(new BigDecimal("15000.00"), savedMilestones.get(0).getPlatformFee());
+        assertEquals(new BigDecimal("285000.00"), savedMilestones.get(0).getNetAmount());
+        // M2: 300k, fee 15k, net 285k
+        assertEquals(new BigDecimal("15000.00"), savedMilestones.get(1).getPlatformFee());
+        assertEquals(new BigDecimal("285000.00"), savedMilestones.get(1).getNetAmount());
+        // M3: 10k, fee 500, net 9.500
+        assertEquals(new BigDecimal("500.00"), savedMilestones.get(2).getPlatformFee());
+        assertEquals(new BigDecimal("9500.00"), savedMilestones.get(2).getNetAmount());
     }
 }
 
