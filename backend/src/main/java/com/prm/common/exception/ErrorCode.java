@@ -114,7 +114,13 @@ public enum ErrorCode {
     SERIES_ACCESS_DENIED("SERIES_4011", "Bạn không có quyền quản lý Series này", HttpStatus.FORBIDDEN),
     SERIES_TITLE_EXISTS("SERIES_4012", "Tên Series đã tồn tại trong kênh của bạn", HttpStatus.CONFLICT),
     SERIES_ITEM_ALREADY_EXISTS("SERIES_4013", "Video này đã có trong Series", HttpStatus.CONFLICT),
-    CONTENT_NOT_FOUND("CONT_4014", "Không tìm thấy nội dung video/podcast", HttpStatus.NOT_FOUND);
+    CONTENT_NOT_FOUND("CONT_4014", "Không tìm thấy nội dung video/podcast", HttpStatus.NOT_FOUND),
+
+    // Livestream & Chat Errors (4001 - 4009)
+    LIVESTREAM_NOT_FOUND("LIVE_4001", "Không tìm thấy phiên livestream", HttpStatus.NOT_FOUND),
+    LIVESTREAM_ALREADY_ENDED("LIVE_4002", "Phiên livestream này đã kết thúc", HttpStatus.BAD_REQUEST),
+    LIVESTREAM_MEMBER_REQUIRED("LIVE_4003", "Phiên livestream này chỉ dành cho hội viên độc quyền của kênh", HttpStatus.FORBIDDEN),
+    CHAT_NOT_ALLOWED("CHAT_4001", "Bạn không có quyền tham gia cuộc trò chuyện này", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String message;

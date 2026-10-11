@@ -39,6 +39,7 @@ public class SecurityConfig {
             "/ai-shield-test.html",
             "/test-phone.html",
             "/test-forgot-password.html",
+            "/test-livestream.html",
             "/outputs/**",
             "/audio/**"
     };
