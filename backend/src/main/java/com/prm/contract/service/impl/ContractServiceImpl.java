@@ -298,6 +298,84 @@ public class ContractServiceImpl implements ContractService {
         return PageResponse.of(page, content);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<MilestoneResponse> getMyMilestones(MilestoneStatus status, Long contractId, Pageable pageable) {
+        User currentUser = getCurrentUser();
+        Page<Milestone> page = milestoneRepository.findMyMilestones(currentUser.getId(), status, contractId, pageable);
+        List<MilestoneResponse> content = page.getContent().stream()
+                .map(this::toMilestoneResponse)
+                .toList();
+        return PageResponse.of(page, content);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.prm.contract.dto.response.MyMilestoneFinancialResponse getMyMilestoneFinancials() {
+        User currentUser = getCurrentUser();
+        Long userId = currentUser.getId();
+
+        Long completedMilestones = milestoneRepository.countMyCompletedMilestones(userId);
+        Long activeMilestones = milestoneRepository.countMyActiveMilestones(userId);
+
+        Object[] flFin = milestoneRepository.getFreelancerFinancials(userId);
+        if (flFin != null && flFin.length == 1 && flFin[0] instanceof Object[] nested) {
+            flFin = nested;
+        }
+        BigDecimal freelancerEarned = toBigDecimal(flFin != null && flFin.length > 0 ? flFin[0] : null);
+        BigDecimal freelancerPending = toBigDecimal(flFin != null && flFin.length > 1 ? flFin[1] : null);
+        BigDecimal freelancerFeePaid = toBigDecimal(flFin != null && flFin.length > 2 ? flFin[2] : null);
+
+        Object[] crFin = milestoneRepository.getCreatorFinancials(userId);
+        if (crFin != null && crFin.length == 1 && crFin[0] instanceof Object[] nested) {
+            crFin = nested;
+        }
+        BigDecimal creatorSpent = toBigDecimal(crFin != null && crFin.length > 0 ? crFin[0] : null);
+        BigDecimal creatorEscrowLocked = toBigDecimal(crFin != null && crFin.length > 1 ? crFin[1] : null);
+        BigDecimal creatorRefunded = toBigDecimal(crFin != null && crFin.length > 2 ? crFin[2] : null);
+
+        String role = "USER";
+        if (currentUser.getRole() != null && currentUser.getRole().getName() != null) {
+            role = currentUser.getRole().getName();
+        } else if (currentUser.getRoles() != null && !currentUser.getRoles().isEmpty()) {
+            role = currentUser.getRoles().iterator().next().getName();
+        }
+
+        List<Contract> contracts = contractRepository.findMyContracts(userId, null, Pageable.unpaged()).getContent();
+        List<com.prm.contract.dto.response.MyMilestoneFinancialResponse.ContractFinancialBreakdown> breakdowns = contracts.stream().map(c -> {
+            boolean isCreator = c.getCreator() != null && c.getCreator().getId().equals(userId);
+            User otherParty = isCreator ? c.getFreelancer() : c.getCreator();
+            List<Milestone> mList = milestoneRepository.findByContractIdOrderByOrderNoAsc(c.getId());
+            long totalM = mList.size();
+            long completedM = mList.stream().filter(m -> m.getStatus() == MilestoneStatus.RELEASED).count();
+            BigDecimal net = c.getNetAmount() != null ? c.getNetAmount() : (c.getTotalAmount() != null ? c.getTotalAmount().multiply(new BigDecimal("0.95")) : null);
+            return com.prm.contract.dto.response.MyMilestoneFinancialResponse.ContractFinancialBreakdown.builder()
+                    .contractId(c.getId())
+                    .contractTitle(c.getTitle())
+                    .otherPartyName(otherParty != null ? otherParty.getFullName() : null)
+                    .otherPartyEmail(otherParty != null ? otherParty.getEmail() : null)
+                    .totalAmount(c.getTotalAmount())
+                    .netAmount(net)
+                    .status(c.getStatus() != null ? c.getStatus().name() : null)
+                    .completedMilestones(completedM)
+                    .totalMilestones(totalM)
+                    .build();
+        }).toList();
+
+        return com.prm.contract.dto.response.MyMilestoneFinancialResponse.builder()
+                .role(role)
+                .totalEarned(freelancerEarned)
+                .pendingEarnings(freelancerPending)
+                .totalPlatformFeePaid(freelancerFeePaid)
+                .totalSpent(creatorSpent)
+                .escrowLocked(creatorEscrowLocked)
+                .refundedAmount(creatorRefunded)
+                .completedMilestonesCount(completedMilestones)
+                .activeMilestonesCount(activeMilestones)
+                .contractBreakdowns(breakdowns)
+                .build();
+    }
+
     // --- Legacy CRUD implementations ---
     @Override
     @Transactional(readOnly = true)
@@ -391,7 +469,10 @@ public class ContractServiceImpl implements ContractService {
 
         return MilestoneResponse.builder()
                 .id(m.getId())
-                .contractId(m.getContract().getId())
+                .contractId(m.getContract() != null ? m.getContract().getId() : null)
+                .contractTitle(m.getContract() != null ? m.getContract().getTitle() : null)
+                .serviceType(m.getContract() != null ? m.getContract().getServiceType() : null)
+                .feePercent(m.getContract() != null ? m.getContract().getPlatformFeePercent() : null)
                 .orderNo(m.getOrderNo())
                 .title(m.getTitle())
                 .requirement(m.getRequirement())
@@ -433,5 +514,19 @@ public class ContractServiceImpl implements ContractService {
                 .replace("{reviewDays}", reviewDays + " ngày")
                 .replace("{releaseHoldDays}", releaseHoldDays + " ngày")
                 .replace("{maxRevisions}", maxRevisions + " lần");
+    }
+
+    private BigDecimal toBigDecimal(Object obj) {
+        if (obj == null) return BigDecimal.ZERO;
+        if (obj instanceof BigDecimal bd) return bd;
+        if (obj instanceof Number num) return BigDecimal.valueOf(num.doubleValue());
+        if (obj instanceof Object[] arr) {
+            return arr.length > 0 ? toBigDecimal(arr[0]) : BigDecimal.ZERO;
+        }
+        try {
+            return new BigDecimal(obj.toString());
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
     }
 }
