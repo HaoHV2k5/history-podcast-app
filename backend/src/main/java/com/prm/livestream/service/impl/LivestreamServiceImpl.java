@@ -25,8 +25,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.prm.livestream.dto.response.LivestreamChatMessageResponse;
 import java.time.Instant;
-import java.util.List;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Slf4j
 @Service
@@ -37,6 +42,8 @@ public class LivestreamServiceImpl implements LivestreamService {
     private final ChannelRepository channelRepository;
     private final UserRepository userRepository;
     private final MembershipRepository membershipRepository;
+
+    private final Map<Long, List<LivestreamChatMessageResponse>> liveChats = new ConcurrentHashMap<>();
 
     @Value("${app.agora.app-id:}")
     private String agoraAppId;
@@ -84,6 +91,12 @@ public class LivestreamServiceImpl implements LivestreamService {
     @Override
     @Transactional
     public LivestreamTokenResponse getJoinToken(Long sessionId) {
+        return getJoinToken(sessionId, null);
+    }
+
+    @Override
+    @Transactional
+    public LivestreamTokenResponse getJoinToken(Long sessionId, Integer clientUid) {
         String email = SecurityUtils.getCurrentUserEmail();
         User currentUser = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy thông tin tài khoản"));
@@ -96,8 +109,10 @@ public class LivestreamServiceImpl implements LivestreamService {
         }
 
         AgoraTokenUtil.Role role;
+        int uid;
         if (session.getCreator().getId().equals(currentUser.getId())) {
             role = AgoraTokenUtil.Role.PUBLISHER;
+            uid = currentUser.getId().intValue();
         } else {
             // Kiểm tra điều kiện phòng live VIP độc quyền cho hội viên
             if (Boolean.TRUE.equals(session.getIsExclusive())) {
@@ -112,9 +127,15 @@ public class LivestreamServiceImpl implements LivestreamService {
             // Tăng số lượng người xem
             session.setViewerCount(session.getViewerCount() + 1);
             livestreamSessionRepository.save(session);
+
+            // Nếu client cung cấp clientUid riêng biệt (tránh UID_CONFLICT khi nhiều thiết bị cùng dùng 1 tài khoản demo)
+            if (clientUid != null && clientUid > 0) {
+                uid = clientUid;
+            } else {
+                uid = currentUser.getId().intValue();
+            }
         }
 
-        int uid = currentUser.getId().intValue();
         String token = AgoraTokenUtil.buildToken(
                 agoraAppId,
                 agoraAppCertificate,
@@ -203,5 +224,34 @@ public class LivestreamServiceImpl implements LivestreamService {
                 .endedAt(session.getEndedAt())
                 .createdAt(session.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    public void sendChatMessage(Long sessionId, String id, String author, String role, String text) {
+        if (text == null || text.isBlank()) return;
+        String msgId = (id != null && !id.isBlank()) ? id : UUID.randomUUID().toString();
+        LivestreamChatMessageResponse msg = LivestreamChatMessageResponse.builder()
+                .id(msgId)
+                .author(author != null ? author : "Người xem")
+                .role(role != null ? role.toLowerCase() : "viewer")
+                .text(text.trim())
+                .timestamp(System.currentTimeMillis())
+                .timeFormatted(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")))
+                .build();
+
+        liveChats.computeIfAbsent(sessionId, k -> new CopyOnWriteArrayList<>()).add(msg);
+        List<LivestreamChatMessageResponse> list = liveChats.get(sessionId);
+        if (list.size() > 200) {
+            list.remove(0);
+        }
+    }
+
+    @Override
+    public List<LivestreamChatMessageResponse> getChatMessages(Long sessionId, long since) {
+        List<LivestreamChatMessageResponse> list = liveChats.get(sessionId);
+        if (list == null || list.isEmpty()) return Collections.emptyList();
+        return list.stream()
+                .filter(m -> m.getTimestamp() > since)
+                .toList();
     }
 }
