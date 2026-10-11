@@ -506,7 +506,7 @@
           <button class="btn-primary" style="flex: 1;" onclick="startHostLivestream(false)">
             Bắt đầu Phát sóng (Webcam/OBS)
           </button>
-          <button class="ctrl-btn" onclick="startHostLivestream(true)" title="Chia sẻ Slide PowerPoint / Màn hình">
+          <button id="btnShareScreen" class="ctrl-btn" onclick="toggleScreenShare()" title="Chia sẻ Slide PowerPoint / Màn hình">
             🖥️ Share Màn hình
           </button>
         </div>
@@ -529,6 +529,15 @@
         <div class="form-group">
           <label class="form-label">JWT Token (Viewer - Bắt buộc nếu phòng VIP):</label>
           <input type="text" id="viewerJwt" class="form-input" placeholder="Nhấn nút trên để tự động lấy token..." />
+        </div>
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin: 0;">Chọn phòng đang phát (Auto):</label>
+            <button type="button" class="ctrl-btn" style="padding: 2px 8px; font-size: 11px;" onclick="loadActiveSessions()">🔄 Quét phòng LIVE</button>
+          </div>
+          <select id="activeSessionsSelect" class="form-input" onchange="onSelectSession(this.value)">
+            <option value="">-- Bấm "Quét phòng LIVE" để lấy --</option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">ID Phiên Live (Session ID):</label>
@@ -556,8 +565,8 @@
           <div class="chat-msg"><span class="chat-author creator">Hệ thống:</span> <span class="chat-text">Live Chat đồng bộ thời gian thực giữa các tab.</span></div>
         </div>
         <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <input type="text" id="chatInput" class="form-input" style="flex: 1;" placeholder="Nhập tin nhắn chat live..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
-          <button id="btnSendChat" class="ctrl-btn active" onclick="sendChatMessage()">Gửi</button>
+          <input type="text" id="chatInput" class="form-input" style="flex: 1;" placeholder="Nhập tin nhắn chat live..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}" />
+          <button type="button" id="btnSendChat" class="ctrl-btn active" onclick="sendChatMessage()">Gửi</button>
         </div>
       </div>
 
@@ -607,8 +616,8 @@
           <div class="chat-msg"><span class="chat-author">Hệ thống:</span> <span class="chat-text">Kênh chat bảo mật trao đổi kịch bản podcast giữa Creator và Narrator.</span></div>
         </div>
         <div style="display: flex; gap: 8px; margin-top: 8px;">
-          <input type="text" id="contractChatInput" class="form-input" style="flex: 1;" placeholder="Nhập tin nhắn đàm phán hợp đồng..." onkeydown="if(event.key==='Enter') sendContractMessage()" />
-          <button id="btnSendContractChat" class="ctrl-btn active" onclick="sendContractMessage()">Gửi</button>
+          <input type="text" id="contractChatInput" class="form-input" style="flex: 1;" placeholder="Nhập tin nhắn đàm phán hợp đồng..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendContractMessage();}" />
+          <button type="button" id="btnSendContractChat" class="ctrl-btn active" onclick="sendContractMessage()">Gửi</button>
         </div>
       </div>
     </aside>
@@ -649,9 +658,42 @@
       btn.classList.add('active');
       if (tabId === 'viewerTab') {
         setMyChatRole('VIEWER');
+        loadActiveSessions();
       } else if (tabId === 'creatorTab') {
         setMyChatRole('CREATOR');
       }
+    }
+
+    async function loadActiveSessions() {
+      const select = document.getElementById('activeSessionsSelect');
+      const input = document.getElementById('viewerSessionId');
+      if (!select) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/livestreams?status=LIVE`);
+        const json = await res.json();
+        if (json.success && json.data && json.data.items && json.data.items.length > 0) {
+          select.innerHTML = '';
+          json.data.items.forEach((item, idx) => {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.text = `🔴 Phòng #${item.id}: ${item.title} (${item.creatorName})`;
+            select.appendChild(opt);
+            if (idx === 0 && input) {
+              input.value = item.id;
+            }
+          });
+          log('viewerLogs', `Đã quét thấy ${json.data.items.length} phòng LIVE. Đang chọn phòng #${json.data.items[0].id}`);
+        } else {
+          select.innerHTML = '<option value="">(Chưa có phòng nào đang LIVE)</option>';
+        }
+      } catch (e) {
+        select.innerHTML = '<option value="">(Lỗi quét phòng)</option>';
+      }
+    }
+
+    function onSelectSession(val) {
+      const input = document.getElementById('viewerSessionId');
+      if (input && val) input.value = val;
     }
 
     async function quickLoginCreator() {
@@ -826,14 +868,22 @@
         return;
       }
 
-      log('viewerLogs', `Đang gọi POST /api/v1/livestreams/${sessionId}/join...`);
+      // Đảm bảo dọn dẹp kết nối cũ nếu có trước khi join phòng mới
+      if (rtcClient) {
+        try { await rtcClient.leave(); } catch (e) {}
+        rtcClient = null;
+      }
+
+      // Sinh một UID ngẫu nhiên độc nhất cho thiết bị này để tránh lỗi UID_CONFLICT
+      const clientUid = Math.floor(Math.random() * 800000) + 100000;
+      log('viewerLogs', `Đang gọi POST /api/v1/livestreams/${sessionId}/join (UID ngẫu nhiên: ${clientUid})...`);
       try {
         const headers = {};
         if (jwt) {
           headers['Authorization'] = jwt.startsWith('Bearer ') ? jwt : `Bearer ${jwt}`;
         }
 
-        const res = await fetch(`${API_BASE}/api/v1/livestreams/${sessionId}/join`, {
+        const res = await fetch(`${API_BASE}/api/v1/livestreams/${sessionId}/join?clientUid=${clientUid}`, {
           method: 'POST',
           headers
         });
@@ -848,7 +898,7 @@
         }
 
         const { appId, token, agoraChannelName, uid } = json.data;
-        log('viewerLogs', `Nhận vé SUBSCRIBER thành công. Đang kết nối vào phòng ${agoraChannelName}...`);
+        log('viewerLogs', `Nhận vé SUBSCRIBER thành công (UID: ${uid}). Đang kết nối vào phòng ${agoraChannelName}...`);
 
         rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
         await rtcClient.setClientRole("audience");
@@ -861,8 +911,16 @@
             user.videoTrack.play('videoContainer');
           }
           if (mediaType === "audio") {
-            user.audioTrack.play();
+            try {
+              user.audioTrack.play();
+            } catch (e) {
+              console.warn("Audio autoplay:", e);
+            }
           }
+        });
+
+        rtcClient.on("user-unpublished", (user, mediaType) => {
+          log('viewerLogs', `Creator chuyển đổi luồng ${mediaType}...`);
         });
 
         if (appId && appId !== 'your_agora_app_id' && token && !token.startsWith('mock_')) {
@@ -953,9 +1011,72 @@
     }
 
     // ==========================================
-    // Real-Time Inter-Tab Live Chat (BroadcastChannel)
+    // Screen Sharing Toggle (Seamless Switch)
+    // ==========================================
+    let isSharingScreen = false;
+
+    async function toggleScreenShare() {
+      if (!rtcClient || !currentSessionId) {
+        return startHostLivestream(true);
+      }
+      const btnShare = document.getElementById('btnShareScreen');
+      try {
+        if (!isSharingScreen) {
+          log('creatorLogs', 'Đang chuyển sang Chia sẻ Màn hình/Slide PowerPoint...');
+          const screenTrack = await AgoraRTC.createScreenVideoTrack();
+          if (localVideoTrack) {
+            await rtcClient.unpublish(localVideoTrack);
+            localVideoTrack.close();
+          }
+          localVideoTrack = screenTrack;
+          await rtcClient.publish(localVideoTrack);
+          localVideoTrack.play('videoContainer');
+          isSharingScreen = true;
+          if (btnShare) {
+            btnShare.innerText = '📷 Trở lại Camera';
+            btnShare.classList.add('active');
+          }
+          log('creatorLogs', '✅ Đang chia sẻ Màn hình trực tiếp tới mọi người xem (kể cả điện thoại)!');
+
+          screenTrack.on("track-ended", async () => {
+            log('creatorLogs', 'Đã dừng chia sẻ màn hình. Đang chuyển lại về Camera...');
+            await revertToCamera();
+          });
+        } else {
+          await revertToCamera();
+        }
+      } catch (err) {
+        log('creatorLogs', `Lỗi share màn hình: ${err.message}`);
+      }
+    }
+
+    async function revertToCamera() {
+      const selectCam = document.getElementById('cameraSourceSelect');
+      const chosenCamId = selectCam && selectCam.value !== 'default' ? selectCam.value : undefined;
+      if (localVideoTrack) {
+        await rtcClient.unpublish(localVideoTrack);
+        localVideoTrack.close();
+      }
+      const tracks = await AgoraRTC.createCameraVideoTrack(chosenCamId ? { cameraId: chosenCamId } : {});
+      localVideoTrack = tracks;
+      await rtcClient.publish(localVideoTrack);
+      localVideoTrack.play('videoContainer');
+      isSharingScreen = false;
+      const btnShare = document.getElementById('btnShareScreen');
+      if (btnShare) {
+        btnShare.innerText = '🖥️ Share Màn hình';
+        btnShare.classList.remove('active');
+      }
+      log('creatorLogs', '✅ Đã trở lại Camera thành công!');
+    }
+
+    // ==========================================
+    // Real-Time Cross-Device Live Chat (Backend Sync + BroadcastChannel)
     // ==========================================
     let currentUserRole = 'CREATOR';
+    let lastChatTimestamp = 0;
+    let chatPollingTimer = null;
+    const renderedMsgIds = new Set();
 
     function setMyChatRole(role) {
       currentUserRole = role;
@@ -967,6 +1088,32 @@
       }
     }
 
+    function startChatPolling() {
+      if (chatPollingTimer) clearInterval(chatPollingTimer);
+      chatPollingTimer = setInterval(async () => {
+        if (!currentSessionId) return;
+        try {
+          const res = await fetch(`${API_BASE}/api/v1/livestreams/${currentSessionId}/chats?since=${lastChatTimestamp}`);
+          const json = await res.json();
+          if (json.success && json.data && json.data.length > 0) {
+            json.data.forEach(msg => {
+              lastChatTimestamp = Math.max(lastChatTimestamp, msg.timestamp);
+              renderLiveChatMessage(msg.author, msg.role, msg.text, msg.timeFormatted, msg.id);
+            });
+          }
+        } catch (e) {
+          // ignore network glitch
+        }
+      }, 1500);
+    }
+
+    function stopChatPolling() {
+      if (chatPollingTimer) {
+        clearInterval(chatPollingTimer);
+        chatPollingTimer = null;
+      }
+    }
+
     function enableLiveChat() {
       const input = document.getElementById('chatInput');
       const btn = document.getElementById('btnSendChat');
@@ -975,6 +1122,7 @@
         input.placeholder = 'Nhập tin nhắn chat live...';
       }
       if (btn) btn.disabled = false;
+      startChatPolling();
     }
 
     function disableLiveChat(reason) {
@@ -985,6 +1133,7 @@
         input.placeholder = `🔒 ${reason || 'Buổi livestream đã kết thúc. Khung chat đã đóng.'}`;
       }
       if (btn) btn.disabled = true;
+      stopChatPolling();
     }
 
     const liveChatBroadcast = ('BroadcastChannel' in window) ? new BroadcastChannel('history_podcast_live_chat') : null;
@@ -995,30 +1144,59 @@
           renderLiveChatMessage(author, role, text, time);
           disableLiveChat('Host đã kết thúc phiên livestream.');
           leaveChannel();
-          return;
         }
-        renderLiveChatMessage(author, role, text, time);
       };
     }
 
-    function sendChatMessage() {
-      const input = document.getElementById('chatInput');
-      if (input.disabled) return;
-      const text = input.value.trim();
-      if (!text) return;
-      const role = currentUserRole.toLowerCase();
-      const author = currentUserRole === 'CREATOR' ? '👑 Creator' : '👤 Viewer';
-      const time = new Date().toLocaleTimeString();
-
-      renderLiveChatMessage(author, role, text, time);
-      if (liveChatBroadcast) {
-        liveChatBroadcast.postMessage({ author, role, text, time });
-      }
-      input.value = '';
+    function formatChatTime(d = new Date()) {
+      const pad = n => n.toString().padStart(2, '0');
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
 
-    function renderLiveChatMessage(author, role, text, time) {
+    let isSendingLiveChat = false;
+    async function sendChatMessage() {
+      if (isSendingLiveChat) return;
+      const input = document.getElementById('chatInput');
+      if (!input || input.disabled) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      isSendingLiveChat = true;
+      input.value = '';
+
+      const role = currentUserRole.toLowerCase();
+      const author = currentUserRole === 'CREATOR' ? '👑 Creator' : '👤 Viewer';
+      const time = formatChatTime();
+      const localId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+      // 1. Render ngay tại máy người gửi và lưu id để không bao giờ bị render lại
+      renderLiveChatMessage(author, role, text, time, localId);
+
+      // 2. Gửi id kèm text lên server để server phân phối tới các máy khác
+      if (currentSessionId) {
+        try {
+          await fetch(`${API_BASE}/api/v1/livestreams/${currentSessionId}/chats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: localId, author, role, text })
+          });
+        } catch (e) {
+          console.warn('Cannot send chat to server:', e);
+        }
+      }
+
+      setTimeout(() => {
+        isSendingLiveChat = false;
+      }, 300);
+    }
+
+    function renderLiveChatMessage(author, role, text, time, msgId = null) {
+      if (msgId) {
+        if (renderedMsgIds.has(msgId)) return;
+        renderedMsgIds.add(msgId);
+      }
       const list = document.getElementById('chatList');
+      if (!list) return;
       const div = document.createElement('div');
       div.className = 'chat-msg';
       const roleClass = role === 'creator' ? 'creator' : 'viewer';
@@ -1173,11 +1351,16 @@
       }
     }
 
+    let isSendingContractChat = false;
     function sendContractMessage() {
+      if (isSendingContractChat) return;
       const input = document.getElementById('contractChatInput');
+      if (!input) return;
       const text = input.value.trim();
       if (!text) return;
-      const time = new Date().toLocaleTimeString();
+      isSendingContractChat = true;
+      input.value = '';
+      const time = formatChatTime();
       const senderRole = currentContractRole;
       const senderName = currentContractRole === 'CREATOR' ? 'Creator' 
                        : currentContractRole === 'NARRATOR' ? 'Narrator' 
@@ -1213,7 +1396,7 @@
           contractChatBroadcast.postMessage({ senderName, senderRole, text, time });
         }
       }
-      input.value = '';
+      setTimeout(() => { isSendingContractChat = false; }, 300);
     }
 
     function renderContractChatMessage(senderName, senderRole, text, time, isCloud = false) {

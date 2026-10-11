@@ -59,8 +59,11 @@ public class LivestreamController {
     @PostMapping("/{id}/join")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Tham gia / Lấy Token kết nối Agora", description = "Creator nhận Token quyền PUBLISHER. Viewer nhận Token quyền SUBSCRIBER (nếu là phòng VIP phải có gói hội viên còn hạn)")
-    public ResponseEntity<ApiResponse<LivestreamTokenResponse>> getJoinToken(@PathVariable Long id) {
-        LivestreamTokenResponse response = livestreamService.getJoinToken(id);
+    public ResponseEntity<ApiResponse<LivestreamTokenResponse>> getJoinToken(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer clientUid
+    ) {
+        LivestreamTokenResponse response = livestreamService.getJoinToken(id, clientUid);
         return ResponseEntity.ok(ApiResponse.success("Lấy token kết nối Agora thành công", response));
     }
 
@@ -70,5 +73,31 @@ public class LivestreamController {
     public ResponseEntity<ApiResponse<LivestreamResponse>> endSession(@PathVariable Long id) {
         LivestreamResponse response = livestreamService.endSession(id);
         return ResponseEntity.ok(ApiResponse.success("Đã kết thúc phiên livestream", response));
+    }
+
+    @PostMapping("/{id}/chats")
+    @Operation(summary = "Gửi tin nhắn Live Chat", description = "Gửi tin nhắn vào phòng live, đồng bộ cho tất cả các thiết bị")
+    public ResponseEntity<ApiResponse<Void>> sendChatMessage(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> payload
+    ) {
+        livestreamService.sendChatMessage(
+                id,
+                payload.get("id"),
+                payload.get("author"),
+                payload.get("role"),
+                payload.get("text")
+        );
+        return ResponseEntity.ok(ApiResponse.success("Đã gửi tin nhắn", null));
+    }
+
+    @GetMapping("/{id}/chats")
+    @Operation(summary = "Lấy tin nhắn Live Chat", description = "Lấy danh sách tin nhắn mới trong phòng live theo timestamp")
+    public ResponseEntity<ApiResponse<java.util.List<com.prm.livestream.dto.response.LivestreamChatMessageResponse>>> getChatMessages(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") long since
+    ) {
+        var list = livestreamService.getChatMessages(id, since);
+        return ResponseEntity.ok(ApiResponse.success(list));
     }
 }

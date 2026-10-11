@@ -11,11 +11,23 @@ public interface LivestreamService {
 
     LivestreamResponse createSession(CreateLivestreamRequest request);
 
-    LivestreamTokenResponse getJoinToken(Long sessionId);
+    default LivestreamTokenResponse getJoinToken(Long sessionId) {
+        return getJoinToken(sessionId, null);
+    }
+
+    LivestreamTokenResponse getJoinToken(Long sessionId, Integer clientUid);
 
     LivestreamResponse endSession(Long sessionId);
 
     LivestreamResponse getSession(Long sessionId);
 
     PageResponse<LivestreamResponse> getLivestreams(LivestreamStatus status, Long channelId, Pageable pageable);
+
+    default void sendChatMessage(Long sessionId, String author, String role, String text) {
+        sendChatMessage(sessionId, null, author, role, text);
+    }
+
+    void sendChatMessage(Long sessionId, String id, String author, String role, String text);
+
+    java.util.List<com.prm.livestream.dto.response.LivestreamChatMessageResponse> getChatMessages(Long sessionId, long since);
 }
