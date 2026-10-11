@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Livestream Studio & Agora RTC Test Terminal — History Podcast</title>
+
+  <!-- Typography: Space Grotesk & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Agora Web RTC SDK v4 -->
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.22.0.js"></script>
+
+  <!-- Firebase App & Firestore v9 compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --bg-base: #090A0F;
+      --bg-card: #12141C;
+      --bg-card-hover: #171A24;
+      --bg-input: #0D0F17;
+      --border-subtle: #222634;
+      --border-highlight: #343B4E;
+      --border-focus: #38BDF8;
+
+      --text-white: #FFFFFF;
+      --text-heading: #F8FAFC;
+      --text-body: #CBD5E1;
+      --text-dim: #8492A6;
+      --text-muted: #4B5565;
+
+      --cyan-base: #38BDF8;
+      --cyan-glow: rgba(56, 189, 248, 0.15);
+      --cyan-border: rgba(56, 189, 248, 0.35);
+
+      --emerald-base: #10B981;
+      --emerald-glow: rgba(16, 185, 129, 0.15);
+      --emerald-border: rgba(16, 185, 129, 0.35);
+
+      --rose-base: #F43F5E;
+      --rose-glow: rgba(244, 63, 94, 0.2);
+      --rose-border: rgba(244, 63, 94, 0.4);
+
+      --amber-base: #F59E0B;
+      --amber-glow: rgba(245, 158, 11, 0.15);
+
+      --font-display: 'Space Grotesk', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      background-image:
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, transparent 60%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 32px 32px, 32px 32px;
+      color: var(--text-body);
+      font-family: var(--font-display);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Container Header */
+    .app-header {
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-heading);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--rose-glow);
+      color: var(--rose-base);
+      border: 1px solid var(--rose-border);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
+    }
+
+    .live-pulse {
+      width: 8px;
+      height: 8px;
+      background-color: var(--rose-base);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(244, 63, 94, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+    }
+
+    /* Main Grid: Left Stage (65%) & Right Control Deck (35%) */
+    .studio-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 20px;
+      width: 100%;
+      max-width: 1200px;
+    }
+
+    @media (min-width: 900px) {
+      .studio-grid {
+        grid-template-columns: 7fr 5fr;
+      }
+    }
+
+    /* Video Stage */
+    .video-stage-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
+    }
+
+    .video-viewport {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background-color: #000000;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-player-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .placeholder-screen {
+      color: var(--text-dim);
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+
+    /* HUD Overlay */
+    .hud-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .hud-chip {
+      background: rgba(9, 10, 15, 0.75);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-body);
+      pointer-events: auto;
+    }
+
+    /* Video Control Bar */
+    .stage-controls {
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-body);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: var(--font-display);
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .ctrl-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-highlight);
+      color: var(--text-white);
+    }
+
+    .ctrl-btn.active {
+      background: var(--cyan-glow);
+      border-color: var(--cyan-border);
+      color: var(--cyan-base);
+    }
+
+    .ctrl-btn.danger {
+      background: var(--rose-glow);
+      border-color: var(--rose-border);
+      color: var(--rose-base);
+    }
+
+    /* Right Control Deck */
+    .control-deck-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .deck-tabs {
+      display: flex;
+      background: var(--bg-input);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      color: var(--cyan-base);
+      border-bottom-color: var(--cyan-base);
+      background: var(--bg-card);
+    }
+
+    .tab-pane {
+      display: none;
+      padding: 16px;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      max-height: 520px;
+    }
+
+    .tab-pane.active {
+      display: flex;
+    }
+
+    /* Form Inputs */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-heading);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 2px var(--cyan-glow);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284C7 0%, #38BDF8 100%);
+      color: #FFFFFF;
+      border: none;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    /* Log Box */
+    .console-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* Chat Simulator */
+    .chat-messages {
+      flex: 1;
+      min-height: 200px;
+      max-height: 260px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--bg-input);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .chat-msg {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .chat-author {
+      font-weight: 600;
+      color: var(--cyan-base);
+    }
+
+    .chat-author.creator {
+      color: var(--rose-base);
+    }
+
+    .chat-text {
+      color: var(--text-body);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+      </svg>
+      History Podcast — Agora Livestream Terminal
+    </div>
+    <div id="statusBadge" class="live-badge" style="display: none;">
+      <span class="live-pulse"></span>
+      <span id="statusBadgeText">OFFLINE</span>
+    </div>
+  </header>
+
+  <!-- Studio Grid -->
+  <main class="studio-grid">
+    
+    <!-- Left: Video Stage -->
+    <section class="video-stage-card">
+      <div class="video-viewport">
+        <div id="videoContainer" class="video-player-container"></div>
+        <div id="placeholderScreen" class="placeholder-screen">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+          </svg>
+          <span>Chưa có tín hiệu phát sóng. Hãy Tạo hoặc Tham gia phòng live.</span>
+        </div>
+
+        <!-- Realtime HUD -->
+        <div class="hud-overlay">
+          <div class="hud-chip" id="hudRoom">Phòng: Chưa kết nối</div>
+          <div class="hud-chip" id="hudStats">Stats: -- fps | -- ms</div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="stage-controls">
+        <div class="control-btn-group">
+          <button id="btnMuteAudio" class="ctrl-btn active" onclick="toggleAudio()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+            Micro: Bật
+          </button>
+          <button id="btnMuteVideo" class="ctrl-btn active" onclick="toggleVideo()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+            Camera: Bật
+          </button>
+        </div>
+        <div class="control-btn-group">
+          <button id="btnLeave" class="ctrl-btn danger" onclick="leaveChannel()" style="display: none;">
+            Rời phòng
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Control Deck -->
+    <aside class="control-deck-card">
+      <div class="deck-tabs">
+        <button class="tab-btn active" onclick="switchTab('creatorTab', this)">Creator Studio</button>
+        <button class="tab-btn" onclick="switchTab('viewerTab', this)">Viewer Theater</button>
+        <button class="tab-btn" onclick="switchTab('chatTab', this)">Live Chat</button>
+        <button class="tab-btn" onclick="switchTab('contractChatTab', this)">Collaboration Chat (1-1)</button>
+      </div>
+
+      <!-- Tab 1: Creator Studio -->
+      <div id="creatorTab" class="tab-pane active">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button class="ctrl-btn active" style="flex: 1; justify-content: center;" onclick="quickLoginCreator()">
+            ⚡ Đăng nhập Creator (1-Click)
+          </button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">JWT Token (Creator):</label>
+          <input type="text" id="creatorJwt" class="form-input" placeholder="Nhấn nút trên để tự động lấy token..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nguồn Video (Webcam / OBS Virtual Camera):</label>
+          <select id="cameraSourceSelect" class="form-input">
+            <option value="default">Webcam mặc định</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID Kênh (Channel ID):</label>
+          <input type="number" id="creatorChannelId" class="form-input" value="1" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tiêu đề buổi Live:</label>
+          <input type="text" id="liveTitle" class="form-input" value="Kể chuyện Lịch sử: Trận Bạch Đằng Giang 938" />
+        </div>
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 8px;">
+          <input type="checkbox" id="isExclusive" style="cursor: pointer;" />
+          <label for="isExclusive" class="form-label" style="cursor: pointer;">Chỉ dành cho Hội viên VIP (Member)</label>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-primary" style="flex: 1;" onclick="startHostLivestream(false)">
+            Bắt đầu Phát sóng (Webcam/OBS)
+          </button>
+          <button class="ctrl-btn" onclick="startHostLivestream(true)" title="Chia sẻ Slide PowerPoint / Màn hình">
+            🖥️ Share Màn hình
+          </button>
+        </div>
+        <button class="ctrl-btn danger" style="width: 100%; justify-content: center; margin-top: 8px;" onclick="endLivestream()">
+          Kết thúc Phiên Live (API)
+        </button>
+        <div class="form-group">
+          <label class="form-label">Console Logs:</label>
+          <div id="creatorLogs" class="console-box">Chờ thao tác...</div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Viewer Theater -->
+      <div id="viewerTab" class="tab-pane">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button class="ctrl-btn active" style="flex: 1; justify-content: center;" onclick="quickLoginViewer()">
+            ⚡ Đăng nhập Viewer (1-Click)
+          </button>
+        </div>
+        <div class="form-group">
+          <label class="form-label">JWT Token (Viewer - Bắt buộc nếu phòng VIP):</label>
+          <input type="text" id="viewerJwt" class="form-input" placeholder="Nhấn nút trên để tự động lấy token..." />
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID Phiên Live (Session ID):</label>
+          <input type="number" id="viewerSessionId" class="form-input" value="1" />
+        </div>
+        <button class="btn-primary" onclick="joinViewerLivestream()">
+          Tham gia Xem Live (Audience)
+        </button>
+        <div class="form-group">
+          <label class="form-label">Console Logs:</label>
+          <div id="viewerLogs" class="console-box">Chờ tham gia...</div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Live Chat Simulator -->
+      <div id="chatTab" class="tab-pane">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 6px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px;">
+          <span style="font-size: 13px; color: var(--text-dim);">Vai trò gửi tin:</span>
+          <div style="display: flex; gap: 6px;">
+            <button id="btnRoleCreator" class="ctrl-btn active" style="padding: 4px 10px; font-size: 12px;" onclick="setMyChatRole('CREATOR')">👑 Creator</button>
+            <button id="btnRoleViewer" class="ctrl-btn" style="padding: 4px 10px; font-size: 12px;" onclick="setMyChatRole('VIEWER')">👤 Viewer</button>
+          </div>
+        </div>
+        <div class="chat-messages" id="chatList" style="height: 320px;">
+          <div class="chat-msg"><span class="chat-author creator">Hệ thống:</span> <span class="chat-text">Live Chat đồng bộ thời gian thực giữa các tab.</span></div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <input type="text" id="chatInput" class="form-input" style="flex: 1;" placeholder="Nhập tin nhắn chat live..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+          <button id="btnSendChat" class="ctrl-btn active" onclick="sendChatMessage()">Gửi</button>
+        </div>
+      </div>
+
+      <!-- Tab 4: Creator - Freelancer Collaboration Chat -->
+      <div id="contractChatTab" class="tab-pane">
+        <div class="form-group">
+          <label class="form-label">Đóng vai người gọi:</label>
+          <div style="display: flex; gap: 6px;">
+            <button class="ctrl-btn active" style="flex: 1; padding: 6px;" onclick="selectContractRole('CREATOR')">👑 Creator</button>
+            <button class="ctrl-btn" style="flex: 1; padding: 6px;" onclick="selectContractRole('NARRATOR')">🎙️ Narrator</button>
+            <button class="ctrl-btn danger" style="flex: 1; padding: 6px;" onclick="selectContractRole('STRANGER')">⛔ Người lạ</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID Thỏa thuận cộng tác (Booking / Thỏa thuận):</label>
+          <input type="number" id="contractIdInput" class="form-input" value="1" />
+        </div>
+        <button class="btn-primary" onclick="verifyContractChat()">
+          🔐 Xác thực điều khoản nền tảng (POST /api/v1/chats/conversation)
+        </button>
+        <div class="form-group" style="margin-top: 8px;">
+          <label class="form-label">Trạng thái Gatekeeper API:</label>
+          <div id="contractAuthStatus" class="console-box" style="height: 70px;">Chưa kiểm tra quyền...</div>
+        </div>
+
+        <!-- Optional Firebase Cloud Toggle -->
+        <div style="margin-top: 8px; padding: 8px 10px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 12px; color: var(--text-dim);">Chế độ Realtime:</span>
+            <span id="chatModeBadge" style="font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: rgba(56,189,248,0.1); color: var(--cyan-base);">📡 Trình duyệt Inter-Tab</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; gap: 6px;">
+              <input type="password" id="firestoreApiKey" class="form-input" style="padding: 4px 8px; font-size: 11px; flex: 1;" placeholder="Firebase Web API Key (AIzaSy...)" />
+              <input type="text" id="firestoreProjectId" class="form-input" style="padding: 4px 8px; font-size: 11px; flex: 1;" placeholder="Project ID (ví dụ: history-podcast-app)" />
+            </div>
+            <button class="ctrl-btn" style="padding: 4px 8px; font-size: 11px; justify-content: center;" onclick="connectFirebaseFirestore()">🔥 Bật Firebase Cloud</button>
+          </div>
+          <div style="margin-top: 6px; font-size: 11px;">
+            <a id="firestoreConsoleLink" href="https://console.firebase.google.com/project/history-podcast-app/firestore" target="_blank" style="color: var(--cyan-base); text-decoration: underline;">
+              🔗 Bấm để mở Firebase Console Firestore xem tin nhắn thật
+            </a>
+          </div>
+        </div>
+
+        <div class="chat-messages" id="contractChatList" style="height: 180px; margin-top: 8px;">
+          <div class="chat-msg"><span class="chat-author">Hệ thống:</span> <span class="chat-text">Kênh chat bảo mật trao đổi kịch bản podcast giữa Creator và Narrator.</span></div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <input type="text" id="contractChatInput" class="form-input" style="flex: 1;" placeholder="Nhập tin nhắn đàm phán hợp đồng..." onkeydown="if(event.key==='Enter') sendContractMessage()" />
+          <button id="btnSendContractChat" class="ctrl-btn active" onclick="sendContractMessage()">Gửi</button>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <script>
+    // State Variables
+    let rtcClient = null;
+    let localAudioTrack = null;
+    let localVideoTrack = null;
+    let currentSessionId = null;
+    let isAudioMuted = false;
+    let isVideoMuted = false;
+
+    const API_BASE = window.location.origin;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedKey = localStorage.getItem("firebase_web_api_key");
+      const savedProj = localStorage.getItem("firebase_project_id");
+      const keyEl = document.getElementById("firestoreApiKey");
+      const projEl = document.getElementById("firestoreProjectId");
+      if (savedKey && keyEl) keyEl.value = savedKey;
+      if (savedProj && projEl) projEl.value = savedProj;
+    });
+
+    function log(elementId, message) {
+      const el = document.getElementById(elementId);
+      if (el) {
+        el.innerText = `[${new Date().toLocaleTimeString()}] ${message}\n` + el.innerText;
+      }
+    }
+
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+      if (tabId === 'viewerTab') {
+        setMyChatRole('VIEWER');
+      } else if (tabId === 'creatorTab') {
+        setMyChatRole('CREATOR');
+      }
+    }
+
+    async function quickLoginCreator() {
+      try {
+        log('creatorLogs', 'Đang tự động đăng nhập tài khoản Creator (creator@example.com)...');
+        const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'creator@example.com', password: 'Creator@123' })
+        });
+        const data = await res.json();
+        if (data.success && data.data.accessToken) {
+          document.getElementById('creatorJwt').value = data.data.accessToken;
+          log('creatorLogs', '✅ Đăng nhập Creator thành công! Đã tự động điền Token.');
+        } else {
+          log('creatorLogs', `❌ Lỗi đăng nhập: ${data.message}`);
+        }
+      } catch (e) {
+        log('creatorLogs', `❌ Lỗi mạng: ${e.message}`);
+      }
+    }
+
+    async function quickLoginViewer() {
+      try {
+        log('viewerLogs', 'Đang tự động đăng nhập tài khoản Viewer (viewer@example.com)...');
+        const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'viewer@example.com', password: 'Creator@123' })
+        });
+        const data = await res.json();
+        if (data.success && data.data.accessToken) {
+          document.getElementById('viewerJwt').value = data.data.accessToken;
+          log('viewerLogs', '✅ Đăng nhập Viewer thành công! Đã tự động điền Token.');
+        } else {
+          log('viewerLogs', `❌ Lỗi đăng nhập: ${data.message}`);
+        }
+      } catch (e) {
+        log('viewerLogs', `❌ Lỗi mạng: ${e.message}`);
+      }
+    }
+
+    // Camera Discovery
+    async function loadCameras() {
+      try {
+        const devices = await AgoraRTC.getCameras();
+        const select = document.getElementById('cameraSourceSelect');
+        if (!select) return;
+        select.innerHTML = '<option value="default">Webcam mặc định</option>';
+        devices.forEach((d, idx) => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          let label = d.label || `Camera ${idx + 1}`;
+          if (label.toLowerCase().includes('obs')) {
+            label = '⭐ ' + label + ' (OBS Virtual Camera)';
+          }
+          opt.text = label;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        console.warn('Cannot enumerate devices:', e);
+      }
+    }
+    window.addEventListener('DOMContentLoaded', loadCameras);
+
+    // 1. Creator Start Livestream
+    async function startHostLivestream(isScreenShare = false) {
+      const jwt = document.getElementById('creatorJwt').value.trim();
+      const channelId = document.getElementById('creatorChannelId').value;
+      const title = document.getElementById('liveTitle').value;
+      const isExclusive = document.getElementById('isExclusive').checked;
+
+      if (!jwt) {
+        alert('Vui lòng nhập hoặc bấm "Đăng nhập Creator" để lấy Token');
+        return;
+      }
+
+      log('creatorLogs', 'Đang gọi POST /api/v1/livestreams...');
+      try {
+        const createRes = await fetch(`${API_BASE}/api/v1/livestreams`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': jwt.startsWith('Bearer ') ? jwt : `Bearer ${jwt}`
+          },
+          body: JSON.stringify({ channelId: parseInt(channelId), title, isExclusive })
+        });
+
+        const createJson = await createRes.json();
+        if (!createJson.success) {
+          log('creatorLogs', `Lỗi tạo phòng: ${createJson.message}`);
+          return;
+        }
+
+        currentSessionId = createJson.data.id;
+        const agoraChannel = createJson.data.agoraChannelName;
+        log('creatorLogs', `Đã tạo phiên live #${currentSessionId}, Agora Channel: ${agoraChannel}`);
+
+        // Lấy Token Join
+        log('creatorLogs', `Đang lấy RTC Token PUBLISHER...`);
+        const tokenRes = await fetch(`${API_BASE}/api/v1/livestreams/${currentSessionId}/join`, {
+          method: 'POST',
+          headers: { 'Authorization': jwt.startsWith('Bearer ') ? jwt : `Bearer ${jwt}` }
+        });
+        const tokenJson = await tokenRes.json();
+        if (!tokenJson.success) {
+          log('creatorLogs', `Lỗi lấy token: ${tokenJson.message}`);
+          return;
+        }
+
+        const { appId, token, uid } = tokenJson.data;
+        log('creatorLogs', `Nhận Token thành công (UID: ${uid}). Đang khởi động luồng phát...`);
+
+        // Khởi động Agora Web Client
+        await initAgoraAndPublish(appId, agoraChannel, token, uid, isScreenShare);
+
+      } catch (err) {
+        log('creatorLogs', `Exception: ${err.message}`);
+      }
+    }
+
+    async function initAgoraAndPublish(appId, channelName, token, uid, isScreenShare = false) {
+      if (!appId || appId === 'your_agora_app_id') {
+        alert('Agora App ID chưa được cấu hình trên server hoặc đang ở Mock Mode.');
+      }
+
+      rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+      await rtcClient.setClientRole("host");
+
+      const selectCam = document.getElementById('cameraSourceSelect');
+      const chosenCamId = selectCam && selectCam.value !== 'default' ? selectCam.value : undefined;
+
+      if (isScreenShare) {
+        log('creatorLogs', 'Đang mở hộp thoại chia sẻ Màn hình/Slide...');
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        localVideoTrack = await AgoraRTC.createScreenVideoTrack();
+      } else {
+        [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks(
+          {},
+          chosenCamId ? { cameraId: chosenCamId } : {}
+        );
+      }
+
+      // Tự động load lại danh sách Camera nếu lúc nãy chưa cấp quyền
+      loadCameras();
+
+      // Hiển thị camera local lên viewport
+      document.getElementById('placeholderScreen').style.display = 'none';
+      localVideoTrack.play('videoContainer');
+
+      // Join vào kênh Agora
+      if (appId && appId !== 'your_agora_app_id' && token && !token.startsWith('mock_')) {
+        await rtcClient.join(appId, channelName, token, uid);
+        await rtcClient.publish([localAudioTrack, localVideoTrack]);
+        log('creatorLogs', '✅ Đã Publish thành công luồng video & audio lên Agora Cloud!');
+      } else {
+        log('creatorLogs', '[MOCK MODE] Đang phát thử nghiệm Camera trên Local Viewport.');
+      }
+
+      setMyChatRole('CREATOR');
+      enableLiveChat();
+      updateLiveUI(true, channelName);
+    }
+
+    // 2. Viewer Join Livestream
+    async function joinViewerLivestream() {
+      const jwt = document.getElementById('viewerJwt').value.trim();
+      const sessionId = document.getElementById('viewerSessionId').value;
+
+      if (!sessionId) {
+        alert('Vui lòng nhập Session ID của phiên live');
+        return;
+      }
+
+      log('viewerLogs', `Đang gọi POST /api/v1/livestreams/${sessionId}/join...`);
+      try {
+        const headers = {};
+        if (jwt) {
+          headers['Authorization'] = jwt.startsWith('Bearer ') ? jwt : `Bearer ${jwt}`;
+        }
+
+        const res = await fetch(`${API_BASE}/api/v1/livestreams/${sessionId}/join`, {
+          method: 'POST',
+          headers
+        });
+
+        const json = await res.json();
+        if (!json.success) {
+          log('viewerLogs', `Từ chối tham gia: ${json.message} (Code: ${json.errorCode})`);
+          if (json.errorCode === 'LIVESTREAM_MEMBER_REQUIRED') {
+            alert('⚠️ BẠN KHÔNG PHẢI HỘI VIÊN VIP: Buổi live này chỉ dành riêng cho Member trả phí của kênh!');
+          }
+          return;
+        }
+
+        const { appId, token, agoraChannelName, uid } = json.data;
+        log('viewerLogs', `Nhận vé SUBSCRIBER thành công. Đang kết nối vào phòng ${agoraChannelName}...`);
+
+        rtcClient = AgoraRTC.createClient({ mode: "live", codec: "vp8" });
+        await rtcClient.setClientRole("audience");
+
+        rtcClient.on("user-published", async (user, mediaType) => {
+          await rtcClient.subscribe(user, mediaType);
+          log('viewerLogs', `Đã nhận luồng ${mediaType} từ Creator (UID: ${user.uid})`);
+          if (mediaType === "video") {
+            document.getElementById('placeholderScreen').style.display = 'none';
+            user.videoTrack.play('videoContainer');
+          }
+          if (mediaType === "audio") {
+            user.audioTrack.play();
+          }
+        });
+
+        if (appId && appId !== 'your_agora_app_id' && token && !token.startsWith('mock_')) {
+          await rtcClient.join(appId, agoraChannelName, token, uid);
+          log('viewerLogs', '✅ Đã tham gia phòng Agora thành công!');
+        } else {
+          log('viewerLogs', '[MOCK MODE] Đang kết nối mô phỏng.');
+        }
+
+        currentSessionId = sessionId;
+        setMyChatRole('VIEWER');
+        enableLiveChat();
+        updateLiveUI(true, agoraChannelName);
+      } catch (err) {
+        log('viewerLogs', `Exception: ${err.message}`);
+      }
+    }
+
+    // 3. End Livestream (Creator)
+    async function endLivestream() {
+      if (!currentSessionId) {
+        alert('Chưa có phiên livestream nào đang chạy');
+        return;
+      }
+      const jwt = document.getElementById('creatorJwt').value.trim();
+      log('creatorLogs', `Đang gọi kết thúc live #${currentSessionId}...`);
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/livestreams/${currentSessionId}/end`, {
+          method: 'POST',
+          headers: { 'Authorization': jwt.startsWith('Bearer ') ? jwt : `Bearer ${jwt}` }
+        });
+        const json = await res.json();
+        log('creatorLogs', json.message);
+
+        // Broadcast thông báo kết thúc phiên live và đóng chat
+        if (liveChatBroadcast) {
+          liveChatBroadcast.postMessage({
+            isEndSession: true,
+            author: 'Hệ thống',
+            role: 'creator',
+            text: '🛑 Buổi livestream đã kết thúc bởi Creator. Khung chat tạm thời đóng lại.',
+            time: new Date().toLocaleTimeString()
+          });
+        }
+        renderLiveChatMessage('Hệ thống', 'creator', '🛑 Bạn đã kết thúc buổi live. Khung chat đã đóng.', new Date().toLocaleTimeString());
+        disableLiveChat('Buổi livestream đã kết thúc.');
+        leaveChannel();
+      } catch (err) {
+        log('creatorLogs', `Lỗi: ${err.message}`);
+      }
+    }
+
+    // Controls
+    function toggleAudio() {
+      if (localAudioTrack) {
+        isAudioMuted = !isAudioMuted;
+        localAudioTrack.setEnabled(!isAudioMuted);
+        const btn = document.getElementById('btnMuteAudio');
+        btn.innerText = isAudioMuted ? 'Micro: Tắt' : 'Micro: Bật';
+        btn.classList.toggle('active', !isAudioMuted);
+      }
+    }
+
+    function toggleVideo() {
+      if (localVideoTrack) {
+        isVideoMuted = !isVideoMuted;
+        localVideoTrack.setEnabled(!isVideoMuted);
+        const btn = document.getElementById('btnMuteVideo');
+        btn.innerText = isVideoMuted ? 'Camera: Tắt' : 'Camera: Bật';
+        btn.classList.toggle('active', !isVideoMuted);
+      }
+    }
+
+    async function leaveChannel() {
+      if (localAudioTrack) { localAudioTrack.close(); localAudioTrack = null; }
+      if (localVideoTrack) { localVideoTrack.close(); localVideoTrack = null; }
+      if (rtcClient) { await rtcClient.leave(); rtcClient = null; }
+      document.getElementById('videoContainer').innerHTML = '';
+      document.getElementById('placeholderScreen').style.display = 'flex';
+      updateLiveUI(false, '');
+    }
+
+    function updateLiveUI(isLive, channelName) {
+      document.getElementById('statusBadge').style.display = isLive ? 'inline-flex' : 'none';
+      document.getElementById('statusBadgeText').innerText = isLive ? 'LIVE' : 'OFFLINE';
+      document.getElementById('hudRoom').innerText = isLive ? `Phòng: ${channelName}` : 'Phòng: Chưa kết nối';
+      document.getElementById('btnLeave').style.display = isLive ? 'inline-flex' : 'none';
+    }
+
+    // ==========================================
+    // Real-Time Inter-Tab Live Chat (BroadcastChannel)
+    // ==========================================
+    let currentUserRole = 'CREATOR';
+
+    function setMyChatRole(role) {
+      currentUserRole = role;
+      const btnCreator = document.getElementById('btnRoleCreator');
+      const btnViewer = document.getElementById('btnRoleViewer');
+      if (btnCreator && btnViewer) {
+        btnCreator.classList.toggle('active', role === 'CREATOR');
+        btnViewer.classList.toggle('active', role === 'VIEWER');
+      }
+    }
+
+    function enableLiveChat() {
+      const input = document.getElementById('chatInput');
+      const btn = document.getElementById('btnSendChat');
+      if (input) {
+        input.disabled = false;
+        input.placeholder = 'Nhập tin nhắn chat live...';
+      }
+      if (btn) btn.disabled = false;
+    }
+
+    function disableLiveChat(reason) {
+      const input = document.getElementById('chatInput');
+      const btn = document.getElementById('btnSendChat');
+      if (input) {
+        input.disabled = true;
+        input.placeholder = `🔒 ${reason || 'Buổi livestream đã kết thúc. Khung chat đã đóng.'}`;
+      }
+      if (btn) btn.disabled = true;
+    }
+
+    const liveChatBroadcast = ('BroadcastChannel' in window) ? new BroadcastChannel('history_podcast_live_chat') : null;
+    if (liveChatBroadcast) {
+      liveChatBroadcast.onmessage = (e) => {
+        const { isEndSession, author, role, text, time } = e.data;
+        if (isEndSession) {
+          renderLiveChatMessage(author, role, text, time);
+          disableLiveChat('Host đã kết thúc phiên livestream.');
+          leaveChannel();
+          return;
+        }
+        renderLiveChatMessage(author, role, text, time);
+      };
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      if (input.disabled) return;
+      const text = input.value.trim();
+      if (!text) return;
+      const role = currentUserRole.toLowerCase();
+      const author = currentUserRole === 'CREATOR' ? '👑 Creator' : '👤 Viewer';
+      const time = new Date().toLocaleTimeString();
+
+      renderLiveChatMessage(author, role, text, time);
+      if (liveChatBroadcast) {
+        liveChatBroadcast.postMessage({ author, role, text, time });
+      }
+      input.value = '';
+    }
+
+    function renderLiveChatMessage(author, role, text, time) {
+      const list = document.getElementById('chatList');
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      const roleClass = role === 'creator' ? 'creator' : 'viewer';
+      div.innerHTML = `<span class="chat-author ${roleClass}" style="${role === 'viewer' ? 'color: var(--cyan-base);' : ''}">${escapeHtml(author)} [${time}]:</span> <span class="chat-text">${escapeHtml(text)}</span>`;
+      list.appendChild(div);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    // ==========================================
+    // Creator ↔ Narrator Collaboration Chat (Gatekeeper API + Firebase Firestore)
+    // ==========================================
+    let currentContractRole = 'CREATOR';
+    let currentContractJwt = '';
+    let currentConversationId = null;
+    let firestoreDb = null;
+    let firestoreUnsubscribe = null;
+
+    const contractChatBroadcast = ('BroadcastChannel' in window) ? new BroadcastChannel('history_podcast_contract_chat') : null;
+    if (contractChatBroadcast) {
+      contractChatBroadcast.onmessage = (e) => {
+        const { senderName, senderRole, text, time } = e.data;
+        renderContractChatMessage(senderName, senderRole, text, time, false);
+      };
+    }
+
+    function connectFirebaseFirestore() {
+      const apiKey = document.getElementById('firestoreApiKey').value.trim() || localStorage.getItem('firebase_web_api_key');
+      const projId = document.getElementById('firestoreProjectId').value.trim() || localStorage.getItem('firebase_project_id');
+      if (!apiKey || !projId) {
+        alert('Vui lòng nhập Firebase Web API Key và Project ID để kết nối Firestore Cloud!');
+        return;
+      }
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp({
+            apiKey: apiKey,
+            projectId: projId
+          });
+        }
+        firestoreDb = firebase.firestore();
+        localStorage.setItem('firebase_web_api_key', apiKey);
+        localStorage.setItem('firebase_project_id', projId);
+        const badge = document.getElementById('chatModeBadge');
+        if (badge) {
+          badge.innerHTML = '🔥 Google Cloud Firestore: ACTIVE';
+          badge.style.background = 'rgba(239, 68, 68, 0.15)';
+          badge.style.color = '#f87171';
+        }
+        if (!currentConversationId) {
+          currentConversationId = 'contract_' + (document.getElementById('contractIdInput').value || '1');
+        }
+        listenFirestoreMessages(currentConversationId);
+        alert(`✅ ĐÃ KẾT NỐI GOOGLE CLOUD FIRESTORE!\nProject: ${projId}\nPhòng: ${currentConversationId}\n\n👉 Mọi tin nhắn gửi đi sẽ được ghi trực tiếp lên máy chủ Google.`);
+      } catch (err) {
+        alert('Lỗi khởi tạo Firebase: ' + err.message);
+      }
+    }
+
+    function listenFirestoreMessages(convId) {
+      if (!firestoreDb || !convId) return;
+      if (firestoreUnsubscribe) firestoreUnsubscribe();
+
+      const list = document.getElementById('contractChatList');
+      const statusBox = document.getElementById('contractAuthStatus');
+
+      firestoreUnsubscribe = firestoreDb.collection('conversations')
+        .doc(convId)
+        .collection('messages')
+        .orderBy('createdAt', 'asc')
+        .limitToLast(50)
+        .onSnapshot((snapshot) => {
+          list.innerHTML = '';
+          snapshot.forEach((doc) => {
+            const data = doc.data();
+            const time = data.createdAt ? new Date(data.createdAt.toDate()).toLocaleTimeString()
+                       : data.timestamp ? new Date(data.timestamp.toDate()).toLocaleTimeString()
+                       : new Date().toLocaleTimeString();
+            renderContractChatMessage(data.senderName || data.sender, data.senderRole || 'UNKNOWN', data.text, time, true);
+          });
+        }, (err) => {
+          console.warn('Firestore listen warning:', err);
+          if (statusBox) {
+            statusBox.innerHTML += `<br><span style="color: #ef4444;">⚠️ <b>LỖI FIRESTORE:</b> ${err.message}.<br>👉 Bạn cần vào tab Firebase Console bấm <b>Firestore Database -> Create Database</b> (chọn Start in test mode).</span>`;
+          }
+        });
+    }
+
+    async function selectContractRole(role) {
+      currentContractRole = role;
+      document.querySelectorAll('#contractChatTab .ctrl-btn').forEach(b => {
+        if (b.innerText.includes('Creator') || b.innerText.includes('Narrator') || b.innerText.includes('Người lạ')) {
+          b.classList.remove('active');
+        }
+      });
+      event.target.classList.add('active');
+
+      const statusBox = document.getElementById('contractAuthStatus');
+      const roleLabel = role === 'CREATOR' ? '👑 Creator' : role === 'NARRATOR' ? '🎙️ Narrator' : '⛔ Người lạ';
+      statusBox.innerText = `Đã chọn: ${roleLabel}. Đang đăng nhập lấy JWT...`;
+
+      const email = role === 'CREATOR' ? 'creator@example.com' 
+                  : role === 'NARRATOR' ? 'narrator@example.com' 
+                  : 'stranger@example.com';
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password: 'Creator@123' })
+        });
+        const data = await res.json();
+        if (data.success && data.data.accessToken) {
+          currentContractJwt = data.data.accessToken;
+          statusBox.innerText = `✅ Đã đăng nhập vai trò ${roleLabel}. Bấm nút 'Xác thực điều khoản' để kiểm tra Gatekeeper API!`;
+        } else {
+          statusBox.innerText = `❌ Lỗi login: ${data.message}`;
+        }
+      } catch (e) {
+        statusBox.innerText = `Lỗi mạng: ${e.message}`;
+      }
+    }
+
+    async function verifyContractChat() {
+      const statusBox = document.getElementById('contractAuthStatus');
+      if (!currentContractJwt) {
+        await selectContractRole(currentContractRole);
+      }
+      const contractId = document.getElementById('contractIdInput').value;
+      statusBox.innerText = `Đang gọi POST /api/v1/chats/conversation với targetId=${contractId}...`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/chats/conversation`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentContractJwt}`
+          },
+          body: JSON.stringify({ contractId: parseInt(contractId) })
+        });
+        const json = await res.json();
+        if (res.status === 200 && json.success) {
+          currentConversationId = json.data.conversationId;
+          const partnerRole = json.data.partnerRole === 'CREATOR' ? '👑 Creator' : '🎙️ Narrator';
+          statusBox.innerHTML = `<span style="color: #22c55e;">🟢 <b>HTTP 200 OK — CẤP QUYỀN HỢP LỆ!</b></span><br><b>Conversation ID:</b> <code>${currentConversationId}</code><br><b>Đối tác:</b> ${partnerRole}`;
+          if (firestoreDb) {
+            listenFirestoreMessages(currentConversationId);
+          }
+        } else {
+          statusBox.innerHTML = `<span style="color: #ef4444;">🔴 <b>HTTP ${res.status} — BỊ CHẶN BẢO MẬT!</b></span><br><b>Mã lỗi:</b> ${json.errorCode || 'CHAT_NOT_ALLOWED'}<br><b>Thông báo:</b> ${escapeHtml(json.message || 'Bạn không thuộc thỏa thuận này.')}`;
+        }
+      } catch (e) {
+        statusBox.innerText = `Lỗi kết nối: ${e.message}`;
+      }
+    }
+
+    function sendContractMessage() {
+      const input = document.getElementById('contractChatInput');
+      const text = input.value.trim();
+      if (!text) return;
+      const time = new Date().toLocaleTimeString();
+      const senderRole = currentContractRole;
+      const senderName = currentContractRole === 'CREATOR' ? 'Creator' 
+                       : currentContractRole === 'NARRATOR' ? 'Narrator' 
+                       : 'Khách';
+      const senderId = currentContractRole === 'CREATOR' ? 1 
+                     : currentContractRole === 'NARRATOR' ? 2 
+                     : 999;
+
+      const cid = currentConversationId || ('contract_' + (document.getElementById('contractIdInput').value || '1'));
+      if (firestoreDb) {
+        firestoreDb.collection('conversations')
+          .doc(cid)
+          .collection('messages')
+          .add({
+            senderId: senderId,
+            senderRole: senderRole,
+            senderName: senderName,
+            text: text,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          })
+          .then((docRef) => {
+            const statusBox = document.getElementById('contractAuthStatus');
+            if (statusBox) {
+              statusBox.innerHTML += `<br><span style="color: #22c55e; font-size: 11px;">☁️ [Đã lưu Firestore]: ID = <code>${docRef.id}</code></span>`;
+            }
+          })
+          .catch((err) => {
+            alert(`⚠️ LỖI GỬI LÊN FIRESTORE:\n${err.message}\n\n👉 Bạn cần vào tab Firebase Console -> Firestore Database -> Bấm "Create Database" (chọn Start in test mode).`);
+          });
+      } else {
+        renderContractChatMessage(senderName, senderRole, text, time, false);
+        if (contractChatBroadcast) {
+          contractChatBroadcast.postMessage({ senderName, senderRole, text, time });
+        }
+      }
+      input.value = '';
+    }
+
+    function renderContractChatMessage(senderName, senderRole, text, time, isCloud = false) {
+      const list = document.getElementById('contractChatList');
+      const div = document.createElement('div');
+      div.className = 'chat-msg';
+      const roleColor = senderRole === 'CREATOR' ? 'var(--gold-base)' : senderRole === 'NARRATOR' ? 'var(--cyan-base)' : 'var(--rose-base)';
+      const roleIcon = senderRole === 'CREATOR' ? '👑' : senderRole === 'NARRATOR' ? '🎙️' : '⛔';
+      const cloudTag = isCloud ? '<span style="color: #f87171; font-size: 10px; margin-right: 4px;">[Cloud]</span>' : '';
+      div.innerHTML = `${cloudTag}<span class="chat-author" style="color: ${roleColor}">${roleIcon} ${escapeHtml(senderName || 'Người dùng')} [${time}]:</span> <span class="chat-text">${escapeHtml(text)}</span>`;
+      list.appendChild(div);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
