@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles,
@@ -22,6 +23,13 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  Clapperboard,
+  Video,
+  Download,
+  Terminal,
+  UploadCloud,
+  Film,
+  RefreshCw,
 } from 'lucide-react';
 import { creatorStudioApi } from '@/services/api/creatorStudio';
 import {
@@ -29,11 +37,14 @@ import {
   CreatorVoiceItem,
   StoryboardResponse,
   ScriptVerificationResponse,
+  CreatorRenderRequest,
+  CreatorJobStatusResponse,
 } from '@/types/creatorStudio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -51,9 +62,10 @@ Khi thuyền ngự vừa tạm đỗ dưới chân thành Đại La, có điềm
 
 export const CreatorStudioPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
-  // Active Tab: 'script' | 'storyboard' | 'voices'
-  const [activeTab, setActiveTab] = useState<'script' | 'storyboard' | 'voices'>('script');
+  // Active Tab: 'script' | 'storyboard' | 'voices' | 'render'
+  const [activeTab, setActiveTab] = useState<'script' | 'storyboard' | 'voices' | 'render'>('script');
 
   // Script Editor State
   const [scriptTopic, setScriptTopic] = useState('');
@@ -83,6 +95,24 @@ export const CreatorStudioPage: React.FC = () => {
   const [showElevenKey, setShowElevenKey] = useState(false);
   const [settingsSuccessMsg, setSettingsSuccessMsg] = useState<string | null>(null);
   const [loadingVoiceId, setLoadingVoiceId] = useState<string | null>(null);
+
+  // Milestone 6: Video Rendering State
+  const [renderMode, setRenderMode] = useState<'whiteboard' | 'audio_podcast'>('audio_podcast');
+  const [renderTitle, setRenderTitle] = useState('');
+  const [renderDurationSec, setRenderDurationSec] = useState<number>(60);
+  const [renderScriptText, setRenderScriptText] = useState('');
+  const [renderStoryboard, setRenderStoryboard] = useState<StoryboardResponse | null>(null);
+  const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [confirmRenderCheck, setConfirmRenderCheck] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  // Milestone 6: Active Job Monitoring State
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [activeArtifactId, setActiveArtifactId] = useState<number | null>(null);
+  const [activeContentId, setActiveContentId] = useState<number | null>(null);
+  const [jobStatusData, setJobStatusData] = useState<CreatorJobStatusResponse | null>(null);
+  const [renderErrorMsg, setRenderErrorMsg] = useState<string | null>(null);
+  const [videoPlaybackError, setVideoPlaybackError] = useState(false);
 
   // 1. Fetch AI Settings
   const {
@@ -169,12 +199,7 @@ export const CreatorStudioPage: React.FC = () => {
     onSuccess: (res, vars) => {
       setLoadingVoiceId(null);
       if (res.data?.url) {
-        let streamUrl = res.data.url;
-        if (streamUrl.startsWith('/outputs/')) {
-          streamUrl = `http://localhost:8080/api/v1/creator/studio${streamUrl}`;
-        } else if (streamUrl.startsWith('/')) {
-          streamUrl = `http://localhost:8080${streamUrl}`;
-        }
+        const streamUrl = resolveMediaUrl(res.data.url);
         playAudioStream(streamUrl, vars.voiceId);
       }
     },
@@ -203,6 +228,246 @@ export const CreatorStudioPage: React.FC = () => {
       }
     },
   });
+
+  // Milestone 6 Mutation: Render Video & Save to DB
+  const renderVideoMutation = useMutation({
+    mutationFn: (req: CreatorRenderRequest) => creatorStudioApi.renderVideo(req),
+    onSuccess: (res) => {
+      if (res.data) {
+        setActiveJobId(res.data.jobId);
+        setActiveArtifactId(res.data.artifactId);
+        setActiveContentId(res.data.contentId);
+        setRenderErrorMsg(null);
+        setVideoPlaybackError(false);
+        try {
+          sessionStorage.setItem(
+            'creator_studio_active_job',
+            JSON.stringify({
+              jobId: res.data.jobId,
+              artifactId: res.data.artifactId,
+              contentId: res.data.contentId,
+            })
+          );
+        } catch {
+          // Non-blocking storage fallback
+        }
+        setJobStatusData({
+          job_id: res.data.jobId,
+          status: 'queued',
+          step: 0,
+          total_steps: renderMode === 'audio_podcast' ? 5 : 6,
+          step_name: 'Đang khởi tạo tác vụ kết xuất video...',
+          logs: ['Đã nhận yêu cầu kết xuất video và lưu vào hệ thống...'],
+        });
+      }
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setRenderErrorMsg(
+        e.response?.data?.message || e.message || 'Không thể khởi chạy quá trình dựng video'
+      );
+    },
+  });
+
+  // Milestone 6 Mutation: Upload Scene or Cover Image
+  const uploadCoverMutation = useMutation({
+    mutationFn: (file: File) => creatorStudioApi.uploadSceneImage(file),
+    onSuccess: (res) => {
+      setUploadingCover(false);
+      if (res.data?.imageUrl) {
+        setCoverImageUrl(res.data.imageUrl);
+      }
+    },
+    onError: (err: unknown) => {
+      setUploadingCover(false);
+      const e = err as { message?: string };
+      setRenderErrorMsg(e.message || 'Lỗi khi tải ảnh bìa lên máy chủ');
+    },
+  });
+
+  // Milestone 6: Polling job status non-aggressively every 2.5s until terminal state
+  const isPollingRef = useRef(false);
+  const consecutiveErrorsRef = useRef(0);
+
+  // Restore active job state after browser refresh if still pending (non-sensitive IDs only)
+  useEffect(() => {
+    try {
+      const savedJob = sessionStorage.getItem('creator_studio_active_job');
+      if (savedJob) {
+        const parsed = JSON.parse(savedJob);
+        if (parsed.jobId) {
+          setActiveJobId(parsed.jobId);
+          setActiveArtifactId(parsed.artifactId || null);
+          setActiveContentId(parsed.contentId || null);
+          setActiveTab('render');
+        }
+      }
+    } catch {
+      // Ignore parse error
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeJobId) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      if (isPollingRef.current) return;
+
+      try {
+        isPollingRef.current = true;
+        const res = await creatorStudioApi.getJobStatus(activeJobId, activeArtifactId || undefined);
+        if (!isMounted) return;
+
+        if (res.data) {
+          consecutiveErrorsRef.current = 0;
+          setJobStatusData(res.data);
+          const st = res.data.status?.toLowerCase();
+          if (st === 'completed' || st === 'failed') {
+            clearInterval(interval);
+            try {
+              sessionStorage.removeItem('creator_studio_active_job');
+            } catch {
+              // Ignore
+            }
+            queryClient.invalidateQueries({ queryKey: ['creator', 'studio-videos'] });
+          }
+        }
+      } catch {
+        consecutiveErrorsRef.current += 1;
+        if (consecutiveErrorsRef.current >= 5 && isMounted) {
+          setRenderErrorMsg(
+            'Tạm thời gián đoạn kết nối với tiến trình dựng video. Hệ thống vẫn đang tiếp tục kiểm tra lại...'
+          );
+        }
+      } finally {
+        isPollingRef.current = false;
+      }
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      isPollingRef.current = false;
+    };
+  }, [activeJobId, activeArtifactId, queryClient]);
+
+  // Synchronize render inputs with script or storyboard defaults
+  useEffect(() => {
+    if (!renderTitle) {
+      if (scriptTopic) {
+        setRenderTitle(scriptTopic);
+      } else if (generatedStoryboard?.title) {
+        setRenderTitle(generatedStoryboard.title);
+      } else {
+        setRenderTitle('Dời đô năm 1010 và Rồng Vàng Thăng Long');
+      }
+    }
+  }, [scriptTopic, generatedStoryboard, renderTitle]);
+
+  useEffect(() => {
+    if (!renderScriptText && scriptContent) {
+      setRenderScriptText(scriptContent);
+    }
+  }, [scriptContent, renderScriptText]);
+
+  // Media URL resolver using configured API base URL (no hardcoded localhost:8080)
+  const resolveMediaUrl = (url?: string): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+    if (url.startsWith('/outputs/')) {
+      return `${apiBase}/api/v1/creator/studio${url}`;
+    }
+    if (url.startsWith('/api/')) {
+      return `${apiBase}${url}`;
+    }
+    if (url.startsWith('/')) {
+      return `${apiBase}${url}`;
+    }
+    return `${apiBase}/${url}`;
+  };
+
+  // Milestone 6: Action Submit Render Job
+  const handleSubmitRender = () => {
+    if (!renderTitle.trim()) {
+      setRenderErrorMsg('Vui lòng nhập tiêu đề cho tác phẩm video.');
+      return;
+    }
+    if (!confirmRenderCheck) {
+      setRenderErrorMsg('Vui lòng đánh dấu xác nhận trước khi khởi chạy kết xuất video.');
+      return;
+    }
+
+    setRenderErrorMsg(null);
+
+    const activeVoice = voices.find((v) => v.id === activeVoiceName) || voices[0];
+    const currentEngine = activeVoice?.engine || settings?.ttsEngine || 'edge-tts';
+    const currentVoiceId = activeVoice?.id || settings?.voiceName || 'vi-VN-NamMinhNeural';
+
+    if (renderMode === 'audio_podcast') {
+      const scriptToUse = renderScriptText.trim() || scriptContent.trim();
+      if (!scriptToUse) {
+        setRenderErrorMsg('Chế độ Podcast yêu cầu nội dung kịch bản thuyết minh.');
+        return;
+      }
+      const coverToUse =
+        coverImageUrl.trim() ||
+        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80';
+
+      renderVideoMutation.mutate({
+        title: renderTitle.trim(),
+        durationSec: renderDurationSec,
+        renderMode: 'audio_podcast',
+        scriptText: scriptToUse,
+        coverImage: coverToUse,
+        ttsEngine: currentEngine,
+        voiceName: currentVoiceId,
+      });
+    } else {
+      const storyboardToUse = renderStoryboard || generatedStoryboard;
+      if (!storyboardToUse || !storyboardToUse.scenes || storyboardToUse.scenes.length === 0) {
+        setRenderErrorMsg('Chế độ Bảng trắng yêu cầu phân cảnh Storyboard. Vui lòng tạo phân cảnh ở Tab 2 trước.');
+        return;
+      }
+      if (!settings?.hasGeminiKey) {
+        setRenderErrorMsg('⚠️ Bạn chưa cấu hình Google Gemini API Key trong phần Cài đặt (⚙️)!');
+        return;
+      }
+
+      const defaultSceneImages: Record<string, string> = {};
+      storyboardToUse.scenes.forEach((sc, idx) => {
+        defaultSceneImages[String(sc.scene_index || idx + 1)] =
+          coverImageUrl.trim() ||
+          'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80';
+      });
+
+      renderVideoMutation.mutate({
+        title: renderTitle.trim(),
+        durationSec: renderDurationSec,
+        renderMode: 'whiteboard',
+        storyboard: storyboardToUse as unknown as Record<string, unknown>,
+        sceneImages: defaultSceneImages,
+        ttsEngine: currentEngine,
+        voiceName: currentVoiceId,
+      });
+    }
+  };
+
+  const handleResetRenderJob = () => {
+    try {
+      sessionStorage.removeItem('creator_studio_active_job');
+    } catch {
+      // Ignore
+    }
+    setActiveJobId(null);
+    setActiveArtifactId(null);
+    setActiveContentId(null);
+    setJobStatusData(null);
+    setRenderErrorMsg(null);
+    setConfirmRenderCheck(false);
+    setVideoPlaybackError(false);
+  };
 
   // Helper: Copy text with feedback
   const handleCopy = (text: string, key: string) => {
@@ -431,6 +696,25 @@ export const CreatorStudioPage: React.FC = () => {
           <Volume2 className="h-4 w-4" />
           <span>Thư Viện Giọng Đọc AI ({voices.length})</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('render')}
+          className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center gap-2 border-b-2 -mb-px ${
+            activeTab === 'render'
+              ? 'border-accent text-accent bg-surface'
+              : 'border-transparent text-muted hover:text-ink hover:bg-surface-subtle'
+          }`}
+        >
+          <Clapperboard className="h-4 w-4" />
+          <span>Kết Xuất Video & Tiến Trình</span>
+          {activeJobId && (
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+            </span>
+          )}
+        </button>
       </div>
 
       {/* 4. TAB CONTENT 1: SCRIPT EDITOR & HISTORICAL VERIFICATION */}
@@ -505,19 +789,37 @@ export const CreatorStudioPage: React.FC = () => {
                   Xóa trắng
                 </Button>
 
-                <Button
-                  size="sm"
-                  onClick={() => verifyScriptMutation.mutate(scriptContent)}
-                  disabled={!scriptContent.trim() || verifyScriptMutation.isPending}
-                  className="gap-2 text-xs"
-                >
-                  <FileCheck2 className={`h-3.5 w-3.5 ${verifyScriptMutation.isPending ? 'animate-spin' : ''}`} />
-                  <span>
-                    {verifyScriptMutation.isPending
-                      ? 'Đang đối chiếu sử liệu RAG...'
-                      : 'Thẩm định sử liệu với RAG AI'}
-                  </span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setRenderTitle(scriptTopic || 'Kịch Bản Thuyết Minh Lịch Sử');
+                      setRenderScriptText(scriptContent);
+                      setRenderMode('audio_podcast');
+                      setActiveTab('render');
+                    }}
+                    disabled={!scriptContent.trim()}
+                    className="gap-2 text-xs border-accent text-accent hover:bg-accent-soft"
+                  >
+                    <Clapperboard className="h-3.5 w-3.5" />
+                    <span>Chuyển Sang Kết Xuất</span>
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    onClick={() => verifyScriptMutation.mutate(scriptContent)}
+                    disabled={!scriptContent.trim() || verifyScriptMutation.isPending}
+                    className="gap-2 text-xs"
+                  >
+                    <FileCheck2 className={`h-3.5 w-3.5 ${verifyScriptMutation.isPending ? 'animate-spin' : ''}`} />
+                    <span>
+                      {verifyScriptMutation.isPending
+                        ? 'Đang đối chiếu sử liệu RAG...'
+                        : 'Thẩm định sử liệu với RAG AI'}
+                    </span>
+                  </Button>
+                </div>
               </div>
 
               {/* Verification Error message */}
@@ -867,14 +1169,31 @@ export const CreatorStudioPage: React.FC = () => {
                   </h2>
                 </div>
 
-                <Button
-                  size="sm"
-                  onClick={handleApplyStoryboardToScript}
-                  className="gap-2 text-xs shrink-0"
-                >
-                  <ArrowRight className="h-3.5 w-3.5" />
-                  <span>Chuyển sang Biên Soạn & Thẩm Định</span>
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleApplyStoryboardToScript}
+                    className="gap-2 text-xs shrink-0"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                    <span>Đưa sang Biên Soạn</span>
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setRenderTitle(generatedStoryboard.title || storyboardTopic);
+                      setRenderStoryboard(generatedStoryboard);
+                      setRenderMode('whiteboard');
+                      setActiveTab('render');
+                    }}
+                    className="gap-2 text-xs shrink-0"
+                  >
+                    <Clapperboard className="h-3.5 w-3.5" />
+                    <span>Kết Xuất Từ Phân Cảnh Này</span>
+                  </Button>
+                </div>
               </div>
 
               {/* Scenes Cards */}
@@ -1118,6 +1437,555 @@ export const CreatorStudioPage: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 6. TAB CONTENT 4: VIDEO RENDERING WORKBENCH & JOB PROGRESS */}
+      {activeTab === 'render' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="border-b border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-ink font-serif flex items-center gap-2">
+                <Clapperboard className="h-4 w-4 text-accent" />
+                <span>Trung Tâm Kết Xuất & Theo Dõi Tiến Trình Video</span>
+              </h2>
+              <p className="text-xs text-muted mt-0.5">
+                Dựng kịch bản lịch sử thành Video hoạt họa bảng trắng hoặc Video Podcast kèm giọng đọc AI và phụ đề SRT
+              </p>
+            </div>
+
+            {activeJobId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetRenderJob}
+                className="text-xs gap-1.5 self-start sm:self-auto"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span>Tạo tác phẩm khác</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Error Banner */}
+          {renderErrorMsg && (
+            <div className="p-4 rounded-xl border border-status-error-text/30 bg-status-error-bg text-xs text-status-error-text flex items-start gap-3">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-semibold block">Lỗi kết xuất video:</span>
+                <p className="leading-relaxed text-[11px]">{renderErrorMsg}</p>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW A: ACTIVE JOB PROGRESS MONITORING */}
+          {activeJobId && (
+            <div className="space-y-6">
+              {/* Job Status Banner */}
+              <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+                  <div>
+                    <span className="text-[11px] font-mono text-muted block mb-1">
+                      Mã Job: #{activeJobId} {activeContentId ? `• Nội dung ID: #${activeContentId}` : ''} {activeArtifactId ? `• Tác phẩm ID: #${activeArtifactId}` : ''}
+                    </span>
+                    <h3 className="text-base font-bold text-ink font-serif">
+                      {renderTitle || 'Tác phẩm Lịch Sử'}
+                    </h3>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {jobStatusData?.status === 'completed' && (
+                      <Badge variant="success" className="gap-1.5 py-1 px-2.5 text-xs">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>Kết xuất hoàn tất</span>
+                      </Badge>
+                    )}
+                    {jobStatusData?.status === 'failed' && (
+                      <Badge variant="error" className="gap-1.5 py-1 px-2.5 text-xs">
+                        <AlertCircle className="h-3.5 w-3.5" />
+                        <span>Kết xuất thất bại</span>
+                      </Badge>
+                    )}
+                    {(jobStatusData?.status === 'running' || jobStatusData?.status === 'queued') && (
+                      <Badge variant="accent" className="gap-1.5 py-1 px-2.5 text-xs animate-pulse">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>{jobStatusData.status === 'queued' ? 'Đang xếp hàng' : 'Đang xử lý'}</span>
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress Indicator (Using backend provided step & total_steps) */}
+                {jobStatusData && typeof jobStatusData.step === 'number' && typeof jobStatusData.total_steps === 'number' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-medium text-ink flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-accent" />
+                        <span>{jobStatusData.step_name || 'Đang thực thi các công đoạn dựng video...'}</span>
+                      </span>
+                      <span className="font-mono text-muted">
+                        Bước {jobStatusData.step} / {jobStatusData.total_steps}
+                      </span>
+                    </div>
+
+                    <div className="w-full h-2 rounded-full bg-surface-subtle overflow-hidden border border-border">
+                      <div
+                        className="h-full bg-accent transition-all duration-500 rounded-full"
+                        style={{
+                          width: `${Math.min(100, Math.round((jobStatusData.step / (jobStatusData.total_steps || 1)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Real-time Server Logs Terminal */}
+                <div className="space-y-2 pt-2">
+                  <span className="text-xs font-semibold text-muted flex items-center gap-1.5">
+                    <Terminal className="h-3.5 w-3.5 text-accent" />
+                    <span>Nhật ký xử lý từ máy chủ dựng video:</span>
+                  </span>
+
+                  <div className="rounded-lg bg-black/90 p-3.5 font-mono text-[11px] text-emerald-400 space-y-1 max-h-48 overflow-y-auto border border-border shadow-inner">
+                    {jobStatusData?.logs && jobStatusData.logs.length > 0 ? (
+                      jobStatusData.logs.map((logLine, idx) => (
+                        <p key={idx} className="leading-relaxed">
+                          {logLine}
+                        </p>
+                      ))
+                    ) : (
+                      <p className="text-muted italic">Đang đồng bộ nhật ký từ engine...</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* SUCCESS VIEW: VIDEO PLAYER & DOWNLOADS */}
+              {jobStatusData?.status === 'completed' && jobStatusData.video_url && (
+                <div className="rounded-xl border border-status-success-text/40 bg-surface p-5 shadow-sm space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+                    <div className="flex items-center gap-2">
+                      <div className="h-8 w-8 rounded-full bg-status-success-bg text-status-success-text flex items-center justify-center">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-serif text-sm font-bold text-ink">
+                          Kết Xuất Video Hoàn Tất!
+                        </h3>
+                        <span className="text-[11px] text-muted block">
+                          Video MP4 đã được lưu trữ trong Kho Nội Dung ở trạng thái hoàn thành (sẵn sàng chờ kiểm duyệt/công khai).
+                        </span>
+                      </div>
+                    </div>
+
+                    {jobStatusData.cloudinary_url && (
+                      <Badge variant="accent" className="gap-1 text-[10px]">
+                        <UploadCloud className="h-3 w-3" />
+                        <span>Cloudinary CDN</span>
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* HTML5 Video Player */}
+                  <div className="rounded-xl overflow-hidden bg-black aspect-video max-h-[460px] mx-auto border border-border flex items-center justify-center relative">
+                    {videoPlaybackError ? (
+                      <div className="p-6 text-center text-xs text-muted space-y-2">
+                        <AlertCircle className="h-8 w-8 text-status-warning-text mx-auto" />
+                        <p className="text-ink font-medium">Không thể phát luồng video trực tiếp trên trình duyệt</p>
+                        <p className="text-[11px] text-muted">
+                          Đường dẫn video tạm thời có thể đã hết hạn hoặc máy chủ chưa sẵn sàng phát luồng. Bạn có thể bấm nút &quot;Tải Video MP4&quot; bên dưới để xem trực tiếp.
+                        </p>
+                      </div>
+                    ) : (
+                      <video
+                        controls
+                        src={resolveMediaUrl(jobStatusData.video_url)}
+                        className="w-full h-full object-contain"
+                        onError={() => setVideoPlaybackError(true)}
+                      >
+                        Trình duyệt của bạn không hỗ trợ thẻ phát video HTML5.
+                      </video>
+                    )}
+                  </div>
+
+                  {/* Action Bar */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/creator/content')}
+                      className="text-xs gap-1.5"
+                    >
+                      <Film className="h-3.5 w-3.5 text-accent" />
+                      <span>Xem Trong Kho Nội Dung</span>
+                    </Button>
+
+                    <div className="flex items-center gap-2">
+                      {jobStatusData.srt_url && (
+                        <a
+                          href={resolveMediaUrl(jobStatusData.srt_url)}
+                          download
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-ink hover:bg-surface-subtle transition-colors"
+                        >
+                          <Download className="h-3.5 w-3.5 text-muted" />
+                          <span>Tải phụ đề SRT</span>
+                        </a>
+                      )}
+
+                      <a
+                        href={resolveMediaUrl(jobStatusData.video_url)}
+                        download
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-white font-medium text-xs hover:bg-accent/90 transition-colors shadow-xs"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Tải Video MP4</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW B: PRE-RENDER CONFIGURATION FORM */}
+          {!activeJobId && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Form Configuration (7 cols) */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2 pb-3 border-b border-border">
+                    <Settings className="h-3.5 w-3.5 text-accent" />
+                    <span>Thiết Lập Thông Số Kết Xuất Video</span>
+                  </span>
+
+                  {/* Title */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-ink">
+                      Tiêu đề tác phẩm video <span className="text-status-error-text">*</span>
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="Ví dụ: Đại lễ dời đô 1010 và Khát vọng Thăng Long ngàn năm"
+                      value={renderTitle}
+                      onChange={(e) => setRenderTitle(e.target.value)}
+                      className="text-xs h-9 bg-surface font-medium"
+                    />
+                  </div>
+
+                  {/* Render Mode Selection */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-ink">
+                      Định dạng video kết xuất <span className="text-status-error-text">*</span>
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setRenderMode('audio_podcast')}
+                        className={`p-3.5 rounded-xl border text-left transition-all ${
+                          renderMode === 'audio_podcast'
+                            ? 'border-accent bg-accent-soft/40 ring-1 ring-accent'
+                            : 'border-border bg-surface hover:border-accent/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-serif font-bold text-xs text-ink flex items-center gap-1.5">
+                            <Film className="h-3.5 w-3.5 text-accent" />
+                            <span>Audio Podcast Video</span>
+                          </span>
+                          <Badge variant="accent" size="sm">Đề xuất</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted leading-relaxed">
+                          Video Podcast âm thanh chất lượng cao, kết hợp ảnh bìa thumbnail nghệ thuật và phụ đề chạy đồng bộ.
+                        </p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setRenderMode('whiteboard')}
+                        className={`p-3.5 rounded-xl border text-left transition-all ${
+                          renderMode === 'whiteboard'
+                            ? 'border-accent bg-accent-soft/40 ring-1 ring-accent'
+                            : 'border-border bg-surface hover:border-accent/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-serif font-bold text-xs text-ink flex items-center gap-1.5">
+                            <Video className="h-3.5 w-3.5 text-accent" />
+                            <span>Hoạt Họa Bảng Trắng</span>
+                          </span>
+                          <Badge variant="outline" size="sm">Whiteboard</Badge>
+                        </div>
+                        <p className="text-[11px] text-muted leading-relaxed">
+                          Hoạt họa vẽ tay từng cảnh phác thảo nét vẽ nghệ thuật theo phân cảnh Storyboard. Yêu cầu Gemini Key.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Target Duration */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-ink">Thời lượng dự kiến</label>
+                    <div className="flex items-center gap-2">
+                      {[30, 60, 90, 120].map((sec) => (
+                        <button
+                          key={sec}
+                          type="button"
+                          onClick={() => setRenderDurationSec(sec)}
+                          className={`flex-1 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                            renderDurationSec === sec
+                              ? 'border-accent bg-accent-soft text-accent'
+                              : 'border-border bg-surface text-muted hover:text-ink'
+                          }`}
+                        >
+                          {sec} giây
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Selected Voice & Engine */}
+                  <div className="p-3 rounded-lg border border-border bg-surface-subtle flex items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="text-muted block text-[11px]">Giọng đọc thuyết minh đã chọn:</span>
+                      <span className="font-bold text-ink font-serif">
+                        {currentVoiceObj?.name || activeVoiceName}
+                      </span>
+                      <span className="text-muted text-[11px] ml-1.5">
+                        ({currentVoiceObj?.accent || 'Miền Bắc'} • {currentVoiceObj?.engine || settings?.ttsEngine || 'edge-tts'})
+                      </span>
+                    </div>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setActiveTab('voices')}
+                      className="text-xs text-accent hover:text-accent-hover h-7 px-2"
+                    >
+                      Đổi giọng đọc
+                    </Button>
+                  </div>
+
+                  {/* Cover Image / Thumbnail (Required for Podcast, optional for Whiteboard) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-ink flex items-center gap-1.5">
+                        <UploadCloud className="h-3.5 w-3.5 text-accent" />
+                        <span>Ảnh bìa đại diện (Thumbnail Video)</span>
+                        {renderMode === 'audio_podcast' && (
+                          <span className="text-status-error-text">*</span>
+                        )}
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCoverImageUrl(
+                            'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80'
+                          )
+                        }
+                        className="text-[11px] text-accent hover:underline"
+                      >
+                        Dùng ảnh mẫu Thăng Long
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="url"
+                        placeholder="https://... hoặc tải ảnh lên Cloudinary"
+                        value={coverImageUrl}
+                        onChange={(e) => setCoverImageUrl(e.target.value)}
+                        className="text-xs h-9 bg-surface font-mono"
+                      />
+
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setUploadingCover(true);
+                              uploadCoverMutation.mutate(file);
+                            }
+                          }}
+                        />
+                        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs text-ink hover:bg-surface-subtle transition-colors shrink-0">
+                          {uploadingCover ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <UploadCloud className="h-3.5 w-3.5 text-muted" />
+                          )}
+                          <span>{uploadingCover ? 'Đang tải...' : 'Tải ảnh'}</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Content Preview */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-ink">
+                        {renderMode === 'whiteboard'
+                          ? 'Phân cảnh bảng trắng đã chuẩn bị'
+                          : 'Lời dẫn kịch bản thuyết minh'}
+                      </label>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveTab(renderMode === 'whiteboard' ? 'storyboard' : 'script')}
+                        className="text-[11px] text-accent h-6 px-1.5"
+                      >
+                        {renderMode === 'whiteboard' ? 'Chỉnh sửa phân cảnh' : 'Chỉnh sửa kịch bản'}
+                      </Button>
+                    </div>
+
+                    {renderMode === 'whiteboard' ? (
+                      <div className="p-3 rounded-lg border border-border bg-surface-subtle text-xs space-y-1">
+                        <span className="font-semibold text-ink block">
+                          {renderStoryboard?.scenes?.length || generatedStoryboard?.scenes?.length || 0} phân cảnh sẵn sàng
+                        </span>
+                        <p className="text-[11px] text-muted line-clamp-2">
+                          {(renderStoryboard || generatedStoryboard)?.scenes?.[0]?.scene_title ||
+                            'Chưa có phân cảnh bảng trắng. Vui lòng tạo phân cảnh ở Tab 2.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Textarea
+                        rows={5}
+                        value={renderScriptText || scriptContent}
+                        onChange={(e) => setRenderScriptText(e.target.value)}
+                        placeholder="Nội dung kịch bản thuyết minh..."
+                        className="text-xs font-sans leading-relaxed"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Pre-render Checklist & Submission (5 cols) */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2 pb-3 border-b border-border">
+                    <ShieldCheck className="h-3.5 w-3.5 text-accent" />
+                    <span>Điều Kiện Tiên Quyết & Xác Nhận</span>
+                  </span>
+
+                  {/* Summary Spec */}
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between py-1 border-b border-border/60">
+                      <span className="text-muted">Chế độ:</span>
+                      <span className="font-semibold text-ink">
+                        {renderMode === 'audio_podcast' ? 'Audio Podcast Video' : 'Whiteboard Animation'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between py-1 border-b border-border/60">
+                      <span className="text-muted">Thời lượng:</span>
+                      <span className="font-mono text-ink">{renderDurationSec} giây</span>
+                    </div>
+
+                    <div className="flex justify-between py-1 border-b border-border/60">
+                      <span className="text-muted">Giọng thuyết minh:</span>
+                      <span className="font-medium text-ink">{activeVoiceName}</span>
+                    </div>
+
+                    <div className="flex justify-between py-1 border-b border-border/60">
+                      <span className="text-muted">Lưu trữ hệ thống:</span>
+                      <span className="text-ink">Tự động tạo bản ghi trong Kho Nội Dung</span>
+                    </div>
+                  </div>
+
+                  {/* Checklist */}
+                  <div className="space-y-2 pt-2">
+                    <span className="text-xs font-semibold text-ink block">Kiểm tra điều kiện:</span>
+
+                    <div className="space-y-1.5 text-[11px]">
+                      <div className="flex items-center gap-2">
+                        {renderTitle.trim() ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-3.5 w-3.5 text-status-error-text shrink-0" />
+                        )}
+                        <span className={renderTitle.trim() ? 'text-ink' : 'text-status-error-text'}>
+                          Tiêu đề tác phẩm hợp lệ
+                        </span>
+                      </div>
+
+                      {renderMode === 'whiteboard' && (
+                        <div className="flex items-center gap-2">
+                          {settings?.hasGeminiKey ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text shrink-0" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-status-warning-text shrink-0" />
+                          )}
+                          <span className={settings?.hasGeminiKey ? 'text-ink' : 'text-status-warning-text'}>
+                            Google Gemini Key {settings?.hasGeminiKey ? '(Đã cấu hình)' : '(Bắt buộc cho Whiteboard)'}
+                          </span>
+                        </div>
+                      )}
+
+                      {renderMode === 'audio_podcast' && (
+                        <div className="flex items-center gap-2">
+                          {coverImageUrl.trim() ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text shrink-0" />
+                          ) : (
+                            <AlertCircle className="h-3.5 w-3.5 text-status-error-text shrink-0" />
+                          )}
+                          <span className={coverImageUrl.trim() ? 'text-ink' : 'text-status-error-text'}>
+                            Ảnh bìa đại diện cho Podcast
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Safety & Responsibility Confirmation */}
+                  <div className="pt-2 border-t border-border">
+                    <Checkbox
+                      id="confirm-render-checkbox"
+                      checked={confirmRenderCheck}
+                      onChange={(e) => setConfirmRenderCheck(e.target.checked)}
+                      label="Xác nhận khởi chạy tiến trình dựng video"
+                      description="Tôi đã kiểm tra kỹ lưỡng nội dung và đồng ý gửi lệnh render sang hệ thống."
+                    />
+                  </div>
+
+                  {/* Submit Button */}
+                  <Button
+                    size="default"
+                    onClick={handleSubmitRender}
+                    disabled={
+                      !confirmRenderCheck ||
+                      !renderTitle.trim() ||
+                      renderVideoMutation.isPending ||
+                      (renderMode === 'whiteboard' && !settings?.hasGeminiKey)
+                    }
+                    className="w-full gap-2 text-xs font-bold"
+                  >
+                    {renderVideoMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Đang khởi tạo render...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Clapperboard className="h-4 w-4" />
+                        <span>Bắt Đầu Kết Xuất Video</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
         </div>

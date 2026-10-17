@@ -105,3 +105,49 @@ export interface ScriptVerificationResponse {
   claims: HistoricalClaim[];
   revised_script?: string;
 }
+
+export interface CreatorRenderRequest {
+  title: string;
+  durationSec?: number;
+  renderMode?: 'whiteboard' | 'audio_podcast' | string;
+  scriptText?: string;
+  storyboard?: Record<string, unknown>;
+  sceneImages?: Record<string, string>;
+  coverImage?: string;
+  ttsEngine?: string;
+  voiceName?: string;
+  channelId?: number;
+  seriesId?: number;
+}
+
+export interface CreatorRenderResponse {
+  jobId: string;
+  contentId: number;
+  artifactId: number;
+  channelId: number;
+  status: string;
+  message?: string;
+}
+
+export interface CreatorJobStatusResponse {
+  job_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'polling_error' | 'unknown' | string;
+  render_mode?: string;
+  step?: number;
+  total_steps?: number;
+  step_name?: string;
+  logs?: string[];
+  title?: string;
+  video_url?: string;
+  audio_url?: string;
+  srt_url?: string;
+  cloudinary_url?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface CreatorUploadImageResponse {
+  imageUrl: string;
+  status: string;
+  message: string;
+}

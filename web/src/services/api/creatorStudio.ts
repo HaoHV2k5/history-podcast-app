@@ -15,6 +15,10 @@ import {
   StoryboardResponse,
   VerifyScriptRequest,
   ScriptVerificationResponse,
+  CreatorRenderRequest,
+  CreatorRenderResponse,
+  CreatorJobStatusResponse,
+  CreatorUploadImageResponse,
 } from '@/types/creatorStudio';
 
 export interface BusinessApiErrorPayload {
@@ -194,6 +198,72 @@ export const creatorStudioApi = {
     if (res.data && res.data.success === false) {
       throw new BusinessApiError(
         res.data.message || 'Không thể cập nhật thông tin tác phẩm',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Khởi chạy kết xuất video hoạt họa bảng trắng hoặc podcast audio & lưu vào DB
+   * POST /api/v1/creator/studio/render
+   */
+  renderVideo: async (request: CreatorRenderRequest): Promise<ApiResponse<CreatorRenderResponse>> => {
+    const res = await apiClient.post<ApiResponse<CreatorRenderResponse>>(
+      '/api/v1/creator/studio/render',
+      request
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể khởi chạy quá trình dựng video',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Kiểm tra tiến trình render video và tự động đồng bộ trạng thái Artifact/Content
+   * GET /api/v1/creator/studio/jobs/{jobId}?artifactId={artifactId}
+   */
+  getJobStatus: async (
+    jobId: string,
+    artifactId?: number
+  ): Promise<ApiResponse<CreatorJobStatusResponse>> => {
+    const res = await apiClient.get<ApiResponse<CreatorJobStatusResponse>>(
+      `/api/v1/creator/studio/jobs/${jobId}`,
+      {
+        params: artifactId ? { artifactId } : undefined,
+      }
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể lấy trạng thái tiến trình render',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Tải ảnh minh họa cảnh hoặc thumbnail lên Cloudinary
+   * POST /api/v1/creator/studio/upload-image
+   */
+  uploadSceneImage: async (file: File): Promise<ApiResponse<CreatorUploadImageResponse>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await apiClient.post<ApiResponse<CreatorUploadImageResponse>>(
+      '/api/v1/creator/studio/upload-image',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể tải ảnh lên máy chủ',
         res.data.errorCode
       );
     }
