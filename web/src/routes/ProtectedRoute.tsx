@@ -5,13 +5,14 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children?: React.ReactNode;
+  allowedRoles?: string[];
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
   const location = useLocation();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
-  const isAdmin = useAuthStore((s) => s.isAdmin());
+  const hasRole = useAuthStore((s) => s.hasRole);
 
   if (isLoading) {
     return (
@@ -33,8 +34,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!isAdmin) {
-    return <Navigate to="/forbidden" replace />;
+  // If specific roles are required, check if user has at least one of the allowed roles
+  if (allowedRoles && allowedRoles.length > 0) {
+    const isAuthorized = allowedRoles.some((role) => hasRole(role));
+    if (!isAuthorized) {
+      return <Navigate to="/forbidden" replace />;
+    }
   }
 
   return children ? <>{children}</> : <Outlet />;

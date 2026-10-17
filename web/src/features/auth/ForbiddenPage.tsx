@@ -8,15 +8,17 @@ export const ForbiddenPage: React.FC = () => {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
+  const isAdmin = useAuthStore((s) => s.isAdmin());
+  const isCreator = useAuthStore((s) => s.isCreator());
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-canvas px-4 py-12">
-      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-8 text-center">
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-8 text-center shadow-sm">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-status-error-bg text-status-error-text">
           <ShieldX className="h-7 w-7" />
         </div>
@@ -30,7 +32,7 @@ export const ForbiddenPage: React.FC = () => {
           <span className="font-mono font-medium text-ink">
             {user?.email || 'hiện tại'}
           </span>{' '}
-          không có thẩm quyền quản trị viên (<span className="font-mono text-accent">ADMIN</span>) để truy cập cổng vận hành này.
+          không có thẩm quyền cần thiết để truy cập không gian làm việc này.
         </p>
 
         <div className="rounded-lg border border-border bg-surface-subtle p-3.5 mb-6 text-left">
@@ -52,6 +54,24 @@ export const ForbiddenPage: React.FC = () => {
         </div>
 
         <div className="flex flex-col gap-3">
+          {isAdmin && (
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin/overview')}
+              className="w-full justify-center"
+            >
+              Về Cổng Quản trị (Admin)
+            </Button>
+          )}
+          {isCreator && (
+            <Button
+              variant="outline"
+              onClick={() => navigate('/creator')}
+              className="w-full justify-center"
+            >
+              Về Không gian Sáng tạo (Creator)
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={handleLogout}

@@ -34,21 +34,67 @@ import { PoliciesPage } from '@/features/policies/PoliciesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { AuditLogsPage } from '@/features/audit/AuditLogsPage';
 
+import { useAuthStore } from '@/store/authStore';
+import { Loader2 } from 'lucide-react';
+
+// Creator Pages
+import { CreatorPlaceholderPage } from '@/features/creator/CreatorPlaceholderPage';
+
+// Root redirect based on role
+const RootRedirect: React.FC = () => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const hasRole = useAuthStore((s) => s.hasRole);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-canvas">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (hasRole('ADMIN')) {
+    return <Navigate to="/admin/overview" replace />;
+  }
+
+  if (hasRole('CREATOR')) {
+    return <Navigate to="/creator" replace />;
+  }
+
+  return <Navigate to="/forbidden" replace />;
+};
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/admin/overview" replace />} />
+      <Route path="/" element={<RootRedirect />} />
 
       {/* Public / Auth routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
+      {/* Protected Creator Workspace Entry Route (Milestone 1) */}
+      <Route
+        path="/creator"
+        element={
+          <ProtectedRoute allowedRoles={['CREATOR']}>
+            <CreatorPlaceholderPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/creator/dashboard" element={<Navigate to="/creator" replace />} />
+
       {/* Protected Admin Portal with Unified AdminLayout */}
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminLayout />
           </ProtectedRoute>
         }
