@@ -8,7 +8,17 @@ export type ContentStatus =
   | 'FAILED'
   | string;
 
-export type AiShieldTier = 'GREEN' | 'YELLOW' | 'RED' | string;
+export type AiShieldTier = 'RED_ALERT' | 'FAIR' | 'GOOD' | 'EXCELLENT' | 'GREEN' | 'YELLOW' | 'RED' | string;
+
+export interface CreatorUpdateVideoPayload {
+  title: string;
+  description?: string;
+  isExclusive?: boolean;
+}
+
+export interface CreatorVideoVisibilityPayload {
+  hidden: boolean;
+}
 
 export interface CreatorVideoItem {
   contentId: number;

@@ -92,7 +92,7 @@ export function getContentStatusBadge(status?: string | null): {
     case 'PENDING':
       return { label: 'Chờ duyệt', variant: 'pending' };
     case 'COMPLETED':
-      return { label: 'Hoàn tất kịch bản', variant: 'processing' };
+      return { label: 'Chờ gửi duyệt', variant: 'processing' };
     case 'DRAFT':
       return { label: 'Bản nháp', variant: 'outline' };
     case 'REJECTED':

@@ -27,6 +27,7 @@ const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'ALL', label: 'Tất cả' },
   { key: 'PUBLISHED', label: 'Đã xuất bản' },
   { key: 'PENDING_REVIEW', label: 'Chờ duyệt' },
+  { key: 'COMPLETED', label: 'Chờ gửi duyệt' },
   { key: 'DRAFT', label: 'Bản nháp' },
   { key: 'REJECTED', label: 'Bị từ chối' },
   { key: 'HIDDEN', label: 'Đã ẩn' },
@@ -447,7 +448,13 @@ export const CreatorContentLibraryPage: React.FC = () => {
                     onClick={() => navigate(`/creator/content/${item.contentId}`)}
                     className="h-7 px-2.5 text-xs gap-1"
                   >
-                    <span>Chi tiết</span>
+                    <span>
+                      {item.status === 'COMPLETED'
+                        ? 'Gửi duyệt'
+                        : item.status === 'REJECTED'
+                          ? 'Xem lý do'
+                          : 'Chi tiết'}
+                    </span>
                     <ExternalLink className="h-3 w-3" />
                   </Button>
                 </div>

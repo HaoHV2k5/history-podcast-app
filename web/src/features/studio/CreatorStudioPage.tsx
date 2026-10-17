@@ -1616,11 +1616,15 @@ export const CreatorStudioPage: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => navigate('/creator/content')}
+                      onClick={() =>
+                        navigate(
+                          activeContentId ? `/creator/content/${activeContentId}` : '/creator/content'
+                        )
+                      }
                       className="text-xs gap-1.5"
                     >
                       <Film className="h-3.5 w-3.5 text-accent" />
-                      <span>Xem Trong Kho Nội Dung</span>
+                      <span>Xem &amp; Gửi Duyệt Trong Kho Nội Dung</span>
                     </Button>
 
                     <div className="flex items-center gap-2">

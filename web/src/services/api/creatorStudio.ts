@@ -269,4 +269,42 @@ export const creatorStudioApi = {
     }
     return res.data;
   },
+
+  /**
+   * Gửi video kiểm duyệt AI Shield & chuyển vào hàng đợi Admin xem xét duyệt xuất bản
+   * POST /api/v1/creator/studio/videos/{contentId}/submit-publish
+   */
+  submitVideoForPublish: async (contentId: number): Promise<ApiResponse<CreatorVideoItem>> => {
+    const res = await apiClient.post<ApiResponse<CreatorVideoItem>>(
+      `/api/v1/creator/studio/videos/${contentId}/submit-publish`
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể gửi video kiểm duyệt xuất bản',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Ẩn hoặc Công khai lại video (chuyển đổi giữa HIDDEN và PUBLISHED)
+   * PATCH /api/v1/creator/studio/videos/{contentId}/visibility
+   */
+  updateVisibility: async (
+    contentId: number,
+    hidden: boolean
+  ): Promise<ApiResponse<CreatorVideoItem>> => {
+    const res = await apiClient.patch<ApiResponse<CreatorVideoItem>>(
+      `/api/v1/creator/studio/videos/${contentId}/visibility`,
+      { hidden }
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể cập nhật trạng thái hiển thị của video',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
 };
