@@ -1,98 +1,32 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { creatorStudioApi } from '@/services/api/creatorStudio';
+import axios from 'axios';
+import { creatorStudioApi, BusinessApiError } from '@/services/api/creatorStudio';
 import { CreatorVideoItem } from '@/types/creatorContent';
 import { useAuthStore } from '@/store/authStore';
+import {
+  ModerationDecisionEvent,
+  UnresolvedTransition,
+  DECISIONS_KEY_PREFIX,
+  PENDING_SNAPSHOT_KEY_PREFIX,
+  UNRESOLVED_SNAPSHOT_KEY_PREFIX,
+  MAX_RESOLUTION_RETRIES,
+  calculateBackoffDelay,
+  safeParseDecisions,
+  safeParsePendingSnapshot,
+  safeParseUnresolved,
+  serializeDecisions,
+  serializePendingSnapshot,
+  serializeUnresolvedSnapshot,
+  detectNewlyResolvedIds,
+  selectEligibleRetryCandidates,
+  evaluateDetailResponse,
+  evaluateDetailError,
+  appendDecisionWithoutDuplicate,
+} from './moderationTrackerLogic';
 
-export interface ModerationDecisionEvent {
-  id: string; // unique event id: `${contentId}-${decision}-${Date.now()}`
-  contentId: number;
-  title: string;
-  decision: 'APPROVED' | 'REJECTED';
-  reason?: string;
-  timestamp: number;
-  aiShieldScore?: number | null;
-  aiShieldTier?: string | null;
-  aiShieldTierLabel?: string | null;
-}
-
-const DECISIONS_KEY_PREFIX = 'creator_moderation_decisions_';
-const PENDING_SNAPSHOT_KEY_PREFIX = 'creator_moderation_pending_snapshot_';
-
-function safeParseDecisions(raw: string | null): ModerationDecisionEvent[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is ModerationDecisionEvent =>
-        Boolean(
-          item &&
-          typeof item.id === 'string' &&
-          typeof item.contentId === 'number' &&
-          typeof item.title === 'string' &&
-          (item.decision === 'APPROVED' || item.decision === 'REJECTED') &&
-          typeof item.timestamp === 'number'
-        )
-    );
-  } catch {
-    return [];
-  }
-}
-
-function safeParsePendingSnapshot(raw: string | null): Map<number, { title: string; createdAt: string }> {
-  const map = new Map<number, { title: string; createdAt: string }>();
-  if (!raw) return map;
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      parsed.forEach((item) => {
-        if (item && typeof item.contentId === 'number' && typeof item.title === 'string') {
-          map.set(item.contentId, {
-            title: item.title,
-            createdAt: typeof item.createdAt === 'string' ? item.createdAt : '',
-          });
-        }
-      });
-    }
-  } catch {
-    // ignore
-  }
-  return map;
-}
-
-function saveDecisions(key: string, decisions: ModerationDecisionEvent[]) {
-  try {
-    // Limit to 20 recent events, ensure no credentials or sensitive tokens are stored
-    const sanitized = decisions.slice(0, 20).map((d) => ({
-      id: d.id,
-      contentId: d.contentId,
-      title: d.title,
-      decision: d.decision,
-      reason: d.reason ? d.reason.slice(0, 250) : undefined,
-      timestamp: d.timestamp,
-      aiShieldScore: d.aiShieldScore,
-      aiShieldTier: d.aiShieldTier,
-      aiShieldTierLabel: d.aiShieldTierLabel,
-    }));
-    sessionStorage.setItem(key, JSON.stringify(sanitized));
-  } catch {
-    // Defensive against storage quota errors
-  }
-}
-
-function savePendingSnapshot(key: string, map: Map<number, { title: string; createdAt: string }>) {
-  try {
-    const arr = Array.from(map.entries()).map(([contentId, info]) => ({
-      contentId,
-      title: info.title,
-      createdAt: info.createdAt,
-    }));
-    sessionStorage.setItem(key, JSON.stringify(arr));
-  } catch {
-    // Defensive against storage quota errors
-  }
-}
+export type { ModerationDecisionEvent, UnresolvedTransition };
+export { MAX_RESOLUTION_RETRIES, calculateBackoffDelay };
 
 export function useModerationTracker() {
   const queryClient = useQueryClient();
@@ -107,6 +41,13 @@ export function useModerationTracker() {
 
   const decisionsKey = userIdentifier ? `${DECISIONS_KEY_PREFIX}${userIdentifier}` : null;
   const pendingSnapshotKey = userIdentifier ? `${PENDING_SNAPSHOT_KEY_PREFIX}${userIdentifier}` : null;
+  const unresolvedSnapshotKey = userIdentifier ? `${UNRESOLVED_SNAPSHOT_KEY_PREFIX}${userIdentifier}` : null;
+
+  // Track active user in a ref to guard against cross-account race conditions during async in-flight calls
+  const activeUserIdentifierRef = useRef<string | null>(userIdentifier);
+  useEffect(() => {
+    activeUserIdentifierRef.current = userIdentifier;
+  }, [userIdentifier]);
 
   // In-session recorded decisions
   const [recentDecisions, setRecentDecisions] = useState<ModerationDecisionEvent[]>(() => {
@@ -116,6 +57,7 @@ export function useModerationTracker() {
 
   // Track previous pending items across polling cycles
   const previousPendingMapRef = useRef<Map<number, { title: string; createdAt: string }>>(new Map());
+  const unresolvedMapRef = useRef<Map<number, UnresolvedTransition>>(new Map());
   const isFirstRunRef = useRef(true);
   const isMountedRef = useRef(true);
   const inFlightIdsRef = useRef<Set<number>>(new Set());
@@ -126,20 +68,24 @@ export function useModerationTracker() {
     isFirstRunRef.current = true;
     inFlightIdsRef.current.clear();
 
-    if (decisionsKey && pendingSnapshotKey) {
+    if (decisionsKey && pendingSnapshotKey && unresolvedSnapshotKey) {
       setRecentDecisions(safeParseDecisions(sessionStorage.getItem(decisionsKey)));
       previousPendingMapRef.current = safeParsePendingSnapshot(
         sessionStorage.getItem(pendingSnapshotKey)
       );
+      unresolvedMapRef.current = safeParseUnresolved(
+        sessionStorage.getItem(unresolvedSnapshotKey)
+      );
     } else {
       setRecentDecisions([]);
       previousPendingMapRef.current = new Map();
+      unresolvedMapRef.current = new Map();
     }
 
     return () => {
       isMountedRef.current = false;
     };
-  }, [userIdentifier, decisionsKey, pendingSnapshotKey]);
+  }, [userIdentifier, decisionsKey, pendingSnapshotKey, unresolvedSnapshotKey]);
 
   // Query videos that are currently PENDING_REVIEW from backend
   const {
@@ -147,15 +93,19 @@ export function useModerationTracker() {
     isLoading,
     isError,
     isFetching,
-    refetch: checkNow,
+    refetch: rawCheckNow,
   } = useQuery({
     queryKey: ['creator', 'moderation-tracking', 'pending'],
     queryFn: () => creatorStudioApi.getVideos({ status: 'PENDING_REVIEW' }),
     enabled: Boolean(userIdentifier),
-    // Poll every 15s when there are items awaiting review; pause when window is blurred
+    // Poll every 15s only when there are items awaiting review OR active unexhausted retries
     refetchInterval: (query) => {
       const count = Array.isArray(query.state.data?.data) ? query.state.data.data.length : 0;
-      return count > 0 ? 15000 : false;
+      // Stop background polling if all unresolved transitions have reached MAX_RESOLUTION_RETRIES
+      const hasActiveUnresolved = Array.from(unresolvedMapRef.current.values()).some(
+        (item) => item.retryCount <= MAX_RESOLUTION_RETRIES
+      );
+      return count > 0 || hasActiveUnresolved ? 15000 : false;
     },
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
@@ -174,13 +124,25 @@ export function useModerationTracker() {
       return;
     }
 
-    if (!userIdentifier || !pendingSnapshotKey || !decisionsKey) {
+    if (!userIdentifier || !pendingSnapshotKey || !decisionsKey || !unresolvedSnapshotKey) {
       return;
     }
 
     const currentMap = new Map<number, { title: string; createdAt: string }>();
     pendingVideos.forEach((v) => {
       currentMap.set(v.contentId, { title: v.title, createdAt: v.createdAt });
+      // If an unresolved item reappears in pending list (transient backend glitch), remove it from unresolved
+      if (unresolvedMapRef.current.has(v.contentId)) {
+        unresolvedMapRef.current.delete(v.contentId);
+        try {
+          sessionStorage.setItem(
+            unresolvedSnapshotKey,
+            serializeUnresolvedSnapshot(unresolvedMapRef.current)
+          );
+        } catch {
+          // ignore storage quota errors
+        }
+      }
     });
 
     if (isFirstRunRef.current) {
@@ -193,7 +155,11 @@ export function useModerationTracker() {
       } else {
         // Clean first mount
         previousPendingMapRef.current = currentMap;
-        savePendingSnapshot(pendingSnapshotKey, currentMap);
+        try {
+          sessionStorage.setItem(pendingSnapshotKey, serializePendingSnapshot(currentMap));
+        } catch {
+          // ignore
+        }
         isFirstRunRef.current = false;
         return;
       }
@@ -201,69 +167,151 @@ export function useModerationTracker() {
     }
 
     // Check for items that were in previous pending list but are no longer in current pending list
-    const previousMap = previousPendingMapRef.current;
-    const resolvedIds: { contentId: number; title: string }[] = [];
-
-    previousMap.forEach((info, contentId) => {
-      if (!currentMap.has(contentId)) {
-        resolvedIds.push({ contentId, title: info.title });
+    const newlyResolved = detectNewlyResolvedIds(previousPendingMapRef.current, currentMap);
+    newlyResolved.forEach(({ contentId, title }) => {
+      if (!unresolvedMapRef.current.has(contentId)) {
+        unresolvedMapRef.current.set(contentId, {
+          contentId,
+          title,
+          retryCount: 0,
+          lastAttempt: 0,
+        });
       }
     });
 
     // Update snapshot and persist for next polling cycle
     previousPendingMapRef.current = currentMap;
-    savePendingSnapshot(pendingSnapshotKey, currentMap);
+    try {
+      sessionStorage.setItem(pendingSnapshotKey, serializePendingSnapshot(currentMap));
+      sessionStorage.setItem(
+        unresolvedSnapshotKey,
+        serializeUnresolvedSnapshot(unresolvedMapRef.current)
+      );
+    } catch {
+      // ignore
+    }
 
-    // For any resolved item, fetch its current detail to detect whether it was APPROVED or REJECTED
-    if (resolvedIds.length > 0) {
-      resolvedIds.forEach(async ({ contentId, title }) => {
-        // Guard against duplicate in-flight requests for the same contentId
+    // Select candidates eligible for bounded exponential retry
+    const candidates = selectEligibleRetryCandidates(
+      unresolvedMapRef.current,
+      Date.now(),
+      MAX_RESOLUTION_RETRIES
+    );
+
+    if (candidates.length > 0) {
+      const capturedUser = userIdentifier;
+
+      candidates.forEach(async (candidate) => {
+        const { contentId } = candidate;
+
+        // Guard against duplicate concurrent in-flight requests for the same contentId
         if (inFlightIdsRef.current.has(contentId)) return;
         inFlightIdsRef.current.add(contentId);
 
+        // Update attempt timestamp and retry count
+        candidate.lastAttempt = Date.now();
+        candidate.retryCount += 1;
+        try {
+          sessionStorage.setItem(
+            unresolvedSnapshotKey,
+            serializeUnresolvedSnapshot(unresolvedMapRef.current)
+          );
+        } catch {
+          // ignore
+        }
+
         try {
           const detailRes = await creatorStudioApi.getVideoDetail(contentId);
-          if (!isMountedRef.current) return;
 
-          const detail = detailRes?.data;
-          if (!detail) return;
-
-          let decision: 'APPROVED' | 'REJECTED' | null = null;
-          if (detail.status === 'PUBLISHED' || detail.moderationDecision === 'APPROVED') {
-            decision = 'APPROVED';
-          } else if (detail.status === 'REJECTED' || detail.moderationDecision === 'REJECTED') {
-            decision = 'REJECTED';
+          // RACE GUARD: If user switched account or component unmounted during in-flight request, discard immediately
+          if (!isMountedRef.current || activeUserIdentifierRef.current !== capturedUser) {
+            return;
           }
 
-          if (decision) {
-            const newEvent: ModerationDecisionEvent = {
-              id: `${contentId}-${decision}-${Date.now()}`,
-              contentId,
-              title: detail.title || title,
-              decision,
-              reason: detail.moderationReason?.trim() || undefined,
-              timestamp: Date.now(),
-              aiShieldScore: detail.aiShieldScore,
-              aiShieldTier: detail.aiShieldTier || undefined,
-              aiShieldTierLabel: detail.aiShieldTierLabel || undefined,
-            };
+          const outcome = evaluateDetailResponse(candidate, detailRes?.data);
+
+          if (outcome.action === 'DECISION_CREATED' && outcome.decisionEvent) {
+            const event = outcome.decisionEvent;
 
             setRecentDecisions((prev) => {
-              // Avoid duplicate event for same contentId and decision in list
-              const exists = prev.some((e) => e.contentId === contentId && e.decision === decision);
-              if (exists) return prev;
-              const next = [newEvent, ...prev].slice(0, 20);
-              saveDecisions(decisionsKey, next);
-              return next;
+              const { updated, wasAdded } = appendDecisionWithoutDuplicate(prev, event, 20);
+              if (wasAdded && decisionsKey) {
+                try {
+                  sessionStorage.setItem(decisionsKey, serializeDecisions(updated));
+                } catch {
+                  // ignore
+                }
+              }
+              return updated;
             });
 
-            // Automatically invalidate TanStack Query caches so UI updates seamlessly
+            // Successfully resolved: remove from unresolved snapshot
+            unresolvedMapRef.current.delete(contentId);
+            try {
+              sessionStorage.setItem(
+                unresolvedSnapshotKey,
+                serializeUnresolvedSnapshot(unresolvedMapRef.current)
+              );
+            } catch {
+              // ignore
+            }
+
+            // Invalidate TanStack caches to keep UI fresh
             queryClient.invalidateQueries({ queryKey: ['creator', 'studio-videos'] });
             queryClient.invalidateQueries({ queryKey: ['creator', 'studio-video', contentId] });
             queryClient.invalidateQueries({ queryKey: ['creator', 'dashboard'] });
+          } else if (outcome.action === 'TERMINAL_DISCARD') {
+            // Moved to DRAFT or other terminal non-moderated state
+            unresolvedMapRef.current.delete(contentId);
+            try {
+              sessionStorage.setItem(
+                unresolvedSnapshotKey,
+                serializeUnresolvedSnapshot(unresolvedMapRef.current)
+              );
+            } catch {
+              // ignore
+            }
+          } else if (outcome.action === 'STILL_PENDING') {
+            // Content still pending according to detail endpoint: keep in unresolved map for next cycle
           }
-        } catch {
-          // If error fetching detail, ignore gracefully without crashing
+        } catch (err: unknown) {
+          // RACE GUARD: If user switched account during error return, do not mutate state
+          if (!isMountedRef.current || activeUserIdentifierRef.current !== capturedUser) {
+            return;
+          }
+
+          let errorCode: string | null = null;
+          let httpStatus: number | null = null;
+
+          if (err instanceof BusinessApiError) {
+            errorCode = err.errorCode || null;
+            httpStatus = err.response?.status || null;
+          } else if (axios.isAxiosError(err)) {
+            httpStatus = err.response?.status || null;
+            errorCode = (err.response?.data as { code?: string })?.code || null;
+          }
+
+          const errorOutcome = evaluateDetailError(
+            candidate,
+            errorCode,
+            httpStatus,
+            MAX_RESOLUTION_RETRIES
+          );
+
+          if (errorOutcome.action === 'TERMINAL_DISCARD') {
+            // 404 (deleted) or 403 (forbidden/unauthorized): remove from unresolved
+            unresolvedMapRef.current.delete(contentId);
+          }
+          // If RETRY_LATER or EXHAUSTED: keep in unresolvedMapRef (do NOT discard, wait for next eligible retry or manual checkNow)
+
+          try {
+            sessionStorage.setItem(
+              unresolvedSnapshotKey,
+              serializeUnresolvedSnapshot(unresolvedMapRef.current)
+            );
+          } catch {
+            // ignore
+          }
         } finally {
           inFlightIdsRef.current.delete(contentId);
         }
@@ -277,15 +325,41 @@ export function useModerationTracker() {
     userIdentifier,
     pendingSnapshotKey,
     decisionsKey,
+    unresolvedSnapshotKey,
     queryClient,
   ]);
+
+  /**
+   * Manual recovery path: reset retry counts on any exhausted items and re-trigger check
+   */
+  const checkNow = useCallback(async () => {
+    unresolvedMapRef.current.forEach((item) => {
+      item.retryCount = 0;
+      item.lastAttempt = 0;
+    });
+    if (unresolvedSnapshotKey) {
+      try {
+        sessionStorage.setItem(
+          unresolvedSnapshotKey,
+          serializeUnresolvedSnapshot(unresolvedMapRef.current)
+        );
+      } catch {
+        // ignore
+      }
+    }
+    return rawCheckNow();
+  }, [rawCheckNow, unresolvedSnapshotKey]);
 
   const dismissDecision = useCallback(
     (id: string) => {
       setRecentDecisions((prev) => {
         const next = prev.filter((d) => d.id !== id);
         if (decisionsKey) {
-          saveDecisions(decisionsKey, next);
+          try {
+            sessionStorage.setItem(decisionsKey, serializeDecisions(next));
+          } catch {
+            // ignore
+          }
         }
         return next;
       });
@@ -304,13 +378,21 @@ export function useModerationTracker() {
     }
   }, [decisionsKey]);
 
+  const hasActiveUnresolved = Array.from(unresolvedMapRef.current.values()).some(
+    (item) => item.retryCount <= MAX_RESOLUTION_RETRIES
+  );
+  const exhaustedCount = Array.from(unresolvedMapRef.current.values()).filter(
+    (item) => item.retryCount > MAX_RESOLUTION_RETRIES
+  ).length;
+
   return {
     pendingVideos,
     pendingCount,
     recentDecisions,
+    exhaustedCount,
     isLoading,
     isFetching,
-    isPolling: pendingCount > 0,
+    isPolling: pendingCount > 0 || hasActiveUnresolved,
     checkNow,
     dismissDecision,
     clearAllDecisions,

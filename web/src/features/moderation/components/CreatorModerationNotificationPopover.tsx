@@ -11,6 +11,7 @@ import {
   Radio,
   X,
   Sparkles,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -30,6 +31,7 @@ export const CreatorModerationNotificationPopover: React.FC = () => {
     pendingVideos,
     pendingCount,
     recentDecisions,
+    exhaustedCount,
     isFetching,
     isPolling,
     checkNow,
@@ -150,6 +152,26 @@ export const CreatorModerationNotificationPopover: React.FC = () => {
             )}
           </button>
         </div>
+
+        {/* Retry Exhaustion Alert Banner */}
+        {exhaustedCount > 0 && (
+          <div className="mx-3 my-2 p-2 rounded-lg bg-status-warning-bg/40 border border-status-warning-text/30 flex items-center justify-between text-[11px] text-ink">
+            <div className="flex items-center gap-1.5 pr-2">
+              <AlertTriangle className="h-3.5 w-3.5 text-status-warning-text shrink-0" />
+              <span>
+                <strong>{exhaustedCount}</strong> tác phẩm cần kết nối lại để xác nhận kết quả
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => checkNow()}
+              disabled={isFetching}
+              className="text-accent font-semibold hover:underline shrink-0 cursor-pointer"
+            >
+              Thử lại ngay
+            </button>
+          </div>
+        )}
 
         {/* Tab Content Panel */}
         <div className="max-h-[340px] overflow-y-auto divide-y divide-border p-1">
