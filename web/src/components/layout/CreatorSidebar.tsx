@@ -36,7 +36,7 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
   {
     title: 'SẢN XUẤT NỘI DUNG',
     items: [
-      { id: '02', label: 'Thư viện nội dung', to: '/creator/content', icon: Video, badge: 'Sắp ra mắt' },
+      { id: '02', label: 'Thư viện nội dung', to: '/creator/content', icon: Video },
       { id: '03', label: 'Tạo nội dung mới', to: '/creator/create', icon: PlusCircle, badge: 'Sắp ra mắt' },
       { id: '04', label: 'Tuyển tập Podcast', to: '/creator/series', icon: BookOpen, badge: 'Sắp ra mắt' },
     ],

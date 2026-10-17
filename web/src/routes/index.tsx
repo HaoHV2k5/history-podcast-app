@@ -40,6 +40,8 @@ import { Loader2 } from 'lucide-react';
 // Creator Pages & Layout
 import { CreatorLayout } from '@/components/layout/CreatorLayout';
 import { CreatorWorkspaceHome } from '@/features/creator/CreatorWorkspaceHome';
+import { CreatorContentLibraryPage } from '@/features/content/CreatorContentLibraryPage';
+import { CreatorContentDetailPage } from '@/features/content/CreatorContentDetailPage';
 import { CreatorModulePlaceholder } from '@/features/creator/CreatorModulePlaceholder';
 import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
 import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
@@ -83,7 +85,7 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
-      {/* Protected Creator Workspace with Unified CreatorLayout (Milestone 2 & 3) */}
+      {/* Protected Creator Workspace with Unified CreatorLayout (Milestones 2, 3 & 4) */}
       <Route
         path="/creator"
         element={
@@ -93,7 +95,8 @@ export const AppRoutes: React.FC = () => {
         }
       >
         <Route index element={<CreatorWorkspaceHome />} />
-        <Route path="content" element={<CreatorModulePlaceholder moduleKey="content" />} />
+        <Route path="content" element={<CreatorContentLibraryPage />} />
+        <Route path="content/:id" element={<CreatorContentDetailPage />} />
         <Route path="create" element={<CreatorModulePlaceholder moduleKey="create" />} />
         <Route path="series" element={<CreatorModulePlaceholder moduleKey="series" />} />
         <Route path="kyc" element={<CreatorKycPage />} />

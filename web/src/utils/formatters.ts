@@ -81,3 +81,28 @@ export function maskAccountNumber(acc?: string | null): string {
   return `••••••••${trimmed.slice(-4)}`;
 }
 
+export function getContentStatusBadge(status?: string | null): {
+  label: string;
+  variant: 'success' | 'pending' | 'error' | 'processing' | 'default' | 'outline';
+} {
+  switch (status?.toUpperCase()) {
+    case 'PUBLISHED':
+      return { label: 'Đã xuất bản', variant: 'success' };
+    case 'PENDING_REVIEW':
+    case 'PENDING':
+      return { label: 'Chờ duyệt', variant: 'pending' };
+    case 'COMPLETED':
+      return { label: 'Hoàn tất kịch bản', variant: 'processing' };
+    case 'DRAFT':
+      return { label: 'Bản nháp', variant: 'outline' };
+    case 'REJECTED':
+      return { label: 'Bị từ chối', variant: 'error' };
+    case 'HIDDEN':
+      return { label: 'Đã ẩn', variant: 'default' };
+    case 'FAILED':
+      return { label: 'Lỗi xử lý', variant: 'error' };
+    default:
+      return { label: status || 'Chưa xác định', variant: 'default' };
+  }
+}
+
