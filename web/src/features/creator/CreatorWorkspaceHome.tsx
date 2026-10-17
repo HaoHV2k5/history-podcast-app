@@ -507,23 +507,27 @@ export const CreatorWorkspaceHome: React.FC = () => {
           </div>
         </div>
 
-        {/* Module 3: Studio Creator Tooling (Milestone 5 Contextual Entry) */}
-        <div className="rounded-xl border border-border bg-surface-subtle/50 p-5 shadow-xs flex flex-col justify-between opacity-85">
+        {/* Module 3: Studio Creator Tooling (Milestone 5) */}
+        <div
+          onClick={() => navigate('/creator/create')}
+          className="rounded-xl border border-border bg-surface p-5 shadow-xs hover:border-accent/40 transition-all cursor-pointer flex flex-col justify-between"
+        >
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-lg bg-surface-subtle text-muted">
+              <div className="p-2.5 rounded-lg bg-surface-subtle text-accent">
                 <PlusCircle className="h-5 w-5" />
               </div>
-              <Badge variant="outline">Milestone 5</Badge>
+              <Badge variant="success">Hoạt động</Badge>
             </div>
-            <h3 className="text-sm font-bold text-ink">Xưởng Dựng Sử Ký (Whiteboard AI)</h3>
+            <h3 className="text-sm font-bold text-ink">Xưởng Sáng Tác Sử Ký AI</h3>
             <p className="text-xs text-muted mt-1 leading-relaxed">
-              Biên kịch từ kho tư liệu lịch sử Đại Việt Sử Ký Toàn Thư, phối âm giọng đọc AI và xuất
-              video hoạt họa.
+              Biên kịch từ kho tư liệu lịch sử Đại Việt Sử Ký Toàn Thư, đối chiếu RAG và chọn giọng đọc
+              thuyết minh.
             </p>
           </div>
-          <div className="pt-4 flex items-center gap-1 text-xs text-muted">
-            <span>Đang phát triển theo lộ trình</span>
+          <div className="pt-4 flex items-center gap-1 text-xs font-semibold text-accent">
+            <span>Truy cập Xưởng Dựng</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </div>
         </div>
       </div>

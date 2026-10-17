@@ -45,6 +45,7 @@ import { CreatorContentDetailPage } from '@/features/content/CreatorContentDetai
 import { CreatorModulePlaceholder } from '@/features/creator/CreatorModulePlaceholder';
 import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
 import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
+import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
 
 // Root redirect based on role
 const RootRedirect: React.FC = () => {
@@ -97,7 +98,8 @@ export const AppRoutes: React.FC = () => {
         <Route index element={<CreatorWorkspaceHome />} />
         <Route path="content" element={<CreatorContentLibraryPage />} />
         <Route path="content/:id" element={<CreatorContentDetailPage />} />
-        <Route path="create" element={<CreatorModulePlaceholder moduleKey="create" />} />
+        <Route path="create" element={<CreatorStudioPage />} />
+        <Route path="studio" element={<Navigate to="/creator/create" replace />} />
         <Route path="series" element={<CreatorModulePlaceholder moduleKey="series" />} />
         <Route path="kyc" element={<CreatorKycPage />} />
         <Route path="channel" element={<CreatorChannelPage />} />
