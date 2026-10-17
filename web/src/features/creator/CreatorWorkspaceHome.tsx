@@ -28,9 +28,9 @@ const MODULE_CARDS: ModuleLinkCard[] = [
   {
     title: 'Xác thực định danh KYC',
     description:
-      'Hồ sơ tác giả và giấy tờ pháp lý để kích hoạt đầy đủ quyền xuất bản tác phẩm lịch sử.',
+      'Hồ sơ tác giả và thông tin thụ hưởng để kích hoạt đầy đủ quyền khởi tạo kênh và xuất bản tác phẩm.',
     to: '/creator/kyc',
-    badge: 'Milestone 3',
+    badge: 'Khả dụng',
     icon: UserCheck,
   },
   {
@@ -38,9 +38,10 @@ const MODULE_CARDS: ModuleLinkCard[] = [
     description:
       'Nhận diện kênh podcast, thương hiệu nhà sáng tạo, tiểu sử và ảnh bìa nghệ thuật.',
     to: '/creator/channel',
-    badge: 'Milestone 3',
+    badge: 'Khả dụng',
     icon: Radio,
   },
+
   {
     title: 'Thư viện nội dung',
     description:

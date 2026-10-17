@@ -44,10 +44,11 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
   {
     title: 'THIẾT LẬP & ĐỊNH DANH',
     items: [
-      { id: '05', label: 'Xác thực KYC', to: '/creator/kyc', icon: UserCheck, badge: 'Kế tiếp' },
-      { id: '06', label: 'Quản lý Kênh', to: '/creator/channel', icon: Radio, badge: 'Kế tiếp' },
+      { id: '05', label: 'Xác thực KYC', to: '/creator/kyc', icon: UserCheck },
+      { id: '06', label: 'Quản lý Kênh', to: '/creator/channel', icon: Radio },
     ],
   },
+
 ];
 
 interface CreatorSidebarProps {

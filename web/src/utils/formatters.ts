@@ -73,3 +73,11 @@ export function maskPhone(phone?: string | null): string {
   if (trimmed.length < 7) return trimmed;
   return `${trimmed.slice(0, 3)}•••${trimmed.slice(-3)}`;
 }
+
+export function maskAccountNumber(acc?: string | null): string {
+  if (!acc) return '—';
+  const trimmed = acc.trim();
+  if (trimmed.length <= 4) return trimmed;
+  return `••••••••${trimmed.slice(-4)}`;
+}
+
