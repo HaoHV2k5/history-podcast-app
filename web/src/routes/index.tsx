@@ -37,8 +37,10 @@ import { AuditLogsPage } from '@/features/audit/AuditLogsPage';
 import { useAuthStore } from '@/store/authStore';
 import { Loader2 } from 'lucide-react';
 
-// Creator Pages
-import { CreatorPlaceholderPage } from '@/features/creator/CreatorPlaceholderPage';
+// Creator Pages & Layout
+import { CreatorLayout } from '@/components/layout/CreatorLayout';
+import { CreatorWorkspaceHome } from '@/features/creator/CreatorWorkspaceHome';
+import { CreatorModulePlaceholder } from '@/features/creator/CreatorModulePlaceholder';
 
 // Root redirect based on role
 const RootRedirect: React.FC = () => {
@@ -79,15 +81,22 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
-      {/* Protected Creator Workspace Entry Route (Milestone 1) */}
+      {/* Protected Creator Workspace with Unified CreatorLayout (Milestone 2) */}
       <Route
         path="/creator"
         element={
           <ProtectedRoute allowedRoles={['CREATOR']}>
-            <CreatorPlaceholderPage />
+            <CreatorLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<CreatorWorkspaceHome />} />
+        <Route path="content" element={<CreatorModulePlaceholder moduleKey="content" />} />
+        <Route path="create" element={<CreatorModulePlaceholder moduleKey="create" />} />
+        <Route path="series" element={<CreatorModulePlaceholder moduleKey="series" />} />
+        <Route path="kyc" element={<CreatorModulePlaceholder moduleKey="kyc" />} />
+        <Route path="channel" element={<CreatorModulePlaceholder moduleKey="channel" />} />
+      </Route>
       <Route path="/creator/dashboard" element={<Navigate to="/creator" replace />} />
 
       {/* Protected Admin Portal with Unified AdminLayout */}
