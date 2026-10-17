@@ -89,6 +89,14 @@ export const CreatorContentLibraryPage: React.FC = () => {
         sortDir: currentSortOption.sortDir,
         isExclusive: exclusiveParam === 'true' ? true : exclusiveParam === 'false' ? false : undefined,
       }),
+    // Live polling every 15s if viewing pending tab or if any video is pending review
+    refetchInterval: (query) => {
+      const vids = Array.isArray(query.state.data?.data) ? query.state.data.data : [];
+      const hasPending = vids.some((v) => v.status === 'PENDING_REVIEW' || v.status === 'PENDING');
+      return activeStatus === 'PENDING_REVIEW' || hasPending ? 15000 : false;
+    },
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const videos = Array.isArray(response?.data) ? response.data : [];
@@ -330,7 +338,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
             <p className="text-xs text-muted leading-relaxed">
               {keywordParam || activeStatus !== 'ALL' || exclusiveParam
                 ? 'Không có video hoặc podcast nào khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại. Thử đặt lại bộ lọc để xem toàn bộ danh mục.'
-                : 'Kênh của bạn chưa có tác phẩm podcast hoặc video nào được xuất bản. Tính năng biên soạn kịch bản và dựng hoạt họa AI sẽ có sẵn ở Milestone 5.'}
+                : 'Kênh của bạn chưa có tác phẩm podcast hoặc video nào. Bạn có thể bắt đầu bằng cách nhấn "Tạo nội dung mới" để khởi tạo kịch bản và dựng hoạt họa trong Creator Studio.'}
             </p>
           </div>
 

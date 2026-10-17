@@ -55,6 +55,16 @@ export const CreatorWorkspaceHome: React.FC = () => {
     queryKey: ['creator', 'studio-videos', 'dashboard'],
     queryFn: () => creatorStudioApi.getVideos({ sortBy: 'createdAt', sortDir: 'desc' }),
     enabled: isKycApproved,
+    // Live polling every 15s when videos are pending review
+    refetchInterval: (query) => {
+      const vids = Array.isArray(query.state.data?.data) ? query.state.data.data : [];
+      const hasPending = vids.some(
+        (v) => v.status === 'PENDING_REVIEW' || v.status === 'PENDING'
+      );
+      return hasPending ? 15000 : false;
+    },
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const videos = Array.isArray(videosRes?.data) ? videosRes.data : [];
@@ -65,9 +75,8 @@ export const CreatorWorkspaceHome: React.FC = () => {
   const pendingVideos = videos.filter(
     (v) => v.status === 'PENDING_REVIEW' || v.status === 'PENDING'
   ).length;
-  const draftVideos = videos.filter(
-    (v) => v.status === 'DRAFT' || v.status === 'COMPLETED'
-  ).length;
+  const completedVideos = videos.filter((v) => v.status === 'COMPLETED').length;
+  const draftVideos = videos.filter((v) => v.status === 'DRAFT').length;
   const rejectedVideos = videos.filter((v) => v.status === 'REJECTED').length;
 
   const totalLikes = videos.reduce((acc, v) => acc + (v.likeCount || 0), 0);
@@ -213,6 +222,26 @@ export const CreatorWorkspaceHome: React.FC = () => {
         </div>
       )}
 
+      {/* Pending Review Alert Notice (if any) */}
+      {pendingVideos > 0 && (
+        <div className="rounded-xl border border-status-pending-text/30 bg-status-pending-bg p-4 flex items-center justify-between gap-3 text-xs text-status-pending-text shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <Clock className="h-4 w-4 shrink-0 animate-pulse" />
+            <span>
+              Kênh có <strong>{pendingVideos}</strong> tác phẩm đang trong hàng đợi kiểm duyệt của Ban biên tập. Hệ thống đang tự động thăm dò cập nhật kết quả.
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => navigate('/creator/content?status=PENDING_REVIEW')}
+            className="text-xs h-7 border-status-pending-text/40 text-status-pending-text hover:bg-status-pending-bg/80"
+          >
+            Theo dõi kiểm duyệt
+          </Button>
+        </div>
+      )}
+
       {/* Rejected Alert Notice (if any) */}
       {rejectedVideos > 0 && (
         <div className="rounded-xl border border-status-error-text/30 bg-status-error-bg p-4 flex items-center justify-between gap-3 text-xs text-status-error-text">
@@ -290,11 +319,11 @@ export const CreatorWorkspaceHome: React.FC = () => {
           </div>
         </div>
 
-        {/* Drafts */}
+        {/* Drafts & Ready to Submit */}
         <div className="rounded-xl border border-border bg-surface p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Bản nháp
+              Bản nháp & Chờ gửi
             </span>
             <div className="p-2 rounded-lg bg-surface-subtle text-muted">
               <Layers className="h-4 w-4" />
@@ -302,9 +331,13 @@ export const CreatorWorkspaceHome: React.FC = () => {
           </div>
           <div className="mt-4">
             <span className="text-2xl font-bold font-serif text-ink">
-              {isLoadingVideos ? '—' : draftVideos}
+              {isLoadingVideos ? '—' : draftVideos + completedVideos}
             </span>
-            <span className="text-xs text-muted block mt-1">Đang biên soạn / Render</span>
+            <span className="text-xs text-muted block mt-1">
+              {completedVideos > 0
+                ? `${completedVideos} chờ gửi duyệt, ${draftVideos} bản nháp`
+                : 'Đang biên soạn / Render'}
+            </span>
           </div>
         </div>
       </div>

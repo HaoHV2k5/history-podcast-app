@@ -85,6 +85,13 @@ export const CreatorContentDetailPage: React.FC = () => {
     queryFn: () => creatorStudioApi.getVideoDetail(contentId),
     enabled: !isNaN(contentId) && contentId > 0,
     retry: 1,
+    // Live polling every 8s when video is pending review
+    refetchInterval: (query) => {
+      const status = query.state.data?.data?.status;
+      return status === 'PENDING_REVIEW' ? 8000 : false;
+    },
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const detail = response?.data;
@@ -513,16 +520,37 @@ export const CreatorContentDetailPage: React.FC = () => {
               <div className="h-10 w-10 rounded-lg bg-status-pending-bg text-status-pending-text flex items-center justify-center shrink-0">
                 <Clock className="h-5 w-5 animate-pulse" />
               </div>
-              <div className="space-y-1">
-                <h3 className="text-sm font-bold text-ink">
-                  Đang trong hàng đợi kiểm duyệt của Ban biên tập
-                </h3>
+              <div className="space-y-1.5 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold text-ink">
+                    Đang trong hàng đợi kiểm duyệt của Ban biên tập
+                  </h3>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-pending-bg border border-status-pending-text/30 text-[10px] font-medium text-status-pending-text">
+                    <span className="h-1.5 w-1.5 rounded-full bg-status-pending-text animate-ping" />
+                    <span>Tự động theo dõi quyết định (8s)</span>
+                  </span>
+                </div>
                 <p className="text-xs text-muted leading-relaxed">
-                  Tác phẩm đã được chuyển đến hệ thống kiểm định AI Shield và đang chờ Quản trị viên
-                  (Admin) xem xét phê duyệt. Trong thời gian này, bạn không thể thay đổi trạng thái
-                  xuất bản. Bạn sẽ nhận được thông báo khi có quyết định chính thức.
+                  Tác phẩm đã vượt qua thẩm định AI Shield sơ bộ và đang chờ Quản trị viên (Admin)
+                  xem xét phê duyệt. Hệ thống đang tự động cập nhật kết quả theo thời gian thực — giao
+                  diện sẽ tự động chuyển trạng thái ngay khi có quyết định chính thức.
                 </p>
               </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-border text-[11px] text-muted">
+              <span>Đang mở chế độ thăm dò tự động (Polling)</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="h-7 px-2.5 text-xs gap-1.5 text-muted hover:text-ink cursor-pointer"
+                title="Kiểm tra trạng thái ngay từ máy chủ"
+              >
+                <RotateCcw className={`h-3 w-3 ${isFetching ? 'animate-spin text-accent' : ''}`} />
+                <span>Kiểm tra ngay</span>
+              </Button>
             </div>
           </div>
         )}

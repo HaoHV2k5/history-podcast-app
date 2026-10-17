@@ -12,6 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
+import { CreatorModerationNotificationPopover } from '@/features/moderation/components/CreatorModerationNotificationPopover';
 
 interface CreatorHeaderProps {
   onToggleMobileMenu?: () => void;
@@ -105,6 +106,9 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
             <ArrowRight className="h-3 w-3 text-muted" />
           </Button>
         )}
+
+        {/* Creator Moderation Notification & Lifecycle Tracking Center */}
+        <CreatorModerationNotificationPopover />
 
         {/* Authenticated Creator Profile Dropdown */}
         {currentUser ? (
