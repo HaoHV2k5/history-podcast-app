@@ -44,6 +44,7 @@ interface AuthState {
   clearRefreshToken: () => void;
   hasRole: (role: string) => boolean;
   isAdmin: () => boolean;
+  isCreator: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -67,16 +68,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // ignore
     }
 
-    const roles = authData.roles || (authData.role ? [authData.role] : []);
-    const mergedUser: UserResponse = userData || {
-      id: authData.userId,
-      email: authData.email,
-      phone: authData.phone,
-      roleName: authData.role,
-      roles: roles,
-      isAdmin: roles.includes('ADMIN') || authData.role === 'ADMIN',
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
+    const authRoles = authData.roles || (authData.role ? [authData.role] : []);
+    const userRoles = userData?.roles || (userData?.roleName ? [userData.roleName] : []);
+    const combinedRoles = Array.from(new Set([...authRoles, ...userRoles]));
+
+    const mergedUser: UserResponse = {
+      ...(userData || {}),
+      id: userData?.id || authData.userId,
+      email: userData?.email || authData.email,
+      phone: userData?.phone || authData.phone,
+      roleName: userData?.roleName || authData.role,
+      roles: combinedRoles,
+      isAdmin:
+        Boolean(userData?.isAdmin) ||
+        combinedRoles.includes('ADMIN') ||
+        authData.role === 'ADMIN' ||
+        userData?.roleName === 'ADMIN',
+      isCreator:
+        Boolean(userData?.isCreator) ||
+        combinedRoles.includes('CREATOR') ||
+        authData.role === 'CREATOR' ||
+        userData?.roleName === 'CREATOR',
+      status: userData?.status || 'ACTIVE',
+      createdAt: userData?.createdAt || new Date().toISOString(),
     };
 
     try {
@@ -167,6 +181,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     if (user.roles && user.roles.includes(role)) return true;
     if (user.roleName === role) return true;
+    if (role === 'ADMIN' && user.isAdmin) return true;
+    if (role === 'CREATOR' && user.isCreator) return true;
     return false;
   },
 
@@ -176,6 +192,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user.isAdmin) return true;
     if (user.roles && user.roles.includes('ADMIN')) return true;
     if (user.roleName === 'ADMIN') return true;
+    return false;
+  },
+
+  isCreator: () => {
+    const { user } = get();
+    if (!user) return false;
+    if (user.isCreator) return true;
+    if (user.roles && user.roles.includes('CREATOR')) return true;
+    if (user.roleName === 'CREATOR') return true;
     return false;
   },
 }));

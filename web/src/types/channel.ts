@@ -9,3 +9,20 @@ export interface ChannelItem {
   createdAt: string;
   updatedAt?: string;
 }
+
+export type ChannelResponse = ChannelItem;
+
+export interface CreateChannelRequest {
+  name: string;
+  description: string;
+  avatarUrl?: string;
+  coverUrl?: string;
+}
+
+export interface UpdateChannelRequest {
+  name?: string;
+  description?: string;
+  avatarUrl?: string;
+  coverUrl?: string;
+}
+
