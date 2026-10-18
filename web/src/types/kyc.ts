@@ -1,3 +1,5 @@
+export type KycStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
 export interface KycProfile {
   id: number;
   userId: number;
@@ -5,15 +7,37 @@ export interface KycProfile {
   fullName: string;
   phone?: string;
   contactEmail?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountHolder?: string;
   bio?: string;
   portfolioUrl?: string;
   verificationMethod: 'EMAIL' | 'PHONE' | string;
   otpVerifiedAt?: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | string;
+  status: KycStatus | string;
   rejectionReason?: string;
   createdAt: string;
   updatedAt?: string;
-  // Note: Financial fields (bankName, bankAccountNumber) intentionally excluded from default KYC display per Mandatory Correction 2
+}
+
+export interface SendEmailOtpRequest {
+  email: string;
+}
+
+export interface VerifyEmailOtpRequest {
+  email: string;
+  otpCode: string;
+}
+
+export interface SubmitKycRequest {
+  fullName: string;
+  phone: string;
+  contactEmail: string;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountHolder: string;
+  bio?: string;
+  portfolioUrl?: string;
 }
 
 export interface UpdateKycStatusPayload {
@@ -26,3 +50,4 @@ export interface KycQueryParams {
   page?: number;
   size?: number;
 }
+

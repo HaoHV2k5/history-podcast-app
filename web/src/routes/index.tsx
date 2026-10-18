@@ -34,21 +34,84 @@ import { PoliciesPage } from '@/features/policies/PoliciesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { AuditLogsPage } from '@/features/audit/AuditLogsPage';
 
+import { useAuthStore } from '@/store/authStore';
+import { Loader2 } from 'lucide-react';
+
+// Creator Pages & Layout
+import { CreatorLayout } from '@/components/layout/CreatorLayout';
+import { CreatorWorkspaceHome } from '@/features/creator/CreatorWorkspaceHome';
+import { CreatorContentLibraryPage } from '@/features/content/CreatorContentLibraryPage';
+import { CreatorContentDetailPage } from '@/features/content/CreatorContentDetailPage';
+import { CreatorModulePlaceholder } from '@/features/creator/CreatorModulePlaceholder';
+import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
+import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
+import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
+
+// Root redirect based on role
+const RootRedirect: React.FC = () => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const hasRole = useAuthStore((s) => s.hasRole);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-canvas">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (hasRole('ADMIN')) {
+    return <Navigate to="/admin/overview" replace />;
+  }
+
+  if (hasRole('CREATOR')) {
+    return <Navigate to="/creator" replace />;
+  }
+
+  return <Navigate to="/forbidden" replace />;
+};
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/admin/overview" replace />} />
+      <Route path="/" element={<RootRedirect />} />
 
       {/* Public / Auth routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
+      {/* Protected Creator Workspace with Unified CreatorLayout (Milestones 2, 3 & 4) */}
+      <Route
+        path="/creator"
+        element={
+          <ProtectedRoute allowedRoles={['CREATOR']}>
+            <CreatorLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<CreatorWorkspaceHome />} />
+        <Route path="content" element={<CreatorContentLibraryPage />} />
+        <Route path="content/:id" element={<CreatorContentDetailPage />} />
+        <Route path="create" element={<CreatorStudioPage />} />
+        <Route path="studio" element={<Navigate to="/creator/create" replace />} />
+        <Route path="series" element={<CreatorModulePlaceholder moduleKey="series" />} />
+        <Route path="kyc" element={<CreatorKycPage />} />
+        <Route path="channel" element={<CreatorChannelPage />} />
+      </Route>
+      <Route path="/creator/dashboard" element={<Navigate to="/creator" replace />} />
+
+
       {/* Protected Admin Portal with Unified AdminLayout */}
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminLayout />
           </ProtectedRoute>
         }

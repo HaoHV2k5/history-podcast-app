@@ -53,12 +53,13 @@ export const LoginPage: React.FC = () => {
         throw new Error('Dữ liệu xác thực không hợp lệ');
       }
 
-      // Check for ADMIN role authorization
+      // Check for supported roles: ADMIN or CREATOR
       const roles = authData.roles || (authData.role ? [authData.role] : []);
-      const isAdminUser = roles.includes('ADMIN') || authData.role === 'ADMIN';
+      const isAdmin = roles.includes('ADMIN') || authData.role === 'ADMIN';
+      const isCreator = roles.includes('CREATOR') || authData.role === 'CREATOR';
 
-      if (!isAdminUser) {
-        setApiError('Tài khoản này không có quyền Quản trị viên (ADMIN) để truy cập cổng.');
+      if (!isAdmin && !isCreator) {
+        setApiError('Tài khoản này chưa có quyền Quản trị viên (ADMIN) hoặc Nhà sáng tạo (CREATOR) để truy cập không gian làm việc.');
         setIsSubmitting(false);
         return;
       }
@@ -71,9 +72,29 @@ export const LoginPage: React.FC = () => {
       }
       setAuth(authData);
 
-      // Navigate to intended destination or overview
-      const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname || '/admin/overview';
-      navigate(fromPath, { replace: true });
+      // Navigate to intended destination or role-based default
+      const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
+
+      // Check if fromPath is safe and authorized for this user
+      if (fromPath && fromPath !== '/login' && fromPath !== '/forbidden') {
+        if (fromPath.startsWith('/admin') && isAdmin) {
+          navigate(fromPath, { replace: true });
+          return;
+        }
+        if (fromPath.startsWith('/creator') && isCreator) {
+          navigate(fromPath, { replace: true });
+          return;
+        }
+      }
+
+      // Default destination: prefer ADMIN if user has both ADMIN and CREATOR
+      if (isAdmin) {
+        navigate('/admin/overview', { replace: true });
+      } else if (isCreator) {
+        navigate('/creator', { replace: true });
+      } else {
+        navigate('/forbidden', { replace: true });
+      }
     } catch (err: unknown) {
       const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
       const message =
@@ -111,7 +132,7 @@ export const LoginPage: React.FC = () => {
             SỬ KÝ
           </h1>
           <p className="text-xs uppercase tracking-widest text-muted font-medium">
-            Cổng Quản Trị & Vận Hành
+            Cổng Điều Hành & Không Gian Sáng Tạo
           </p>
         </div>
 
@@ -120,7 +141,7 @@ export const LoginPage: React.FC = () => {
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-ink">Đăng nhập tài khoản</h2>
             <p className="text-xs text-muted mt-1">
-              Nhập email quản trị viên và mật khẩu để tiếp tục
+              Nhập email tài khoản và mật khẩu để tiếp tục
             </p>
           </div>
 
@@ -142,7 +163,7 @@ export const LoginPage: React.FC = () => {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@suky.vn"
+                placeholder="email@suky.vn"
                 autoComplete="email"
                 autoFocus
                 leftIcon={<Mail className="h-4 w-4 text-muted" />}
@@ -195,7 +216,7 @@ export const LoginPage: React.FC = () => {
 
           <div className="mt-6 border-t border-border pt-4 text-center">
             <p className="text-[11px] text-muted">
-              Cổng nội bộ dành riêng cho Quản trị viên và Điều hành viên Sử Ký
+              Cổng dành riêng cho Quản trị viên và Nhà sáng tạo Sử Ký
             </p>
             {import.meta.env.DEV && (
               <div className="mt-3 pt-2 border-t border-dashed border-border">
