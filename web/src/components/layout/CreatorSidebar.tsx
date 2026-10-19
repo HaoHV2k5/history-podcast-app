@@ -7,6 +7,7 @@ import {
   BookOpen,
   UserCheck,
   Radio,
+  Wallet,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -38,17 +39,17 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
     items: [
       { id: '02', label: 'Thư viện nội dung', to: '/creator/content', icon: Video },
       { id: '03', label: 'Tạo nội dung mới', to: '/creator/create', icon: PlusCircle },
-      { id: '04', label: 'Tuyển tập Podcast', to: '/creator/series', icon: BookOpen, badge: 'Sắp ra mắt' },
+      { id: '04', label: 'Tuyển tập Podcast', to: '/creator/series', icon: BookOpen },
     ],
   },
   {
-    title: 'THIẾT LẬP & ĐỊNH DANH',
+    title: 'THIẾT LẬP & TÀI CHÍNH',
     items: [
       { id: '05', label: 'Xác thực KYC', to: '/creator/kyc', icon: UserCheck },
       { id: '06', label: 'Quản lý Kênh', to: '/creator/channel', icon: Radio },
+      { id: '07', label: 'Ví & Thu nhập', to: '/creator/wallet', icon: Wallet },
     ],
   },
-
 ];
 
 interface CreatorSidebarProps {
