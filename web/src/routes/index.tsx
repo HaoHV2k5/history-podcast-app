@@ -42,7 +42,8 @@ import { CreatorLayout } from '@/components/layout/CreatorLayout';
 import { CreatorWorkspaceHome } from '@/features/creator/CreatorWorkspaceHome';
 import { CreatorContentLibraryPage } from '@/features/content/CreatorContentLibraryPage';
 import { CreatorContentDetailPage } from '@/features/content/CreatorContentDetailPage';
-import { CreatorModulePlaceholder } from '@/features/creator/CreatorModulePlaceholder';
+import { CreatorSeriesPage } from '@/features/series/CreatorSeriesPage';
+import { CreatorFinancePage } from '@/features/finance/CreatorFinancePage';
 import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
 import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
 import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
@@ -100,9 +101,10 @@ export const AppRoutes: React.FC = () => {
         <Route path="content/:id" element={<CreatorContentDetailPage />} />
         <Route path="create" element={<CreatorStudioPage />} />
         <Route path="studio" element={<Navigate to="/creator/create" replace />} />
-        <Route path="series" element={<CreatorModulePlaceholder moduleKey="series" />} />
+        <Route path="series" element={<CreatorSeriesPage />} />
         <Route path="kyc" element={<CreatorKycPage />} />
         <Route path="channel" element={<CreatorChannelPage />} />
+        <Route path="wallet" element={<CreatorFinancePage />} />
       </Route>
       <Route path="/creator/dashboard" element={<Navigate to="/creator" replace />} />
 

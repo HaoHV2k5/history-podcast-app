@@ -15,6 +15,7 @@ import {
   Calendar,
   Upload,
   RefreshCw,
+  Crown,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -23,7 +24,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useKycGate } from '@/features/kyc/useKycGate';
 import { KycGateCard } from '@/features/kyc/KycGateCard';
 import { channelsApi } from '@/services/api/channels';
+import { membershipApi } from '@/services/api/membership';
 import { ChannelItem } from '@/types/channel';
+import { MembershipPlanRequest } from '@/types/membership';
 import { formatDate } from '@/utils/formatters';
 
 const channelCreateSchema = z.object({
@@ -128,6 +131,50 @@ export const CreatorChannelPage: React.FC = () => {
       updateForm.setValue('description', channel.description || '');
     }
   }, [channel, updateForm]);
+
+  // VIP Membership Plan query & state
+  const { data: planRes, isLoading: isLoadingPlan } = useQuery({
+    queryKey: ['creator-channel-plan', channel?.id],
+    queryFn: () => membershipApi.getChannelPlan(channel!.id),
+    enabled: Boolean(channel?.id),
+    retry: 1,
+  });
+  const currentPlan = planRes?.data;
+
+  const [planName, setPlanName] = useState('');
+  const [planPrice, setPlanPrice] = useState<number>(50000);
+  const [planDescription, setPlanDescription] = useState('');
+  const [planPerksText, setPlanPerksText] = useState('');
+  const [planStatus, setPlanStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+  const [planFeedback, setPlanFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    if (currentPlan) {
+      setPlanName(currentPlan.name || '');
+      setPlanPrice(currentPlan.monthlyPrice || 50000);
+      setPlanDescription(currentPlan.description || '');
+      setPlanPerksText(Array.isArray(currentPlan.perks) ? currentPlan.perks.join('\n') : '');
+      setPlanStatus((currentPlan.status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE');
+    }
+  }, [currentPlan]);
+
+  const upsertPlanMutation = useMutation({
+    mutationFn: (payload: MembershipPlanRequest) => {
+      if (!channel) throw new Error('Chưa có kênh');
+      return membershipApi.upsertChannelPlan(channel.id, payload);
+    },
+    onSuccess: () => {
+      setPlanFeedback({ type: 'success', message: 'Cấu hình gói hội viên kênh thành công!' });
+      queryClient.invalidateQueries({ queryKey: ['creator-channel-plan', channel?.id] });
+    },
+    onError: (err: unknown) => {
+      let msg = 'Không thể lưu gói hội viên. Vui lòng kiểm tra lại.';
+      if (axios.isAxiosError(err)) {
+        msg = err.response?.data?.message || msg;
+      }
+      setPlanFeedback({ type: 'error', message: msg });
+    },
+  });
 
   // Handle toast timeout
   useEffect(() => {
@@ -807,6 +854,165 @@ export const CreatorChannelPage: React.FC = () => {
             >
               <Save className="h-4 w-4" />
               <span>Lưu thay đổi</span>
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* Configure VIP Membership Plan Card */}
+      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-6">
+        <div className="flex items-center justify-between border-b border-border pb-4">
+          <div className="space-y-1">
+            <h3 className="font-serif text-base font-bold text-ink flex items-center gap-2">
+              <Crown className="h-4 w-4 text-accent" />
+              <span>Cấu hình Gói Hội Viên VIP của Kênh</span>
+            </h3>
+            <p className="text-xs text-muted">
+              Thiết lập tên gói, mức giá tháng và các đặc quyền dành riêng cho thính giả trung thành.
+            </p>
+          </div>
+          {currentPlan && (
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                currentPlan.status === 'ACTIVE'
+                  ? 'bg-status-success-bg text-status-success-text'
+                  : 'bg-surface-subtle text-muted'
+              }`}
+            >
+              {currentPlan.status === 'ACTIVE' ? 'Đang kích hoạt' : 'Tạm tắt'}
+            </span>
+          )}
+        </div>
+
+        {planFeedback && (
+          <div
+            className={`rounded-lg p-3 text-xs flex items-center gap-2 ${
+              planFeedback.type === 'success'
+                ? 'bg-status-success-bg text-status-success-text border border-status-success-text/30'
+                : 'bg-status-error-bg text-status-error-text border border-status-error-text/30'
+            }`}
+          >
+            {planFeedback.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 shrink-0" />
+            )}
+            <span>{planFeedback.message}</span>
+          </div>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!planName.trim()) {
+              setPlanFeedback({ type: 'error', message: 'Tên gói hội viên không được để trống' });
+              return;
+            }
+            if (planPrice < 1000) {
+              setPlanFeedback({ type: 'error', message: 'Mức giá tối thiểu là 1.000 VNĐ/tháng' });
+              return;
+            }
+            const perks = planPerksText
+              .split('\n')
+              .map((p) => p.trim())
+              .filter(Boolean);
+
+            upsertPlanMutation.mutate({
+              name: planName.trim(),
+              description: planDescription.trim() || undefined,
+              monthlyPrice: planPrice,
+              perks: perks.length > 0 ? perks : undefined,
+              status: planStatus,
+            });
+          }}
+          className="space-y-5"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-ink block">
+                Tên gói hội viên <span className="text-accent">*</span>
+              </label>
+              <Input
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                placeholder="Ví dụ: Hội Viên Sử Việt Hào Khí"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-ink block">
+                Mức giá hàng tháng (VNĐ) <span className="text-accent">*</span>
+              </label>
+              <Input
+                type="number"
+                min={1000}
+                step={5000}
+                value={planPrice}
+                onChange={(e) => setPlanPrice(parseInt(e.target.value, 10) || 0)}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink block">Mô tả gói</label>
+            <Textarea
+              rows={2}
+              value={planDescription}
+              onChange={(e) => setPlanDescription(e.target.value)}
+              placeholder="Giới thiệu mục tiêu của gói hội viên và lời cảm ơn đến thính giả..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink block">
+              Danh sách đặc quyền (Mỗi dòng một đặc quyền)
+            </label>
+            <Textarea
+              rows={3}
+              value={planPerksText}
+              onChange={(e) => setPlanPerksText(e.target.value)}
+              placeholder={`Nghe trước các tập podcast độc quyền\nXem video hoạt họa chất lượng cao không quảng cáo\nHuy hiệu Hội viên nổi bật trong phần bình luận`}
+            />
+            <p className="text-[11px] text-muted">
+              Nhập các đặc quyền thính giả sẽ nhận được khi tham gia gói hội viên VIP.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-ink block">Trạng thái gói</label>
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant={planStatus === 'ACTIVE' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => setPlanStatus('ACTIVE')}
+              >
+                Kích hoạt (ACTIVE)
+              </Button>
+              <Button
+                type="button"
+                variant={planStatus === 'INACTIVE' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setPlanStatus('INACTIVE')}
+              >
+                Tạm dừng (INACTIVE)
+              </Button>
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <Button
+              type="submit"
+              variant="primary"
+              size="default"
+              disabled={upsertPlanMutation.isPending || isLoadingPlan}
+              isLoading={upsertPlanMutation.isPending}
+              className="gap-2 shadow-sm min-w-[140px]"
+            >
+              <Save className="h-4 w-4" />
+              <span>Lưu gói hội viên</span>
             </Button>
           </div>
         </form>

@@ -7,3 +7,25 @@ export interface MembershipPaymentItem {
   status: string;
   paidAt?: string;
 }
+
+export interface MembershipPlanItem {
+  id: number;
+  channelId: number;
+  channelName?: string;
+  name: string;
+  description?: string;
+  monthlyPrice: number;
+  perks?: string[];
+  status?: 'ACTIVE' | 'INACTIVE' | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MembershipPlanRequest {
+  name: string;
+  description?: string;
+  monthlyPrice: number;
+  perks?: string[];
+  status?: string;
+}
+
