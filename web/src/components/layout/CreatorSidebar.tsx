@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  Tv,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
 
@@ -40,14 +41,15 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
       { id: '02', label: 'Thư viện nội dung', to: '/creator/content', icon: Video },
       { id: '03', label: 'Tạo nội dung mới', to: '/creator/create', icon: PlusCircle },
       { id: '04', label: 'Tuyển tập Podcast', to: '/creator/series', icon: BookOpen },
+      { id: '05', label: 'Phát trực tiếp', to: '/creator/livestream', icon: Tv },
     ],
   },
   {
     title: 'THIẾT LẬP & TÀI CHÍNH',
     items: [
-      { id: '05', label: 'Xác thực KYC', to: '/creator/kyc', icon: UserCheck },
-      { id: '06', label: 'Quản lý Kênh', to: '/creator/channel', icon: Radio },
-      { id: '07', label: 'Ví & Thu nhập', to: '/creator/wallet', icon: Wallet },
+      { id: '06', label: 'Xác thực KYC', to: '/creator/kyc', icon: UserCheck },
+      { id: '07', label: 'Quản lý Kênh', to: '/creator/channel', icon: Radio },
+      { id: '08', label: 'Ví & Thu nhập', to: '/creator/wallet', icon: Wallet },
     ],
   },
 ];
