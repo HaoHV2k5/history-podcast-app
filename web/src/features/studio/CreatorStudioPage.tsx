@@ -53,6 +53,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  resolveMediaUrl,
+  classifyInputText,
+  validateSceneImages,
+  extractNarrationFromStoryboard,
+} from './creatorStudioUtils';
+import { SceneImageUploadDropzone } from './components/SceneImageUploadDropzone';
 
 // Pre-filled historical script sample for testing/demonstration
 const SAMPLE_HISTORICAL_SCRIPT = `Mùa thu tháng 7 năm Canh Tuất 1010, vua Lý Thái Tổ khởi sự dời đô từ cố đô Hoa Lư ra thành Đại La.
@@ -84,6 +91,10 @@ export const CreatorStudioPage: React.FC = () => {
   // Voice Catalog & Audio Player State
   const [selectedEngineFilter, setSelectedEngineFilter] = useState<'all' | 'edge-tts' | 'elevenlabs'>('all');
   const [playingVoiceId, setPlayingVoiceId] = useState<string | null>(null);
+  const [selectedVoiceId, setSelectedVoiceId] = useState<string>('vi-VN-NamMinhNeural');
+  const userSelectedVoiceRef = useRef<boolean>(false);
+  const [voicePreviewError, setVoicePreviewError] = useState<string | null>(null);
+  const [voiceSelectionError, setVoiceSelectionError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Settings Modal State
@@ -103,6 +114,8 @@ export const CreatorStudioPage: React.FC = () => {
   const [renderScriptText, setRenderScriptText] = useState('');
   const [renderStoryboard, setRenderStoryboard] = useState<StoryboardResponse | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
+  const [uploadingSceneIndex, setUploadingSceneIndex] = useState<string | null>(null);
   const [confirmRenderCheck, setConfirmRenderCheck] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
 
@@ -130,6 +143,9 @@ export const CreatorStudioPage: React.FC = () => {
       setGeminiKeyInput('');
       setElevenKeyInput('');
       setTtsEngineInput(settings.ttsEngine || 'edge-tts');
+      if (settings.voiceName && !userSelectedVoiceRef.current) {
+        setSelectedVoiceId(settings.voiceName);
+      }
     }
   }, [settings]);
 
@@ -178,6 +194,7 @@ export const CreatorStudioPage: React.FC = () => {
     const audio = new Audio(url);
     audioRef.current = audio;
     setPlayingVoiceId(voiceId);
+    setVoicePreviewError(null);
     audio.onended = () => {
       setPlayingVoiceId(null);
       audioRef.current = null;
@@ -185,10 +202,12 @@ export const CreatorStudioPage: React.FC = () => {
     audio.onerror = () => {
       setPlayingVoiceId(null);
       audioRef.current = null;
+      setVoicePreviewError(`Không thể phát luồng âm thanh xem trước từ: ${url}`);
     };
     audio.play().catch(() => {
       setPlayingVoiceId(null);
       audioRef.current = null;
+      setVoicePreviewError('Trình duyệt đã chặn tự động phát âm thanh hoặc tệp âm thanh không phản hồi.');
     });
   };
 
@@ -201,10 +220,16 @@ export const CreatorStudioPage: React.FC = () => {
       if (res.data?.url) {
         const streamUrl = resolveMediaUrl(res.data.url);
         playAudioStream(streamUrl, vars.voiceId);
+      } else {
+        setVoicePreviewError('Máy chủ không trả về đường dẫn âm thanh xem trước.');
       }
     },
-    onError: () => {
+    onError: (err: unknown) => {
       setLoadingVoiceId(null);
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setVoicePreviewError(
+        e.response?.data?.message || e.message || 'Không thể tạo âm thanh xem trước cho giọng này.'
+      );
     },
   });
 
@@ -266,22 +291,6 @@ export const CreatorStudioPage: React.FC = () => {
       setRenderErrorMsg(
         e.response?.data?.message || e.message || 'Không thể khởi chạy quá trình dựng video'
       );
-    },
-  });
-
-  // Milestone 6 Mutation: Upload Scene or Cover Image
-  const uploadCoverMutation = useMutation({
-    mutationFn: (file: File) => creatorStudioApi.uploadSceneImage(file),
-    onSuccess: (res) => {
-      setUploadingCover(false);
-      if (res.data?.imageUrl) {
-        setCoverImageUrl(res.data.imageUrl);
-      }
-    },
-    onError: (err: unknown) => {
-      setUploadingCover(false);
-      const e = err as { message?: string };
-      setRenderErrorMsg(e.message || 'Lỗi khi tải ảnh bìa lên máy chủ');
     },
   });
 
@@ -371,23 +380,6 @@ export const CreatorStudioPage: React.FC = () => {
     }
   }, [scriptContent, renderScriptText]);
 
-  // Media URL resolver using configured API base URL (no hardcoded localhost:8080)
-  const resolveMediaUrl = (url?: string): string => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-    if (url.startsWith('/outputs/')) {
-      return `${apiBase}/api/v1/creator/studio${url}`;
-    }
-    if (url.startsWith('/api/')) {
-      return `${apiBase}${url}`;
-    }
-    if (url.startsWith('/')) {
-      return `${apiBase}${url}`;
-    }
-    return `${apiBase}/${url}`;
-  };
-
   // Milestone 6: Action Submit Render Job
   const handleSubmitRender = () => {
     if (!renderTitle.trim()) {
@@ -401,9 +393,9 @@ export const CreatorStudioPage: React.FC = () => {
 
     setRenderErrorMsg(null);
 
-    const activeVoice = voices.find((v) => v.id === activeVoiceName) || voices[0];
+    const activeVoice = voices.find((v) => v.id === selectedVoiceId) || voices[0];
     const currentEngine = activeVoice?.engine || settings?.ttsEngine || 'edge-tts';
-    const currentVoiceId = activeVoice?.id || settings?.voiceName || 'vi-VN-NamMinhNeural';
+    const currentVoiceId = activeVoice?.id || selectedVoiceId || 'vi-VN-NamMinhNeural';
 
     if (renderMode === 'audio_podcast') {
       const scriptToUse = renderScriptText.trim() || scriptContent.trim();
@@ -411,16 +403,17 @@ export const CreatorStudioPage: React.FC = () => {
         setRenderErrorMsg('Chế độ Podcast yêu cầu nội dung kịch bản thuyết minh.');
         return;
       }
-      const coverToUse =
-        coverImageUrl.trim() ||
-        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80';
+      if (!coverImageUrl.trim()) {
+        setRenderErrorMsg('Chế độ Podcast yêu cầu ảnh bìa đại diện (Cover Image). Vui lòng tải ảnh bìa lên.');
+        return;
+      }
 
       renderVideoMutation.mutate({
         title: renderTitle.trim(),
         durationSec: renderDurationSec,
         renderMode: 'audio_podcast',
         scriptText: scriptToUse,
-        coverImage: coverToUse,
+        coverImage: coverImageUrl.trim(),
         ttsEngine: currentEngine,
         voiceName: currentVoiceId,
       });
@@ -435,19 +428,21 @@ export const CreatorStudioPage: React.FC = () => {
         return;
       }
 
-      const defaultSceneImages: Record<string, string> = {};
-      storyboardToUse.scenes.forEach((sc, idx) => {
-        defaultSceneImages[String(sc.scene_index || idx + 1)] =
-          coverImageUrl.trim() ||
-          'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80';
-      });
+      // Strictly validate scene images: every scene must have an uploaded image, never use Unsplash placeholder fallback
+      const validation = validateSceneImages(storyboardToUse.scenes, sceneImages);
+      if (!validation.isValid) {
+        setRenderErrorMsg(
+          `Chế độ Bảng trắng yêu cầu ảnh minh họa cho từng cảnh. Còn thiếu ảnh cho Cảnh ${validation.missingScenes.join(', ')}. Vui lòng tải đủ ảnh minh họa ở Tab 2 trước khi kết xuất.`
+        );
+        return;
+      }
 
       renderVideoMutation.mutate({
         title: renderTitle.trim(),
         durationSec: renderDurationSec,
         renderMode: 'whiteboard',
         storyboard: storyboardToUse as unknown as Record<string, unknown>,
-        sceneImages: defaultSceneImages,
+        sceneImages: sceneImages,
         ttsEngine: currentEngine,
         voiceName: currentVoiceId,
       });
@@ -476,8 +471,9 @@ export const CreatorStudioPage: React.FC = () => {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Helper: Play voice preview audio (supports CDN URLs and Live TTS synthesis via backend)
+  // Helper: Play voice preview audio (supports direct URLs, relative /audio/ paths, and Live TTS synthesis via backend)
   const handlePlayVoice = (voice: CreatorVoiceItem) => {
+    setVoicePreviewError(null);
     if (playingVoiceId === voice.id) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -492,11 +488,12 @@ export const CreatorStudioPage: React.FC = () => {
       audioRef.current = null;
     }
 
-    // If voice has a valid direct HTTP URL (e.g. ElevenLabs CDN)
-    if (voice.previewUrl && (voice.previewUrl.startsWith('http://') || voice.previewUrl.startsWith('https://'))) {
-      playAudioStream(voice.previewUrl, voice.id);
+    // Direct preview URL (e.g. ElevenLabs CDN, Edge-TTS static /audio/... preview)
+    if (voice.previewUrl) {
+      const streamUrl = resolveMediaUrl(voice.previewUrl);
+      playAudioStream(streamUrl, voice.id);
     } else {
-      // Synthesize live sample using Edge-TTS endpoint via Spring Boot & Python tool
+      // Synthesize live sample using Edge-TTS endpoint via Spring Boot & Python engine
       setLoadingVoiceId(voice.id);
       previewVoiceMutation.mutate({
         engine: voice.engine,
@@ -506,32 +503,100 @@ export const CreatorStudioPage: React.FC = () => {
     }
   };
 
-  // Helper: Select voice and save as default
+  // Helper: Select voice locally and persist as default setting
   const handleSelectVoice = (voice: CreatorVoiceItem) => {
-    saveSettingsMutation.mutate({
-      voiceName: voice.id,
-      ttsEngine: voice.engine,
-    });
+    userSelectedVoiceRef.current = true;
+    setSelectedVoiceId(voice.id);
+    setVoiceSelectionError(null);
+    saveSettingsMutation.mutate(
+      {
+        voiceName: voice.id,
+        ttsEngine: voice.engine,
+      },
+      {
+        onError: (err: unknown) => {
+          const e = err as { message?: string };
+          setVoiceSelectionError(
+            e.message || 'Không thể lưu giọng đọc mặc định lên máy chủ. Giọng này vẫn được áp dụng cho phiên hiện tại.'
+          );
+        },
+      }
+    );
   };
 
   // Helper: Transfer Storyboard text to Script Editor
   const handleApplyStoryboardToScript = () => {
     if (!generatedStoryboard) return;
-    let fullScript = '';
-    generatedStoryboard.scenes.forEach((sc) => {
-      fullScript += `=== ${sc.scene_title} ===\n`;
-      sc.elements.forEach((el) => {
-        if (el.subtitle) {
-          fullScript += `${el.subtitle}\n`;
-        }
-      });
-      fullScript += '\n';
-    });
-    setScriptContent(fullScript.trim());
+    const fullScript = extractNarrationFromStoryboard(generatedStoryboard.scenes);
+    setScriptContent(fullScript);
     if (generatedStoryboard.title) {
       setScriptTopic(generatedStoryboard.title);
     }
     setActiveTab('script');
+  };
+
+  // Helper: Update element subtitle in generatedStoryboard
+  const handleUpdateElementSubtitle = (sceneIndex: number, elementIndex: number, newSubtitle: string) => {
+    setGeneratedStoryboard((prev) => {
+      if (!prev) return null;
+      const updatedScenes = prev.scenes.map((sc, sIdx) => {
+        const scNum = sc.scene_index || sIdx + 1;
+        if (scNum !== sceneIndex) return sc;
+        const updatedElements = sc.elements.map((el, eIdx) => {
+          if (eIdx !== elementIndex) return el;
+          return { ...el, subtitle: newSubtitle };
+        });
+        return { ...sc, elements: updatedElements };
+      });
+      return { ...prev, scenes: updatedScenes };
+    });
+  };
+
+  // Helper: Handle upload scene image for whiteboard
+  const handleUploadSceneImage = async (sceneIndex: number | string, file: File) => {
+    const key = String(sceneIndex);
+    setUploadingSceneIndex(key);
+    setRenderErrorMsg(null);
+    try {
+      const res = await creatorStudioApi.uploadSceneImage(file);
+      if (res.data?.imageUrl) {
+        setSceneImages((prev) => ({
+          ...prev,
+          [key]: res.data!.imageUrl,
+        }));
+      }
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setRenderErrorMsg(`Lỗi khi tải ảnh cho Cảnh ${key}: ${e.message || 'Lỗi kết nối'}`);
+    } finally {
+      setUploadingSceneIndex(null);
+    }
+  };
+
+  const handleRemoveSceneImage = (sceneIndex: number | string) => {
+    const key = String(sceneIndex);
+    setSceneImages((prev) => {
+      const updated = { ...prev };
+      delete updated[key];
+      return updated;
+    });
+  };
+
+  // Helper: Upload podcast cover
+  const handleUploadPodcastCover = async (file: File) => {
+    setUploadingCover(true);
+    setRenderErrorMsg(null);
+    try {
+      const res = await creatorStudioApi.uploadSceneImage(file);
+      if (res.data?.imageUrl) {
+        setCoverImageUrl(res.data.imageUrl);
+      }
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setRenderErrorMsg(`Lỗi khi tải ảnh bìa Podcast: ${e.message || 'Lỗi kết nối'}`);
+    } finally {
+      setUploadingCover(false);
+    }
   };
 
   // Helper: Apply Revised Script from verification
@@ -552,8 +617,9 @@ export const CreatorStudioPage: React.FC = () => {
     return v.engine === selectedEngineFilter;
   });
 
-  const activeVoiceName = settings?.voiceName || 'vi-VN-NamMinhNeural';
-  const currentVoiceObj = voices.find((v) => v.id === activeVoiceName);
+  const activeVoiceName = selectedVoiceId;
+  const currentVoiceObj = voices.find((v) => v.id === selectedVoiceId) || voices.find((v) => v.id === settings?.voiceName);
+  const inputClassification = classifyInputText(scriptContent);
 
   return (
     <div className="space-y-6 max-w-6xl pb-12">
@@ -730,6 +796,15 @@ export const CreatorStudioPage: React.FC = () => {
                 </span>
 
                 <div className="flex items-center gap-2 text-xs text-muted font-mono">
+                  {inputClassification.branch === 'BRANCH_B_EXISTING_SCRIPT' ? (
+                    <Badge variant="accent" className="text-[10px] py-0 px-2 font-sans font-medium">
+                      Nhánh B: Kịch bản hoàn chỉnh ({inputClassification.metrics.length} ký tự)
+                    </Badge>
+                  ) : inputClassification.metrics.length > 0 ? (
+                    <Badge variant="default" className="text-[10px] py-0 px-2 font-sans font-medium">
+                      Nhánh A: Tiêu đề ngắn ({inputClassification.metrics.length} ký tự)
+                    </Badge>
+                  ) : null}
                   <span>{wordCount} từ</span>
                   <span>•</span>
                   <span>~{estimatedReadingSec} giây đọc</span>
@@ -789,7 +864,26 @@ export const CreatorStudioPage: React.FC = () => {
                   Xóa trắng
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const topicToUse = scriptTopic.trim() || scriptContent.trim().slice(0, 100);
+                      setStoryboardTopic(topicToUse);
+                      generateStoryboardMutation.mutate({
+                        topic: scriptContent.trim(),
+                        durationSec: storyboardDuration,
+                      });
+                      setActiveTab('storyboard');
+                    }}
+                    disabled={!scriptContent.trim() || generateStoryboardMutation.isPending}
+                    className="gap-2 text-xs border-border hover:bg-surface-subtle"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-accent" />
+                    <span>Tạo Phân Cảnh Bảng Trắng</span>
+                  </Button>
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -1253,9 +1347,20 @@ export const CreatorStudioPage: React.FC = () => {
                               </span>
                             )}
 
-                            <p className="text-xs text-ink/90 leading-relaxed font-sans pt-1">
-                              &ldquo;{el.subtitle}&rdquo;
-                            </p>
+                            <div className="space-y-1 pt-1">
+                              <label className="text-[10px] font-medium text-muted block">
+                                Lời thuyết minh (có thể chỉnh sửa):
+                              </label>
+                              <Textarea
+                                rows={3}
+                                value={el.subtitle || ''}
+                                onChange={(e) =>
+                                  handleUpdateElementSubtitle(scene.scene_index, elIdx, e.target.value)
+                                }
+                                placeholder="Nhập lời thuyết minh cho phân cảnh..."
+                                className="text-xs font-sans bg-surface leading-relaxed resize-y"
+                              />
+                            </div>
                           </div>
 
                           {el.visual_desc && (
@@ -1265,6 +1370,35 @@ export const CreatorStudioPage: React.FC = () => {
                           )}
                         </div>
                       ))}
+                    </div>
+
+                    {/* Scene Image Upload & Prompt Section */}
+                    <div className="pt-3 border-t border-border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                          <Film className="h-3.5 w-3.5 text-accent" />
+                          <span>Ảnh Minh Họa Cho Cảnh {scene.scene_index} (Tỉ lệ 16:9)</span>
+                        </span>
+                        {sceneImages[String(scene.scene_index)] && (
+                          <Badge variant="success" size="sm" className="text-[10px]">
+                            Đã tải ảnh lên Cloudinary
+                          </Badge>
+                        )}
+                      </div>
+
+                      <SceneImageUploadDropzone
+                        label={`Tải ảnh minh họa Cảnh ${scene.scene_index}`}
+                        sublabel={
+                          scene.image_prompt
+                            ? `Gợi ý: ${scene.image_prompt.slice(0, 80)}...`
+                            : 'Tỉ lệ khung hình 16:9'
+                        }
+                        imageUrl={sceneImages[String(scene.scene_index)]}
+                        aspectRatio="16:9"
+                        isUploading={uploadingSceneIndex === String(scene.scene_index)}
+                        onFileSelect={(file: File) => handleUploadSceneImage(scene.scene_index, file)}
+                        onRemoveImage={() => handleRemoveSceneImage(scene.scene_index)}
+                      />
                     </div>
                   </div>
                 ))}
@@ -1324,6 +1458,27 @@ export const CreatorStudioPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* Voice Preview / Selection Error Banners */}
+          {voicePreviewError && (
+            <div className="rounded-xl border border-status-error-text/30 bg-status-error-bg p-3.5 text-xs text-status-error-text flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-semibold block">Lỗi nghe thử giọng đọc:</span>
+                <p className="text-[11px] leading-relaxed">{voicePreviewError}</p>
+              </div>
+            </div>
+          )}
+
+          {voiceSelectionError && (
+            <div className="rounded-xl border border-status-warning-text/30 bg-status-warning-bg p-3.5 text-xs text-status-warning-text flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-semibold block">Thông báo lưu cấu hình:</span>
+                <p className="text-[11px] leading-relaxed">{voiceSelectionError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Loading state */}
           {isLoadingVoices && (
@@ -1611,6 +1766,35 @@ export const CreatorStudioPage: React.FC = () => {
                     )}
                   </div>
 
+                  {/* HTML5 Audio Player for Podcast / Speech Output */}
+                  {jobStatusData.audio_url && (
+                    <div className="rounded-xl border border-border bg-surface-subtle p-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Volume2 className="h-4 w-4 text-accent" />
+                          <span className="text-xs font-bold text-ink">Bản Thu Âm Thanh Thuyết Minh (MP3)</span>
+                        </div>
+                        <a
+                          href={resolveMediaUrl(jobStatusData.audio_url)}
+                          download="podcast_voice.mp3"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[11px] text-ink hover:bg-surface transition-colors"
+                        >
+                          <Download className="h-3 w-3 text-muted" />
+                          <span>Tải MP3</span>
+                        </a>
+                      </div>
+                      <audio
+                        controls
+                        src={resolveMediaUrl(jobStatusData.audio_url)}
+                        className="w-full h-9"
+                      >
+                        Trình duyệt của bạn không hỗ trợ thẻ phát âm thanh HTML5.
+                      </audio>
+                    </div>
+                  )}
+
                   {/* Action Bar */}
                   <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                     <Button
@@ -1627,7 +1811,20 @@ export const CreatorStudioPage: React.FC = () => {
                       <span>Xem &amp; Gửi Duyệt Trong Kho Nội Dung</span>
                     </Button>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {jobStatusData.audio_url && (
+                        <a
+                          href={resolveMediaUrl(jobStatusData.audio_url)}
+                          download="podcast_voice.mp3"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-xs text-ink hover:bg-surface-subtle transition-colors"
+                        >
+                          <Volume2 className="h-3.5 w-3.5 text-accent" />
+                          <span>Tải Audio MP3</span>
+                        </a>
+                      )}
+
                       {jobStatusData.srt_url && (
                         <a
                           href={resolveMediaUrl(jobStatusData.srt_url)}
@@ -1776,63 +1973,96 @@ export const CreatorStudioPage: React.FC = () => {
                     </Button>
                   </div>
 
-                  {/* Cover Image / Thumbnail (Required for Podcast, optional for Whiteboard) */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-medium text-ink flex items-center gap-1.5">
-                        <UploadCloud className="h-3.5 w-3.5 text-accent" />
-                        <span>Ảnh bìa đại diện (Thumbnail Video)</span>
-                        {renderMode === 'audio_podcast' && (
+                  {/* Cover Image / Thumbnail (Required for Podcast, scene-specific for Whiteboard) */}
+                  {renderMode === 'audio_podcast' ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-ink flex items-center gap-1.5">
+                          <UploadCloud className="h-3.5 w-3.5 text-accent" />
+                          <span>Ảnh Bìa Đại Diện Podcast (Tỉ lệ 1:1 hoặc 16:9)</span>
                           <span className="text-status-error-text">*</span>
-                        )}
-                      </label>
+                        </label>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCoverImageUrl(
-                            'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80'
-                          )
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCoverImageUrl(
+                              'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80'
+                            )
+                          }
+                          className="text-[11px] text-accent hover:underline"
+                        >
+                          Dùng ảnh mẫu Thăng Long
+                        </button>
+                      </div>
+
+                      <SceneImageUploadDropzone
+                        label="Tải ảnh bìa Podcast"
+                        sublabel={
+                          verificationResult?.thumbnail_prompt
+                            ? `Gợi ý: ${verificationResult.thumbnail_prompt.slice(0, 80)}...`
+                            : 'Tỉ lệ khung hình 1:1 hoặc 16:9'
                         }
-                        className="text-[11px] text-accent hover:underline"
-                      >
-                        Dùng ảnh mẫu Thăng Long
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="url"
-                        placeholder="https://... hoặc tải ảnh lên Cloudinary"
-                        value={coverImageUrl}
-                        onChange={(e) => setCoverImageUrl(e.target.value)}
-                        className="text-xs h-9 bg-surface font-mono"
+                        imageUrl={coverImageUrl}
+                        aspectRatio="1:1"
+                        isUploading={uploadingCover}
+                        onFileSelect={(file: File) => handleUploadPodcastCover(file)}
+                        onRemoveImage={() => setCoverImageUrl('')}
                       />
-
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="sr-only"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setUploadingCover(true);
-                              uploadCoverMutation.mutate(file);
-                            }
-                          }}
-                        />
-                        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs text-ink hover:bg-surface-subtle transition-colors shrink-0">
-                          {uploadingCover ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <UploadCloud className="h-3.5 w-3.5 text-muted" />
-                          )}
-                          <span>{uploadingCover ? 'Đang tải...' : 'Tải ảnh'}</span>
-                        </span>
-                      </label>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-medium text-ink flex items-center gap-1.5">
+                          <Film className="h-3.5 w-3.5 text-accent" />
+                          <span>Ảnh Minh Họa Từng Phân Cảnh (Bắt buộc cho Bảng Trắng)</span>
+                          <span className="text-status-error-text">*</span>
+                        </label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setActiveTab('storyboard')}
+                          className="text-[11px] text-accent h-6 px-1.5"
+                        >
+                          Quản lý ảnh tại Tab 2
+                        </Button>
+                      </div>
+
+                      {(() => {
+                        const scenes = (renderStoryboard || generatedStoryboard)?.scenes || [];
+                        const validation = validateSceneImages(scenes, sceneImages);
+                        return (
+                          <div
+                            className={`p-3 rounded-lg border text-xs space-y-1.5 ${
+                              validation.isValid && scenes.length > 0
+                                ? 'border-status-success-text/30 bg-status-success-bg/30 text-ink'
+                                : 'border-status-warning-text/30 bg-status-warning-bg/30 text-ink'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold">
+                                Đã tải ảnh: {validation.assignedCount} / {validation.totalScenes} phân cảnh
+                              </span>
+                              {validation.isValid && scenes.length > 0 ? (
+                                <Badge variant="success" size="sm">
+                                  Đủ điều kiện
+                                </Badge>
+                              ) : (
+                                <Badge variant="error" size="sm">
+                                  Còn thiếu ảnh
+                                </Badge>
+                              )}
+                            </div>
+                            {!validation.isValid && scenes.length > 0 && (
+                              <p className="text-[11px] text-status-error-text">
+                                Còn thiếu ảnh cho Cảnh: {validation.missingScenes.join(', ')}. Hãy chuyển sang Tab 2 để tải ảnh minh họa cho từng cảnh.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   {/* Content Preview */}
                   <div className="space-y-1.5">
@@ -1926,16 +2156,35 @@ export const CreatorStudioPage: React.FC = () => {
                       </div>
 
                       {renderMode === 'whiteboard' && (
-                        <div className="flex items-center gap-2">
-                          {settings?.hasGeminiKey ? (
-                            <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text shrink-0" />
-                          ) : (
-                            <AlertCircle className="h-3.5 w-3.5 text-status-warning-text shrink-0" />
-                          )}
-                          <span className={settings?.hasGeminiKey ? 'text-ink' : 'text-status-warning-text'}>
-                            Google Gemini Key {settings?.hasGeminiKey ? '(Đã cấu hình)' : '(Bắt buộc cho Whiteboard)'}
-                          </span>
-                        </div>
+                        <>
+                          <div className="flex items-center gap-2">
+                            {settings?.hasGeminiKey ? (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text shrink-0" />
+                            ) : (
+                              <AlertCircle className="h-3.5 w-3.5 text-status-warning-text shrink-0" />
+                            )}
+                            <span className={settings?.hasGeminiKey ? 'text-ink' : 'text-status-warning-text'}>
+                              Google Gemini Key {settings?.hasGeminiKey ? '(Đã cấu hình)' : '(Bắt buộc cho Whiteboard)'}
+                            </span>
+                          </div>
+
+                          {(() => {
+                            const scenes = (renderStoryboard || generatedStoryboard)?.scenes || [];
+                            const validation = validateSceneImages(scenes, sceneImages);
+                            return (
+                              <div className="flex items-center gap-2">
+                                {validation.isValid && scenes.length > 0 ? (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text shrink-0" />
+                                ) : (
+                                  <AlertCircle className="h-3.5 w-3.5 text-status-error-text shrink-0" />
+                                )}
+                                <span className={validation.isValid && scenes.length > 0 ? 'text-ink' : 'text-status-error-text'}>
+                                  Ảnh minh họa từng cảnh ({validation.assignedCount}/{validation.totalScenes} cảnh)
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </>
                       )}
 
                       {renderMode === 'audio_podcast' && (
@@ -1972,7 +2221,11 @@ export const CreatorStudioPage: React.FC = () => {
                       !confirmRenderCheck ||
                       !renderTitle.trim() ||
                       renderVideoMutation.isPending ||
-                      (renderMode === 'whiteboard' && !settings?.hasGeminiKey)
+                      (renderMode === 'whiteboard' && (
+                        !settings?.hasGeminiKey ||
+                        !validateSceneImages((renderStoryboard || generatedStoryboard)?.scenes || [], sceneImages).isValid
+                      )) ||
+                      (renderMode === 'audio_podcast' && !coverImageUrl.trim())
                     }
                     className="w-full gap-2 text-xs font-bold"
                   >
