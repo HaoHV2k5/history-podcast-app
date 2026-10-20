@@ -47,6 +47,14 @@ import { CreatorFinancePage } from '@/features/finance/CreatorFinancePage';
 import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
 import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
 import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
+import { CreatorLivestreamPage } from '@/features/livestream/CreatorLivestreamPage';
+
+// Lazy-load CreatorLivestreamStudioPage to isolate Agora RTC Web SDK from initial bundle
+const CreatorLivestreamStudioPage = React.lazy(() =>
+  import('@/features/livestream/CreatorLivestreamStudioPage').then((m) => ({
+    default: m.CreatorLivestreamStudioPage,
+  }))
+);
 
 // Root redirect based on role
 const RootRedirect: React.FC = () => {
@@ -102,6 +110,22 @@ export const AppRoutes: React.FC = () => {
         <Route path="create" element={<CreatorStudioPage />} />
         <Route path="studio" element={<Navigate to="/creator/create" replace />} />
         <Route path="series" element={<CreatorSeriesPage />} />
+        <Route path="livestream" element={<CreatorLivestreamPage />} />
+        <Route
+          path="livestream/:id/studio"
+          element={
+            <React.Suspense
+              fallback={
+                <div className="flex h-[70vh] flex-col items-center justify-center space-y-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                  <p className="text-xs text-muted">Đang tải phòng phát sóng trực tiếp...</p>
+                </div>
+              }
+            >
+              <CreatorLivestreamStudioPage />
+            </React.Suspense>
+          }
+        />
         <Route path="kyc" element={<CreatorKycPage />} />
         <Route path="channel" element={<CreatorChannelPage />} />
         <Route path="wallet" element={<CreatorFinancePage />} />
