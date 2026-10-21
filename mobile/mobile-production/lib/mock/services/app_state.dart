@@ -28,6 +28,7 @@ import '../../core/api/hire_request_repository.dart';
 import '../../core/api/kyc_repository.dart';
 import '../../core/api/livestream_repository.dart';
 import '../../core/api/membership_repository.dart';
+import '../../core/api/milestone_repository.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -53,6 +54,7 @@ class AppState extends ChangeNotifier {
     this.kycRepository,
     this.livestreamRepository,
     this.membershipRepository,
+    this.milestoneRepository,
   }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
@@ -155,6 +157,7 @@ class AppState extends ChangeNotifier {
   final KycRepository? kycRepository;
   final LivestreamRepository? livestreamRepository;
   final MembershipRepository? membershipRepository;
+  final MilestoneRepository? milestoneRepository;
 
   Future<void> initRealBackend() async {
     if (contentRepository != null) {

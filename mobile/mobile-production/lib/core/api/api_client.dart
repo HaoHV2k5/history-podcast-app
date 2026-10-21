@@ -87,6 +87,38 @@ class ApiClient {
     return _handleResponse(response);
   }
 
+  Future<Map<String, dynamic>> multipartPost(
+    String path, {
+    Map<String, String>? fields,
+    required String fileField,
+    required List<int> fileBytes,
+    required String filename,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$path');
+    final request = http.MultipartRequest('POST', uri);
+
+    final currentToken = token;
+    if (currentToken != null && currentToken.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $currentToken';
+    }
+    request.headers['Accept'] = 'application/json';
+
+    if (fields != null) {
+      request.fields.addAll(fields);
+    }
+
+    final multipartFile = http.MultipartFile.fromBytes(
+      fileField,
+      fileBytes,
+      filename: filename,
+    );
+    request.files.add(multipartFile);
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+    return _handleResponse(response);
+  }
+
   Map<String, dynamic> _handleResponse(http.Response response) {
     final utf8Body = utf8.decode(response.bodyBytes);
     final dynamic decoded = utf8Body.isNotEmpty ? jsonDecode(utf8Body) : {};
