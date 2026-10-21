@@ -867,13 +867,11 @@ export const CreatorContentDetailPage: React.FC = () => {
                   <div className="w-full bg-border rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-full transition-all duration-500 ${
-                        Number(detail.aiShieldScore) >= 90
+                        Number(detail.aiShieldScore) >= 80
                           ? 'bg-status-success-text'
-                          : Number(detail.aiShieldScore) >= 80
-                            ? 'bg-emerald-500'
-                            : Number(detail.aiShieldScore) >= 50
-                              ? 'bg-amber-500'
-                              : 'bg-status-error-text'
+                          : Number(detail.aiShieldScore) >= 50
+                            ? 'bg-status-pending-text'
+                            : 'bg-status-error-text'
                       }`}
                       style={{ width: `${Math.min(100, Math.max(0, Number(detail.aiShieldScore)))}%` }}
                     />

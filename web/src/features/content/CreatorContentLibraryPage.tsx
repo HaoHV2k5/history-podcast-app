@@ -191,7 +191,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3.5 py-2 text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap shrink-0 border-b-2 -mb-px ${
+                className={`px-3.5 py-2 min-h-[44px] inline-flex items-center text-xs font-medium rounded-t-lg transition-colors whitespace-nowrap shrink-0 border-b-2 -mb-px cursor-pointer ${
                   isActive
                     ? 'border-accent text-accent font-semibold bg-surface'
                     : 'border-transparent text-muted hover:text-ink hover:bg-surface-subtle'
@@ -366,7 +366,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
             return (
               <div
                 key={item.contentId}
-                className="group rounded-xl border border-border bg-surface hover:border-accent/40 transition-all shadow-xs flex flex-col justify-between overflow-hidden"
+                className="group rounded-xl border border-border bg-surface hover:border-accent/40 hover:-translate-y-1 hover:shadow-card-hover transition-all duration-200 shadow-xs flex flex-col justify-between overflow-hidden"
               >
                 {/* Top media thumbnail / placeholder */}
                 <div>
@@ -437,14 +437,14 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 </div>
 
                 {/* Footer metadata & Action */}
-                <div className="px-4 py-3 bg-surface-subtle/50 border-t border-border flex items-center justify-between text-[11px] text-muted">
+                <div className="px-4 py-3 bg-surface-subtle border-t border-border flex items-center justify-between text-[11px] text-muted">
                   <div className="flex items-center gap-3">
-                    <span>{formatDate(item.createdAt)}</span>
-                    <span className="flex items-center gap-1">
+                    <span className="font-mono tabular-nums">{formatDate(item.createdAt)}</span>
+                    <span className="flex items-center gap-1 font-mono tabular-nums">
                       <Heart className="h-3 w-3" />
                       {item.likeCount || 0}
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 font-mono tabular-nums">
                       <MessageSquare className="h-3 w-3" />
                       {item.commentCount || 0}
                     </span>

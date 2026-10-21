@@ -353,45 +353,45 @@ export const CreatorFinancePage: React.FC = () => {
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-border overflow-x-auto pb-px">
+      <div className="flex items-center gap-2 border-b border-border overflow-x-auto scrollbar-none pb-px">
         <button
           onClick={() => setActiveTab('transactions')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all shrink-0 whitespace-nowrap min-h-[44px] ${
             activeTab === 'transactions'
               ? 'border-accent text-accent font-semibold'
               : 'border-transparent text-ink-muted hover:text-ink'
           }`}
         >
           <span>Lịch sử biến động số dư</span>
-          <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px]">
+          <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-mono tabular-nums">
             {transactions.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab('withdrawals')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all shrink-0 whitespace-nowrap min-h-[44px] ${
             activeTab === 'withdrawals'
               ? 'border-accent text-accent font-semibold'
               : 'border-transparent text-ink-muted hover:text-ink'
           }`}
         >
           <span>Lịch sử rút tiền</span>
-          <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px]">
+          <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-mono tabular-nums">
             {withdrawals.length}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab('banks')}
-          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all ${
+          className={`flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-all shrink-0 whitespace-nowrap min-h-[44px] ${
             activeTab === 'banks'
               ? 'border-accent text-accent font-semibold'
               : 'border-transparent text-ink-muted hover:text-ink'
           }`}
         >
           <span>Tài khoản ngân hàng liên kết</span>
-          <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px]">
+          <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-mono tabular-nums">
             {bankAccounts.length}
           </span>
         </button>
@@ -422,24 +422,24 @@ export const CreatorFinancePage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-surface-subtle/50 transition-colors">
+                    <tr key={tx.id} className="hover:bg-[#F7F5F1] transition-colors">
                       <td className="px-4 py-3 font-mono font-semibold text-ink">#{tx.id}</td>
                       <td className="px-4 py-3">
                         <Badge
                           variant="outline"
                           className={`text-[10px] font-semibold ${
                             formatTransactionBadge(tx.type).isPositive
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                              ? 'bg-status-success-bg text-status-success-text border-status-success-text/30'
                               : 'bg-surface-subtle text-ink border-border'
                           }`}
                         >
                           {formatTransactionBadge(tx.type).label}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 font-semibold">
+                      <td className="px-4 py-3 font-semibold font-mono tabular-nums">
                         <span
                           className={
-                            tx.amount > 0 ? 'text-emerald-700' : 'text-danger'
+                            tx.amount > 0 ? 'text-status-success-text' : 'text-status-error-text'
                           }
                         >
                           {tx.amount > 0 ? `+${formatVND(tx.amount)}` : formatVND(tx.amount)}
@@ -453,16 +453,16 @@ export const CreatorFinancePage: React.FC = () => {
                           variant="outline"
                           className={`text-[10px] ${
                             tx.status === 'SUCCESS'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                              ? 'bg-status-success-bg text-status-success-text border-status-success-text/30'
                               : tx.status === 'FAILED'
-                              ? 'bg-rose-50 text-rose-700 border-rose-300'
-                              : 'bg-amber-50 text-amber-700 border-amber-300'
+                              ? 'bg-status-error-bg text-status-error-text border-status-error-text/30'
+                              : 'bg-status-pending-bg text-status-pending-text border-status-pending-text/30'
                           }`}
                         >
                           {tx.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-ink-muted">
+                      <td className="px-4 py-3 text-ink-muted font-mono tabular-nums">
                         {formatDateTime(tx.createdAt)}
                       </td>
                     </tr>
@@ -499,9 +499,9 @@ export const CreatorFinancePage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {withdrawals.map((w) => (
-                    <tr key={w.id} className="hover:bg-surface-subtle/50 transition-colors">
+                    <tr key={w.id} className="hover:bg-[#F7F5F1] transition-colors">
                       <td className="px-4 py-3 font-mono font-semibold text-ink">#{w.id}</td>
-                      <td className="px-4 py-3 font-bold text-ink">
+                      <td className="px-4 py-3 font-bold font-mono tabular-nums text-ink">
                         {formatVND(w.amount)}
                       </td>
                       <td className="px-4 py-3">
@@ -517,10 +517,10 @@ export const CreatorFinancePage: React.FC = () => {
                           variant="outline"
                           className={`text-[10px] font-semibold ${
                             w.status === 'COMPLETED'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                              ? 'bg-status-success-bg text-status-success-text border-status-success-text/30'
                               : w.status === 'REJECTED' || w.status === 'FAILED'
-                              ? 'bg-rose-50 text-rose-700 border-rose-300'
-                              : 'bg-amber-50 text-amber-700 border-amber-300'
+                              ? 'bg-status-error-bg text-status-error-text border-status-error-text/30'
+                              : 'bg-status-pending-bg text-status-pending-text border-status-pending-text/30'
                           }`}
                         >
                           {w.status === 'COMPLETED'
@@ -532,8 +532,8 @@ export const CreatorFinancePage: React.FC = () => {
                             : 'Bị từ chối'}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-ink-muted">{formatDateTime(w.requestedAt)}</td>
-                      <td className="px-4 py-3 text-ink-muted">
+                      <td className="px-4 py-3 text-ink-muted font-mono tabular-nums">{formatDateTime(w.requestedAt)}</td>
+                      <td className="px-4 py-3 text-ink-muted font-mono tabular-nums">
                         {w.processedAt ? formatDateTime(w.processedAt) : '---'}
                       </td>
                     </tr>

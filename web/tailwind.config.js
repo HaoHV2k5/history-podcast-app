@@ -16,6 +16,7 @@ export default {
           DEFAULT: '#262522',
           muted: '#696660',
         },
+        muted: '#696660',
         border: {
           DEFAULT: '#E0DDD7',
           line: '#E0DDD7',
@@ -56,9 +57,22 @@ export default {
         sm: '4px',
       },
       boxShadow: {
-        subtle: '0 1px 2px 0 rgba(38, 37, 34, 0.05)',
-        card: '0 1px 3px 0 rgba(38, 37, 34, 0.08), 0 1px 2px -1px rgba(38, 37, 34, 0.08)',
+        subtle: '0 1px 2px 0 rgba(38, 37, 34, 0.04)',
+        card: '0 1px 3px 0 rgba(38, 37, 34, 0.06), 0 1px 2px -1px rgba(38, 37, 34, 0.04)',
+        'card-hover': '0 4px 16px -2px rgba(38, 37, 34, 0.08), 0 2px 6px -1px rgba(38, 37, 34, 0.04)',
+        ambient: '0 12px 32px -4px rgba(38, 37, 34, 0.06)',
+        'glow-accent': '0 0 20px -3px rgba(184, 51, 69, 0.18)',
         modal: '0 8px 30px rgba(38, 37, 34, 0.12)',
+      },
+      keyframes: {
+        'sound-wave': {
+          '0%': { height: '4px' },
+          '50%': { height: '16px' },
+          '100%': { height: '8px' },
+        },
+      },
+      animation: {
+        'sound-wave': 'sound-wave 1.2s ease-in-out infinite alternate',
       },
     },
   },

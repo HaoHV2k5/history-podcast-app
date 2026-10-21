@@ -5,9 +5,27 @@ const ACCESS_TOKEN_KEY = 'su_ky_admin_access_token';
 const REFRESH_TOKEN_KEY = 'su_ky_admin_refresh_token';
 const USER_DATA_KEY = 'su_ky_admin_user_data';
 
+const isDevModeActive = (): boolean => {
+  if (!import.meta.env.DEV) return false;
+  try {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('dev') === 'true') {
+      sessionStorage.setItem('su_ky_admin_dev_mode', 'true');
+      return true;
+    }
+    return sessionStorage.getItem('su_ky_admin_dev_mode') === 'true';
+  } catch {
+    return false;
+  }
+};
+
 const getInitialAccessToken = (): string | null => {
   try {
-    return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+    const token = sessionStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token) return token;
+    if (isDevModeActive()) {
+      return 'dev-admin-token';
+    }
+    return null;
   } catch {
     return null;
   }
@@ -16,7 +34,21 @@ const getInitialAccessToken = (): string | null => {
 const getInitialUser = (): UserResponse | null => {
   try {
     const raw = sessionStorage.getItem(USER_DATA_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (raw) return JSON.parse(raw);
+    if (isDevModeActive()) {
+      return {
+        id: 1,
+        email: 'admin@suky.vn',
+        fullName: 'Quản Trị Viên & Tác Giả Sử Ký',
+        roleName: 'ADMIN',
+        roles: ['ADMIN', 'CREATOR'],
+        isAdmin: true,
+        isCreator: true,
+        status: 'ACTIVE',
+        createdAt: '2026-01-01T00:00:00Z',
+      };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -63,7 +95,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (authData.refreshToken) {
         sessionStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
       }
-      sessionStorage.removeItem('su_ky_admin_dev_mode');
+      if (authData.accessToken !== 'dev-admin-token') {
+        sessionStorage.removeItem('su_ky_admin_dev_mode');
+      }
     } catch {
       // ignore
     }

@@ -14,13 +14,13 @@ export function PageHeader({ title, description, badge, actions, className }: Pa
     <div className={cn('flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border', className)}>
       <div className="space-y-1">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-serif font-normal tracking-tight text-ink">
+          <h1 className="text-xl sm:text-2xl font-serif font-semibold tracking-tight text-ink">
             {title}
           </h1>
           {badge}
         </div>
         {description && (
-          <p className="text-sm text-ink-muted leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-ink-muted leading-relaxed max-w-2xl">
             {description}
           </p>
         )}
