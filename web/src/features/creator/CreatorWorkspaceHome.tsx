@@ -24,10 +24,35 @@ import { useKycGate } from '@/features/kyc/useKycGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
+import { gsap } from 'gsap';
+import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
 
 export const CreatorWorkspaceHome: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const kpiGridRef = React.useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (isReducedMotion() || hasAnimatedRef.current || !kpiGridRef.current) return;
+    hasAnimatedRef.current = true;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        kpiGridRef.current,
+        { opacity: 0, y: MOTION_CONFIG.distance.md },
+        {
+          opacity: 1,
+          y: 0,
+          duration: MOTION_CONFIG.duration.dashboardCards,
+          ease: MOTION_CONFIG.ease,
+          clearProps: 'transform,opacity',
+        }
+      );
+    }, kpiGridRef);
+
+    return () => ctx.revert();
+  }, []);
 
   // 1. Fetch channel identity
   const { data: channelRes, isLoading: isLoadingChannel } = useQuery({
@@ -264,19 +289,20 @@ export const CreatorWorkspaceHome: React.FC = () => {
       )}
 
       {/* 3. Real Verified Metrics Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div ref={kpiGridRef} className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4.5">
         {/* Total Content */}
-        <div className="rounded-xl border border-border bg-surface p-5 shadow-xs flex flex-col justify-between">
+        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-accent/40 hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-accent/70 group-hover:bg-accent transition-colors" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Tổng tác phẩm
             </span>
-            <div className="p-2 rounded-lg bg-surface-subtle text-ink">
+            <div className="p-2 rounded-lg bg-surface-subtle text-ink shadow-2xs group-hover:scale-105 transition-transform">
               <Video className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-2xl font-bold font-serif text-ink">
+            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-ink tracking-tight">
               {isLoadingVideos ? '—' : totalVideos}
             </span>
             <span className="text-xs text-muted block mt-1">Video & Audio Podcast</span>
@@ -284,17 +310,18 @@ export const CreatorWorkspaceHome: React.FC = () => {
         </div>
 
         {/* Published */}
-        <div className="rounded-xl border border-border bg-surface p-5 shadow-xs flex flex-col justify-between">
+        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-status-success-text/40 hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-status-success-text/70 group-hover:bg-status-success-text transition-colors" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Đã xuất bản
             </span>
-            <div className="p-2 rounded-lg bg-status-success-bg text-status-success-text">
+            <div className="p-2 rounded-lg bg-status-success-bg text-status-success-text shadow-2xs group-hover:scale-105 transition-transform">
               <CheckCircle2 className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-2xl font-bold font-serif text-status-success-text">
+            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-status-success-text tracking-tight">
               {isLoadingVideos ? '—' : publishedVideos}
             </span>
             <span className="text-xs text-muted block mt-1">Đang phát công khai</span>
@@ -302,17 +329,18 @@ export const CreatorWorkspaceHome: React.FC = () => {
         </div>
 
         {/* Pending Review */}
-        <div className="rounded-xl border border-border bg-surface p-5 shadow-xs flex flex-col justify-between">
+        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-status-pending-text/40 hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-status-pending-text/70 group-hover:bg-status-pending-text transition-colors" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Chờ kiểm duyệt
             </span>
-            <div className="p-2 rounded-lg bg-status-pending-bg text-status-pending-text">
+            <div className="p-2 rounded-lg bg-status-pending-bg text-status-pending-text shadow-2xs group-hover:scale-105 transition-transform">
               <Clock className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-2xl font-bold font-serif text-status-pending-text">
+            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-status-pending-text tracking-tight">
               {isLoadingVideos ? '—' : pendingVideos}
             </span>
             <span className="text-xs text-muted block mt-1">Đang rà soát sử liệu</span>
@@ -320,17 +348,18 @@ export const CreatorWorkspaceHome: React.FC = () => {
         </div>
 
         {/* Drafts & Ready to Submit */}
-        <div className="rounded-xl border border-border bg-surface p-5 shadow-xs flex flex-col justify-between">
+        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-border-line hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-muted/40 group-hover:bg-muted transition-colors" />
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted">
               Bản nháp & Chờ gửi
             </span>
-            <div className="p-2 rounded-lg bg-surface-subtle text-muted">
+            <div className="p-2 rounded-lg bg-surface-subtle text-muted shadow-2xs group-hover:scale-105 transition-transform">
               <Layers className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-4">
-            <span className="text-2xl font-bold font-serif text-ink">
+            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-ink tracking-tight">
               {isLoadingVideos ? '—' : draftVideos + completedVideos}
             </span>
             <span className="text-xs text-muted block mt-1">
@@ -351,7 +380,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
             </div>
             <div>
               <span className="text-xs text-muted block">Lượt yêu thích tích lũy</span>
-              <span className="text-lg font-bold text-ink">{totalLikes.toLocaleString('vi-VN')}</span>
+              <span className="text-lg font-bold font-mono tabular-nums text-ink">{totalLikes.toLocaleString('vi-VN')}</span>
             </div>
           </div>
 
@@ -361,7 +390,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
             </div>
             <div>
               <span className="text-xs text-muted block">Bình luận từ thính giả</span>
-              <span className="text-lg font-bold text-ink">{totalComments.toLocaleString('vi-VN')}</span>
+              <span className="text-lg font-bold font-mono tabular-nums text-ink">{totalComments.toLocaleString('vi-VN')}</span>
             </div>
           </div>
         </div>
@@ -380,7 +409,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => navigate('/creator/content')}
-            className="gap-1.5 text-xs"
+            className="gap-1.5 text-xs min-h-[36px]"
           >
             <span>Đến Thư viện nội dung</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -412,18 +441,19 @@ export const CreatorWorkspaceHome: React.FC = () => {
             <div className="max-w-md mx-auto space-y-1">
               <h3 className="text-sm font-semibold text-ink">Thư viện kênh hiện đang trống</h3>
               <p className="text-xs text-muted leading-relaxed">
-                Kênh chưa có tác phẩm podcast hoặc video nào được khởi tạo. Bộ công cụ tạo kịch bản
-                sử liệu AI và dựng video bảng trắng sẽ sẵn sàng ở giai đoạn tiếp theo (Milestone 5).
+                Kênh chưa có tác phẩm podcast hoặc video nào được khởi tạo. Hãy sử dụng Xưởng Sáng Tác
+                Sử Ký AI để bắt đầu biên soạn kịch bản và xuất bản tác phẩm podcast đầu tiên.
               </p>
             </div>
             <div className="pt-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/creator/content')}
-                className="gap-2 text-xs"
+                onClick={() => navigate('/creator/create')}
+                className="gap-2 text-xs min-h-[40px] px-4 hover:border-accent hover:text-accent"
               >
-                <span>Xem Thư viện nội dung</span>
+                <PlusCircle className="h-4 w-4" />
+                <span>Bắt đầu sáng tác ngay</span>
               </Button>
             </div>
           </div>
@@ -437,7 +467,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
               return (
                 <div
                   key={item.contentId}
-                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-subtle/50 px-2 rounded-lg transition-colors"
+                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F7F5F1] px-2 rounded-lg transition-colors"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
                     <div className="h-11 w-11 rounded-lg bg-surface-subtle border border-border flex items-center justify-center shrink-0 text-accent">

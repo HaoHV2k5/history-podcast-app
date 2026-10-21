@@ -9,6 +9,7 @@
     --surface-subtle: #EFEAE3;
     --ink: #262522;
     --ink-muted: #696660;
+    --muted: #696660;
     --border-line: #E0DDD7;
     --accent: #B83345;
     --accent-hover: #9F2939;
@@ -17,6 +18,10 @@
 
   body {
     background-color: var(--canvas);
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(184, 51, 69, 0.035), transparent 70%),
+      radial-gradient(circle at 100% 100%, rgba(239, 234, 227, 0.45), transparent 50%);
+    background-attachment: fixed;
     color: var(--ink);
     font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
@@ -67,4 +72,91 @@
   flex: 1;
   height: 1px;
   background-color: #E0DDD7;
+}
+
+/* Sử Ký Editorial Typography System */
+@layer utilities {
+  .text-page-title {
+    font-family: 'Noto Serif', Georgia, serif;
+    font-size: 1.5rem; /* 24px */
+    line-height: 2rem; /* 32px */
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  @media (min-width: 640px) {
+    .text-page-title {
+      font-size: 1.625rem; /* 26px */
+      line-height: 2.125rem; /* 34px */
+    }
+  }
+
+  .text-section-title {
+    font-family: 'Noto Serif', Georgia, serif;
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.625rem; /* 26px */
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+  }
+
+  .text-card-title {
+    font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+    font-size: 0.875rem; /* 14px */
+    line-height: 1.25rem; /* 20px */
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .text-caption-muted {
+    font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+    font-size: 0.75rem; /* 12px */
+    line-height: 1.125rem; /* 18px */
+    font-weight: 400;
+    color: var(--ink-muted);
+  }
+
+  .text-table-label {
+    font-family: 'Be Vietnam Pro', -apple-system, sans-serif;
+    font-size: 0.6875rem; /* 11px */
+    line-height: 0.875rem; /* 14px */
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  .text-timestamp-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.6875rem; /* 11px */
+    line-height: 0.875rem; /* 14px */
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-muted);
+  }
+
+  /* Editorial Card with Hairline Border, Top Highlight & Soft Elevation */
+  .card-editorial {
+    background-color: var(--surface);
+    border: 1px solid var(--border-line);
+    border-top: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgba(38, 37, 34, 0.05), 0 1px 2px -1px rgba(38, 37, 34, 0.03);
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  }
+  .card-editorial:hover {
+    border-color: rgba(184, 51, 69, 0.35);
+    box-shadow: 0 6px 20px -2px rgba(38, 37, 34, 0.07), 0 2px 6px -1px rgba(38, 37, 34, 0.03);
+  }
+
+  /* Sound Wave Equalizer for Voice Audio Previews */
+  .sound-bar {
+    width: 3px;
+    background-color: var(--accent);
+    border-radius: 9999px;
+    animation: sound-wave 1.1s ease-in-out infinite alternate;
+  }
+  .sound-bar:nth-child(1) { animation-delay: 0.05s; height: 6px; }
+  .sound-bar:nth-child(2) { animation-delay: 0.28s; height: 16px; }
+  .sound-bar:nth-child(3) { animation-delay: 0.15s; height: 10px; }
+  .sound-bar:nth-child(4) { animation-delay: 0.42s; height: 14px; }
 }

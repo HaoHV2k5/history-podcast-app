@@ -19,9 +19,34 @@ import { withdrawalsApi } from '@/services/api/withdrawals';
 import { disputesApi } from '@/services/api/disputes';
 import { DisputeItem } from '@/types/dispute';
 import { formatDateTime, formatVND } from '@/utils/formatters';
+import { gsap } from 'gsap';
+import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
 
 export const OverviewPage: React.FC = () => {
   const navigate = useNavigate();
+  const kpiGridRef = React.useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (isReducedMotion() || hasAnimatedRef.current || !kpiGridRef.current) return;
+    hasAnimatedRef.current = true;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        kpiGridRef.current,
+        { opacity: 0, y: MOTION_CONFIG.distance.md },
+        {
+          opacity: 1,
+          y: 0,
+          duration: MOTION_CONFIG.duration.dashboardCards,
+          ease: MOTION_CONFIG.ease,
+          clearProps: 'transform,opacity',
+        }
+      );
+    }, kpiGridRef);
+
+    return () => ctx.revert();
+  }, []);
 
   // 1. Pending Moderation query
   const { data: modData, isLoading: modLoading } = useQuery({
@@ -118,26 +143,29 @@ export const OverviewPage: React.FC = () => {
       />
 
       {/* Operational KPI Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div ref={kpiGridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4.5">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
             <div
               key={card.title}
               onClick={() => navigate(card.to)}
-              className="group cursor-pointer rounded-lg border border-border bg-surface p-5 transition-colors duration-150 hover:border-accent hover:bg-surface-subtle/30 flex flex-col justify-between"
+              className="group relative cursor-pointer rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-1 hover:border-accent/40 hover:shadow-card-hover flex flex-col justify-between overflow-hidden shadow-subtle"
             >
+              {/* Top Accent Hairline */}
+              <div className={`absolute top-0 left-0 right-0 h-[2.5px] ${card.bgColor} ${card.color} opacity-80 group-hover:opacity-100 transition-opacity`} />
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-muted tracking-wide">
                     {card.title}
                   </span>
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${card.bgColor} ${card.color}`}>
+                  <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${card.bgColor} ${card.color} transition-transform duration-200 group-hover:scale-105 shadow-2xs`}>
                     <Icon className="h-5 w-5" />
                   </div>
                 </div>
 
-                <div className="font-mono text-3xl font-bold text-ink tabular-nums">
+                <div className="font-mono text-3xl font-bold text-ink tabular-nums tracking-tight">
                   {card.loading ? (
                     <span className="text-muted text-xl animate-pulse">...</span>
                   ) : (
@@ -150,9 +178,9 @@ export const OverviewPage: React.FC = () => {
                 </p>
               </div>
 
-              <div className="pt-3 mt-3 border-t border-border flex items-center justify-between text-xs font-medium text-ink group-hover:text-accent min-h-[44px]">
+              <div className="pt-3 mt-4 border-t border-border/70 flex items-center justify-between text-xs font-semibold text-ink group-hover:text-accent min-h-[40px] transition-colors">
                 <span>Vào hàng đợi</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
               </div>
             </div>
           );
@@ -187,7 +215,7 @@ export const OverviewPage: React.FC = () => {
                 <div
                   key={item.reviewId}
                   onClick={() => navigate(`/admin/moderation/${item.reviewId}`)}
-                  className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
+                  className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-[#F7F5F1] px-2 rounded-md transition-colors"
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
                     <Video className="h-4 w-4 text-muted shrink-0 mt-0.5" />
@@ -242,7 +270,7 @@ export const OverviewPage: React.FC = () => {
                 <div
                   key={item.id}
                   onClick={() => navigate(`/admin/kyc/${item.id}`)}
-                  className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
+                  className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-[#F7F5F1] px-2 rounded-md transition-colors"
                 >
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs font-semibold text-ink truncate">
@@ -295,7 +323,7 @@ export const OverviewPage: React.FC = () => {
               <div
                 key={item.id}
                 onClick={() => navigate(`/admin/withdrawals/${item.id}`)}
-                className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-surface-subtle/50 px-2 rounded-md transition-colors"
+                className="py-3 min-h-[44px] flex items-center justify-between gap-3 cursor-pointer hover:bg-[#F7F5F1] px-2 rounded-md transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="font-mono text-xs font-semibold text-ink">
