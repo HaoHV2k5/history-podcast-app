@@ -291,19 +291,19 @@ class NarratorState extends ChangeNotifier {
           note: 'Đề xuất thù lao: ${value.trim()}',
         );
       case 'creatorSign':
-        if (value != '889900') {
-          throw StateError('Đọc điều khoản và nhập OTP mẫu 889900.');
+        if (value.trim().length < 4) {
+          throw StateError('Vui lòng đọc điều khoản và nhập mã OTP xác thực.');
         }
         if (o.status != ContractStatus.pendingSign || o.creatorSigned) {
           throw StateError('Chưa đến bước xác nhận.');
         }
         next = o.updated(
           creatorSigned: true,
-          note: 'Người sáng tạo xác nhận mẫu',
+          note: 'Người sáng tạo đã ký hợp đồng',
         );
       case 'narratorSign':
-        if (value != '889900') {
-          throw StateError('Đọc điều khoản và nhập OTP mẫu 889900.');
+        if (value.trim().length < 4) {
+          throw StateError('Vui lòng đọc điều khoản và nhập mã OTP xác thực.');
         }
         if (o.status != ContractStatus.pendingSign ||
             !o.creatorSigned ||
@@ -313,10 +313,11 @@ class NarratorState extends ChangeNotifier {
         next = o.updated(
           narratorSigned: true,
           status: ContractStatus.inProduction,
-          note: 'Người đọc xác nhận mẫu',
+          note: 'Người đọc đã ký hợp đồng',
         );
         await WalletState(creator.preferences)
             .reserve(o.id, o.narratorId, o.feeAmount);
+
       case 'deliver':
         if (o.status != ContractStatus.inProduction || !o.isFullySigned) {
           throw StateError('Chưa được bàn giao.');

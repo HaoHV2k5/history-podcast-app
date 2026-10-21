@@ -934,13 +934,14 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Bình luận được kiểm duyệt tự động (Mô phỏng · UC-08).',
+                  'Bình luận được kiểm duyệt tự động & đồng bộ trực tiếp.',
                   style: TextStyle(color: Palette.muted, fontSize: 12),
                 ),
               ),
             ],
           ),
         ),
+
         const SizedBox(height: 16),
         TextField(
           key: const Key('comment-input'),

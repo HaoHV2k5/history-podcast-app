@@ -43,10 +43,10 @@ export const PoliciesPage: React.FC = () => {
 
   const handleOpenEdit = (config: AiShieldPolicyConfig) => {
     setEditingConfig(config);
-    setThresholdScore(config.thresholdScore);
-    setLabel(config.label);
-    setAction(config.action);
-    setDescription(config.description);
+    setThresholdScore(config.thresholdScore ?? config.minScore ?? 0);
+    setLabel(config.label || '');
+    setAction(config.action || config.actionType || '');
+    setDescription(config.description || '');
   };
 
   const handleSave = () => {
@@ -105,7 +105,7 @@ export const PoliciesPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <AiShieldBadge tier={cfg.tier} label={cfg.label} />
                   <span className="font-mono tabular-nums text-xs font-semibold text-ink bg-canvas px-2.5 py-1 rounded-sm border border-border">
-                    Ngưỡng: {cfg.thresholdScore} điểm
+                    {cfg.minScore ?? 0}% - {cfg.maxScore ?? 100}%
                   </span>
                 </div>
 

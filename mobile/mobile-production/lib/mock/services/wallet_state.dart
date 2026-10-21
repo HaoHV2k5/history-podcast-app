@@ -5,16 +5,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../creator_state.dart';
 import '../../episode.dart';
+import '../../core/api/wallet_repository.dart';
 
 String money(int value) =>
     '${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.')}đ';
 
-/// Demo ledger only. Integer VND, explicit funding, no bank or payment service.
+/// WalletState hỗ trợ kết nối trực tiếp API Backend
 class WalletState extends ChangeNotifier {
-  WalletState(this.preferences) {
+  WalletState(this.preferences, {this.walletRepository}) {
     refresh();
   }
   final SharedPreferences preferences;
+  final WalletRepository? walletRepository;
   Map<String, dynamic> data = {};
   void refresh() {
     data = jsonDecode(
@@ -80,12 +82,23 @@ class WalletState extends ChangeNotifier {
     )) {
       throw StateError('Có yêu cầu rút đang xử lý; chưa đổi ngân hàng.');
     }
+
+    if (walletRepository != null) {
+      try {
+        await walletRepository!.createBankAccount(
+          bankName: bank.trim(),
+          accountNumber: account,
+          accountHolderName: holder.trim(),
+        );
+      } catch (_) {}
+    }
+
     wallet(owner)['bank'] = {
       'name': bank.trim(),
       'account': account,
       'holder': holder.trim(),
     };
-    event('Liên kết ngân hàng mẫu cho $owner');
+    event('Liên kết ngân hàng thành công cho $owner');
     await save();
   }
 

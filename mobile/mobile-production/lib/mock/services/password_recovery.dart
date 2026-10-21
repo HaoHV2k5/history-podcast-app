@@ -1,13 +1,18 @@
-/// In-memory rehearsal. No account lookup, email/SMS or password storage.
+import '../../core/api/auth_repository.dart';
+
+/// Password recovery service kết nối trực tiếp Brevo OTP API backend
 class DemoPasswordRecovery {
-  DemoPasswordRecovery({DateTime Function()? now}) : now = now ?? DateTime.now;
+  DemoPasswordRecovery({DateTime Function()? now, this.authRepository})
+      : now = now ?? DateTime.now;
   final DateTime Function() now;
+  final AuthRepository? authRepository;
   String identifier = '';
+  String? resetToken;
   DateTime? sentAt, verifiedAt;
   int attempts = 0;
   bool consumed = false;
-  static const otpLifetime = Duration(minutes: 2);
-  static const grantLifetime = Duration(minutes: 5);
+  static const otpLifetime = Duration(minutes: 5);
+  static const grantLifetime = Duration(minutes: 10);
   static const resendDelay = Duration(seconds: 30);
 
   static String? validateIdentifier(String value) {
@@ -40,50 +45,81 @@ class DemoPasswordRecovery {
       verifiedAt != null &&
       now().difference(verifiedAt!) < grantLifetime;
 
-  void request(String value) {
+  Future<void> request(String value) async {
     final error = validateIdentifier(value);
     if (error != null) throw StateError(error);
     if (sentAt != null && resendSeconds > 0) {
       throw StateError('Chờ $resendSeconds giây trước khi gửi lại.');
     }
     identifier = value.trim();
+
+    if (authRepository != null && identifier.contains('@')) {
+      try {
+        await authRepository!.sendForgotPasswordOtp(identifier);
+      } catch (e) {
+        throw StateError(e.toString());
+      }
+    }
+
     sentAt = now();
     verifiedAt = null;
     attempts = 0;
     consumed = false;
   }
 
-  void verify(String code) {
+  Future<void> verify(String code) async {
     if (consumed || verifiedAt != null) {
       throw StateError('Mã đã được dùng. Hãy bắt đầu yêu cầu mới.');
     }
     if (expired) {
       throw StateError('Mã đã hết hạn. Hãy gửi lại mã.');
     }
-    if (attempts >= 5) throw StateError('Đã thử sai 5 lần. Hãy gửi lại mã.');
     if (!RegExp(r'^\d{6}$').hasMatch(code)) {
       throw StateError('Nhập đủ 6 chữ số.');
     }
+
+    if (authRepository != null && identifier.contains('@')) {
+      try {
+        resetToken = await authRepository!.verifyForgotPasswordOtp(
+          email: identifier,
+          otp: code,
+        );
+        verifiedAt = now();
+        return;
+      } catch (e) {
+        attempts++;
+        throw StateError(e.toString());
+      }
+    }
+
     if (code != '889900') {
       attempts++;
-      throw StateError(
-        attempts == 5
-            ? 'Đã thử sai 5 lần. Hãy gửi lại mã.'
-            : 'Mã chưa đúng. Còn ${5 - attempts} lần thử.',
-      );
+      throw StateError('Mã OTP chưa chính xác.');
     }
     verifiedAt = now();
   }
 
-  void complete(String password, String confirmation) {
+  Future<void> complete(String password, String confirmation) async {
     if (!hasGrant) {
       throw StateError('Phiên xác thực đã hết hạn. Hãy xác thực lại.');
     }
     if (password.trim().isEmpty || password.length < 6) {
-      throw StateError('Mật khẩu từ 6 ký tự trở lên, theo bản đăng nhập mẫu.');
+      throw StateError('Mật khẩu từ 6 ký tự trở lên.');
     }
     if (password != confirmation) throw StateError('Hai mật khẩu chưa khớp.');
-    // Deliberately do not store either password or reset grant in preferences.
+
+    if (authRepository != null && identifier.contains('@') && resetToken != null) {
+      try {
+        await authRepository!.resetPassword(
+          email: identifier,
+          newPassword: password,
+          resetToken: resetToken!,
+        );
+      } catch (e) {
+        throw StateError(e.toString());
+      }
+    }
+
     consumed = true;
     verifiedAt = null;
     sentAt = null;

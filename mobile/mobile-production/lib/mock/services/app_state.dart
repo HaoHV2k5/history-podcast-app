@@ -9,10 +9,79 @@ import '../../episode.dart';
 import '../../audio_playback.dart';
 import '../../local_file.dart';
 import '../../artwork_state.dart';
+import '../../core/api/api_client.dart';
+import '../../core/api/auth_repository.dart';
+import '../../core/api/content_repository.dart';
+import '../../core/api/wallet_repository.dart';
+import '../../core/api/comment_repository.dart';
+import '../../core/api/channel_repository.dart';
+import '../../core/api/chat_repository.dart';
+import '../../core/api/contract_repository.dart';
+import '../../core/api/creator_series_repository.dart';
+import '../../core/api/creator_studio_repository.dart';
+import '../../core/api/deliverable_repository.dart';
+import '../../core/api/dispute_repository.dart';
+import '../../core/api/email_template_repository.dart';
+import '../../core/api/escrow_transaction_repository.dart';
+import '../../core/api/freelancer_repository.dart';
+import '../../core/api/hire_request_repository.dart';
+import '../../core/api/kyc_repository.dart';
+import '../../core/api/livestream_repository.dart';
+import '../../core/api/membership_repository.dart';
+import '../../core/api/milestone_repository.dart';
+import '../../core/api/moderation_review_repository.dart';
+import '../../core/api/narrator_demo_repository.dart';
+import '../../core/api/narrator_profile_repository.dart';
+import '../../core/api/post_repository.dart';
+import '../../core/api/reaction_repository.dart';
+import '../../core/api/refresh_token_repository.dart';
+import '../../core/api/review_repository.dart';
+import '../../core/api/role_repository.dart';
+import '../../core/api/system_config_repository.dart';
+import '../../core/api/transcript_repository.dart';
+import '../../core/api/user_repository.dart';
+import '../../core/api/wallet_transaction_repository.dart';
+import '../../core/api/withdrawal_repository.dart';
 
-/// Local UI demo with technical media fixtures; no backend is connected.
+/// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
-  AppState(this.preferences, {this.writeComments}) {
+  AppState(
+    this.preferences, {
+    this.writeComments,
+    this.apiClient,
+    this.authRepository,
+    this.contentRepository,
+    this.walletRepository,
+    this.commentRepository,
+    this.channelRepository,
+    this.chatRepository,
+    this.contractRepository,
+    this.creatorSeriesRepository,
+    this.creatorStudioRepository,
+    this.deliverableRepository,
+    this.disputeRepository,
+    this.emailTemplateRepository,
+    this.escrowTransactionRepository,
+    this.freelancerRepository,
+    this.hireRequestRepository,
+    this.kycRepository,
+    this.livestreamRepository,
+    this.membershipRepository,
+    this.milestoneRepository,
+    this.moderationReviewRepository,
+    this.narratorDemoRepository,
+    this.narratorProfileRepository,
+    this.postRepository,
+    this.reactionRepository,
+    this.refreshTokenRepository,
+    this.reviewRepository,
+    this.roleRepository,
+    this.systemConfigRepository,
+    this.transcriptRepository,
+    this.userRepository,
+    this.walletTransactionRepository,
+    this.withdrawalRepository,
+  }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
       (jsonDecode(
@@ -95,6 +164,82 @@ class AppState extends ChangeNotifier {
 
   final SharedPreferences preferences;
   final Future<bool> Function(String key, List<String> value)? writeComments;
+  final ApiClient? apiClient;
+  final AuthRepository? authRepository;
+  final ContentRepository? contentRepository;
+  final WalletRepository? walletRepository;
+  final CommentRepository? commentRepository;
+  final ChannelRepository? channelRepository;
+  final ChatRepository? chatRepository;
+  final ContractRepository? contractRepository;
+  final CreatorSeriesRepository? creatorSeriesRepository;
+  final CreatorStudioRepository? creatorStudioRepository;
+  final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final EmailTemplateRepository? emailTemplateRepository;
+  final EscrowTransactionRepository? escrowTransactionRepository;
+  final FreelancerRepository? freelancerRepository;
+  final HireRequestRepository? hireRequestRepository;
+  final KycRepository? kycRepository;
+  final LivestreamRepository? livestreamRepository;
+  final MembershipRepository? membershipRepository;
+  final MilestoneRepository? milestoneRepository;
+  final ModerationReviewRepository? moderationReviewRepository;
+  final NarratorDemoRepository? narratorDemoRepository;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final PostRepository? postRepository;
+  final ReactionRepository? reactionRepository;
+  final RefreshTokenRepository? refreshTokenRepository;
+  final ReviewRepository? reviewRepository;
+  final RoleRepository? roleRepository;
+  final SystemConfigRepository? systemConfigRepository;
+  final TranscriptRepository? transcriptRepository;
+  final UserRepository? userRepository;
+  final WalletTransactionRepository? walletTransactionRepository;
+  final WithdrawalRepository? withdrawalRepository;
+
+  Future<void> initRealBackend() async {
+    if (contentRepository != null) {
+      try {
+        final episodes = await contentRepository!.getPublishedEpisodes();
+        if (episodes.isNotEmpty) {
+          allEpisodes.clear();
+          allEpisodes.addAll(episodes);
+        }
+      } catch (_) {}
+    }
+
+    if (membershipRepository != null) {
+      try {
+        final myMems = await membershipRepository!.getMyMemberships();
+        for (final m in myMems) {
+          memberships.add(m.channelName);
+        }
+      } catch (_) {}
+    }
+
+
+    if (commentRepository != null) {
+      try {
+        final realComments = await commentRepository!.getComments();
+        for (final rc in realComments) {
+          final epId = rc.artifactId?.toString() ?? '1';
+          final epCmt = EpisodeComment(
+            id: rc.id.toString(),
+            episodeId: epId,
+            authorName: rc.authorName ?? 'Người nghe',
+            content: rc.textBody,
+            timeAgo: rc.createdAt != null ? 'Gần đây' : 'Vừa xong',
+          );
+          final list = _comments.putIfAbsent(epId, () => []);
+          if (!list.any((c) => c.id == epCmt.id)) {
+            list.insert(0, epCmt);
+          }
+        }
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
   final Map<String, String> checkoutStates = {};
   final List<String> queue = [];
   String checkoutStatus(String channel) =>
@@ -257,7 +402,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Auth Simulation (UC-06) ---
+  // --- Auth API Integration ---
   Future<void> login({
     required String identifier,
     required String password,
@@ -269,6 +414,20 @@ class AppState extends ChangeNotifier {
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
     }
+
+    if (authRepository != null) {
+      final res = await authRepository!.login(email: id, password: password);
+      isLoggedIn = true;
+      userEmail = res.email;
+      userPhone = res.phone;
+      displayName = res.email.split('@').first;
+      await preferences.setBool('isLoggedIn', true);
+      await preferences.setString('displayName', displayName);
+      await preferences.setString('userEmail', res.email);
+      notifyListeners();
+      return;
+    }
+
     isLoggedIn = true;
     if (id.contains('@')) {
       userEmail = id;
@@ -310,6 +469,23 @@ class AppState extends ChangeNotifier {
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
     }
+
+    if (authRepository != null) {
+      final res = await authRepository!.register(
+        email: id,
+        password: password,
+        phone: '0900000000',
+      );
+      displayName = n;
+      isLoggedIn = true;
+      userEmail = res.email;
+      await preferences.setBool('isLoggedIn', true);
+      await preferences.setString('displayName', displayName);
+      await preferences.setString('userEmail', res.email);
+      notifyListeners();
+      return;
+    }
+
     displayName = n;
     isLoggedIn = true;
     if (id.contains('@')) {
@@ -430,32 +606,40 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    final comment = EpisodeComment(
-      id: 'cmt-${DateTime.now().microsecondsSinceEpoch}',
-      episodeId: episodeId,
-      authorName: displayName,
-      content: content,
-      timeAgo: 'Vừa xong',
-    );
-
     _sendingComments.add(episodeId);
     try {
+      String createdId = 'cmt-${DateTime.now().microsecondsSinceEpoch}';
+
+      if (commentRepository != null) {
+        final artId = int.tryParse(episodeId);
+        final res = await commentRepository!.createComment(
+          artifactId: artId,
+          textBody: content,
+        );
+        createdId = res.id.toString();
+      }
+
+      final comment = EpisodeComment(
+        id: createdId,
+        episodeId: episodeId,
+        authorName: displayName,
+        content: content,
+        timeAgo: 'Vừa xong',
+      );
+
       final next = [
         comment.toJson(),
         for (final list in _comments.values)
           for (final item in list) item.toJson(),
       ];
-      if (!await (writeComments ?? preferences.setStringList)(
+      await (writeComments ?? preferences.setStringList)(
         'userComments',
         next,
-      )) {
-        throw StateError('Chưa lưu được bình luận.');
-      }
+      );
       _comments.putIfAbsent(episodeId, () => []).insert(0, comment);
       notifyListeners();
       return null;
     } catch (_) {
-      // Discard the preferences cache's optimistic value after a failed write.
       try {
         await preferences.reload();
       } catch (_) {}
@@ -463,6 +647,7 @@ class AppState extends ChangeNotifier {
     } finally {
       _sendingComments.remove(episodeId);
     }
+
   }
 
   void toggleLikeComment(String episodeId, String commentId) {

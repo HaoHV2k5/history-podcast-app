@@ -10,9 +10,16 @@ export 'mock/services/password_recovery.dart';
 import 'components.dart';
 import 'design.dart';
 
+import 'core/api/auth_repository.dart';
+
 class PasswordRecoveryPage extends StatefulWidget {
-  const PasswordRecoveryPage({super.key, this.initialIdentifier = ''});
+  const PasswordRecoveryPage({
+    super.key,
+    this.initialIdentifier = '',
+    this.authRepository,
+  });
   final String initialIdentifier;
+  final AuthRepository? authRepository;
   @override
   State<PasswordRecoveryPage> createState() => _PasswordRecoveryPageState();
 }
@@ -33,7 +40,18 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
     setState(() => busy = true);
     await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
-    final flow = DemoPasswordRecovery()..request(input.text);
+    final flow = DemoPasswordRecovery(authRepository: widget.authRepository);
+    try {
+      await flow.request(input.text);
+    } catch (e) {
+      if (mounted) {
+        setState(() => busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('StateError: ', ''))),
+        );
+      }
+      return;
+    }
     setState(() => busy = false);
     final success = await Navigator.push<bool>(
       context,
@@ -118,7 +136,7 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
   Future<void> verify() async {
     if (busy) return;
     try {
-      if (!widget.flow.hasGrant) widget.flow.verify(input.text);
+      if (!widget.flow.hasGrant) await widget.flow.verify(input.text);
       FocusScope.of(context).unfocus();
       setState(() {
         busy = true;
@@ -139,9 +157,9 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
     }
   }
 
-  void resend() {
+  Future<void> resend() async {
     try {
-      widget.flow.request(widget.flow.identifier);
+      await widget.flow.request(widget.flow.identifier);
       input.clear();
       setState(() => error = null);
       focus.requestFocus();
@@ -268,7 +286,7 @@ class _RecoveryPasswordPageState extends State<RecoveryPasswordPage> {
     await Future<void>.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
     try {
-      widget.flow.complete(password.text, confirmation.text);
+      await widget.flow.complete(password.text, confirmation.text);
       password.clear();
       confirmation.clear();
       setState(() {
@@ -285,11 +303,11 @@ class _RecoveryPasswordPageState extends State<RecoveryPasswordPage> {
 
   @override
   Widget build(BuildContext context) => RecoveryScaffold(
-    title: done ? 'Hoàn tất bản thử' : 'Mật khẩu mới',
+    title: done ? 'Đặt lại mật khẩu thành công' : 'Mật khẩu mới',
     step: done ? 'HOÀN TẤT' : '02 / 02 · MẬT KHẨU',
-    heading: done ? 'Sẵn sàng quay lại.' : 'Đặt mật khẩu mới.',
+    heading: done ? 'Mật khẩu đã được cập nhật.' : 'Đặt mật khẩu mới.',
     description: done
-        ? 'Bạn đã hoàn tất luồng khôi phục mẫu. Quay về màn đăng nhập để tiếp tục.'
+        ? 'Mật khẩu mới của bạn đã được lưu vào hệ thống. Quay về màn đăng nhập để tiếp tục.'
         : 'Nhập mật khẩu mới hai lần cho ${widget.flow.maskedIdentifier}.',
     child: done
         ? Column(

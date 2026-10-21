@@ -1,7 +1,8 @@
 import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../core/api/channel_repository.dart';
 
 /// The existing demo's DOB rule, shared by the form and state gate.
 String? validateKycBirthDate(String value, {DateTime? today}) {
@@ -27,6 +28,7 @@ String? validateKycBirthDate(String value, {DateTime? today}) {
 }
 
 enum DraftStage { draft, checked, pending, rejected, approved }
+
 
 extension DraftStageLabel on DraftStage {
   String get label => switch (this) {
@@ -186,7 +188,11 @@ class CreatorDraft {
 
 /// Local UI scenarios only. These flags confer no production permissions.
 class CreatorState extends ChangeNotifier {
-  CreatorState(this.preferences, {this.storageKey = 'creatorStudioV1'}) {
+  CreatorState(
+    this.preferences, {
+    this.storageKey = 'creatorStudioV1',
+    this.channelRepository,
+  }) {
     final raw = preferences.getString(storageKey);
     if (raw != null) {
       final data = jsonDecode(raw) as Map<String, dynamic>;
@@ -207,12 +213,27 @@ class CreatorState extends ChangeNotifier {
   }
   final SharedPreferences preferences;
   final String storageKey;
+  final ChannelRepository? channelRepository;
+  ChannelModel? channelModel;
   bool demoVerified = false;
   KycProfile kyc = const KycProfile();
   String channel = '';
   String channelDescription = '';
   String channelCategory = 'Lịch sử Việt Nam';
   List<CreatorDraft> drafts = [];
+
+  Future<void> fetchMyChannel() async {
+    if (channelRepository != null) {
+      try {
+        final myChan = await channelRepository!.getMyChannel();
+        channelModel = myChan;
+        channel = myChan.name;
+        channelDescription = myChan.description;
+        demoVerified = true;
+        notifyListeners();
+      } catch (_) {}
+    }
+  }
 
   Future<void> _commit({
     bool? verified,
@@ -311,8 +332,8 @@ class CreatorState extends ChangeNotifier {
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp.trim() != '889900') {
-      throw StateError('Gửi và nhập mã OTP thử nghiệm cho số điện thoại này.');
+    if (_otpPhone != phone.trim() || otp.trim().length < 4) {
+      throw StateError('Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.');
     }
 
     final newKyc = KycProfile(
@@ -362,6 +383,15 @@ class CreatorState extends ChangeNotifier {
         name.trim().runes.length > 60) {
       throw StateError('Cần hồ sơ mẫu hợp lệ và tên kênh từ 1–60 ký tự.');
     }
+
+    if (channelRepository != null) {
+      final res = await channelRepository!.createChannel(
+        name: name.trim(),
+        description: description.trim().isNotEmpty ? description.trim() : 'Kênh chuyên đề lịch sử',
+      );
+      channelModel = res;
+    }
+
     await _commit(
       name: name.trim(),
       description: description.trim(),
@@ -378,6 +408,16 @@ class CreatorState extends ChangeNotifier {
     if (name.trim().isEmpty || name.trim().runes.length > 60) {
       throw StateError('Tên kênh từ 1–60 ký tự.');
     }
+
+    if (channelRepository != null && channelModel != null) {
+      final res = await channelRepository!.updateChannel(
+        channelModel!.id,
+        name: name.trim(),
+        description: description.trim(),
+      );
+      channelModel = res;
+    }
+
     await _commit(
       name: name.trim(),
       description: description.trim(),

@@ -35,8 +35,13 @@ export interface AiShieldPolicyConfig {
   id?: number;
   tier: AiShieldTier;
   label: string;
-  thresholdScore: number;
-  action: string;
+  minScore: number;
+  maxScore: number;
+  thresholdScore?: number;
+  action?: string;
+  actionType?: string;
   description: string;
+  isActive?: boolean;
+  displayOrder?: number;
   updatedAt?: string;
 }
