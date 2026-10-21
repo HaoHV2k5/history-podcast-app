@@ -696,6 +696,9 @@
       if (input && val) input.value = val;
     }
 
+    let creatorDisplayName = 'Demo Creator';
+    let viewerDisplayName = 'Khach Hang Viewer';
+
     async function quickLoginCreator() {
       try {
         log('creatorLogs', 'Đang tự động đăng nhập tài khoản Creator (creator@example.com)...');
@@ -707,7 +710,16 @@
         const data = await res.json();
         if (data.success && data.data.accessToken) {
           document.getElementById('creatorJwt').value = data.data.accessToken;
-          log('creatorLogs', '✅ Đăng nhập Creator thành công! Đã tự động điền Token.');
+          try {
+            const meRes = await fetch(`${API_BASE}/api/v1/auth/me`, {
+              headers: { 'Authorization': `Bearer ${data.data.accessToken}` }
+            });
+            const meJson = await meRes.json();
+            if (meJson.success && meJson.data && meJson.data.fullName) {
+              creatorDisplayName = meJson.data.fullName;
+            }
+          } catch (_) {}
+          log('creatorLogs', `✅ Đăng nhập Creator (${creatorDisplayName}) thành công! Đã tự động điền Token.`);
         } else {
           log('creatorLogs', `❌ Lỗi đăng nhập: ${data.message}`);
         }
@@ -727,7 +739,16 @@
         const data = await res.json();
         if (data.success && data.data.accessToken) {
           document.getElementById('viewerJwt').value = data.data.accessToken;
-          log('viewerLogs', '✅ Đăng nhập Viewer thành công! Đã tự động điền Token.');
+          try {
+            const meRes = await fetch(`${API_BASE}/api/v1/auth/me`, {
+              headers: { 'Authorization': `Bearer ${data.data.accessToken}` }
+            });
+            const meJson = await meRes.json();
+            if (meJson.success && meJson.data && meJson.data.fullName) {
+              viewerDisplayName = meJson.data.fullName;
+            }
+          } catch (_) {}
+          log('viewerLogs', `✅ Đăng nhập Viewer (${viewerDisplayName}) thành công! Đã tự động điền Token.`);
         } else {
           log('viewerLogs', `❌ Lỗi đăng nhập: ${data.message}`);
         }
@@ -995,6 +1016,13 @@
     }
 
     async function leaveChannel() {
+      if (currentSessionId) {
+        const leavingId = currentSessionId;
+        const resetParam = currentUserRole === 'CREATOR' ? '?reset=true' : '';
+        try {
+          await fetch(`${API_BASE}/api/v1/livestreams/${leavingId}/leave${resetParam}`, { method: 'POST' });
+        } catch (_) {}
+      }
       if (localAudioTrack) { localAudioTrack.close(); localAudioTrack = null; }
       if (localVideoTrack) { localVideoTrack.close(); localVideoTrack = null; }
       if (rtcClient) { await rtcClient.leave(); rtcClient = null; }
@@ -1002,6 +1030,13 @@
       document.getElementById('placeholderScreen').style.display = 'flex';
       updateLiveUI(false, '');
     }
+
+    window.addEventListener('beforeunload', () => {
+      if (currentSessionId && navigator.sendBeacon) {
+        const resetParam = currentUserRole === 'CREATOR' ? '?reset=true' : '';
+        navigator.sendBeacon(`${API_BASE}/api/v1/livestreams/${currentSessionId}/leave${resetParam}`);
+      }
+    });
 
     function updateLiveUI(isLive, channelName) {
       document.getElementById('statusBadge').style.display = isLive ? 'inline-flex' : 'none';
@@ -1165,7 +1200,7 @@
       input.value = '';
 
       const role = currentUserRole.toLowerCase();
-      const author = currentUserRole === 'CREATOR' ? '👑 Creator' : '👤 Viewer';
+      const author = currentUserRole === 'CREATOR' ? creatorDisplayName : viewerDisplayName;
       const time = formatChatTime();
       const localId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
 
@@ -1175,9 +1210,15 @@
       // 2. Gửi id kèm text lên server để server phân phối tới các máy khác
       if (currentSessionId) {
         try {
+          const jwtInputId = currentUserRole === 'CREATOR' ? 'creatorJwt' : 'viewerJwt';
+          const jwtVal = (document.getElementById(jwtInputId)?.value || '').trim();
+          const headers = { 'Content-Type': 'application/json' };
+          if (jwtVal) {
+            headers['Authorization'] = jwtVal.startsWith('Bearer ') ? jwtVal : `Bearer ${jwtVal}`;
+          }
           await fetch(`${API_BASE}/api/v1/livestreams/${currentSessionId}/chats`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ id: localId, author, role, text })
           });
         } catch (e) {

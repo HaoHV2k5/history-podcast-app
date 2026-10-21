@@ -128,7 +128,15 @@ export const LoginPage: React.FC = () => {
       } catch {
         // ignore
       }
-      setAuth(authData);
+      useAuthStore.getState().setAccessToken(authData.accessToken);
+      let profileData = undefined;
+      try {
+        const meRes = await authApi.getCurrentUser();
+        profileData = meRes.data;
+      } catch {
+        // fallback to login response fields if /me fails
+      }
+      setAuth(authData, profileData);
 
       // Navigate to intended destination or role-based default
       const fromPath = (location.state as { from?: { pathname: string } })?.from?.pathname;
@@ -325,7 +333,15 @@ export const LoginPage: React.FC = () => {
                         password: 'Creator@123',
                       });
                       if (res.data) {
-                        setAuth(res.data);
+                        useAuthStore.getState().setAccessToken(res.data.accessToken);
+                        let profileData = undefined;
+                        try {
+                          const meRes = await authApi.getCurrentUser();
+                          profileData = meRes.data;
+                        } catch {
+                          // ignore
+                        }
+                        setAuth(res.data, profileData);
                         navigate('/creator');
                         return;
                       }

@@ -45,22 +45,18 @@ export const CreatorLivestreamPage: React.FC = () => {
   // Post-creation banner state
   const [justCreatedSession, setJustCreatedSession] = useState<LivestreamSession | null>(null);
 
-  // 1. Fetch current creator channel
+  // 1. Fetch current creator channel (consistent with CreatorWorkspaceHome cache shape)
   const {
-    data: channelRes,
+    data: rawChannel,
     isLoading: isLoadingChannel,
   } = useQuery({
     queryKey: ['creator', 'my-channel'],
-    queryFn: async (): Promise<ChannelItem | null> => {
-      try {
-        const res = await channelsApi.getMyChannel();
-        return res.data;
-      } catch {
-        return null;
-      }
-    },
+    queryFn: () => channelsApi.getMyChannel(),
   });
-  const myChannel = channelRes ?? null;
+  const myChannel: ChannelItem | null =
+    rawChannel && typeof rawChannel === 'object' && 'data' in rawChannel
+      ? (rawChannel as { data: ChannelItem | null }).data ?? null
+      : ((rawChannel as unknown as ChannelItem) ?? null);
 
   // 2. Fetch livestreams list
   const {
@@ -104,10 +100,10 @@ export const CreatorLivestreamPage: React.FC = () => {
               PHÂN HỆ SẢN XUẤT
             </span>
             <span className="text-muted">•</span>
-            <span className="text-xs text-muted">AGORA RTC WEB v4.24.9</span>
+            <span className="text-xs text-muted">SỬ KÝ STUDIO</span>
           </div>
           <h1 className="font-serif text-2xl font-bold tracking-tight text-ink sm:text-3xl">
-            Quản lý Phát trực tiếp (Livestream Hub)
+            Quản lý Phát trực tiếp
           </h1>
           <p className="text-xs text-muted max-w-2xl leading-relaxed">
             Khởi tạo và điều phối các buổi đàm đạo podcast lịch sử trực tiếp, tương tác thời gian thực với cộng đồng thính giả trên nền tảng Sử Ký.
@@ -121,7 +117,7 @@ export const CreatorLivestreamPage: React.FC = () => {
             onClick={() => refetch()}
             disabled={isFetching}
             className="gap-2 text-xs h-9"
-            title="Làm mới danh sách phiên livestream"
+            title="Làm mới danh sách phiên phát trực tiếp"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-accent' : ''}`} />
             <span>Làm mới</span>
@@ -157,7 +153,7 @@ export const CreatorLivestreamPage: React.FC = () => {
                 Khởi tạo thành công phiên phát trực tiếp: &ldquo;{justCreatedSession.title}&rdquo;!
               </p>
               <p className="text-status-success-text/90 leading-relaxed">
-                Phiên phát sóng hiện đang ở trạng thái <strong className="font-bold text-accent">LIVE</strong> trên máy chủ. Bạn có thể vào Studio ngay bây giờ để bật Camera/Microphone và bắt đầu phát sóng trực tiếp.
+                Phòng phát sóng đã sẵn sàng. Bạn có thể vào Studio ngay bây giờ để kiểm tra thiết bị và bắt đầu lên sóng trực tiếp.
               </p>
               <div className="pt-1 flex items-center gap-2">
                 <Button
@@ -300,10 +296,10 @@ export const CreatorLivestreamPage: React.FC = () => {
         <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
           <AlertCircle className="h-8 w-8 text-rose-500 mx-auto" />
           <h3 className="font-serif text-base font-bold text-rose-900">
-            Không thể tải danh sách phiên livestream
+            Không thể tải danh sách phiên phát trực tiếp
           </h3>
           <p className="text-xs text-rose-700 max-w-md mx-auto">
-            {(sessionsError as Error)?.message || 'Đã xảy ra lỗi khi kết nối tới máy chủ. Vui lòng kiểm tra lại đường truyền.'}
+            {(sessionsError as Error)?.message || 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng kiểm tra lại đường truyền.'}
           </p>
           <Button
             size="sm"
@@ -324,13 +320,13 @@ export const CreatorLivestreamPage: React.FC = () => {
               {activeTab === 'LIVE'
                 ? 'Hiện không có phiên phát sóng trực tiếp nào'
                 : activeTab === 'ENDED'
-                ? 'Chưa có phiên livestream nào đã kết thúc'
+                ? 'Chưa có phiên phát trực tiếp nào đã kết thúc'
                 : 'Chưa có phiên phát sóng trực tiếp nào'}
             </h3>
             <p className="text-xs text-muted max-w-md mx-auto">
               {activeTab === 'LIVE'
                 ? 'Bắt đầu một buổi phát sóng mới ngay bây giờ để giao lưu cùng thính giả podcast của bạn.'
-                : 'Các phiên live sau khi kết thúc sẽ được lưu trữ lịch sử phát sóng tại đây.'}
+                : 'Các phiên phát sóng sau khi kết thúc sẽ được lưu trữ lịch sử tại đây.'}
             </p>
           </div>
           <Button

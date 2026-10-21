@@ -108,7 +108,29 @@ export const livestreamApi = {
   },
 
   /**
-   * 5. Kết thúc phiên livestream (Chỉ Creator sở hữu phòng mới có quyền)
+   * 5. Rời phòng hoặc tạm dừng phát sóng (Giảm số người xem trực tiếp hoặc reset về 0)
+   * POST /api/v1/livestreams/{id}/leave
+   */
+  leaveSession: async (
+    id: number,
+    reset: boolean = false
+  ): Promise<ApiResponse<LivestreamSession>> => {
+    try {
+      const response = await apiClient.post<ApiResponse<LivestreamSession>>(
+        `/api/v1/livestreams/${id}/leave`,
+        null,
+        {
+          params: reset ? { reset: true } : undefined,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      return handleLivestreamApiError(error);
+    }
+  },
+
+  /**
+   * 6. Kết thúc phiên livestream (Chỉ Creator sở hữu phòng mới có quyền)
    * POST /api/v1/livestreams/{id}/end
    */
   endSession: async (id: number): Promise<ApiResponse<LivestreamSession>> => {

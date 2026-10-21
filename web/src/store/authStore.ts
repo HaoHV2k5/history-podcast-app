@@ -5,6 +5,32 @@ const ACCESS_TOKEN_KEY = 'su_ky_admin_access_token';
 const REFRESH_TOKEN_KEY = 'su_ky_admin_refresh_token';
 const USER_DATA_KEY = 'su_ky_admin_user_data';
 
+const readStoredItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredItem = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
+const removeStoredItem = (key: string): void => {
+  try {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+};
+
 const isDevModeActive = (): boolean => {
   if (!import.meta.env.DEV) return false;
   try {
@@ -20,7 +46,7 @@ const isDevModeActive = (): boolean => {
 
 const getInitialAccessToken = (): string | null => {
   try {
-    const token = sessionStorage.getItem(ACCESS_TOKEN_KEY);
+    const token = readStoredItem(ACCESS_TOKEN_KEY);
     if (token) return token;
     if (isDevModeActive()) {
       return 'dev-admin-token';
@@ -33,7 +59,7 @@ const getInitialAccessToken = (): string | null => {
 
 const getInitialUser = (): UserResponse | null => {
   try {
-    const raw = sessionStorage.getItem(USER_DATA_KEY);
+    const raw = readStoredItem(USER_DATA_KEY);
     if (raw) return JSON.parse(raw);
     if (isDevModeActive()) {
       return {
@@ -87,19 +113,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   setAuth: (authData: AuthResponse, userData?: UserResponse) => {
-    // Store tokens in sessionStorage
-    try {
-      if (authData.accessToken) {
-        sessionStorage.setItem(ACCESS_TOKEN_KEY, authData.accessToken);
-      }
-      if (authData.refreshToken) {
-        sessionStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
-      }
-      if (authData.accessToken !== 'dev-admin-token') {
-        sessionStorage.removeItem('su_ky_admin_dev_mode');
-      }
-    } catch {
-      // ignore
+    if (authData.accessToken) {
+      writeStoredItem(ACCESS_TOKEN_KEY, authData.accessToken);
+    }
+    if (authData.refreshToken) {
+      writeStoredItem(REFRESH_TOKEN_KEY, authData.refreshToken);
+    }
+    if (authData.accessToken !== 'dev-admin-token') {
+      removeStoredItem('su_ky_admin_dev_mode');
     }
 
     const authRoles = authData.roles || (authData.role ? [authData.role] : []);
@@ -127,11 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       createdAt: userData?.createdAt || new Date().toISOString(),
     };
 
-    try {
-      sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(mergedUser));
-    } catch {
-      // ignore
-    }
+    writeStoredItem(USER_DATA_KEY, JSON.stringify(mergedUser));
 
     set({
       accessToken: authData.accessToken,
@@ -143,20 +160,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setAccessToken: (token: string) => {
-    try {
-      sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
-    } catch {
-      // ignore
-    }
+    writeStoredItem(ACCESS_TOKEN_KEY, token);
     set({ accessToken: token, isAuthenticated: true });
   },
 
   setUser: (userData: UserResponse) => {
-    try {
-      sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
-    } catch {
-      // ignore
-    }
+    writeStoredItem(USER_DATA_KEY, JSON.stringify(userData));
     set({ user: userData });
   },
 
@@ -169,14 +178,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    try {
-      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-      sessionStorage.removeItem(USER_DATA_KEY);
-      sessionStorage.removeItem('su_ky_admin_dev_mode');
-    } catch {
-      // ignore
-    }
+    removeStoredItem(ACCESS_TOKEN_KEY);
+    removeStoredItem(REFRESH_TOKEN_KEY);
+    removeStoredItem(USER_DATA_KEY);
+    removeStoredItem('su_ky_admin_dev_mode');
     set({
       accessToken: null,
       user: null,
@@ -187,27 +192,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   getRefreshToken: () => {
-    try {
-      return sessionStorage.getItem(REFRESH_TOKEN_KEY);
-    } catch {
-      return null;
-    }
+    return readStoredItem(REFRESH_TOKEN_KEY);
   },
 
   setRefreshToken: (token: string) => {
-    try {
-      sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
-    } catch {
-      // ignore
-    }
+    writeStoredItem(REFRESH_TOKEN_KEY, token);
   },
 
   clearRefreshToken: () => {
-    try {
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    } catch {
-      // ignore
-    }
+    removeStoredItem(REFRESH_TOKEN_KEY);
   },
 
   hasRole: (role: string) => {

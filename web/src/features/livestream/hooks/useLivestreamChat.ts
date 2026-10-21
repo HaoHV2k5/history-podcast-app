@@ -131,10 +131,22 @@ export function useLivestreamChat({
           );
           logicalCursorRef.current = Math.max(logicalCursorRef.current, nextCursor);
 
-          // Hợp nhất, khử trùng lặp theo ID và sắp xếp theo thời gian
-          setMessages((prev) =>
-            deduplicateAndSortChatMessages(prev, incoming, maxRetainedMessages)
-          );
+          // Hợp nhất, khử trùng lặp theo ID và sắp xếp theo thời gian.
+          // Chỉ cập nhật state nếu thực sự có tin nhắn mới để tránh kích hoạt cuộn trang mỗi 2.5s.
+          setMessages((prev) => {
+            const merged = deduplicateAndSortChatMessages(
+              prev,
+              incoming,
+              maxRetainedMessages
+            );
+            if (
+              merged.length === prev.length &&
+              merged[merged.length - 1]?.id === prev[prev.length - 1]?.id
+            ) {
+              return prev;
+            }
+            return merged;
+          });
         }
 
         // Reset bộ đếm lỗi khi kết nối thành công
