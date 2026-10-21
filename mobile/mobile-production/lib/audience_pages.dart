@@ -1044,8 +1044,10 @@ class _AuthSheetState extends State<AuthSheet> {
     final result = await Navigator.push<String>(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            PasswordRecoveryPage(initialIdentifier: identifierCtrl.text),
+        builder: (_) => PasswordRecoveryPage(
+          initialIdentifier: identifierCtrl.text,
+          authRepository: widget.state.authRepository,
+        ),
       ),
     );
     if (!mounted || result == null) return;
