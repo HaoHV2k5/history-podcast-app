@@ -14,6 +14,9 @@ import 'api/contract_repository.dart';
 import 'api/creator_series_repository.dart';
 import 'api/creator_studio_repository.dart';
 import 'api/deliverable_repository.dart';
+import 'api/dispute_repository.dart';
+import 'api/email_template_repository.dart';
+import 'api/escrow_transaction_repository.dart';
 import 'backend_application_factory.dart';
 import 'runtime_configuration.dart';
 
@@ -36,6 +39,9 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
     final creatorSeriesRepository = CreatorSeriesRepository(client: apiClient);
     final creatorStudioRepository = CreatorStudioRepository(client: apiClient);
     final deliverableRepository = DeliverableRepository(client: apiClient);
+    final disputeRepository = DisputeRepository(client: apiClient);
+    final emailTemplateRepository = EmailTemplateRepository(client: apiClient);
+    final escrowTransactionRepository = EscrowTransactionRepository(client: apiClient);
 
     // Khởi tạo AppState với Real Repositories
     final appState = AppState(
@@ -51,6 +57,9 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       creatorSeriesRepository: creatorSeriesRepository,
       creatorStudioRepository: creatorStudioRepository,
       deliverableRepository: deliverableRepository,
+      disputeRepository: disputeRepository,
+      emailTemplateRepository: emailTemplateRepository,
+      escrowTransactionRepository: escrowTransactionRepository,
     );
 
     // Tải dữ liệu thật từ Spring Boot backend
@@ -59,6 +68,7 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
     return SuKyApp(state: appState);
   }
 }
+
 
 
 

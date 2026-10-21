@@ -20,6 +20,9 @@ import '../../core/api/contract_repository.dart';
 import '../../core/api/creator_series_repository.dart';
 import '../../core/api/creator_studio_repository.dart';
 import '../../core/api/deliverable_repository.dart';
+import '../../core/api/dispute_repository.dart';
+import '../../core/api/email_template_repository.dart';
+import '../../core/api/escrow_transaction_repository.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -37,6 +40,9 @@ class AppState extends ChangeNotifier {
     this.creatorSeriesRepository,
     this.creatorStudioRepository,
     this.deliverableRepository,
+    this.disputeRepository,
+    this.emailTemplateRepository,
+    this.escrowTransactionRepository,
   }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
@@ -131,6 +137,9 @@ class AppState extends ChangeNotifier {
   final CreatorSeriesRepository? creatorSeriesRepository;
   final CreatorStudioRepository? creatorStudioRepository;
   final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final EmailTemplateRepository? emailTemplateRepository;
+  final EscrowTransactionRepository? escrowTransactionRepository;
 
   Future<void> initRealBackend() async {
     if (contentRepository != null) {
