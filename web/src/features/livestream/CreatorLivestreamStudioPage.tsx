@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Radio,
   ChevronLeft,
@@ -8,18 +8,23 @@ import {
   MicOff,
   Video,
   VideoOff,
+  MonitorUp,
+  MonitorOff,
+  Volume2,
+  VolumeX,
   Eye,
   Crown,
   StopCircle,
   AlertTriangle,
   Loader2,
   Clock,
-  ShieldCheck,
   RotateCcw,
   Settings2,
+  Move,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { livestreamApi } from '@/services/api/livestream';
 import { useAuthStore } from '@/store/authStore';
@@ -37,18 +42,43 @@ import { LivestreamChatPanel } from './components/LivestreamChatPanel';
 export const CreatorLivestreamStudioPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const sessionId = Number(id);
 
-  // End session dialog state
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false);
+  const stageContainerRef = useRef<HTMLDivElement>(null);
+  const videoOverlayRef = useRef<HTMLDivElement>(null);
+  const [videoBounds, setVideoBounds] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const dragStateRef = useRef<{
+    isDragging: boolean;
+    startClientX: number;
+    startClientY: number;
+    startPipX: number;
+    startPipY: number;
+  } | null>(null);
 
-  // Agora publisher hook with device selection and resilience controls
   const {
     isPreviewing,
     isStartingPreview,
     isCameraEnabled,
     isMicEnabled,
+    isScreenSharing,
+    hasScreenAudio,
+    isScreenAudioEnabled,
+    micVolume,
+    screenAudioVolume,
+    pipLayout,
+    stageAspectRatio,
+    updatePipLayout,
+    changeMicVolume,
+    changeScreenAudioVolume,
+    toggleScreenAudio,
     localVideoRef,
 
     cameras,
@@ -67,17 +97,16 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
     broadcastSeconds,
     error: publisherError,
     isMockTokenDetected,
-    agoraChannelName,
     startPreview,
     stopPreview,
     toggleCamera,
     toggleMicrophone,
+    toggleScreenShare,
     startBroadcasting,
     stopBroadcasting,
     clearError,
   } = useAgoraPublisher();
 
-  // 1. Fetch Session Details with controlled refresh for backend viewer counter
   const {
     data: sessionRes,
     isLoading: isLoadingSession,
@@ -87,38 +116,127 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
     queryKey: ['creator-livestream-detail', sessionId],
     queryFn: () => livestreamApi.getSession(sessionId),
     enabled: !isNaN(sessionId) && sessionId > 0,
-    // Step 6: Backend-based viewer counter refresh (chu kỳ 10s khi đang hoạt động, tự dừng khi ENDED)
     refetchInterval: (query) => {
       const status = query.state.data?.data?.status;
       if (status === 'ENDED') return false;
-      return 10000;
+      return 5000;
     },
   });
 
   const session = sessionRes?.data;
   const isOwner = canManageLivestream(session, user?.id);
   const isSessionEnded = session?.status === 'ENDED';
+  const liveViewerCountDisplay = isBroadcasting
+    ? formatLivestreamViewerCount(session?.viewerCount ?? 0)
+    : '0';
 
-  // Loading state
+  const handleStopBroadcasting = async () => {
+    await stopBroadcasting();
+    queryClient.invalidateQueries({ queryKey: ['creator-livestream-detail', sessionId] });
+    queryClient.invalidateQueries({ queryKey: ['creator-livestreams'] });
+  };
+
+  // Đồng bộ khung tương tác PiP khớp 100% với vùng hiển thị thực tế của video theo mọi tỷ lệ màn hình (16:10, 16:9, 21:9...)
+  useEffect(() => {
+    const el = stageContainerRef.current;
+    if (!el) return;
+
+    const updateBounds = () => {
+      const cw = el.clientWidth;
+      const ch = el.clientHeight;
+      if (cw <= 0 || ch <= 0) return;
+
+      const targetRatio = stageAspectRatio > 0 ? stageAspectRatio : 16 / 9;
+      const containerRatio = cw / ch;
+
+      let width = cw;
+      let height = ch;
+      let left = 0;
+      let top = 0;
+
+      if (containerRatio > targetRatio) {
+        height = ch;
+        width = ch * targetRatio;
+        left = (cw - width) / 2;
+        top = 0;
+      } else {
+        width = cw;
+        height = cw / targetRatio;
+        left = 0;
+        top = (ch - height) / 2;
+      }
+
+      setVideoBounds({ left, top, width, height });
+    };
+
+    updateBounds();
+    const observer = new ResizeObserver(updateBounds);
+    observer.observe(el);
+    window.addEventListener('resize', updateBounds);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateBounds);
+    };
+  }, [stageAspectRatio, isPreviewing, isScreenSharing]);
+
+  // Xử lý kéo thả tự do ô Camera PiP trên khung màn hình chia sẻ
+  const handlePipPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStateRef.current = {
+      isDragging: true,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      startPipX: pipLayout.x,
+      startPipY: pipLayout.y,
+    };
+  };
+
+  const handlePipPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const targetEl = videoOverlayRef.current || stageContainerRef.current;
+    if (!dragStateRef.current?.isDragging || !targetEl) return;
+    const rect = targetEl.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const deltaX = (e.clientX - dragStateRef.current.startClientX) / rect.width;
+    const deltaY = (e.clientY - dragStateRef.current.startClientY) / rect.height;
+
+    updatePipLayout({
+      x: dragStateRef.current.startPipX + deltaX,
+      y: dragStateRef.current.startPipY + deltaY,
+    });
+  };
+
+  const handlePipPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStateRef.current?.isDragging) {
+      dragStateRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
   if (isLoadingSession) {
     return (
-      <div className="flex h-[70vh] flex-col items-center justify-center space-y-3">
+      <div className="flex h-[65vh] flex-col items-center justify-center space-y-3">
         <Loader2 className="h-8 w-8 animate-spin text-accent" />
         <p className="text-xs text-muted">Đang tải thông tin phòng phát sóng...</p>
       </div>
     );
   }
 
-  // Error or Not Found state
   if (isSessionError || !session) {
     return (
       <div className="mx-auto max-w-lg rounded-xl border border-status-error-text/30 bg-status-error-bg p-6 text-center space-y-3 mt-12">
         <AlertTriangle className="h-8 w-8 text-status-error-text mx-auto" />
         <h2 className="font-serif text-lg font-bold text-status-error-text">
-          Không tìm thấy phiên livestream
+          Không tìm thấy phiên phát trực tiếp
         </h2>
         <p className="text-xs text-status-error-text/90">
-          {(sessionError as Error)?.message || 'Phiên livestream không tồn tại hoặc bạn không có quyền truy cập.'}
+          {(sessionError as Error)?.message || 'Phiên phát trực tiếp không tồn tại hoặc bạn không có quyền truy cập.'}
         </p>
         <div className="pt-2">
           <Button
@@ -128,14 +246,13 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
             className="gap-2 text-xs"
           >
             <ChevronLeft className="h-4 w-4" />
-            <span>Quay lại Livestream Hub</span>
+            <span>Quay lại Quản lý Phát trực tiếp</span>
           </Button>
         </div>
       </div>
     );
   }
 
-  // Session has already ended
   if (isSessionEnded) {
     return (
       <div className="mx-auto max-w-lg rounded-xl border border-border bg-surface p-8 text-center space-y-4 mt-12 shadow-xs">
@@ -164,68 +281,69 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
     );
   }
 
+  const showVideoPlayer = isPreviewing && (isCameraEnabled || isScreenSharing);
+
   return (
-    <div className="space-y-4">
-      {/* Studio Header Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col lg:h-[calc(100vh-128px)] lg:min-h-[540px] gap-3">
+      {/* Compact Studio Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 border-b border-border pb-3 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Link
             to="/creator/livestream"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-surface text-ink hover:bg-surface-subtle transition-colors shrink-0"
-            title="Quay lại Livestream Hub"
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface text-ink hover:bg-surface-subtle transition-colors shrink-0"
+            title="Quay lại danh sách phiên phát trực tiếp"
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-4 w-4" />
           </Link>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-accent">
-                STUDIO PHÁT SÓNG (AGORA RTC)
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="font-mono font-semibold uppercase tracking-wider text-accent">
+                PHÒNG THU TRỰC TIẾP
               </span>
               <span className="text-muted">•</span>
-              <span className="text-[11px] text-muted">Kênh: {session.channelName}</span>
+              <span className="text-muted truncate">{session.channelName}</span>
               {session.isExclusive && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200 shrink-0">
                   <Crown className="h-3 w-3 text-amber-500" />
                   VIP
                 </span>
               )}
             </div>
-            <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-ink line-clamp-1">
+            <h1 className="font-serif text-lg sm:text-xl font-bold tracking-tight text-ink truncate">
               {session.title}
             </h1>
           </div>
         </div>
 
-        {/* Status Indicators & Duration */}
-        <div className="flex items-center gap-2.5">
-          {/* Backend Viewer Counter (Làm mới mỗi 10 giây) */}
+        {/* Status Indicators & End Session Action */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <div
-            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-ink shadow-xs"
-            title="Số lượng người xem do máy chủ thống kê (làm mới tự động mỗi 10 giây)"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 py-1 text-xs text-ink shadow-xs"
+            title="Số lượng thính giả đang theo dõi trực tiếp"
           >
-            <Eye className="h-3.5 w-3.5 text-sky-500" />
-            <span className="font-bold font-mono text-ink">
-              {formatLivestreamViewerCount(session.viewerCount)}
+            <Eye className={`h-3.5 w-3.5 ${isBroadcasting ? 'text-rose-500' : 'text-muted'}`} />
+            <span className="font-bold font-mono tabular-nums text-ink">
+              {liveViewerCountDisplay}
             </span>
-            <span className="text-muted text-[11px] hidden sm:inline">người xem</span>
+            <span className="text-muted text-[11px] hidden sm:inline">đang xem</span>
           </div>
 
           {isBroadcasting ? (
-            <div className="flex items-center gap-2 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs">
-              <span className="h-2.5 w-2.5 rounded-full bg-white animate-ping" />
+            <div className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-bold text-white shadow-xs">
+              <span className="h-2 w-2 rounded-full bg-white animate-ping" />
               <span>TRỰC TIẾP</span>
-              <span className="border-l border-white/30 pl-2 font-mono">
+              <span className="border-l border-white/30 pl-1.5 font-mono tabular-nums">
                 {formatBroadcastingDuration(broadcastSeconds)}
               </span>
             </div>
           ) : isJoining || isPublishing ? (
-            <div className="flex items-center gap-2 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white">
+            <div className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>{isJoining ? 'Đang kết nối Agora...' : 'Đang phát luồng...'}</span>
+              <span>{isJoining ? 'Đang kết nối...' : 'Đang mở luồng...'}</span>
             </div>
           ) : (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-subtle px-3 py-1.5 text-xs font-medium text-muted">
+            <div className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-subtle px-2.5 py-1 text-[11px] font-medium text-muted">
               <span className="h-2 w-2 rounded-full bg-muted" />
               <span>CHƯA PHÁT SÓNG</span>
             </div>
@@ -236,8 +354,8 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setIsEndDialogOpen(true)}
-              className="h-8 text-xs gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
-              title="Đóng phòng phát sóng trên máy chủ"
+              className="h-7.5 px-2.5 text-xs gap-1.5 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+              title="Đóng phiên phát sóng và lưu vào lịch sử"
             >
               <StopCircle className="h-3.5 w-3.5" />
               <span>Kết thúc phiên live</span>
@@ -246,60 +364,148 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Studio Grid: Left (Video & Controls) / Right (Diagnostics & Info) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Video Preview & Broadcaster Controls */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Local Video Stage Container */}
-          <div className="relative aspect-video w-full rounded-2xl bg-neutral-950 overflow-hidden border border-border shadow-md">
-            {/* Stable video container for Agora RTC local playback */}
+      {/* Main Studio Grid: Fills exact remaining viewport height without page scrolling */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0 items-stretch">
+        {/* Left Column: Video Stage + Compact Controls, Audio Mixer & Device Bar */}
+        <div className="lg:col-span-8 flex flex-col gap-3 lg:h-full min-h-0">
+          {/* Video Stage Container */}
+          <div
+            ref={stageContainerRef}
+            className="relative flex-1 min-h-[280px] w-full rounded-2xl bg-neutral-950 overflow-hidden border border-border shadow-sm select-none"
+          >
             <div
               ref={localVideoRef}
               id="agora-local-video-player"
-              className={`h-full w-full ${!isPreviewing || !isCameraEnabled ? 'hidden' : 'block'}`}
+              className={`h-full w-full ${!showVideoPlayer ? 'hidden' : 'block'}`}
             />
 
-            {/* Camera Muted / Off State */}
-            {isPreviewing && !isCameraEnabled && (
-              <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center text-neutral-400 space-y-2">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-800 text-neutral-400">
-                  <VideoOff className="h-7 w-7" />
+            {/* Interactive Free-Drag & Resize Camera PiP Handle when Screen Sharing */}
+            {isPreviewing && isScreenSharing && isCameraEnabled && (
+              <div
+                ref={videoOverlayRef}
+                style={
+                  videoBounds
+                    ? {
+                        left: `${videoBounds.left}px`,
+                        top: `${videoBounds.top}px`,
+                        width: `${videoBounds.width}px`,
+                        height: `${videoBounds.height}px`,
+                      }
+                    : { inset: 0 }
+                }
+                className="pointer-events-none absolute z-20"
+              >
+                <div
+                  onPointerDown={handlePipPointerDown}
+                  onPointerMove={handlePipPointerMove}
+                  onPointerUp={handlePipPointerUp}
+                  onPointerCancel={handlePipPointerUp}
+                  style={{
+                    left: `${pipLayout.x * 100}%`,
+                    top: `${pipLayout.y * 100}%`,
+                    width: `${pipLayout.scale * 100}%`,
+                    height: `${pipLayout.scale * 100}%`,
+                  }}
+                  className="pointer-events-auto group/pip absolute rounded-xl border-2 border-dashed border-transparent hover:border-sky-400/90 hover:bg-sky-500/10 cursor-move transition-colors flex flex-col justify-between p-1.5"
+                  title="Giữ chuột để kéo Camera tới vị trí bất kỳ trên màn hình"
+                >
+                  <div className="opacity-0 group-hover/pip:opacity-100 transition-opacity flex items-center justify-between gap-1 bg-black/80 backdrop-blur-xs rounded-md px-1.5 py-0.5 text-[10px] text-white shadow-sm">
+                    <span className="inline-flex items-center gap-1 font-medium truncate">
+                      <Move className="h-3 w-3 text-sky-400 shrink-0" />
+                      <span className="hidden sm:inline">Kéo di chuyển</span>
+                    </span>
+
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updatePipLayout({ scale: pipLayout.scale - 0.04 });
+                        }}
+                        className="p-0.5 hover:text-sky-300 cursor-pointer"
+                        title="Thu nhỏ Camera"
+                      >
+                        <ZoomOut className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updatePipLayout({ scale: pipLayout.scale + 0.04 });
+                        }}
+                        className="p-0.5 hover:text-sky-300 cursor-pointer"
+                        title="Phóng to Camera"
+                      >
+                        <ZoomIn className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void toggleCamera();
+                        }}
+                        className="p-0.5 text-rose-300 hover:text-rose-400 cursor-pointer ml-0.5"
+                        title="Ẩn Camera (nhường 100% màn hình)"
+                      >
+                        <VideoOff className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Camera Muted / Off State (Only when NOT screen sharing) */}
+            {isPreviewing && !isCameraEnabled && !isScreenSharing && (
+              <div className="h-full w-full flex flex-col items-center justify-center p-4 text-center text-neutral-400 space-y-1.5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-800 text-neutral-400">
+                  <VideoOff className="h-6 w-6" />
                 </div>
                 <p className="text-sm font-semibold text-white">Camera đang tắt</p>
                 <p className="text-xs text-neutral-400">
-                  Bấm biểu tượng camera bên dưới để bật lại hình ảnh
+                  Bấm nút Camera bên dưới để bật lại hình ảnh
                 </p>
               </div>
             )}
 
             {/* Standby / Preview Not Started State */}
             {!isPreviewing && (
-              <div className="h-full w-full flex flex-col items-center justify-center p-6 text-center space-y-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-neutral-800 text-accent">
-                  <Radio className="h-8 w-8 animate-pulse" />
+              <div className="h-full w-full flex flex-col items-center justify-center p-5 text-center space-y-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-neutral-800 text-accent">
+                  <Radio className="h-7 w-7 animate-pulse" />
                 </div>
                 <div className="space-y-1 max-w-md">
-                  <h3 className="font-serif text-lg font-bold text-white">
-                    Sẵn sàng phát sóng trực tiếp
+                  <h3 className="font-serif text-base sm:text-lg font-bold text-white">
+                    Sẵn sàng lên sóng trực tiếp
                   </h3>
                   <p className="text-xs text-neutral-400 leading-relaxed">
-                    Khởi động Camera và Microphone để xem trước khung hình và kiểm tra âm thanh trước khi phát sóng tới cộng đồng thính giả.
+                    Khởi động Camera và Microphone để kiểm tra khung hình, âm thanh hoặc chia sẻ màn hình trước khi phát sóng tới cộng đồng thính giả.
                   </p>
                 </div>
                 <Button
                   onClick={startPreview}
-                  className="gap-2 bg-accent hover:bg-accent-hover text-canvas font-semibold shadow-xs"
+                  disabled={isStartingPreview}
+                  className="gap-2 bg-accent hover:bg-accent-hover text-canvas font-semibold shadow-xs h-9 text-xs"
                 >
-                  <Video className="h-4 w-4" />
-                  <span>Bật Camera & Micro (Xem trước)</span>
+                  {isStartingPreview ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Đang mở thiết bị...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Video className="h-4 w-4" />
+                      <span>Bật Camera & Micro (Xem trước)</span>
+                    </>
+                  )}
                 </Button>
               </div>
             )}
 
             {/* Overlay Status Chips (Top Left) */}
             {isPreviewing && (
-              <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-xs">
+              <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 z-10 pointer-events-none">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/75 px-2.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-xs">
                   <span
                     className={`h-2 w-2 rounded-full ${
                       isBroadcasting
@@ -307,216 +513,344 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
                         : 'bg-emerald-400'
                     }`}
                   />
-                  <span>{isBroadcasting ? 'ON AIR' : 'XEM TRƯỚC (PREVIEW)'}</span>
+                  <span>{isBroadcasting ? 'TRỰC TIẾP' : 'XEM TRƯỚC'}</span>
                 </span>
 
-                <span className="inline-flex items-center gap-1 rounded-full bg-black/70 px-2 py-1 text-[10px] text-white/80 backdrop-blur-xs">
+                {isScreenSharing && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-600/90 px-2.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs">
+                    <MonitorUp className="h-3 w-3" />
+                    <span>
+                      {isCameraEnabled
+                        ? 'CHIA SẺ MÀN HÌNH 60FPS + CAMERA (KÉO THẢ)'
+                        : 'CHIA SẺ MÀN HÌNH 60FPS (ĐÃ ẨN CAM)'}
+                    </span>
+                  </span>
+                )}
+
+                <span className="inline-flex items-center gap-1 rounded-full bg-black/75 px-2 py-0.5 text-[10px] text-white/90 backdrop-blur-xs">
                   <Eye className="h-3 w-3 text-sky-400" />
-                  <span>{formatLivestreamViewerCount(session.viewerCount)} xem</span>
+                  <span className="font-mono tabular-nums">{liveViewerCountDisplay}</span>
+                  <span>đang xem</span>
                 </span>
               </div>
             )}
 
             {/* Overlay Hardware Indicators (Bottom Left) */}
             {isPreviewing && (
-              <div className="absolute bottom-3 left-3 flex items-center gap-2 z-10">
+              <div className="absolute bottom-2.5 left-2.5 flex flex-wrap items-center gap-1.5 z-10 pointer-events-none">
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium backdrop-blur-xs ${
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium backdrop-blur-xs ${
                     isMicEnabled
-                      ? 'bg-emerald-500/80 text-white'
-                      : 'bg-rose-500/90 text-white'
+                      ? 'bg-emerald-600/85 text-white'
+                      : 'bg-rose-600/90 text-white'
                   }`}
                 >
-                  {isMicEnabled ? (
-                    <>
-                      <Mic className="h-3 w-3" />
-                      <span>Micro BẬT</span>
-                    </>
-                  ) : (
-                    <>
-                      <MicOff className="h-3 w-3" />
-                      <span>Micro TẮT</span>
-                    </>
-                  )}
+                  {isMicEnabled ? <Mic className="h-3 w-3" /> : <MicOff className="h-3 w-3" />}
+                  <span>{isMicEnabled ? `Mic ${micVolume}%` : 'Mic TẮT'}</span>
                 </span>
 
+                {isScreenSharing && (
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium backdrop-blur-xs ${
+                      hasScreenAudio && isScreenAudioEnabled
+                        ? 'bg-sky-600/85 text-white'
+                        : 'bg-neutral-800/85 text-neutral-300'
+                    }`}
+                  >
+                    {hasScreenAudio && isScreenAudioEnabled ? (
+                      <Volume2 className="h-3 w-3" />
+                    ) : (
+                      <VolumeX className="h-3 w-3" />
+                    )}
+                    <span>
+                      {hasScreenAudio
+                        ? isScreenAudioEnabled
+                          ? `Tiếng màn hình ${screenAudioVolume}%`
+                          : 'Tiếng màn hình TẮT'
+                        : 'Chỉ chia sẻ hình'}
+                    </span>
+                  </span>
+                )}
+
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium backdrop-blur-xs ${
+                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium backdrop-blur-xs ${
                     isCameraEnabled
-                      ? 'bg-emerald-500/80 text-white'
-                      : 'bg-rose-500/90 text-white'
+                      ? 'bg-emerald-600/85 text-white'
+                      : 'bg-rose-600/90 text-white'
                   }`}
                 >
-                  {isCameraEnabled ? (
-                    <>
-                      <Video className="h-3 w-3" />
-                      <span>Camera BẬT</span>
-                    </>
-                  ) : (
-                    <>
-                      <VideoOff className="h-3 w-3" />
-                      <span>Camera TẮT</span>
-                    </>
-                  )}
+                  {isCameraEnabled ? <Video className="h-3 w-3" /> : <VideoOff className="h-3 w-3" />}
+                  <span>{isCameraEnabled ? 'Cam BẬT' : 'Cam ẨN'}</span>
                 </span>
               </div>
             )}
           </div>
 
-          {/* Reconnecting Network Banner */}
+          {/* Reconnecting / Error Banners */}
           {connectionState === 'RECONNECTING' && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 flex items-center gap-2.5 shadow-xs">
+            <div className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs text-amber-900 flex items-center gap-2 shadow-xs shrink-0">
               <Loader2 className="h-4 w-4 animate-spin text-amber-600 shrink-0" />
-              <span>Đang mất kết nối tạm thời. Hệ thống đang tự động kết nối lại luồng phát sóng Agora...</span>
+              <span>Đang mất kết nối tạm thời. Hệ thống đang tự động khôi phục đường truyền phát sóng...</span>
             </div>
           )}
 
-          {/* Error Banner */}
-          {publisherError && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800 flex items-start justify-between gap-3 shadow-xs">
-              <div className="flex items-start gap-2.5">
-                <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
-                <div className="space-y-0.5">
-                  <p className="font-bold text-rose-950">Lỗi kết nối / phần cứng</p>
-                  <p className="leading-relaxed">{publisherError}</p>
-                </div>
+          {(publisherError || isMockTokenDetected) && (
+            <div className="rounded-xl border border-rose-300 bg-rose-50 px-3.5 py-2 text-xs text-rose-800 flex items-center justify-between gap-3 shadow-xs shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+                <span className="truncate">
+                  {publisherError || 'Không thể thiết lập kết nối phát sóng trực tiếp. Vui lòng thử lại.'}
+                </span>
               </div>
               <button
                 type="button"
                 onClick={clearError}
-                className="text-rose-600 hover:text-rose-800 p-1 font-bold text-xs"
+                className="text-rose-600 hover:text-rose-800 px-1.5 py-0.5 font-bold text-xs shrink-0 cursor-pointer"
               >
                 Đóng
               </button>
             </div>
           )}
 
-          {/* Studio Control Toolbar */}
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-            {/* Left Controls: Media Track Toggles */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant={isMicEnabled ? 'outline' : 'destructive'}
-                size="sm"
-                onClick={toggleMicrophone}
-                disabled={!isPreviewing}
-                className={`gap-1.5 text-xs h-9 ${
-                  !isMicEnabled ? 'bg-rose-600 hover:bg-rose-700 text-white' : ''
-                }`}
-                title={isMicEnabled ? 'Tắt micro' : 'Bật micro'}
-              >
-                {isMicEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-                <span className="hidden sm:inline">{isMicEnabled ? 'Micro' : 'Tắt Mic'}</span>
-              </Button>
-
-              <Button
-                variant={isCameraEnabled ? 'outline' : 'destructive'}
-                size="sm"
-                onClick={toggleCamera}
-                disabled={!isPreviewing}
-                className={`gap-1.5 text-xs h-9 ${
-                  !isCameraEnabled ? 'bg-rose-600 hover:bg-rose-700 text-white' : ''
-                }`}
-                title={isCameraEnabled ? 'Tắt camera' : 'Bật camera'}
-              >
-                {isCameraEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                <span className="hidden sm:inline">{isCameraEnabled ? 'Camera' : 'Tắt Cam'}</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={isPreviewing ? stopPreview : startPreview}
-                disabled={isStartingPreview || isStoppingBroadcast}
-                className="gap-1.5 text-xs h-9"
-              >
-                {isStartingPreview ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="h-3.5 w-3.5" />
-                )}
-                <span>
-                  {isStartingPreview
-                    ? 'Đang khởi động...'
-                    : isPreviewing
-                    ? 'Dừng xem trước'
-                    : 'Bật xem trước'}
-                </span>
-              </Button>
-            </div>
-
-            {/* Right Controls: Start / Stop Broadcast */}
-            <div className="flex items-center gap-2">
-              {!isBroadcasting ? (
+          {/* Compact Studio Control, Audio Volume Mixer & Inline Device Bar */}
+          <div className="shrink-0 rounded-2xl border border-border bg-surface p-3 shadow-xs space-y-2.5">
+            {/* Row 1: Action Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Button
-                  onClick={() => startBroadcasting(sessionId)}
-                  disabled={!isPreviewing || isJoining || isPublishing || isStartingPreview}
-                  className="gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-5 h-10 shadow-xs cursor-pointer"
+                  variant={isMicEnabled ? 'outline' : 'destructive'}
+                  size="sm"
+                  onClick={toggleMicrophone}
+                  disabled={!isPreviewing}
+                  className={`gap-1.5 text-xs h-8.5 px-2.5 ${
+                    !isMicEnabled ? 'bg-rose-600 hover:bg-rose-700 text-white' : ''
+                  }`}
+                  title={isMicEnabled ? 'Tắt micro' : 'Bật micro'}
                 >
-                  {isJoining || isPublishing ? (
+                  {isMicEnabled ? <Mic className="h-3.5 w-3.5" /> : <MicOff className="h-3.5 w-3.5" />}
+                  <span>{isMicEnabled ? 'Micro' : 'Đã tắt Mic'}</span>
+                </Button>
+
+                <Button
+                  variant={isCameraEnabled ? 'outline' : 'destructive'}
+                  size="sm"
+                  onClick={toggleCamera}
+                  disabled={!isPreviewing}
+                  className={`gap-1.5 text-xs h-8.5 px-2.5 ${
+                    !isCameraEnabled ? 'bg-rose-600 hover:bg-rose-700 text-white' : ''
+                  }`}
+                  title={
+                    isScreenSharing
+                      ? isCameraEnabled
+                        ? 'Ẩn ô Camera nhỏ để hiện 100% màn hình'
+                        : 'Hiện lại ô Camera nhỏ trên màn hình chia sẻ'
+                      : isCameraEnabled
+                      ? 'Tắt hình ảnh Camera'
+                      : 'Bật hình ảnh Camera'
+                  }
+                >
+                  {isCameraEnabled ? <Video className="h-3.5 w-3.5" /> : <VideoOff className="h-3.5 w-3.5" />}
+                  <span>
+                    {isScreenSharing
+                      ? isCameraEnabled
+                        ? 'Ẩn Cam góc'
+                        : 'Hiện Cam góc'
+                      : isCameraEnabled
+                      ? 'Camera'
+                      : 'Đã tắt Cam'}
+                  </span>
+                </Button>
+
+                <Button
+                  variant={isScreenSharing ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={toggleScreenShare}
+                  disabled={!isPreviewing || isDeviceSwitching || isJoining || isPublishing}
+                  className={`gap-1.5 text-xs h-8.5 px-2.5 ${
+                    isScreenSharing
+                      ? 'bg-sky-600 hover:bg-sky-700 text-white border-sky-600'
+                      : ''
+                  }`}
+                  title={
+                    isScreenSharing
+                      ? 'Dừng chia sẻ màn hình và quay lại Camera'
+                      : 'Chia sẻ màn hình 60fps kèm Camera góc nhỏ & thu tiếng màn hình'
+                  }
+                >
+                  {isScreenSharing ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Đang kết nối...</span>
+                      <MonitorOff className="h-3.5 w-3.5" />
+                      <span>Dừng chia sẻ</span>
                     </>
                   ) : (
                     <>
-                      <Radio className="h-4 w-4" />
-                      <span>BẮT ĐẦU PHÁT SÓNG</span>
+                      <MonitorUp className="h-3.5 w-3.5" />
+                      <span>Chia sẻ màn hình</span>
                     </>
                   )}
                 </Button>
-              ) : (
-                <Button
-                  onClick={stopBroadcasting}
-                  disabled={isStoppingBroadcast}
-                  variant="outline"
-                  className="gap-2 border-rose-300 text-rose-700 hover:bg-rose-50 font-bold px-4 h-10 shadow-xs cursor-pointer"
-                >
-                  {isStoppingBroadcast ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Đang dừng...</span>
-                    </>
-                  ) : (
-                    <>
-                      <StopCircle className="h-4 w-4 text-rose-600" />
-                      <span>Dừng phát sóng</span>
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
 
-          {/* Hardware Device Selection Card (Camera & Microphone) */}
-          <div className="rounded-2xl border border-border bg-surface p-4 shadow-xs space-y-3">
-            <div className="flex items-center justify-between border-b border-border pb-2.5">
-              <div className="flex items-center gap-2">
-                <Settings2 className="h-4 w-4 text-accent" />
-                <h3 className="font-serif text-xs font-bold text-ink">
-                  Thiết bị thu hình & âm thanh
-                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={isPreviewing ? stopPreview : startPreview}
+                  disabled={isStartingPreview || isStoppingBroadcast}
+                  className="gap-1.5 text-xs h-8.5 px-2.5 text-muted hover:text-ink"
+                >
+                  {isStartingPreview ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  )}
+                  <span>
+                    {isStartingPreview
+                      ? 'Đang mở...'
+                      : isPreviewing
+                      ? 'Tắt xem trước'
+                      : 'Bật xem trước'}
+                  </span>
+                </Button>
               </div>
-              <span className="text-[11px] text-muted">
-                {isPreviewing ? 'Đang bật xem trước' : 'Chưa bật xem trước'}
-              </span>
+
+              <div>
+                {!isBroadcasting ? (
+                  <Button
+                    onClick={() => startBroadcasting(sessionId)}
+                    disabled={!isPreviewing || isJoining || isPublishing || isStartingPreview}
+                    className="gap-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 h-8.5 text-xs shadow-xs cursor-pointer"
+                  >
+                    {isJoining || isPublishing ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Đang lên sóng...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Radio className="h-3.5 w-3.5" />
+                        <span>BẮT ĐẦU PHÁT SÓNG</span>
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleStopBroadcasting}
+                    disabled={isStoppingBroadcast}
+                    variant="outline"
+                    className="gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50 font-bold px-3.5 h-8.5 text-xs shadow-xs cursor-pointer"
+                  >
+                    {isStoppingBroadcast ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Đang dừng...</span>
+                      </>
+                    ) : (
+                      <>
+                        <StopCircle className="h-3.5 w-3.5 text-rose-600" />
+                        <span>Dừng phát sóng</span>
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Camera Selector */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-muted flex items-center gap-1.5">
-                  <Video className="h-3.5 w-3.5 text-ink" />
+            {/* Row 2: Audio Volume Sliders (Mic Volume & Screen/Live Audio Volume) */}
+            <div className="pt-2 border-t border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Mic Volume Slider */}
+              <div className="flex items-center gap-2 rounded-lg bg-surface-subtle/50 px-2.5 py-1.5 border border-border/50">
+                <button
+                  type="button"
+                  onClick={toggleMicrophone}
+                  disabled={!isPreviewing}
+                  className={`flex items-center gap-1 text-[11px] font-medium shrink-0 cursor-pointer ${
+                    isMicEnabled ? 'text-ink' : 'text-rose-600'
+                  }`}
+                  title={isMicEnabled ? 'Bấm để tắt nhanh Micro' : 'Bấm để bật lại Micro'}
+                >
+                  {isMicEnabled ? (
+                    <Mic className="h-3.5 w-3.5 text-accent" />
+                  ) : (
+                    <MicOff className="h-3.5 w-3.5 text-rose-500" />
+                  )}
+                  <span>Âm lượng Mic</span>
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={isMicEnabled ? micVolume : 0}
+                  onChange={(e) => changeMicVolume(Number(e.target.value))}
+                  disabled={!isPreviewing}
+                  aria-label="Âm lượng Microphone"
+                  className="flex-1 h-1.5 accent-accent cursor-pointer disabled:opacity-40"
+                />
+                <span className="font-mono text-[11px] font-semibold text-ink w-9 text-right tabular-nums">
+                  {isMicEnabled ? `${micVolume}%` : 'Tắt'}
+                </span>
+              </div>
+
+              {/* Screen / Live Audio Volume Slider */}
+              <div className="flex items-center gap-2 rounded-lg bg-surface-subtle/50 px-2.5 py-1.5 border border-border/50">
+                <button
+                  type="button"
+                  onClick={toggleScreenAudio}
+                  disabled={!isPreviewing}
+                  className={`flex items-center gap-1 text-[11px] font-medium shrink-0 cursor-pointer ${
+                    isScreenAudioEnabled ? 'text-ink' : 'text-rose-600'
+                  }`}
+                  title={
+                    isScreenAudioEnabled
+                      ? 'Bấm để tắt nhanh tiếng màn hình chia sẻ'
+                      : 'Bấm để bật lại tiếng màn hình chia sẻ'
+                  }
+                >
+                  {isScreenAudioEnabled ? (
+                    <Volume2 className="h-3.5 w-3.5 text-sky-600" />
+                  ) : (
+                    <VolumeX className="h-3.5 w-3.5 text-rose-500" />
+                  )}
+                  <span>Tiếng màn hình</span>
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={isScreenAudioEnabled ? screenAudioVolume : 0}
+                  onChange={(e) => changeScreenAudioVolume(Number(e.target.value))}
+                  disabled={!isPreviewing}
+                  aria-label="Âm lượng màn hình chia sẻ"
+                  className="flex-1 h-1.5 accent-sky-600 cursor-pointer disabled:opacity-40"
+                />
+                <span
+                  className="font-mono text-[11px] font-semibold text-ink w-9 text-right tabular-nums truncate"
+                  title={
+                    isScreenSharing && !hasScreenAudio
+                      ? 'Trình duyệt chưa cấp quyền thu tiếng hệ thống/thẻ (tích chọn "Chia sẻ âm thanh" khi chọn màn hình)'
+                      : undefined
+                  }
+                >
+                  {isScreenAudioEnabled ? `${screenAudioVolume}%` : 'Tắt'}
+                </span>
+              </div>
+            </div>
+
+            {/* Row 3: Inline Compact Hardware Selectors */}
+            <div className="pt-2 border-t border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-muted flex items-center gap-1 shrink-0 w-16">
+                  <Settings2 className="h-3 w-3 text-accent" />
                   <span>Camera</span>
-                </label>
+                </span>
                 <Select
                   value={selectedCameraId}
                   onChange={(e) => switchCamera(e.target.value)}
                   disabled={!isPreviewing || isDeviceSwitching}
-                  className="h-9 text-xs"
+                  className="h-8 text-xs flex-1"
                 >
                   {cameras.length === 0 ? (
-                    <option value="">{isPreviewing ? 'Không tìm thấy camera' : 'Bật xem trước để chọn camera'}</option>
+                    <option value="">
+                      {isPreviewing ? 'Không tìm thấy camera' : 'Bật xem trước để chọn camera'}
+                    </option>
                   ) : (
                     cameras.map((cam, idx) => (
                       <option key={cam.deviceId || idx} value={cam.deviceId}>
@@ -527,20 +861,21 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
                 </Select>
               </div>
 
-              {/* Microphone Selector */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-muted flex items-center gap-1.5">
-                  <Mic className="h-3.5 w-3.5 text-ink" />
-                  <span>Microphone</span>
-                </label>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium text-muted flex items-center gap-1 shrink-0 w-16">
+                  <Mic className="h-3 w-3 text-accent" />
+                  <span>Micro</span>
+                </span>
                 <Select
                   value={selectedMicrophoneId}
                   onChange={(e) => switchMicrophone(e.target.value)}
                   disabled={!isPreviewing || isDeviceSwitching}
-                  className="h-9 text-xs"
+                  className="h-8 text-xs flex-1"
                 >
                   {microphones.length === 0 ? (
-                    <option value="">{isPreviewing ? 'Không tìm thấy microphone' : 'Bật xem trước để chọn micro'}</option>
+                    <option value="">
+                      {isPreviewing ? 'Không tìm thấy micro' : 'Bật xem trước để chọn micro'}
+                    </option>
                   ) : (
                     microphones.map((mic, idx) => (
                       <option key={mic.deviceId || idx} value={mic.deviceId}>
@@ -551,124 +886,15 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
                 </Select>
               </div>
             </div>
-
-            {/* Note on safe device switching */}
-            <p className="text-[10px] text-muted leading-relaxed">
-              * Khuyến nghị: Thiết lập camera và micro phù hợp trong chế độ xem trước (Preview) trước khi phát sóng trực tiếp để đảm bảo chất lượng hình ảnh và âm thanh ổn định nhất.
-            </p>
           </div>
         </div>
 
-        {/* Right Column: Connection Diagnostics & Session Info */}
-        <div className="lg:col-span-4 space-y-4">
-          {/* Mock Token Warning Card (If Backend has unconfigured Agora App ID) */}
-          {isMockTokenDetected && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 space-y-2 shadow-xs">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                <p className="font-bold text-amber-950">Chế độ giả lập (Mock Token)</p>
-              </div>
-              <p className="text-[11px] text-amber-800 leading-relaxed">
-                Máy chủ Backend hiện chưa được cấu hình <code>app.agora.app-id</code> hoặc <code>app.agora.app-certificate</code>. Backend đang sinh token giả lập để kiểm thử luồng REST API.
-              </p>
-              <div className="rounded-md border border-amber-200 bg-white/70 p-2 text-[10px] text-amber-900 space-y-1">
-                <p className="font-semibold">Để kích hoạt WebRTC Video thật:</p>
-                <p>1. Cấu hình biến môi trường Agora trên Spring Boot Backend.</p>
-                <p>2. Khởi tạo lại phiên phát sóng với App ID hợp lệ.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Session Overview Card */}
-          <div className="rounded-xl border border-border bg-surface p-4 space-y-3 shadow-xs text-xs">
-            <h3 className="font-serif text-sm font-bold text-ink border-b border-border pb-2 flex items-center justify-between">
-              <span>Thông tin phòng live</span>
-              <Badge variant="outline" className="text-[10px]">
-                ID: #{session.id}
-              </Badge>
-            </h3>
-
-            <div className="space-y-2">
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  Kênh Agora RTC
-                </span>
-                <p className="mt-0.5 font-mono text-xs font-bold text-accent truncate" title={session.agoraChannelName}>
-                  {agoraChannelName || session.agoraChannelName}
-                </p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                  Thời gian bắt đầu
-                </span>
-                <p className="mt-0.5 font-medium text-ink">
-                  {formatDateTime(session.startedAt)}
-                </p>
-              </div>
-
-              {session.description && (
-                <div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
-                    Mô tả
-                  </span>
-                  <p className="mt-0.5 text-muted leading-relaxed line-clamp-3">
-                    {session.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Technical Diagnostics Card */}
-          <div className="rounded-xl border border-border bg-surface p-4 space-y-3 shadow-xs text-xs">
-            <h3 className="font-serif text-sm font-bold text-ink border-b border-border pb-2 flex items-center gap-1.5">
-              <ShieldCheck className="h-4 w-4 text-emerald-600" />
-              <span>Thông số kỹ thuật Agora</span>
-            </h3>
-
-            <div className="space-y-2.5 text-[11px]">
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Trạng thái kết nối RTC:</span>
-                <span
-                  className={`font-semibold ${
-                    connectionState === 'CONNECTED'
-                      ? 'text-emerald-600 font-bold'
-                      : connectionState === 'CONNECTING'
-                      ? 'text-amber-600'
-                      : 'text-muted'
-                  }`}
-                >
-                  {connectionState}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Vai trò luồng (Role):</span>
-                <span className="font-semibold text-ink">PUBLISHER (Host)</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-muted">SDK Version:</span>
-                <span className="font-mono text-ink">agora-rtc-sdk-ng v4.24.9</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Video Codec:</span>
-                <span className="font-mono text-ink">VP8 (Mode: Live)</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Độ phân giải:</span>
-                <span className="font-mono text-ink">720p HD (30 FPS)</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Live Chat Panel Component */}
+        {/* Right Column: Live Chat Panel matched to Left Column height */}
+        <div className="lg:col-span-4 flex flex-col lg:h-full min-h-0">
           <LivestreamChatPanel
             sessionId={sessionId}
             isSessionEnded={isSessionEnded}
+            className="flex-1"
           />
         </div>
       </div>

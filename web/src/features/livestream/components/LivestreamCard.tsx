@@ -34,6 +34,7 @@ export const LivestreamCard: React.FC<LivestreamCardProps> = ({
 }) => {
   const isLive = session.status === 'LIVE';
   const isOwner = canManageLivestream(session, currentUserId);
+  const safeChannelName = session.channelName || 'Kênh podcast';
 
   return (
     <div className="group relative flex flex-col rounded-xl border border-border bg-surface shadow-xs hover:shadow-md transition-all duration-200 overflow-hidden">
@@ -51,7 +52,7 @@ export const LivestreamCard: React.FC<LivestreamCardProps> = ({
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-surface-subtle via-canvas to-surface-subtle flex flex-col items-center justify-center p-4 text-center">
             <Radio className={`h-10 w-10 ${isLive ? 'text-accent animate-pulse' : 'text-muted'}`} />
-            <span className="mt-2 text-xs font-semibold text-ink line-clamp-1">{session.channelName}</span>
+            <span className="mt-2 text-xs font-semibold text-ink line-clamp-1">{safeChannelName}</span>
           </div>
         )}
 
@@ -101,15 +102,15 @@ export const LivestreamCard: React.FC<LivestreamCardProps> = ({
           {session.channelAvatarUrl ? (
             <img
               src={session.channelAvatarUrl}
-              alt={session.channelName}
+              alt={safeChannelName}
               className="h-5 w-5 rounded-full object-cover border border-border"
             />
           ) : (
             <div className="flex h-5 w-5 items-center justify-center rounded-full bg-surface-subtle text-[10px] font-bold text-ink border border-border">
-              {session.channelName.charAt(0).toUpperCase()}
+              {safeChannelName.charAt(0).toUpperCase()}
             </div>
           )}
-          <span className="truncate font-medium text-ink/80">{session.channelName}</span>
+          <span className="truncate font-medium text-ink/80">{safeChannelName}</span>
         </div>
 
         {/* Description Snippet */}

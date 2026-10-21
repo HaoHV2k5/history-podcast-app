@@ -17,6 +17,8 @@ public interface LivestreamService {
 
     LivestreamTokenResponse getJoinToken(Long sessionId, Integer clientUid);
 
+    LivestreamResponse leaveSession(Long sessionId, boolean resetAll);
+
     LivestreamResponse endSession(Long sessionId);
 
     LivestreamResponse getSession(Long sessionId);

@@ -39,7 +39,6 @@ export const EndLivestreamConfirmDialog: React.FC<EndLivestreamConfirmDialogProp
     },
     onSuccess: (updatedSession) => {
       if (session) {
-        // Cập nhật ngay lập tức dữ liệu cache của phiên sang trạng thái ENDED
         queryClient.setQueryData(['creator-livestream-detail', session.id], {
           data: updatedSession,
         });
@@ -53,7 +52,7 @@ export const EndLivestreamConfirmDialog: React.FC<EndLivestreamConfirmDialogProp
       const errObj = err as { errorCode?: string; message?: string };
       const msg = interpretLivestreamError(
         errObj.errorCode,
-        errObj.message || 'Không thể kết thúc phiên livestream. Vui lòng thử lại.'
+        errObj.message || 'Không thể kết thúc phiên phát trực tiếp. Vui lòng thử lại.'
       );
       setErrorMsg(msg);
     },
@@ -63,7 +62,6 @@ export const EndLivestreamConfirmDialog: React.FC<EndLivestreamConfirmDialogProp
     if (!session) return;
     setErrorMsg(null);
 
-    // Kiểm tra tính hợp lệ trước khi gửi yêu cầu lên Backend
     const validation = validateEndSessionTransition(session, user?.id);
     if (!validation.canEnd) {
       setErrorMsg(validation.reason || 'Không đủ điều kiện kết thúc phiên phát sóng.');
@@ -86,7 +84,7 @@ export const EndLivestreamConfirmDialog: React.FC<EndLivestreamConfirmDialogProp
             <div>
               <DialogTitle>Kết thúc phiên phát sóng?</DialogTitle>
               <DialogDescription>
-                Hành động này sẽ đóng phòng live và ngắt luồng video trực tiếp.
+                Hành động này sẽ đóng phòng phát sóng và ngắt luồng video trực tiếp.
               </DialogDescription>
             </div>
           </div>
@@ -99,8 +97,8 @@ export const EndLivestreamConfirmDialog: React.FC<EndLivestreamConfirmDialogProp
           </div>
 
           <p className="leading-relaxed">
-            Khán giả đang theo dõi sẽ không thể tiếp tục gửi tin nhắn chat hoặc xem luồng phát. Sau khi kết thúc, phiên live sẽ chuyển vĩnh viễn sang trạng thái{' '}
-            <strong className="text-muted font-bold">ĐÃ KẾT THÚC (ENDED)</strong> và không thể kích hoạt lại.
+            Khán giả đang theo dõi sẽ không thể tiếp tục gửi tin nhắn trò chuyện hoặc xem luồng phát. Sau khi kết thúc, phiên phát sóng sẽ chuyển sang trạng thái{' '}
+            <strong className="text-muted font-bold">Đã kết thúc</strong> và lưu vào lịch sử của kênh.
           </p>
 
           {errorMsg && (
