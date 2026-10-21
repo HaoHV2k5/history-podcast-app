@@ -26,6 +26,8 @@ import '../../core/api/escrow_transaction_repository.dart';
 import '../../core/api/freelancer_repository.dart';
 import '../../core/api/hire_request_repository.dart';
 import '../../core/api/kyc_repository.dart';
+import '../../core/api/livestream_repository.dart';
+import '../../core/api/membership_repository.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -49,6 +51,8 @@ class AppState extends ChangeNotifier {
     this.freelancerRepository,
     this.hireRequestRepository,
     this.kycRepository,
+    this.livestreamRepository,
+    this.membershipRepository,
   }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
@@ -149,6 +153,8 @@ class AppState extends ChangeNotifier {
   final FreelancerRepository? freelancerRepository;
   final HireRequestRepository? hireRequestRepository;
   final KycRepository? kycRepository;
+  final LivestreamRepository? livestreamRepository;
+  final MembershipRepository? membershipRepository;
 
   Future<void> initRealBackend() async {
     if (contentRepository != null) {
@@ -160,6 +166,16 @@ class AppState extends ChangeNotifier {
         }
       } catch (_) {}
     }
+
+    if (membershipRepository != null) {
+      try {
+        final myMems = await membershipRepository!.getMyMemberships();
+        for (final m in myMems) {
+          memberships.add(m.channelName);
+        }
+      } catch (_) {}
+    }
+
 
     if (commentRepository != null) {
       try {
