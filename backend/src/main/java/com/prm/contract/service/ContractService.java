@@ -23,6 +23,14 @@ public interface ContractService {
 
     ContractResponse cancelContract(Long contractId);
 
+    PageResponse<com.prm.contract.dto.response.MilestoneResponse> getMyMilestones(
+            com.prm.contract.constant.MilestoneStatus status,
+            Long contractId,
+            Pageable pageable
+    );
+
+    com.prm.contract.dto.response.MyMilestoneFinancialResponse getMyMilestoneFinancials();
+
     // Legacy CRUD methods for backward compatibility
     List<ContractResponse> findAll();
     ContractResponse findById(Long id);
