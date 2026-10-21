@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/features/studio/__tests__/creatorStudio.test.ts src/routes/__tests__/protectedRouteLogic.test.ts src/features/studio/__tests__/uiMotionRegression.test.ts"
+    "test": "node --experimental-strip-types --test src/features/studio/__tests__/creatorStudio.test.ts src/routes/__tests__/protectedRouteLogic.test.ts src/features/studio/__tests__/uiMotionRegression.test.ts src/features/contracts/__tests__/milestoneFinanceLogic.test.ts src/features/disputes/__tests__/disputeResolutionLogic.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

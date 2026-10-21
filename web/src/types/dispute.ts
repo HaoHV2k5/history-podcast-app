@@ -1,3 +1,16 @@
+export type DisputeStatus = 'OPEN' | 'RESOLVED';
+
+export type DisputeResult =
+  | 'RELEASE_TO_FREELANCER'
+  | 'REFUND_TO_CREATOR'
+  | 'SPLIT';
+
+export interface ResolveDisputePayload {
+  result: DisputeResult;
+  splitPercent?: number;
+  resolution?: string;
+}
+
 export interface DisputeItem {
   id: number;
   contractId: number;
@@ -9,8 +22,8 @@ export interface DisputeItem {
   reason: string;
   evidence?: string;
   counterEvidence?: string;
-  status: string;
-  result?: string;
+  status: DisputeStatus | string;
+  result?: DisputeResult | string;
   splitPercent?: number;
   resolvedByUserId?: number;
   resolvedByUserFullName?: string;
