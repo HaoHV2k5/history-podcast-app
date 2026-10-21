@@ -52,6 +52,24 @@ public class ContractController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/my-milestones")
+    @Operation(summary = "Lấy danh sách milestone của tôi", description = "Xem các milestone của người dùng hiện tại, có thể lọc theo trạng thái và hợp đồng")
+    public ResponseEntity<ApiResponse<PageResponse<com.prm.contract.dto.response.MilestoneResponse>>> getMyMilestones(
+            @RequestParam(required = false) com.prm.contract.constant.MilestoneStatus status,
+            @RequestParam(required = false) Long contractId,
+            @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        PageResponse<com.prm.contract.dto.response.MilestoneResponse> response = contractService.getMyMilestones(status, contractId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/me/milestone-financials")
+    @Operation(summary = "Xem tổng quan tài chính milestone của tôi", description = "Freelancer xem thu nhập đã nhận, chờ nhận, phí sàn đã trả; Creator xem chi tiêu, tiền escrow đang giữ, hoàn tiền")
+    public ResponseEntity<ApiResponse<com.prm.contract.dto.response.MyMilestoneFinancialResponse>> getMyMilestoneFinancials() {
+        com.prm.contract.dto.response.MyMilestoneFinancialResponse response = contractService.getMyMilestoneFinancials();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @PostMapping("/{id}/accept")
     @Operation(summary = "Freelancer chấp nhận hợp đồng", description = "Hợp đồng chuyển sang ACTIVE, khóa điều khoản, Milestone #1 chuyển sang UNFUNDED để Creator ký quỹ")
     public ResponseEntity<ApiResponse<ContractResponse>> acceptContract(@PathVariable Long id) {
