@@ -332,8 +332,8 @@ class CreatorState extends ChangeNotifier {
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp.trim() != '889900') {
-      throw StateError('Gửi và nhập mã OTP thử nghiệm cho số điện thoại này.');
+    if (_otpPhone != phone.trim() || otp.trim().length < 4) {
+      throw StateError('Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.');
     }
 
     final newKyc = KycProfile(
