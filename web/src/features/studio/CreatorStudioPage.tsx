@@ -60,6 +60,8 @@ import {
   extractNarrationFromStoryboard,
 } from './creatorStudioUtils';
 import { SceneImageUploadDropzone } from './components/SceneImageUploadDropzone';
+import { gsap } from 'gsap';
+import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
 
 // Pre-filled historical script sample for testing/demonstration
 const SAMPLE_HISTORICAL_SCRIPT = `Mùa thu tháng 7 năm Canh Tuất 1010, vua Lý Thái Tổ khởi sự dời đô từ cố đô Hoa Lư ra thành Đại La.
@@ -73,6 +75,29 @@ export const CreatorStudioPage: React.FC = () => {
 
   // Active Tab: 'script' | 'storyboard' | 'voices' | 'render'
   const [activeTab, setActiveTab] = useState<'script' | 'storyboard' | 'voices' | 'render'>('script');
+  const tabContentRef = useRef<HTMLDivElement>(null);
+
+  // GSAP Tab transition feedback
+  useEffect(() => {
+    if (isReducedMotion() || !tabContentRef.current) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        tabContentRef.current,
+        { opacity: 0, y: MOTION_CONFIG.distance.sm },
+        {
+          opacity: 1,
+          y: 0,
+          duration: MOTION_CONFIG.duration.studioStep,
+          ease: MOTION_CONFIG.ease,
+          overwrite: 'auto',
+          clearProps: 'transform,opacity',
+        }
+      );
+    }, tabContentRef);
+
+    return () => ctx.revert();
+  }, [activeTab]);
 
   // Script Editor State
   const [scriptTopic, setScriptTopic] = useState('');
@@ -722,68 +747,51 @@ export const CreatorStudioPage: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-border">
-        <button
-          type="button"
-          onClick={() => setActiveTab('script')}
-          className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center gap-2 border-b-2 -mb-px ${
-            activeTab === 'script'
-              ? 'border-accent text-accent bg-surface'
-              : 'border-transparent text-muted hover:text-ink hover:bg-surface-subtle'
-          }`}
-        >
-          <FileCheck2 className="h-4 w-4" />
-          <span>Biên Soạn & Thẩm Định Kịch Bản</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('storyboard')}
-          className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center gap-2 border-b-2 -mb-px ${
-            activeTab === 'storyboard'
-              ? 'border-accent text-accent bg-surface'
-              : 'border-transparent text-muted hover:text-ink hover:bg-surface-subtle'
-          }`}
-        >
-          <Layers className="h-4 w-4" />
-          <span>Khởi Tạo Phân Cảnh Bảng Trắng</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('voices')}
-          className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center gap-2 border-b-2 -mb-px ${
-            activeTab === 'voices'
-              ? 'border-accent text-accent bg-surface'
-              : 'border-transparent text-muted hover:text-ink hover:bg-surface-subtle'
-          }`}
-        >
-          <Volume2 className="h-4 w-4" />
-          <span>Thư Viện Giọng Đọc AI ({voices.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('render')}
-          className={`px-4 py-2.5 text-xs font-semibold rounded-t-lg transition-colors flex items-center gap-2 border-b-2 -mb-px ${
-            activeTab === 'render'
-              ? 'border-accent text-accent bg-surface'
-              : 'border-transparent text-muted hover:text-ink hover:bg-surface-subtle'
-          }`}
-        >
-          <Clapperboard className="h-4 w-4" />
-          <span>Kết Xuất Video & Tiến Trình</span>
-          {activeJobId && (
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-            </span>
-          )}
-        </button>
+      {/* 3. Navigation Connected Stepper */}
+      <div className="flex items-center gap-1.5 sm:gap-2 border-b border-border/80 overflow-x-auto scrollbar-none pb-0.5 bg-surface-subtle/50 p-1.5 rounded-t-xl border-t border-x border-border/60">
+        {[
+          { id: 'script', step: '1', label: 'Biên Soạn & Thẩm Định Kịch Bản', icon: FileCheck2 },
+          { id: 'storyboard', step: '2', label: 'Khởi Tạo Phân Cảnh Bảng Trắng', icon: Layers },
+          { id: 'voices', step: '3', label: `Thư Viện Giọng Đọc AI (${voices.length})`, icon: Volume2 },
+          { id: 'render', step: '4', label: 'Kết Xuất Video & Tiến Trình', icon: Clapperboard, hasBadge: Boolean(activeJobId) },
+        ].map((item) => {
+          const Icon = item.icon;
+          const isActive = activeTab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveTab(item.id as 'script' | 'storyboard' | 'voices' | 'render')}
+              className={`group relative px-3.5 sm:px-4 py-2 text-xs font-semibold rounded-lg transition-all duration-150 flex items-center gap-2.5 shrink-0 whitespace-nowrap min-h-[44px] cursor-pointer ${
+                isActive
+                  ? 'bg-surface text-accent shadow-xs border border-border/80 font-bold'
+                  : 'text-muted hover:text-ink hover:bg-surface/70'
+              }`}
+            >
+              <span
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold font-mono transition-colors ${
+                  isActive
+                    ? 'bg-accent text-canvas'
+                    : 'bg-surface-subtle text-muted group-hover:text-ink border border-border'
+                }`}
+              >
+                {item.step}
+              </span>
+              <Icon className="h-4 w-4 shrink-0 transition-colors" />
+              <span>{item.label}</span>
+              {item.hasBadge && (
+                <span className="flex h-2 w-2 relative ml-1">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      {/* 4. TAB CONTENT 1: SCRIPT EDITOR & HISTORICAL VERIFICATION */}
+      {/* 4. TAB CONTENT PANELS WITH GSAP TRANSITION FEEDBACK */}
+      <div ref={tabContentRef} className="w-full">
       {activeTab === 'script' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Script Editor (7 cols) */}
@@ -1500,10 +1508,10 @@ export const CreatorStudioPage: React.FC = () => {
                 return (
                   <div
                     key={voice.id}
-                    className={`rounded-xl border p-4 shadow-xs flex flex-col justify-between transition-all bg-surface ${
+                    className={`rounded-xl border p-4 flex flex-col justify-between transition-all duration-200 bg-surface hover:-translate-y-0.5 hover:shadow-card-hover ${
                       isSelected
-                        ? 'border-accent ring-1 ring-accent'
-                        : 'border-border hover:border-accent/40'
+                        ? 'border-accent ring-1 ring-accent shadow-xs'
+                        : 'border-border hover:border-accent/40 shadow-xs'
                     }`}
                   >
                     <div>
@@ -1518,6 +1526,14 @@ export const CreatorStudioPage: React.FC = () => {
                               <Badge variant="accent" size="sm">
                                 Đang chọn
                               </Badge>
+                            )}
+                            {isPlaying && (
+                              <div className="flex items-end gap-0.5 h-3.5 px-1 pb-0.5" title="Đang phát âm thanh mẫu">
+                                <span className="sound-bar" />
+                                <span className="sound-bar" />
+                                <span className="sound-bar" />
+                                <span className="sound-bar" />
+                              </div>
                             )}
                           </div>
                           <span className="text-[11px] text-muted block mt-0.5">
@@ -2247,6 +2263,7 @@ export const CreatorStudioPage: React.FC = () => {
           )}
         </div>
       )}
+      </div>
 
       {/* 7. SETTINGS DIALOG (MODAL CẤU HÌNH AI) */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>

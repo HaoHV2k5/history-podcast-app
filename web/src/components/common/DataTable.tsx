@@ -23,6 +23,8 @@ interface DataTableProps<T> {
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
   onRowClick?: (item: T) => void;
+  isRowSelected?: (item: T) => boolean;
+  isRowDisabled?: (item: T) => boolean;
   pagination?: React.ReactNode;
   className?: string;
 }
@@ -36,6 +38,8 @@ export function DataTable<T>({
   emptyDescription,
   emptyAction,
   onRowClick,
+  isRowSelected,
+  isRowDisabled,
   pagination,
   className,
 }: DataTableProps<T>) {
@@ -59,14 +63,14 @@ export function DataTable<T>({
   return (
     <div
       className={cn(
-        'w-full overflow-hidden rounded-lg border border-border bg-surface',
+        'w-full overflow-hidden rounded-lg border border-border bg-surface shadow-xs',
         className
       )}
     >
       <div className="w-full overflow-x-auto">
         <table className="w-full text-left text-sm border-collapse">
           <thead>
-            <tr className="border-b border-border bg-surface-subtle/70 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+            <tr className="border-b border-border bg-[#F7F5F0] text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
               {columns.map((col) => (
                 <th
                   key={col.key}
@@ -77,7 +81,7 @@ export function DataTable<T>({
                     col.align === 'center' && 'text-center',
                     col.align === 'right' && 'text-right',
                     col.stickyRight &&
-                      'sticky right-0 bg-surface-subtle/90 backdrop-blur-sm shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.04)]',
+                      'sticky right-0 bg-[#F7F5F0] shadow-[-6px_0_12px_-4px_rgba(38,37,34,0.08)]',
                     col.headerClassName
                   )}
                 >
@@ -90,16 +94,21 @@ export function DataTable<T>({
             {data.map((row, index) => {
               const key = keyExtractor(row);
               const isClickable = Boolean(onRowClick);
+              const isSelected = isRowSelected ? isRowSelected(row) : false;
+              const isDisabled = isRowDisabled ? isRowDisabled(row) : false;
 
               return (
                 <tr
                   key={key}
-                  onClick={() => onRowClick && onRowClick(row)}
+                  onClick={() => !isDisabled && onRowClick && onRowClick(row)}
                   className={cn(
                     'group transition-colors duration-150',
-                    isClickable
-                      ? 'cursor-pointer hover:bg-surface-subtle/50'
-                      : 'hover:bg-surface-subtle/25'
+                    isDisabled
+                      ? 'opacity-60 cursor-not-allowed bg-surface'
+                      : isSelected
+                      ? 'bg-[#FAF0F2] hover:bg-[#F5E5E8]'
+                      : 'bg-surface hover:bg-[#FAF8F5]',
+                    !isDisabled && isClickable && 'cursor-pointer'
                   )}
                 >
                   {columns.map((col) => {
@@ -115,7 +124,12 @@ export function DataTable<T>({
                           col.align === 'center' && 'text-center',
                           col.align === 'right' && 'text-right',
                           col.stickyRight &&
-                            'sticky right-0 bg-surface group-hover:bg-surface-subtle/50 shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.04)]',
+                            cn(
+                              'sticky right-0 shadow-[-6px_0_12px_-4px_rgba(38,37,34,0.06)] transition-colors duration-150',
+                              isSelected
+                                ? 'bg-[#FAF0F2] group-hover:bg-[#F5E5E8]'
+                                : 'bg-surface group-hover:bg-[#FAF8F5]'
+                            ),
                           col.className
                         )}
                       >

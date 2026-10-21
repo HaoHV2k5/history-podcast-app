@@ -114,26 +114,21 @@ export const CreatorSidebar: React.FC<CreatorSidebarProps> = ({
                     key={item.to}
                     to={item.to}
                     end={item.to === '/creator'}
-                    title={collapsed ? `${item.id} ${item.label}` : undefined}
+                    title={collapsed ? item.label : undefined}
                     onClick={onNavClick}
                     className={({ isActive }) =>
                       cn(
-                        'group relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 min-h-[44px] text-xs font-medium transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                        'group relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 min-h-[44px] text-xs font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                         isActive
-                          ? 'bg-accent-soft text-accent font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm before:bg-accent'
-                          : 'text-ink/80 hover:bg-surface hover:text-ink'
+                          ? 'bg-gradient-to-r from-accent-soft via-accent-soft/80 to-transparent text-accent font-semibold shadow-2xs before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm before:bg-accent'
+                          : 'text-ink/80 hover:bg-surface hover:text-ink hover:translate-x-0.5'
                       )
                     }
                   >
                     <Icon className="h-4 w-4 shrink-0 transition-colors" />
                     {!collapsed && (
                       <div className="flex items-center justify-between gap-1 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="font-mono text-[11px] text-muted group-hover:text-ink">
-                            {item.id}
-                          </span>
-                          <span className="truncate">{item.label}</span>
-                        </div>
+                        <span className="truncate">{item.label}</span>
                         {item.badge && (
                           <span className="shrink-0 rounded-xs bg-surface px-1.5 py-0.5 text-[9px] font-medium text-muted border border-border">
                             {item.badge}

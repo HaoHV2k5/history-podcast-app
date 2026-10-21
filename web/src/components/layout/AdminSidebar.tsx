@@ -92,7 +92,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       <div className="h-16 flex items-center px-4 border-b border-border bg-surface-subtle">
         <div className="flex items-center gap-3 overflow-hidden">
           {/* Book Seal Icon */}
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-canvas">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-canvas shadow-xs border border-accent-hover/30">
             <svg
               className="h-5 w-5"
               viewBox="0 0 24 24"
@@ -138,24 +138,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                   <NavLink
                     key={item.to}
                     to={item.to}
-                    title={collapsed ? `${item.id} ${item.label}` : undefined}
+                    title={collapsed ? item.label : undefined}
                     className={({ isActive }) =>
                       cn(
-                        'group relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 min-h-[44px] text-xs font-medium transition-colors duration-150',
+                        'group relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 min-h-[44px] text-xs font-medium transition-all duration-150',
                         isActive
-                          ? 'bg-accent-soft text-accent font-semibold before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm before:bg-accent'
-                          : 'text-ink/80 hover:bg-surface hover:text-ink'
+                          ? 'bg-gradient-to-r from-accent-soft via-accent-soft/80 to-transparent text-accent font-semibold shadow-2xs before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[3px] before:rounded-r-sm before:bg-accent'
+                          : 'text-ink/80 hover:bg-surface hover:text-ink hover:translate-x-0.5'
                       )
                     }
                   >
                     <Icon className="h-4 w-4 shrink-0 transition-colors" />
                     {!collapsed && (
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="font-mono text-[11px] text-muted group-hover:text-ink">
-                          {item.id}
-                        </span>
-                        <span className="truncate">{item.label}</span>
-                      </div>
+                      <span className="truncate">{item.label}</span>
                     )}
                   </NavLink>
                 );

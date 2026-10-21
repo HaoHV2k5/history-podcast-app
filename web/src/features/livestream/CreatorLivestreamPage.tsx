@@ -140,30 +140,30 @@ export const CreatorLivestreamPage: React.FC = () => {
 
       {/* Just-created Success Banner */}
       {justCreatedSession && (
-        <div className="relative rounded-xl border border-emerald-300 bg-emerald-50/90 p-4 text-xs text-emerald-900 shadow-xs">
+        <div className="relative rounded-xl border border-status-success-text/30 bg-status-success-bg p-4 text-xs text-status-success-text shadow-xs">
           <button
             type="button"
             onClick={() => setJustCreatedSession(null)}
-            className="absolute top-3 right-3 text-emerald-700 hover:text-emerald-900 p-1 rounded"
+            className="absolute top-3 right-3 text-status-success-text/80 hover:text-status-success-text p-1 rounded cursor-pointer"
           >
             <X className="h-4 w-4" />
           </button>
           <div className="flex items-start gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-200 text-emerald-800">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-success-text/20 text-status-success-text">
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="space-y-1 pr-6">
-              <p className="font-bold text-sm text-emerald-950">
+              <p className="font-bold text-sm text-status-success-text">
                 Khởi tạo thành công phiên phát trực tiếp: &ldquo;{justCreatedSession.title}&rdquo;!
               </p>
-              <p className="text-emerald-800 leading-relaxed">
-                Phiên phát sóng hiện đang ở trạng thái <strong className="font-bold text-rose-700">LIVE</strong> trên máy chủ. Bạn có thể vào Studio ngay bây giờ để bật Camera/Microphone và bắt đầu phát sóng trực tiếp.
+              <p className="text-status-success-text/90 leading-relaxed">
+                Phiên phát sóng hiện đang ở trạng thái <strong className="font-bold text-accent">LIVE</strong> trên máy chủ. Bạn có thể vào Studio ngay bây giờ để bật Camera/Microphone và bắt đầu phát sóng trực tiếp.
               </p>
               <div className="pt-1 flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-7 text-xs bg-white text-emerald-900 border-emerald-300 hover:bg-emerald-100"
+                  className="h-7 text-xs bg-canvas text-status-success-text border-status-success-text/40 hover:bg-status-success-bg"
                   onClick={() => handleEnterStudio(justCreatedSession)}
                 >
                   <Tv className="h-3.5 w-3.5 mr-1" />
@@ -172,7 +172,7 @@ export const CreatorLivestreamPage: React.FC = () => {
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 text-xs text-emerald-800 hover:bg-emerald-100"
+                  className="h-7 text-xs text-status-success-text hover:bg-status-success-bg"
                   onClick={() => setDetailSession(justCreatedSession)}
                 >
                   Xem chi tiết phiên
@@ -190,14 +190,14 @@ export const CreatorLivestreamPage: React.FC = () => {
             <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
               Đang phát sóng
             </span>
-            <p className="mt-1 font-serif text-2xl font-bold text-rose-600 flex items-center gap-2">
-              {liveCount}
+            <p className="mt-1 font-serif text-2xl font-bold text-accent flex items-center gap-2">
+              <span className="font-mono tabular-nums">{liveCount}</span>
               {liveCount > 0 && (
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-accent animate-ping" />
               )}
             </p>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent">
             <Radio className="h-5 w-5" />
           </div>
         </div>
@@ -208,10 +208,10 @@ export const CreatorLivestreamPage: React.FC = () => {
               Thính giả trực tuyến
             </span>
             <p className="mt-1 font-serif text-2xl font-bold text-ink">
-              {formatLivestreamViewerCount(totalViewers)}
+              <span className="font-mono tabular-nums">{formatLivestreamViewerCount(totalViewers)}</span>
             </p>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-subtle text-accent">
             <Eye className="h-5 w-5" />
           </div>
         </div>
@@ -222,7 +222,7 @@ export const CreatorLivestreamPage: React.FC = () => {
               Tổng số phiên live
             </span>
             <p className="mt-1 font-serif text-2xl font-bold text-ink">
-              {allSessions.length}
+              <span className="font-mono tabular-nums">{allSessions.length}</span>
             </p>
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-surface-subtle text-muted">
@@ -237,14 +237,14 @@ export const CreatorLivestreamPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('ALL')}
-            className={`flex items-center gap-2 px-4 py-2.5 border-b-2 text-xs font-semibold transition-colors cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] border-b-2 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === 'ALL'
                 ? 'border-accent text-accent'
                 : 'border-transparent text-muted hover:text-ink hover:border-border'
             }`}
           >
             <span>Tất cả</span>
-            <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] text-muted">
+            <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-mono tabular-nums text-muted">
               {allSessions.length}
             </span>
           </button>
@@ -252,9 +252,9 @@ export const CreatorLivestreamPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('LIVE')}
-            className={`flex items-center gap-2 px-4 py-2.5 border-b-2 text-xs font-semibold transition-colors cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] border-b-2 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === 'LIVE'
-                ? 'border-rose-600 text-rose-600'
+                ? 'border-accent text-accent'
                 : 'border-transparent text-muted hover:text-ink hover:border-border'
             }`}
           >
@@ -270,14 +270,14 @@ export const CreatorLivestreamPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setActiveTab('ENDED')}
-            className={`flex items-center gap-2 px-4 py-2.5 border-b-2 text-xs font-semibold transition-colors cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2.5 min-h-[44px] border-b-2 text-xs font-semibold transition-colors cursor-pointer ${
               activeTab === 'ENDED'
                 ? 'border-accent text-accent'
                 : 'border-transparent text-muted hover:text-ink hover:border-border'
             }`}
           >
             <span>Đã kết thúc</span>
-            <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] text-muted">
+            <span className="rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] font-mono tabular-nums text-muted">
               {endedCount}
             </span>
           </button>

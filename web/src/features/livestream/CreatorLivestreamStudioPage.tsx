@@ -112,12 +112,12 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
   // Error or Not Found state
   if (isSessionError || !session) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3 mt-12">
-        <AlertTriangle className="h-8 w-8 text-rose-500 mx-auto" />
-        <h2 className="font-serif text-lg font-bold text-rose-900">
+      <div className="mx-auto max-w-lg rounded-xl border border-status-error-text/30 bg-status-error-bg p-6 text-center space-y-3 mt-12">
+        <AlertTriangle className="h-8 w-8 text-status-error-text mx-auto" />
+        <h2 className="font-serif text-lg font-bold text-status-error-text">
           Không tìm thấy phiên livestream
         </h2>
-        <p className="text-xs text-rose-700">
+        <p className="text-xs text-status-error-text/90">
           {(sessionError as Error)?.message || 'Phiên livestream không tồn tại hoặc bạn không có quyền truy cập.'}
         </p>
         <div className="pt-2">
