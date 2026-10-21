@@ -28,6 +28,10 @@ import 'api/narrator_demo_repository.dart';
 import 'api/narrator_profile_repository.dart';
 import 'api/post_repository.dart';
 import 'api/reaction_repository.dart';
+import 'api/refresh_token_repository.dart';
+import 'api/review_repository.dart';
+import 'api/role_repository.dart';
+import 'api/system_config_repository.dart';
 import 'backend_application_factory.dart';
 import 'runtime_configuration.dart';
 
@@ -64,6 +68,10 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
     final narratorProfileRepository = NarratorProfileRepository(client: apiClient);
     final postRepository = PostRepository(client: apiClient);
     final reactionRepository = ReactionRepository(client: apiClient);
+    final refreshTokenRepository = RefreshTokenRepository(client: apiClient);
+    final reviewRepository = ReviewRepository(client: apiClient);
+    final roleRepository = RoleRepository(client: apiClient);
+    final systemConfigRepository = SystemConfigRepository(client: apiClient);
 
     // Khởi tạo AppState với Real Repositories
     final appState = AppState(
@@ -93,6 +101,10 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       narratorProfileRepository: narratorProfileRepository,
       postRepository: postRepository,
       reactionRepository: reactionRepository,
+      refreshTokenRepository: refreshTokenRepository,
+      reviewRepository: reviewRepository,
+      roleRepository: roleRepository,
+      systemConfigRepository: systemConfigRepository,
     );
 
     // Tải dữ liệu thật từ Spring Boot backend

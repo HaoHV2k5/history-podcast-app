@@ -34,6 +34,10 @@ import '../../core/api/narrator_demo_repository.dart';
 import '../../core/api/narrator_profile_repository.dart';
 import '../../core/api/post_repository.dart';
 import '../../core/api/reaction_repository.dart';
+import '../../core/api/refresh_token_repository.dart';
+import '../../core/api/review_repository.dart';
+import '../../core/api/role_repository.dart';
+import '../../core/api/system_config_repository.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -65,6 +69,10 @@ class AppState extends ChangeNotifier {
     this.narratorProfileRepository,
     this.postRepository,
     this.reactionRepository,
+    this.refreshTokenRepository,
+    this.reviewRepository,
+    this.roleRepository,
+    this.systemConfigRepository,
   }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
@@ -173,6 +181,10 @@ class AppState extends ChangeNotifier {
   final NarratorProfileRepository? narratorProfileRepository;
   final PostRepository? postRepository;
   final ReactionRepository? reactionRepository;
+  final RefreshTokenRepository? refreshTokenRepository;
+  final ReviewRepository? reviewRepository;
+  final RoleRepository? roleRepository;
+  final SystemConfigRepository? systemConfigRepository;
 
   Future<void> initRealBackend() async {
     if (contentRepository != null) {
