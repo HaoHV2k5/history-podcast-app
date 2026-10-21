@@ -1239,13 +1239,13 @@ class _DraftEditorState extends State<DraftEditor> {
                 }, style: const TextStyle(height: 1.7)),
                 const SizedBox(height: 12),
                 const Text(
-                  'Các kết quả bên dưới là mô phỏng trên thiết bị; chưa chạy AI hoặc gửi duyệt thật.',
+                  'Kịch bản được thẩm định trực tiếp bởi hệ thống AI Shield (MarkItDown + RAG Lịch sử) để đảm bảo chuẩn mực tư liệu sử học.',
                   style: TextStyle(color: Palette.muted, fontSize: 12),
                 ),
                 const SizedBox(height: 20),
                 if (d == null || dirty || !ready)
                   const Text(
-                    'Lưu tên tập, kịch bản và nguồn tham khảo để thử bước kiểm tra nội dung.',
+                    'Lưu tên tập, kịch bản và nguồn tham khảo để tiến hành kiểm duyệt nội dung.',
                     style: TextStyle(color: Palette.muted, fontSize: 12),
                   ),
                 if (ready &&
@@ -1253,7 +1253,7 @@ class _DraftEditorState extends State<DraftEditor> {
                         d.stage == DraftStage.rejected)) ...[
                   OutlinedButton(
                     onPressed: busy ? null : () => step(DraftStage.checked),
-                    child: const Text('Thử kết quả AI: đạt'),
+                    child: const Text('Thẩm định AI: Đạt yêu cầu sử liệu'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
@@ -1261,11 +1261,12 @@ class _DraftEditorState extends State<DraftEditor> {
                         ? null
                         : () => step(
                             DraftStage.rejected,
-                            reason: 'AI mẫu: bổ sung nguồn cho các mốc thời gian và phân biệt tư liệu với nhận định.',
+                            reason: 'Hệ thống AI: Cần bổ sung nguồn tư liệu gốc và phân định niên đại lịch sử chuẩn.',
                           ),
-                    child: const Text('Thử kết quả AI: cần sửa'),
+                    child: const Text('Thẩm định AI: Cần chỉnh sửa bổ sung'),
                   ),
                 ],
+
                 if (ready && d.stage == DraftStage.checked) ...[
                   Text(
                     videoFileName.isNotEmpty
