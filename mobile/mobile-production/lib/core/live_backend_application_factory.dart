@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -45,7 +46,17 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
   @override
   Future<Widget> createApplication(RuntimeConfiguration configuration) async {
     final preferences = await SharedPreferences.getInstance();
-    final baseUrl = configuration.apiBaseUri?.toString() ?? 'http://localhost:8080';
+    final savedBaseUrl = preferences.getString('custom_api_base_url')?.trim();
+    String baseUrl;
+    if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
+      baseUrl = savedBaseUrl;
+    } else if (configuration.apiBaseUri != null) {
+      baseUrl = configuration.apiBaseUri.toString();
+    } else {
+      baseUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+          ? 'http://10.0.2.2:8080'
+          : 'http://localhost:8080';
+    }
     
     final apiClient = ApiClient(baseUrl: baseUrl, preferences: preferences);
     final authRepository = AuthRepository(apiClient);
