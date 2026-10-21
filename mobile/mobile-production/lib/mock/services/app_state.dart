@@ -16,6 +16,8 @@ import '../../core/api/wallet_repository.dart';
 import '../../core/api/comment_repository.dart';
 import '../../core/api/channel_repository.dart';
 import '../../core/api/chat_repository.dart';
+import '../../core/api/contract_repository.dart';
+import '../../core/api/creator_series_repository.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -29,6 +31,8 @@ class AppState extends ChangeNotifier {
     this.commentRepository,
     this.channelRepository,
     this.chatRepository,
+    this.contractRepository,
+    this.creatorSeriesRepository,
   }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
@@ -119,6 +123,8 @@ class AppState extends ChangeNotifier {
   final CommentRepository? commentRepository;
   final ChannelRepository? channelRepository;
   final ChatRepository? chatRepository;
+  final ContractRepository? contractRepository;
+  final CreatorSeriesRepository? creatorSeriesRepository;
 
   Future<void> initRealBackend() async {
     if (contentRepository != null) {

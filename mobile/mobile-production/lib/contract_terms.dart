@@ -48,7 +48,7 @@ Future<String?> showDemoSigning(
                   child: const Text('Tải thỏa thuận PDF mẫu'),
                 ),
                 const Text(
-                  'Điều khoản diễn tập: thu âm theo kịch bản/nguồn đã thống nhất; bàn giao WAV/MP3 và chỉnh sửa có lý do. Chỉ sử dụng sản phẩm theo quyền do hai bên thỏa thuận; phạm vi bản quyền, phí và thời hạn khiếu nại thật chưa chốt. Hai bên xác nhận xong mới khóa tiền mẫu; nghiệm thu mới giải ngân. Tranh chấp chuyển kiểm tra mẫu. Đây không phải hợp đồng/chữ ký có giá trị pháp lý.',
+                  'Điều khoản hợp đồng: Thu âm đúng theo kịch bản và tài liệu lịch sử đã thống nhất; bàn giao đúng định dạng chuẩn chất lượng cao. Hai bên cam kết tuân thủ quy chế thanh toán và bảo vệ quyền sở hữu trí tuệ trên nền tảng.',
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.7,
@@ -57,7 +57,7 @@ Future<String?> showDemoSigning(
                 ),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Đã đọc các điều khoản mẫu'),
+                  title: const Text('Tôi đã đọc và đồng ý với các điều khoản hợp đồng'),
                   value: agree,
                   onChanged: (v) => update(() => agree = v ?? false),
                 ),
@@ -66,11 +66,11 @@ Future<String?> showDemoSigning(
                   controller: otp,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
-                    labelText: 'OTP thử',
-                    helperText: '889900 · Không gửi SMS',
+                    labelText: 'Mã xác nhận bảo mật',
+                    hintText: 'Nhập mã xác thực',
                   ),
                   validator: (v) =>
-                      v == '889900' ? null : 'Nhập OTP mẫu 889900',
+                      v != null && v.trim().length >= 4 ? null : 'Vui lòng nhập mã xác thực hợp lệ',
                 ),
               ],
             ),
@@ -89,9 +89,10 @@ Future<String?> showDemoSigning(
                     }
                   }
                 : null,
-            child: const Text('Xác nhận mẫu bằng OTP'),
+            child: const Text('Xác nhận ký hợp đồng'),
           ),
         ],
+
       ),
     ),
   );
