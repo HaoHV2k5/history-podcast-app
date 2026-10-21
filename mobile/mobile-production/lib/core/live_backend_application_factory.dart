@@ -34,6 +34,8 @@ import 'api/role_repository.dart';
 import 'api/system_config_repository.dart';
 import 'api/transcript_repository.dart';
 import 'api/user_repository.dart';
+import 'api/wallet_transaction_repository.dart';
+import 'api/withdrawal_repository.dart';
 import 'backend_application_factory.dart';
 import 'runtime_configuration.dart';
 
@@ -76,6 +78,8 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
     final systemConfigRepository = SystemConfigRepository(client: apiClient);
     final transcriptRepository = TranscriptRepository(client: apiClient);
     final userRepository = UserRepository(client: apiClient);
+    final walletTransactionRepository = WalletTransactionRepository(client: apiClient);
+    final withdrawalRepository = WithdrawalRepository(client: apiClient);
 
     // Khởi tạo AppState với Real Repositories
     final appState = AppState(
@@ -111,6 +115,8 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       systemConfigRepository: systemConfigRepository,
       transcriptRepository: transcriptRepository,
       userRepository: userRepository,
+      walletTransactionRepository: walletTransactionRepository,
+      withdrawalRepository: withdrawalRepository,
     );
 
     // Tải dữ liệu thật từ Spring Boot backend

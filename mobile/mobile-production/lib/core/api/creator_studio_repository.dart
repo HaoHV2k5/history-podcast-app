@@ -175,4 +175,13 @@ class CreatorStudioRepository {
     final res = await client.post('/api/v1/creator/studio/voices/preview', body: payload);
     return (res['data'] as Map<String, dynamic>?) ?? {};
   }
+
+  // ==========================================
+  // Whiteboard Media Streaming (2 endpoints)
+  // ==========================================
+
+  /// 15. GET /api/v1/creator/studio/outputs/{jobId}/{fileName} hoặc /outputs/{jobId}/{fileName}
+  String getWhiteboardMediaStreamUrl(String jobId, String fileName) {
+    return '${client.baseUrl}/api/v1/creator/studio/outputs/$jobId/$fileName';
+  }
 }

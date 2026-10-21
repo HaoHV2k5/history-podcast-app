@@ -40,6 +40,8 @@ import '../../core/api/role_repository.dart';
 import '../../core/api/system_config_repository.dart';
 import '../../core/api/transcript_repository.dart';
 import '../../core/api/user_repository.dart';
+import '../../core/api/wallet_transaction_repository.dart';
+import '../../core/api/withdrawal_repository.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -77,6 +79,8 @@ class AppState extends ChangeNotifier {
     this.systemConfigRepository,
     this.transcriptRepository,
     this.userRepository,
+    this.walletTransactionRepository,
+    this.withdrawalRepository,
   }) {
     reloadCatalog(notify: false);
     checkoutStates.addAll(
@@ -191,6 +195,8 @@ class AppState extends ChangeNotifier {
   final SystemConfigRepository? systemConfigRepository;
   final TranscriptRepository? transcriptRepository;
   final UserRepository? userRepository;
+  final WalletTransactionRepository? walletTransactionRepository;
+  final WithdrawalRepository? withdrawalRepository;
 
   Future<void> initRealBackend() async {
     if (contentRepository != null) {

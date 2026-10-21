@@ -15,6 +15,34 @@ class WalletRepository {
     );
   }
 
+  /// GET /api/v1/wallets/{id} (Tra cứu ví theo ID - Admin)
+  Future<WalletInfo> getWalletById(int id) async {
+    final response = await apiClient.get('/api/v1/wallets/$id');
+    final data = response['data'] as Map<String, dynamic>;
+    return WalletInfo(
+      id: (data['id'] as num?)?.toInt() ?? 0,
+      availableBalance: (data['availableBalance'] as num?)?.toDouble() ?? 0.0,
+      pendingBalance: (data['pendingBalance'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  /// GET /api/v1/wallets/me/transactions (Xem lịch sử biến động số dư ví phân trang)
+  Future<List<WalletTransactionModel>> getMyTransactions({int page = 0, int size = 10}) async {
+    final response = await apiClient.get('/api/v1/wallets/me/transactions', queryParams: {
+      'page': page.toString(),
+      'size': size.toString(),
+    });
+    final data = response['data'];
+    if (data is Map<String, dynamic> && data['content'] is List) {
+      return (data['content'] as List)
+          .map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (data is List) {
+      return data.map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
   Future<String> createDeposit({required int amount}) async {
     final response = await apiClient.post('/api/v1/wallets/me/deposits', body: {
       'amount': amount,
@@ -135,4 +163,51 @@ class WalletInfo {
     required this.availableBalance,
     required this.pendingBalance,
   });
+}
+
+class WalletTransactionModel {
+  final int id;
+  final int walletId;
+  final String type;
+  final double amount;
+  final String? relatedType;
+  final int? relatedId;
+  final String status;
+  final String? merchantTxnRef;
+  final String? gatewayTxnNo;
+  final String? gatewayProvider;
+  final String? description;
+  final String? createdAt;
+
+  WalletTransactionModel({
+    required this.id,
+    required this.walletId,
+    required this.type,
+    required this.amount,
+    this.relatedType,
+    this.relatedId,
+    required this.status,
+    this.merchantTxnRef,
+    this.gatewayTxnNo,
+    this.gatewayProvider,
+    this.description,
+    this.createdAt,
+  });
+
+  factory WalletTransactionModel.fromJson(Map<String, dynamic> json) {
+    return WalletTransactionModel(
+      id: (json['id'] as num).toInt(),
+      walletId: (json['walletId'] as num).toInt(),
+      type: (json['type'] ?? '').toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      relatedType: json['relatedType']?.toString(),
+      relatedId: (json['relatedId'] as num?)?.toInt(),
+      status: (json['status'] ?? 'SUCCESS').toString(),
+      merchantTxnRef: json['merchantTxnRef']?.toString(),
+      gatewayTxnNo: json['gatewayTxnNo']?.toString(),
+      gatewayProvider: json['gatewayProvider']?.toString(),
+      description: json['description']?.toString(),
+      createdAt: json['createdAt']?.toString(),
+    );
+  }
 }
