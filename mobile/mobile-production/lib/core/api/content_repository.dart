@@ -42,7 +42,7 @@ class ContentRepository {
   ContentRepository(this.apiClient);
 
   /// GET /api/v1/contents/search
-  Future<List<Episode>> getPublishedEpisodes({String? keyword, Long? channelId, bool? isExclusive}) async {
+  Future<List<Episode>> getPublishedEpisodes({String? keyword, int? channelId, bool? isExclusive}) async {
     final query = <String, String>{
       'status': 'PUBLISHED',
       'sortBy': 'createdAt',
