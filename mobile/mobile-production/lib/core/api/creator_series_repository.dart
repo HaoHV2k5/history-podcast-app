@@ -174,4 +174,25 @@ class CreatorSeriesRepository {
     final data = res['data'] as Map<String, dynamic>;
     return SeriesModel.fromJson(data);
   }
+
+  // ==========================================
+  // Public Series (2 endpoints)
+  // ==========================================
+
+  /// 9. GET /api/v1/channels/{channelId}/series (Xem danh sách Series của Kênh công khai)
+  Future<List<SeriesModel>> getPublicChannelSeries(int channelId) async {
+    final res = await client.get('/api/v1/channels/$channelId/series');
+    final data = res['data'];
+    if (data is List) {
+      return data.map((e) => SeriesModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  /// 10. GET /api/v1/series/{seriesId} (Xem chi tiết Series và danh sách tập công khai)
+  Future<SeriesModel> getPublicSeriesDetail(int seriesId) async {
+    final res = await client.get('/api/v1/series/$seriesId');
+    final data = res['data'] as Map<String, dynamic>;
+    return SeriesModel.fromJson(data);
+  }
 }
