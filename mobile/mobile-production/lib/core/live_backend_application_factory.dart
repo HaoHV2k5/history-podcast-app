@@ -23,6 +23,9 @@ import 'api/kyc_repository.dart';
 import 'api/livestream_repository.dart';
 import 'api/membership_repository.dart';
 import 'api/milestone_repository.dart';
+import 'api/moderation_review_repository.dart';
+import 'api/narrator_demo_repository.dart';
+import 'api/narrator_profile_repository.dart';
 import 'backend_application_factory.dart';
 import 'runtime_configuration.dart';
 
@@ -54,6 +57,9 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
     final livestreamRepository = LivestreamRepository(client: apiClient);
     final membershipRepository = MembershipRepository(client: apiClient);
     final milestoneRepository = MilestoneRepository(client: apiClient);
+    final moderationReviewRepository = ModerationReviewRepository(client: apiClient);
+    final narratorDemoRepository = NarratorDemoRepository(client: apiClient);
+    final narratorProfileRepository = NarratorProfileRepository(client: apiClient);
 
     // Khởi tạo AppState với Real Repositories
     final appState = AppState(
@@ -78,6 +84,9 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       livestreamRepository: livestreamRepository,
       membershipRepository: membershipRepository,
       milestoneRepository: milestoneRepository,
+      moderationReviewRepository: moderationReviewRepository,
+      narratorDemoRepository: narratorDemoRepository,
+      narratorProfileRepository: narratorProfileRepository,
     );
 
     // Tải dữ liệu thật từ Spring Boot backend

@@ -67,6 +67,44 @@ class WalletRepository {
   Future<void> deleteBankAccount(int id) async {
     await apiClient.delete('/api/v1/bank-accounts/$id');
   }
+
+  /// Xử lý Return URL từ VNPay (GET /api/v1/payments/vnpay/return)
+  Future<PaymentReturnResult> handleVnpayReturn(Map<String, String> queryParams) async {
+    final response = await apiClient.get('/api/v1/payments/vnpay/return', queryParams: queryParams);
+    final data = response['data'] as Map<String, dynamic>;
+    return PaymentReturnResult.fromJson(data);
+  }
+
+  /// Xử lý IPN Webhook từ VNPay (GET /api/v1/payments/vnpay/ipn)
+  Future<Map<String, dynamic>> handleVnpayIpn(Map<String, String> ipnParams) async {
+    return await apiClient.get('/api/v1/payments/vnpay/ipn', queryParams: ipnParams);
+  }
+}
+
+class PaymentReturnResult {
+  final String merchantTxnRef;
+  final String? gatewayTxnNo;
+  final double amount;
+  final String status;
+  final String? message;
+
+  PaymentReturnResult({
+    required this.merchantTxnRef,
+    this.gatewayTxnNo,
+    required this.amount,
+    required this.status,
+    this.message,
+  });
+
+  factory PaymentReturnResult.fromJson(Map<String, dynamic> json) {
+    return PaymentReturnResult(
+      merchantTxnRef: (json['merchantTxnRef'] ?? '').toString(),
+      gatewayTxnNo: json['gatewayTxnNo']?.toString(),
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      status: (json['status'] ?? 'PENDING').toString(),
+      message: json['message']?.toString(),
+    );
+  }
 }
 
 class BankAccountData {
