@@ -5,9 +5,7 @@ import {
   Eye,
   Calendar,
   Clock,
-  Layers,
   User,
-  Hash,
   Tv,
 } from 'lucide-react';
 import {
@@ -43,38 +41,39 @@ export const LivestreamDetailModal: React.FC<LivestreamDetailModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent maxWidth="max-w-2xl">
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant={isLive ? 'error' : 'default'}
-                  className={isLive ? 'bg-rose-600 text-white animate-pulse' : 'bg-surface-subtle text-muted'}
-                >
-                  {isLive ? '• TRỰC TIẾP (LIVE)' : 'ĐÃ KẾT THÚC (ENDED)'}
+      <DialogContent
+        maxWidth="max-w-lg"
+        className="max-h-[88vh] flex flex-col p-4 sm:p-5 gap-3 overflow-hidden"
+      >
+        <DialogHeader className="shrink-0 pr-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={isLive ? 'error' : 'default'}
+                className={isLive ? 'bg-rose-600 text-white animate-pulse' : 'bg-surface-subtle text-muted'}
+              >
+                {isLive ? '• TRỰC TIẾP' : 'ĐÃ KẾT THÚC'}
+              </Badge>
+              {session.isExclusive && (
+                <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 gap-1">
+                  <Crown className="h-3 w-3 text-amber-500" />
+                  <span>Hội viên VIP</span>
                 </Badge>
-                {session.isExclusive && (
-                  <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800 gap-1">
-                    <Crown className="h-3 w-3 text-amber-500" />
-                    <span>Hội viên VIP</span>
-                  </Badge>
-                )}
-              </div>
-              <DialogTitle className="text-base font-serif font-bold text-ink pt-1">
-                {session.title}
-              </DialogTitle>
-              <DialogDescription>
-                Kênh phát sóng: <span className="font-semibold text-ink">{session.channelName}</span>
-              </DialogDescription>
+              )}
             </div>
+            <DialogTitle className="text-base font-serif font-bold text-ink pt-0.5">
+              {session.title}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Kênh phát sóng: <span className="font-semibold text-ink">{session.channelName}</span>
+            </DialogDescription>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 text-xs">
+        <div className="flex-1 overflow-y-auto pr-1 space-y-3 text-xs min-h-0">
           {/* Cover / Thumbnail banner */}
           {session.thumbnailUrl ? (
-            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-border bg-surface-subtle">
+            <div className="relative aspect-video max-h-48 w-full rounded-lg overflow-hidden border border-border bg-surface-subtle">
               <img
                 src={session.thumbnailUrl}
                 alt={session.title}
@@ -82,17 +81,17 @@ export const LivestreamDetailModal: React.FC<LivestreamDetailModalProps> = ({
               />
             </div>
           ) : (
-            <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-border bg-gradient-to-br from-surface-subtle via-canvas to-surface-subtle flex flex-col items-center justify-center p-6 text-center">
-              <Radio className={`h-12 w-12 ${isLive ? 'text-accent animate-pulse' : 'text-muted'}`} />
-              <p className="mt-2 text-xs font-semibold text-ink">{session.title}</p>
+            <div className="relative h-36 w-full rounded-lg overflow-hidden border border-border bg-gradient-to-br from-surface-subtle via-canvas to-surface-subtle flex flex-col items-center justify-center p-4 text-center">
+              <Radio className={`h-9 w-9 ${isLive ? 'text-accent animate-pulse' : 'text-muted'}`} />
+              <p className="mt-1.5 text-xs font-semibold text-ink line-clamp-1">{session.title}</p>
               <p className="text-[11px] text-muted">{session.channelName}</p>
             </div>
           )}
 
           {/* Description */}
           {session.description && (
-            <div className="rounded-lg border border-border bg-surface-subtle/40 p-3 space-y-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <div className="rounded-lg border border-border bg-surface-subtle/40 p-2.5 space-y-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                 Mô tả nội dung
               </span>
               <p className="text-xs text-ink/90 whitespace-pre-wrap leading-relaxed">
@@ -101,34 +100,31 @@ export const LivestreamDetailModal: React.FC<LivestreamDetailModalProps> = ({
             </div>
           )}
 
-          {/* Technical Metadata Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {/* User-friendly Session Info Grid */}
+          <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-lg border border-border bg-surface-subtle/30 p-2.5">
               <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <Hash className="h-3.5 w-3.5" /> Mã phiên live
+                <User className="h-3.5 w-3.5" /> Người phát sóng
               </span>
-              <p className="mt-1 font-mono text-xs font-bold text-ink">#{session.id}</p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-surface-subtle/30 p-2.5">
-              <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <Eye className="h-3.5 w-3.5" /> Lượt xem trực tiếp
-              </span>
-              <p className="mt-1 font-bold text-xs text-ink">
-                {formatLivestreamViewerCount(session.viewerCount)} thính giả
+              <p className="mt-1 font-semibold text-xs text-ink truncate">
+                {session.creatorName || session.channelName}
               </p>
             </div>
 
             <div className="rounded-lg border border-border bg-surface-subtle/30 p-2.5">
               <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <User className="h-3.5 w-3.5" /> Chủ phòng (Creator)
+                <Eye className="h-3.5 w-3.5" /> Thính giả đang xem
               </span>
-              <p className="mt-1 font-semibold text-xs text-ink truncate">{session.creatorName}</p>
+              <p className="mt-1 font-bold text-xs text-ink">
+                {isLive
+                  ? `${formatLivestreamViewerCount(session.viewerCount)} đang xem`
+                  : 'Phiên đã kết thúc'}
+              </p>
             </div>
 
             <div className="rounded-lg border border-border bg-surface-subtle/30 p-2.5">
               <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <Calendar className="h-3.5 w-3.5" /> Bắt đầu lúc
+                <Calendar className="h-3.5 w-3.5" /> Thời gian tạo
               </span>
               <p className="mt-1 font-medium text-xs text-ink">
                 {formatDateTime(session.startedAt)}
@@ -137,35 +133,27 @@ export const LivestreamDetailModal: React.FC<LivestreamDetailModalProps> = ({
 
             <div className="rounded-lg border border-border bg-surface-subtle/30 p-2.5">
               <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <Clock className="h-3.5 w-3.5" /> Kết thúc lúc
+                <Clock className="h-3.5 w-3.5" /> Thời gian kết thúc
               </span>
               <p className="mt-1 font-medium text-xs text-ink">
-                {session.endedAt ? formatDateTime(session.endedAt) : (isLive ? 'Đang phát sóng' : '—')}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-surface-subtle/30 p-2.5">
-              <span className="flex items-center gap-1.5 text-[11px] text-muted">
-                <Layers className="h-3.5 w-3.5" /> Kênh Agora RTC
-              </span>
-              <p className="mt-1 font-mono text-[11px] font-semibold text-accent truncate" title={session.agoraChannelName}>
-                {session.agoraChannelName}
+                {session.endedAt ? formatDateTime(session.endedAt) : (isLive ? 'Đang diễn ra' : '—')}
               </p>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={onClose}>
+        <DialogFooter className="gap-2 pt-2.5 shrink-0">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
             Đóng
           </Button>
           {isLive && onEnterStudio && (
             <Button
               type="button"
-              className="gap-2 bg-accent hover:bg-accent-hover text-canvas"
+              size="sm"
+              className="gap-1.5 bg-accent hover:bg-accent-hover text-canvas"
               onClick={() => onEnterStudio(session)}
             >
-              <Tv className="h-4 w-4" />
+              <Tv className="h-3.5 w-3.5" />
               <span>Vào Studio phát sóng</span>
             </Button>
           )}

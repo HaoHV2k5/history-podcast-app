@@ -67,6 +67,16 @@ public class LivestreamController {
         return ResponseEntity.ok(ApiResponse.success("Lấy token kết nối Agora thành công", response));
     }
 
+    @PostMapping("/{id}/leave")
+    @Operation(summary = "Rời phòng / Cập nhật số người xem trực tiếp", description = "Giảm số mắt xem khi Viewer rời phòng hoặc reset về 0 khi Creator tạm dừng phát sóng")
+    public ResponseEntity<ApiResponse<LivestreamResponse>> leaveSession(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "false") boolean reset
+    ) {
+        LivestreamResponse response = livestreamService.leaveSession(id, reset);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật trạng thái rời phòng", response));
+    }
+
     @PostMapping("/{id}/end")
     @PreAuthorize("hasRole('CREATOR')")
     @Operation(summary = "Kết thúc phiên livestream", description = "Chỉ Creator của phòng live mới có quyền kết thúc phiên phát sóng")

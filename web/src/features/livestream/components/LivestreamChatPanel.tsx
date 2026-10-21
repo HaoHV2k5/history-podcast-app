@@ -49,18 +49,19 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isAutoScrollEnabledRef = useRef(true);
 
-  // Xử lý tự động cuộn xuống dưới cùng khi có tin nhắn mới
+  // Tự động cuộn nội bộ khung chat xuống dưới cùng khi có tin nhắn mới
   useEffect(() => {
-    if (isAutoScrollEnabledRef.current && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (isAutoScrollEnabledRef.current && containerRef.current) {
+      containerRef.current.scrollTo({
+        top: containerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
     }
   }, [messages]);
 
-  // Kiểm tra xem người dùng có đang chủ động cuộn lên trên xem lịch sử không
   const handleScroll = () => {
     if (!containerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    // Nếu khoảng cách đến đáy < 60px, coi như đang ở đáy
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 60;
     isAutoScrollEnabledRef.current = isAtBottom;
   };
@@ -95,34 +96,26 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
 
   return (
     <div
-      className={`flex flex-col rounded-xl border border-border bg-surface shadow-xs overflow-hidden ${className}`}
-      style={{ minHeight: '480px', maxHeight: '600px' }}
+      className={`flex flex-col rounded-2xl border border-border bg-surface shadow-xs overflow-hidden h-[480px] lg:h-full min-h-0 ${className}`}
     >
       {/* Panel Header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 bg-surface-subtle/50">
+      <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5 bg-surface-subtle/50 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
-            <MessageSquare className="h-4 w-4" />
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/10 text-accent">
+            <MessageSquare className="h-3.5 w-3.5" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="font-serif text-xs font-bold text-ink">
-                Trò chuyện trực tiếp
-              </h3>
-              <Badge variant="outline" className="text-[10px] h-4.5 px-1.5 font-mono">
-                {messages.length}
-              </Badge>
-            </div>
-            <p className="text-[10px] text-muted">
-              {isSessionEnded
-                ? 'Phòng live đã kết thúc'
-                : 'Cộng đồng thính giả Sử Ký'}
-            </p>
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-serif text-xs font-bold text-ink">
+              Trò chuyện trực tiếp
+            </h3>
+            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-mono">
+              {messages.length}
+            </Badge>
           </div>
         </div>
 
         {/* Polling / Connection State Indicator */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {!isSessionEnded && (
             <div
               className="flex items-center gap-1 text-[10px] text-muted"
@@ -131,10 +124,10 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
               {isPolling ? (
                 <Wifi className="h-3 w-3 text-emerald-500 animate-pulse" />
               ) : (
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               )}
               <span className="hidden sm:inline font-mono">
-                {isPolling ? 'Syncing' : 'Live'}
+                {isPolling ? 'Đồng bộ' : 'Trực tuyến'}
               </span>
             </div>
           )}
@@ -144,20 +137,20 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
             size="sm"
             onClick={() => refetch()}
             disabled={isSessionEnded || isLoading}
-            className="h-7 w-7 p-0 text-muted hover:text-ink"
+            className="h-6 w-6 p-0 text-muted hover:text-ink"
             title="Làm mới tin nhắn"
             aria-label="Làm mới tin nhắn"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </div>
 
-      {/* Network Alert Bar (If consecutive polling errors) */}
+      {/* Network Alert Bar */}
       {chatError && !isSessionEnded && (
-        <div className="flex items-center justify-between bg-amber-50 px-3 py-1.5 border-b border-amber-200 text-[11px] text-amber-800">
+        <div className="flex items-center justify-between bg-amber-50 px-3 py-1 border-b border-amber-200 text-[11px] text-amber-800 shrink-0">
           <div className="flex items-center gap-1.5 truncate">
-            <WifiOff className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <WifiOff className="h-3 w-3 shrink-0 text-amber-600" />
             <span className="truncate">{chatError}</span>
           </div>
           <button
@@ -173,34 +166,31 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-canvas/30 text-xs"
+        className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-canvas/30 text-xs min-h-0"
       >
-        {/* Initial Loading State */}
         {isLoading && messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center space-y-2 py-12 text-muted">
+          <div className="flex h-full flex-col items-center justify-center space-y-2 py-8 text-muted">
             <Loader2 className="h-5 w-5 animate-spin text-accent" />
             <p className="text-[11px]">Đang tải cuộc trò chuyện...</p>
           </div>
         )}
 
-        {/* Empty State */}
         {!isLoading && messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center space-y-2.5 py-12 text-center text-muted">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-subtle text-accent/70">
-              <Sparkles className="h-5 w-5" />
+          <div className="flex h-full flex-col items-center justify-center space-y-2 py-8 text-center text-muted">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-subtle text-accent/70">
+              <Sparkles className="h-4 w-4" />
             </div>
             <div className="space-y-0.5">
               <p className="font-serif text-xs font-semibold text-ink">
                 Chưa có tin nhắn nào
               </p>
               <p className="text-[11px] text-muted max-w-[200px]">
-                Hãy gửi tin nhắn đầu tiên để chào đón các thính giả!
+                Hãy gửi lời chào đầu tiên tới các thính giả đang theo dõi!
               </p>
             </div>
           </div>
         )}
 
-        {/* Message Items */}
         {messages.map((msg) => {
           const roleInfo = formatChatRoleBadge(msg.role);
           const isCreator = roleInfo.isCreator;
@@ -208,13 +198,12 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
           return (
             <div
               key={msg.id}
-              className={`flex flex-col space-y-1 rounded-lg p-2.5 transition-colors ${
+              className={`flex flex-col space-y-1 rounded-lg p-2 transition-colors ${
                 isCreator
                   ? 'border border-amber-200/80 bg-amber-50/50'
                   : 'border border-border/50 bg-surface'
               }`}
             >
-              {/* Message Header: Author, Badge, Timestamp */}
               <div className="flex items-center justify-between gap-1.5 text-[11px]">
                 <div className="flex items-center gap-1.5 truncate">
                   {isCreator ? (
@@ -242,7 +231,6 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
                   </span>
                 </div>
 
-                {/* Timestamp */}
                 <span className="font-mono text-[10px] text-muted shrink-0">
                   {msg.timeFormatted ||
                     (msg.timestamp
@@ -254,30 +242,28 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
                 </span>
               </div>
 
-              {/* Message Text */}
-              <p className="text-[12px] leading-relaxed text-ink break-words whitespace-pre-wrap pl-4.5">
+              <p className="text-[12px] leading-snug text-ink break-words whitespace-pre-wrap pl-4">
                 {msg.text}
               </p>
             </div>
           );
         })}
 
-        {/* Anchor element to scroll to bottom */}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Validation Error Feedback */}
       {validationError && (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 text-[11px] text-rose-700 border-t border-rose-200">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" />
+        <div className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-[11px] text-rose-700 border-t border-rose-200 shrink-0">
+          <AlertCircle className="h-3 w-3 shrink-0 text-rose-500" />
           <span className="truncate">{validationError}</span>
         </div>
       )}
 
-      {/* Message Composer Footer */}
+      {/* Compact Message Composer Footer */}
       <form
         onSubmit={handleSend}
-        className="border-t border-border p-3 bg-surface space-y-1.5"
+        className="border-t border-border px-3 py-2.5 bg-surface shrink-0"
       >
         <div className="flex items-center gap-2">
           <input
@@ -293,11 +279,11 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
             disabled={isSessionEnded || isSending}
             placeholder={
               isSessionEnded
-                ? 'Phiên phát sóng đã kết thúc, khung chat đã đóng.'
-                : 'Nhập tin nhắn với tư cách Chủ phòng...'
+                ? 'Phiên phát sóng đã kết thúc.'
+                : 'Nhập tin nhắn trò chuyện... (Enter để gửi)'
             }
             maxLength={500}
-            className="flex-1 rounded-lg border border-border bg-canvas px-3 py-2 text-xs text-ink placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-subtle"
+            className="flex-1 rounded-lg border border-border bg-canvas px-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:bg-surface-subtle h-8.5"
           />
 
           <Button
@@ -315,14 +301,6 @@ export const LivestreamChatPanel: React.FC<LivestreamChatPanelProps> = ({
             )}
             <span className="hidden sm:inline text-xs">Gửi</span>
           </Button>
-        </div>
-
-        {/* Character Counter & Notice */}
-        <div className="flex items-center justify-between text-[10px] text-muted px-0.5">
-          <span>Nhấn Enter để gửi tin nhắn</span>
-          <span className={inputText.length > 450 ? 'text-amber-600 font-semibold' : ''}>
-            {inputText.length}/500
-          </span>
         </div>
       </form>
     </div>
