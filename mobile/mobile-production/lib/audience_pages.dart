@@ -1464,7 +1464,7 @@ class _EditNameSheetState extends State<EditNameSheet> {
               maxLength: 40,
               decoration: const InputDecoration(
                 labelText: 'Tên hiển thị',
-                helperText: 'Tên này chỉ lưu trên thiết bị của bạn.',
+                helperText: 'Được đồng bộ trực tiếp với tài khoản hệ thống.',
               ),
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Nhập tên hiển thị của bạn.'

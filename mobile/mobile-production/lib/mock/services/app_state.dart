@@ -238,6 +238,16 @@ class AppState extends ChangeNotifier {
         }
       } catch (_) {}
     }
+
+    if (isLoggedIn && userRepository != null) {
+      try {
+        final profile = await userRepository!.getMyProfile();
+        if (profile.fullName.trim().isNotEmpty) {
+          displayName = profile.fullName.trim();
+          await preferences.setString('displayName', displayName);
+        }
+      } catch (_) {}
+    }
     notifyListeners();
   }
   final Map<String, String> checkoutStates = {};
@@ -397,8 +407,21 @@ class AppState extends ChangeNotifier {
     if (trimmed.isEmpty || trimmed.runes.length > 40) {
       throw ArgumentError('Tên cần từ 1 đến 40 ký tự.');
     }
-    await preferences.setString('displayName', trimmed);
-    displayName = trimmed;
+    if (userRepository != null && isLoggedIn) {
+      try {
+        final updated = await userRepository!.updateMyProfile(fullName: trimmed);
+        if (updated.fullName.trim().isNotEmpty) {
+          displayName = updated.fullName.trim();
+        } else {
+          displayName = trimmed;
+        }
+      } catch (_) {
+        displayName = trimmed;
+      }
+    } else {
+      displayName = trimmed;
+    }
+    await preferences.setString('displayName', displayName);
     notifyListeners();
   }
 
@@ -421,6 +444,16 @@ class AppState extends ChangeNotifier {
       userEmail = res.email;
       userPhone = res.phone;
       displayName = res.email.split('@').first;
+
+      if (userRepository != null) {
+        try {
+          final profile = await userRepository!.getMyProfile();
+          if (profile.fullName.trim().isNotEmpty) {
+            displayName = profile.fullName.trim();
+          }
+        } catch (_) {}
+      }
+
       await preferences.setBool('isLoggedIn', true);
       await preferences.setString('displayName', displayName);
       await preferences.setString('userEmail', res.email);
@@ -479,6 +512,11 @@ class AppState extends ChangeNotifier {
       displayName = n;
       isLoggedIn = true;
       userEmail = res.email;
+      if (userRepository != null) {
+        try {
+          await userRepository!.updateMyProfile(fullName: n);
+        } catch (_) {}
+      }
       await preferences.setBool('isLoggedIn', true);
       await preferences.setString('displayName', displayName);
       await preferences.setString('userEmail', res.email);
@@ -527,6 +565,9 @@ class AppState extends ChangeNotifier {
     if (ArtworkStore(preferences).read().containsKey('avatar')) {
       await ArtworkStore(preferences).put('avatar', null);
     }
+    try {
+      await authRepository?.logout();
+    } catch (_) {}
     isLoggedIn = false;
     userEmail = null;
     userPhone = null;
