@@ -25,6 +25,7 @@ AGENTS.md
 !.env.example
 *.pem
 *.key
+*.zip
 
 # Logs
 *.log
