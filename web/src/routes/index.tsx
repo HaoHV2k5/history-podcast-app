@@ -34,21 +34,146 @@ import { PoliciesPage } from '@/features/policies/PoliciesPage';
 import { RolesPage } from '@/features/roles/RolesPage';
 import { AuditLogsPage } from '@/features/audit/AuditLogsPage';
 
+import { useAuthStore } from '@/store/authStore';
+import { Loader2 } from 'lucide-react';
+
+// Creator Pages & Layout
+import { CreatorLayout } from '@/components/layout/CreatorLayout';
+import { CreatorWorkspaceHome } from '@/features/creator/CreatorWorkspaceHome';
+import { CreatorContentLibraryPage } from '@/features/content/CreatorContentLibraryPage';
+import { CreatorContentDetailPage } from '@/features/content/CreatorContentDetailPage';
+import { CreatorSeriesPage } from '@/features/series/CreatorSeriesPage';
+import { CreatorFinancePage } from '@/features/finance/CreatorFinancePage';
+import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
+import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
+import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
+import { CreatorLivestreamPage } from '@/features/livestream/CreatorLivestreamPage';
+
+// Lazy-load CreatorLivestreamStudioPage to isolate Agora RTC Web SDK from initial bundle
+const CreatorLivestreamStudioPage = React.lazy(() =>
+  import('@/features/livestream/CreatorLivestreamStudioPage').then((m) => ({
+    default: m.CreatorLivestreamStudioPage,
+  }))
+);
+
+// Root redirect based on role
+const RootRedirect: React.FC = () => {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const hasRole = useAuthStore((s) => s.hasRole);
+
+  const isDevBypass = Boolean(
+    import.meta.env.DEV &&
+      (sessionStorage.getItem('su_ky_admin_dev_mode') === 'true' ||
+        (typeof window !== 'undefined' &&
+          new URLSearchParams(window.location.search).get('dev') === 'true'))
+  );
+
+  if (isDevBypass) {
+    if (!isAuthenticated) {
+      const devUser = {
+        id: 1,
+        email: 'admin@suky.vn',
+        fullName: 'Quản Trị Viên & Tác Giả Sử Ký',
+        roleName: 'ADMIN',
+        roles: ['ADMIN', 'CREATOR'],
+        isAdmin: true,
+        isCreator: true,
+        status: 'ACTIVE',
+        createdAt: '2026-01-01T00:00:00Z',
+      };
+      useAuthStore.getState().setAuth(
+        {
+          accessToken: 'dev-admin-token',
+          refreshToken: 'dev-admin-refresh',
+          tokenType: 'Bearer',
+          userId: 1,
+          email: 'admin@suky.vn',
+          role: 'ADMIN',
+          roles: ['ADMIN', 'CREATOR'],
+        },
+        devUser
+      );
+    }
+    return <Navigate to="/creator?dev=true" replace />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-canvas">
+        <Loader2 className="h-6 w-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (hasRole('ADMIN')) {
+    return <Navigate to="/admin/overview" replace />;
+  }
+
+  if (hasRole('CREATOR')) {
+    return <Navigate to="/creator" replace />;
+  }
+
+  return <Navigate to="/forbidden" replace />;
+};
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/admin/overview" replace />} />
+      <Route path="/" element={<RootRedirect />} />
 
       {/* Public / Auth routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
 
+      {/* Protected Creator Workspace with Unified CreatorLayout (Milestones 2, 3 & 4) */}
+      <Route
+        path="/creator"
+        element={
+          <ProtectedRoute allowedRoles={['CREATOR']}>
+            <CreatorLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<CreatorWorkspaceHome />} />
+        <Route path="content" element={<CreatorContentLibraryPage />} />
+        <Route path="content/:id" element={<CreatorContentDetailPage />} />
+        <Route path="create" element={<CreatorStudioPage />} />
+        <Route path="studio" element={<Navigate to="/creator/create" replace />} />
+        <Route path="series" element={<CreatorSeriesPage />} />
+        <Route path="livestream" element={<CreatorLivestreamPage />} />
+        <Route
+          path="livestream/:id/studio"
+          element={
+            <React.Suspense
+              fallback={
+                <div className="flex h-[70vh] flex-col items-center justify-center space-y-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                  <p className="text-xs text-muted">Đang tải phòng phát sóng trực tiếp...</p>
+                </div>
+              }
+            >
+              <CreatorLivestreamStudioPage />
+            </React.Suspense>
+          }
+        />
+        <Route path="kyc" element={<CreatorKycPage />} />
+        <Route path="channel" element={<CreatorChannelPage />} />
+        <Route path="wallet" element={<CreatorFinancePage />} />
+      </Route>
+      <Route path="/creator/dashboard" element={<Navigate to="/creator" replace />} />
+
+
       {/* Protected Admin Portal with Unified AdminLayout */}
       <Route
         path="/admin"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowedRoles={['ADMIN']}>
             <AdminLayout />
           </ProtectedRoute>
         }

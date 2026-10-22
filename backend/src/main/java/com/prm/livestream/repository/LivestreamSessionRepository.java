@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -17,6 +18,8 @@ public interface LivestreamSessionRepository extends JpaRepository<LivestreamSes
     Page<LivestreamSession> findByChannelId(Long channelId, Pageable pageable);
 
     Page<LivestreamSession> findByChannelIdAndStatus(Long channelId, LivestreamStatus status, Pageable pageable);
+
+    List<LivestreamSession> findAllByChannelIdAndStatus(Long channelId, LivestreamStatus status);
 
     Optional<LivestreamSession> findByAgoraChannelName(String agoraChannelName);
 

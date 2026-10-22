@@ -57,7 +57,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   });
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-border bg-surface px-6">
+    <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-border/80 bg-surface/85 backdrop-blur-md px-4 sm:px-6 shadow-xs transition-colors">
       {/* Left: Mobile Toggle & Breadcrumbs */}
       <div className="flex items-center gap-3">
         <Button
@@ -94,6 +94,11 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
       {/* Right: Authenticated Admin Profile Dropdown */}
       <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-status-success-text/25 bg-status-success-bg/80 text-status-success-text text-[11px] font-medium select-none shadow-2xs">
+          <span className="h-1.5 w-1.5 rounded-full bg-status-success-text animate-pulse" />
+          <span>Hệ thống trực tuyến</span>
+        </div>
+
         {currentUser ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

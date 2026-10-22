@@ -17,10 +17,13 @@ public class MilestoneResponse {
 
     private Long id;
     private Long contractId;
+    private String contractTitle;
+    private com.prm.contract.constant.ServiceType serviceType;
     private Integer orderNo;
     private String title;
     private String requirement;
     private BigDecimal amount;
+    private BigDecimal feePercent;
     private Integer durationDays;
     private Integer maxRevisions;
     private Integer revisionsUsed;

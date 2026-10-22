@@ -10,6 +10,7 @@ import com.prm.identity.entity.User;
 import com.prm.identity.repository.UserRepository;
 import com.prm.livestream.constant.LivestreamStatus;
 import com.prm.livestream.dto.request.CreateLivestreamRequest;
+import com.prm.livestream.dto.response.LivestreamChatMessageResponse;
 import com.prm.livestream.dto.response.LivestreamResponse;
 import com.prm.livestream.dto.response.LivestreamTokenResponse;
 import com.prm.livestream.entity.LivestreamSession;
@@ -25,7 +26,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.prm.livestream.dto.response.LivestreamChatMessageResponse;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -44,6 +44,18 @@ public class LivestreamServiceImpl implements LivestreamService {
     private final MembershipRepository membershipRepository;
 
     private final Map<Long, List<LivestreamChatMessageResponse>> liveChats = new ConcurrentHashMap<>();
+
+    private static final Set<String> GENERIC_CHAT_AUTHORS = Set.of(
+            "người xem",
+            "thính giả",
+            "viewer",
+            "👤 viewer",
+            "creator",
+            "👑 creator",
+            "chủ phòng",
+            "chủ phòng (host)",
+            "host"
+    );
 
     @Value("${app.agora.app-id:}")
     private String agoraAppId;
@@ -66,6 +78,20 @@ public class LivestreamServiceImpl implements LivestreamService {
 
         if (!channel.getCreator().getId().equals(creator.getId())) {
             throw new AppException(ErrorCode.FORBIDDEN_ACCESS, "Bạn không phải chủ sở hữu của kênh này để tạo livestream");
+        }
+
+        // Tự động đóng các phiên LIVE cũ còn treo trên cùng kênh để tránh spam nhiều phòng LIVE trùng lặp
+        List<LivestreamSession> activeSessions = livestreamSessionRepository
+                .findAllByChannelIdAndStatus(channel.getId(), LivestreamStatus.LIVE);
+        if (!activeSessions.isEmpty()) {
+            Instant now = Instant.now();
+            for (LivestreamSession oldSession : activeSessions) {
+                oldSession.setStatus(LivestreamStatus.ENDED);
+                oldSession.setEndedAt(now);
+                oldSession.setViewerCount(0);
+            }
+            livestreamSessionRepository.saveAll(activeSessions);
+            log.info("Auto-ended {} previous active livestream session(s) for channel id: {}", activeSessions.size(), channel.getId());
         }
 
         String agoraChannelName = "prm_live_" + channel.getId() + "_" + System.currentTimeMillis();
@@ -124,8 +150,9 @@ public class LivestreamServiceImpl implements LivestreamService {
             }
             role = AgoraTokenUtil.Role.SUBSCRIBER;
 
-            // Tăng số lượng người xem
-            session.setViewerCount(session.getViewerCount() + 1);
+            // Tăng số lượng người xem trực tiếp
+            int currentCount = session.getViewerCount() != null ? session.getViewerCount() : 0;
+            session.setViewerCount(currentCount + 1);
             livestreamSessionRepository.save(session);
 
             // Nếu client cung cấp clientUid riêng biệt (tránh UID_CONFLICT khi nhiều thiết bị cùng dùng 1 tài khoản demo)
@@ -157,6 +184,36 @@ public class LivestreamServiceImpl implements LivestreamService {
 
     @Override
     @Transactional
+    public LivestreamResponse leaveSession(Long sessionId, boolean resetAll) {
+        LivestreamSession session = livestreamSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new AppException(ErrorCode.LIVESTREAM_NOT_FOUND));
+
+        boolean isCreator = false;
+        try {
+            String email = SecurityUtils.getCurrentUserEmail();
+            if (email != null) {
+                Optional<User> currentUser = userRepository.findByEmail(email);
+                if (currentUser.isPresent() && session.getCreator().getId().equals(currentUser.get().getId())) {
+                    isCreator = true;
+                }
+            }
+        } catch (Exception ignored) {
+            // Cho phép giảm số mắt xem ngay cả khi Viewer gọi qua sendBeacon lúc đóng tab
+        }
+
+        if (resetAll || isCreator) {
+            session.setViewerCount(0);
+        } else {
+            int currentCount = session.getViewerCount() != null ? session.getViewerCount() : 0;
+            session.setViewerCount(Math.max(0, currentCount - 1));
+        }
+
+        LivestreamSession updated = livestreamSessionRepository.save(session);
+        return mapToResponse(updated);
+    }
+
+    @Override
+    @Transactional
     public LivestreamResponse endSession(Long sessionId) {
         String email = SecurityUtils.getCurrentUserEmail();
         User currentUser = userRepository.findByEmail(email)
@@ -171,6 +228,7 @@ public class LivestreamServiceImpl implements LivestreamService {
 
         session.setStatus(LivestreamStatus.ENDED);
         session.setEndedAt(Instant.now());
+        session.setViewerCount(0);
         LivestreamSession updated = livestreamSessionRepository.save(session);
         log.info("Livestream session id: {} has been ended by creator", sessionId);
         return mapToResponse(updated);
@@ -230,10 +288,47 @@ public class LivestreamServiceImpl implements LivestreamService {
     public void sendChatMessage(Long sessionId, String id, String author, String role, String text) {
         if (text == null || text.isBlank()) return;
         String msgId = (id != null && !id.isBlank()) ? id : UUID.randomUUID().toString();
+
+        String resolvedAuthor = author != null ? author.trim() : "";
+        String resolvedRole = role != null ? role.trim().toLowerCase() : "viewer";
+
+        // Tự động tra cứu họ tên thật (fullName) từ người dùng đang đăng nhập nếu client gửi tên mặc định hoặc email
+        try {
+            String email = SecurityUtils.getCurrentUserEmail();
+            if (email != null) {
+                Optional<User> currentUserOpt = userRepository.findByEmail(email);
+                if (currentUserOpt.isPresent()) {
+                    User currentUser = currentUserOpt.get();
+                    String realName = (currentUser.getFullName() != null && !currentUser.getFullName().isBlank())
+                            ? currentUser.getFullName().trim()
+                            : currentUser.getEmail();
+
+                    boolean isGenericOrEmail = resolvedAuthor.isEmpty()
+                            || GENERIC_CHAT_AUTHORS.contains(resolvedAuthor.toLowerCase())
+                            || resolvedAuthor.equalsIgnoreCase(currentUser.getEmail());
+
+                    if (isGenericOrEmail && realName != null && !realName.isBlank()) {
+                        resolvedAuthor = realName;
+                    }
+
+                    Optional<LivestreamSession> sessionOpt = livestreamSessionRepository.findById(sessionId);
+                    if (sessionOpt.isPresent() && sessionOpt.get().getCreator().getId().equals(currentUser.getId())) {
+                        resolvedRole = "creator";
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Fallback về tên do client truyền lên nếu không có JWT
+        }
+
+        if (resolvedAuthor.isEmpty()) {
+            resolvedAuthor = "creator".equals(resolvedRole) ? "Chủ phòng" : "Thính giả";
+        }
+
         LivestreamChatMessageResponse msg = LivestreamChatMessageResponse.builder()
                 .id(msgId)
-                .author(author != null ? author : "Người xem")
-                .role(role != null ? role.toLowerCase() : "viewer")
+                .author(resolvedAuthor)
+                .role(resolvedRole)
                 .text(text.trim())
                 .timestamp(System.currentTimeMillis())
                 .timeFormatted(LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm:ss")))

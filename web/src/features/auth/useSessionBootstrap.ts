@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { authApi } from '@/services/api/auth';
+import { isJwtExpiringSoon, refreshAccessToken } from '@/services/api/client';
 
 export const useSessionBootstrap = () => {
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -11,8 +12,51 @@ export const useSessionBootstrap = () => {
   useEffect(() => {
     let isMounted = true;
 
+    const silentProactiveRefresh = async () => {
+      const state = useAuthStore.getState();
+      if (!state.isAuthenticated || !state.accessToken || state.accessToken === 'dev-admin-token') {
+        return;
+      }
+      // Làm mới chủ động trước khi hết hạn 2 phút (120 giây)
+      if (isJwtExpiringSoon(state.accessToken, 120)) {
+        try {
+          await refreshAccessToken();
+        } catch {
+          // Nếu refresh token thực sự hết hạn (sau 7 ngày), để interceptor xử lý khi có thao tác
+        }
+      }
+    };
+
     const bootstrap = async () => {
-      if (useAuthStore.getState().isAuthenticated) {
+      const currentState = useAuthStore.getState();
+      if (currentState.isAuthenticated) {
+        if (currentState.accessToken && currentState.accessToken !== 'dev-admin-token') {
+          if (isJwtExpiringSoon(currentState.accessToken, 120)) {
+            try {
+              await refreshAccessToken();
+            } catch {
+              if (isMounted) {
+                logout();
+                setLoading(false);
+              }
+              return;
+            }
+          }
+
+          if (!currentState.user?.fullName) {
+            try {
+              const userRes = await authApi.getCurrentUser();
+              if (isMounted && userRes.data) {
+                useAuthStore.getState().setUser({
+                  ...useAuthStore.getState().user,
+                  ...userRes.data,
+                });
+              }
+            } catch {
+              // ignore background profile hydration error
+            }
+          }
+        }
         if (isMounted) setLoading(false);
         return;
       }
@@ -27,15 +71,16 @@ export const useSessionBootstrap = () => {
             userId: 1,
             email: 'admin@suky.vn',
             role: 'ADMIN',
-            roles: ['ADMIN'],
+            roles: ['ADMIN', 'CREATOR'],
           },
           {
             id: 1,
             email: 'admin@suky.vn',
-            fullName: 'Quản Trị Viên Sử Ký',
+            fullName: 'Quản Trị Viên & Tác Giả Sử Ký',
             roleName: 'ADMIN',
-            roles: ['ADMIN'],
+            roles: ['ADMIN', 'CREATOR'],
             isAdmin: true,
+            isCreator: true,
             status: 'ACTIVE',
             createdAt: '2026-01-01T00:00:00Z',
           }
@@ -60,7 +105,6 @@ export const useSessionBootstrap = () => {
         const authData = refreshRes.data;
 
         // 2. Fetch authenticated user profile
-        // Temporary set access token so get profile works
         useAuthStore.getState().setAccessToken(authData.accessToken);
         const userRes = await authApi.getCurrentUser();
 
@@ -75,10 +119,27 @@ export const useSessionBootstrap = () => {
       }
     };
 
-    bootstrap();
+    void bootstrap();
+
+    // Định kỳ kiểm tra mỗi 60 giây & khi quay lại tab để gia hạn ngầm trước khi Access Token 15 phút hết hạn
+    const intervalId = window.setInterval(() => {
+      void silentProactiveRefresh();
+    }, 60_000);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        void silentProactiveRefresh();
+      }
+    };
+
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
 
     return () => {
       isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
     };
   }, [setAuth, setLoading, logout, getRefreshToken]);
 };

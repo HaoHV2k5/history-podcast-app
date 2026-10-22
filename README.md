@@ -1,6 +1,6 @@
 # PRM - Project Architecture & Source Code
 
-> **Hệ thống PRM (Project Repository)**  
+> **Hệ thống PRM (Project Repository)**
 > Kho chứa mã nguồn tích hợp bao gồm 3 phân hệ chính: **Backend**, **Mobile App**, và **Web Application**.
 
 ---
@@ -11,10 +11,12 @@
 code/
 ├── backend/       # Mã nguồn Server & RESTful API Service
 │   └── README.md  # Chi tiết kiến trúc và hướng dẫn chạy Backend
-├── mobile/        # Mã nguồn ứng dụng di động (Flutter / React Native)
+├── mobile/        # Mã nguồn ứng dụng di động (Flutter)
 │   └── README.md  # Chi tiết giao diện và hướng dẫn chạy Mobile
-├── web/           # Mã nguồn ứng dụng web / Admin Portal (React / Next.js)
+├── web/           # Mã nguồn ứng dụng web (React / Vite)
 │   └── README.md  # Chi tiết tính năng và hướng dẫn chạy Web
+├── doc/           # Tài liệu kỹ thuật, schema & hướng dẫn tích hợp
+│   └── livestream-integration-guide.md # Hướng dẫn chi tiết tích hợp Livestream (Agora RTC)
 └── README.md      # Tài liệu tổng quan toàn bộ dự án
 ```
 

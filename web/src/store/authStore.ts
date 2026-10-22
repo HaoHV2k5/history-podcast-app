@@ -5,9 +5,53 @@ const ACCESS_TOKEN_KEY = 'su_ky_admin_access_token';
 const REFRESH_TOKEN_KEY = 'su_ky_admin_refresh_token';
 const USER_DATA_KEY = 'su_ky_admin_user_data';
 
+const readStoredItem = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredItem = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch {
+    // ignore
+  }
+};
+
+const removeStoredItem = (key: string): void => {
+  try {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  } catch {
+    // ignore
+  }
+};
+
+const isDevModeActive = (): boolean => {
+  if (!import.meta.env.DEV) return false;
+  try {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('dev') === 'true') {
+      sessionStorage.setItem('su_ky_admin_dev_mode', 'true');
+      return true;
+    }
+    return sessionStorage.getItem('su_ky_admin_dev_mode') === 'true';
+  } catch {
+    return false;
+  }
+};
+
 const getInitialAccessToken = (): string | null => {
   try {
-    return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+    const token = readStoredItem(ACCESS_TOKEN_KEY);
+    if (token) return token;
+    if (isDevModeActive()) {
+      return 'dev-admin-token';
+    }
+    return null;
   } catch {
     return null;
   }
@@ -15,8 +59,22 @@ const getInitialAccessToken = (): string | null => {
 
 const getInitialUser = (): UserResponse | null => {
   try {
-    const raw = sessionStorage.getItem(USER_DATA_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = readStoredItem(USER_DATA_KEY);
+    if (raw) return JSON.parse(raw);
+    if (isDevModeActive()) {
+      return {
+        id: 1,
+        email: 'admin@suky.vn',
+        fullName: 'Quản Trị Viên & Tác Giả Sử Ký',
+        roleName: 'ADMIN',
+        roles: ['ADMIN', 'CREATOR'],
+        isAdmin: true,
+        isCreator: true,
+        status: 'ACTIVE',
+        createdAt: '2026-01-01T00:00:00Z',
+      };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -44,6 +102,7 @@ interface AuthState {
   clearRefreshToken: () => void;
   hasRole: (role: string) => boolean;
   isAdmin: () => boolean;
+  isCreator: () => boolean;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -54,36 +113,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   setAuth: (authData: AuthResponse, userData?: UserResponse) => {
-    // Store tokens in sessionStorage
-    try {
-      if (authData.accessToken) {
-        sessionStorage.setItem(ACCESS_TOKEN_KEY, authData.accessToken);
-      }
-      if (authData.refreshToken) {
-        sessionStorage.setItem(REFRESH_TOKEN_KEY, authData.refreshToken);
-      }
-      sessionStorage.removeItem('su_ky_admin_dev_mode');
-    } catch {
-      // ignore
+    if (authData.accessToken) {
+      writeStoredItem(ACCESS_TOKEN_KEY, authData.accessToken);
+    }
+    if (authData.refreshToken) {
+      writeStoredItem(REFRESH_TOKEN_KEY, authData.refreshToken);
+    }
+    if (authData.accessToken !== 'dev-admin-token') {
+      removeStoredItem('su_ky_admin_dev_mode');
     }
 
-    const roles = authData.roles || (authData.role ? [authData.role] : []);
-    const mergedUser: UserResponse = userData || {
-      id: authData.userId,
-      email: authData.email,
-      phone: authData.phone,
-      roleName: authData.role,
-      roles: roles,
-      isAdmin: roles.includes('ADMIN') || authData.role === 'ADMIN',
-      status: 'ACTIVE',
-      createdAt: new Date().toISOString(),
+    const authRoles = authData.roles || (authData.role ? [authData.role] : []);
+    const userRoles = userData?.roles || (userData?.roleName ? [userData.roleName] : []);
+    const combinedRoles = Array.from(new Set([...authRoles, ...userRoles]));
+
+    const mergedUser: UserResponse = {
+      ...(userData || {}),
+      id: userData?.id || authData.userId,
+      email: userData?.email || authData.email,
+      phone: userData?.phone || authData.phone,
+      roleName: userData?.roleName || authData.role,
+      roles: combinedRoles,
+      isAdmin:
+        Boolean(userData?.isAdmin) ||
+        combinedRoles.includes('ADMIN') ||
+        authData.role === 'ADMIN' ||
+        userData?.roleName === 'ADMIN',
+      isCreator:
+        Boolean(userData?.isCreator) ||
+        combinedRoles.includes('CREATOR') ||
+        authData.role === 'CREATOR' ||
+        userData?.roleName === 'CREATOR',
+      status: userData?.status || 'ACTIVE',
+      createdAt: userData?.createdAt || new Date().toISOString(),
     };
 
-    try {
-      sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(mergedUser));
-    } catch {
-      // ignore
-    }
+    writeStoredItem(USER_DATA_KEY, JSON.stringify(mergedUser));
 
     set({
       accessToken: authData.accessToken,
@@ -95,20 +160,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   setAccessToken: (token: string) => {
-    try {
-      sessionStorage.setItem(ACCESS_TOKEN_KEY, token);
-    } catch {
-      // ignore
-    }
+    writeStoredItem(ACCESS_TOKEN_KEY, token);
     set({ accessToken: token, isAuthenticated: true });
   },
 
   setUser: (userData: UserResponse) => {
-    try {
-      sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(userData));
-    } catch {
-      // ignore
-    }
+    writeStoredItem(USER_DATA_KEY, JSON.stringify(userData));
     set({ user: userData });
   },
 
@@ -121,14 +178,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    try {
-      sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-      sessionStorage.removeItem(USER_DATA_KEY);
-      sessionStorage.removeItem('su_ky_admin_dev_mode');
-    } catch {
-      // ignore
-    }
+    removeStoredItem(ACCESS_TOKEN_KEY);
+    removeStoredItem(REFRESH_TOKEN_KEY);
+    removeStoredItem(USER_DATA_KEY);
+    removeStoredItem('su_ky_admin_dev_mode');
     set({
       accessToken: null,
       user: null,
@@ -139,27 +192,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   getRefreshToken: () => {
-    try {
-      return sessionStorage.getItem(REFRESH_TOKEN_KEY);
-    } catch {
-      return null;
-    }
+    return readStoredItem(REFRESH_TOKEN_KEY);
   },
 
   setRefreshToken: (token: string) => {
-    try {
-      sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
-    } catch {
-      // ignore
-    }
+    writeStoredItem(REFRESH_TOKEN_KEY, token);
   },
 
   clearRefreshToken: () => {
-    try {
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    } catch {
-      // ignore
-    }
+    removeStoredItem(REFRESH_TOKEN_KEY);
   },
 
   hasRole: (role: string) => {
@@ -167,6 +208,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!user) return false;
     if (user.roles && user.roles.includes(role)) return true;
     if (user.roleName === role) return true;
+    if (role === 'ADMIN' && user.isAdmin) return true;
+    if (role === 'CREATOR' && user.isCreator) return true;
     return false;
   },
 
@@ -176,6 +219,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (user.isAdmin) return true;
     if (user.roles && user.roles.includes('ADMIN')) return true;
     if (user.roleName === 'ADMIN') return true;
+    return false;
+  },
+
+  isCreator: () => {
+    const { user } = get();
+    if (!user) return false;
+    if (user.isCreator) return true;
+    if (user.roles && user.roles.includes('CREATOR')) return true;
+    if (user.roleName === 'CREATOR') return true;
     return false;
   },
 }));
