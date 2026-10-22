@@ -113,6 +113,7 @@ class DemoPasswordRecovery {
         await authRepository!.resetPassword(
           email: identifier,
           newPassword: password,
+          confirmPassword: confirmation,
           resetToken: resetToken!,
         );
       } catch (e) {

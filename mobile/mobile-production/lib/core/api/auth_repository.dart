@@ -69,7 +69,7 @@ class AuthRepository {
   Future<String> verifyForgotPasswordOtp({required String email, required String otp}) async {
     final response = await apiClient.post('/api/v1/auth/verify-forgot-password-otp', body: {
       'email': email.trim(),
-      'otp': otp.trim(),
+      'otpCode': otp.trim(),
     });
     final data = response['data'] as Map<String, dynamic>?;
     return data?['resetToken'] as String? ?? '';
@@ -78,11 +78,13 @@ class AuthRepository {
   Future<void> resetPassword({
     required String email,
     required String newPassword,
+    String? confirmPassword,
     required String resetToken,
   }) async {
     await apiClient.post('/api/v1/auth/reset-password', body: {
       'email': email.trim(),
       'newPassword': newPassword,
+      'confirmPassword': confirmPassword ?? newPassword,
       'resetToken': resetToken,
     });
   }
