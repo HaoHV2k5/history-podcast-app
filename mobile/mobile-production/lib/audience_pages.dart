@@ -1037,6 +1037,8 @@ class _AuthSheetState extends State<AuthSheet> {
   final confirmPasswordCtrl = TextEditingController();
   final nameCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  bool obscurePassword = true;
+  bool obscureConfirmPassword = true;
   bool busy = false;
   String? error;
 
@@ -1197,10 +1199,19 @@ class _AuthSheetState extends State<AuthSheet> {
             TextFormField(
               key: const Key('auth-password'),
               controller: passwordCtrl,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: obscurePassword,
+              decoration: InputDecoration(
                 labelText: 'Mật khẩu',
                 helperText: 'Tối thiểu 6 ký tự',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    obscurePassword
+                        ? CupertinoIcons.eye_slash
+                        : CupertinoIcons.eye,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => obscurePassword = !obscurePassword),
+                ),
               ),
               validator: (v) => v == null || v.length < 6
                   ? 'Mật khẩu từ 6 ký tự trở lên'
@@ -1211,10 +1222,19 @@ class _AuthSheetState extends State<AuthSheet> {
               TextFormField(
                 key: const Key('auth-confirm-password'),
                 controller: confirmPasswordCtrl,
-                obscureText: true,
-                decoration: const InputDecoration(
+                obscureText: obscureConfirmPassword,
+                decoration: InputDecoration(
                   labelText: 'Xác nhận mật khẩu',
-                  helperText: 'Nhập lại mật khẩu vừa đặt',
+                  helperText: 'Nhập lại chính xác mật khẩu ở trên',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscureConfirmPassword
+                          ? CupertinoIcons.eye_slash
+                          : CupertinoIcons.eye,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => obscureConfirmPassword = !obscureConfirmPassword),
+                  ),
                 ),
                 validator: (v) {
                   if (tab == 1) {
