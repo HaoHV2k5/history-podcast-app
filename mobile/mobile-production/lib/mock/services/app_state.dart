@@ -494,6 +494,8 @@ class AppState extends ChangeNotifier {
     required String name,
     required String identifier,
     required String password,
+    String? confirmPassword,
+    String? phone,
   }) async {
     final n = name.trim();
     final id = identifier.trim();
@@ -502,16 +504,35 @@ class AppState extends ChangeNotifier {
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
     }
+    if (confirmPassword != null &&
+        confirmPassword.isNotEmpty &&
+        confirmPassword != password) {
+      throw ArgumentError('Mật khẩu xác nhận không khớp.');
+    }
 
     if (authRepository != null) {
+      String email;
+      String regPhone;
+      if (id.contains('@')) {
+        email = id;
+        regPhone = (phone != null && phone.trim().isNotEmpty)
+            ? phone.trim()
+            : '09${(DateTime.now().millisecondsSinceEpoch % 100000000).toString().padLeft(8, '0')}';
+      } else {
+        regPhone = id;
+        email = '$id@suky.vn';
+      }
+
       final res = await authRepository!.register(
-        email: id,
+        email: email,
         password: password,
-        phone: '0900000000',
+        confirmPassword: confirmPassword ?? password,
+        phone: regPhone,
       );
       displayName = n;
       isLoggedIn = true;
       userEmail = res.email;
+      userPhone = res.phone;
       if (userRepository != null) {
         try {
           await userRepository!.updateMyProfile(fullName: n);

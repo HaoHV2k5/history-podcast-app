@@ -30,14 +30,18 @@ class AuthRepository {
   Future<AuthResult> register({
     required String email,
     required String password,
+    String? confirmPassword,
     required String phone,
     String? role,
   }) async {
     final response = await apiClient.post('/api/v1/auth/register', body: {
       'email': email.trim(),
       'password': password,
+      'confirmPassword': (confirmPassword != null && confirmPassword.isNotEmpty)
+          ? confirmPassword
+          : password,
       'phone': phone.trim(),
-      'role': role ?? 'LISTENER',
+      'role': role ?? 'VIEWER',
     });
 
     final data = response['data'] as Map<String, dynamic>;

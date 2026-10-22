@@ -1034,6 +1034,7 @@ class _AuthSheetState extends State<AuthSheet> {
   int tab = 0; // 0: Login, 1: Register
   final identifierCtrl = TextEditingController();
   final passwordCtrl = TextEditingController();
+  final confirmPasswordCtrl = TextEditingController();
   final nameCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
   bool busy = false;
@@ -1063,6 +1064,7 @@ class _AuthSheetState extends State<AuthSheet> {
   void dispose() {
     identifierCtrl.dispose();
     passwordCtrl.dispose();
+    confirmPasswordCtrl.dispose();
     nameCtrl.dispose();
     super.dispose();
   }
@@ -1084,6 +1086,9 @@ class _AuthSheetState extends State<AuthSheet> {
           name: nameCtrl.text,
           identifier: identifierCtrl.text,
           password: passwordCtrl.text,
+          confirmPassword: confirmPasswordCtrl.text.isNotEmpty
+              ? confirmPasswordCtrl.text
+              : passwordCtrl.text,
         );
       }
       if (mounted) Navigator.pop(context);
@@ -1201,6 +1206,29 @@ class _AuthSheetState extends State<AuthSheet> {
                   ? 'Mật khẩu từ 6 ký tự trở lên'
                   : null,
             ),
+            if (tab == 1) ...[
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('auth-confirm-password'),
+                controller: confirmPasswordCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Xác nhận mật khẩu',
+                  helperText: 'Nhập lại mật khẩu vừa đặt',
+                ),
+                validator: (v) {
+                  if (tab == 1) {
+                    if (v == null || v.isEmpty) {
+                      return 'Nhập lại mật khẩu để xác nhận';
+                    }
+                    if (v != passwordCtrl.text) {
+                      return 'Mật khẩu xác nhận không khớp';
+                    }
+                  }
+                  return null;
+                },
+              ),
+            ],
             if (tab == 0)
               Align(
                 alignment: Alignment.centerRight,
