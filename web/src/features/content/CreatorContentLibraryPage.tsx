@@ -65,6 +65,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
   // Quick Watch Video Modal State
   const [playingVideo, setPlayingVideo] = useState<CreatorVideoItem | null>(null);
   const [mediaError, setMediaError] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const resolveMediaUrl = (url?: string | null): string => {
     if (!url) return '';
@@ -88,12 +89,27 @@ export const CreatorContentLibraryPage: React.FC = () => {
     );
   };
 
-  const handleWatchVideo = (item: CreatorVideoItem) => {
-    if (item.fileUrl) {
-      setMediaError(false);
-      setPlayingVideo(item);
-    } else {
-      navigate(`/creator/content/${item.contentId}`);
+  const handleWatchVideo = async (item: CreatorVideoItem) => {
+    setMediaError(false);
+    setPlayingVideo(item);
+
+    // Luôn mở modal xem trực tiếp. Nếu item chưa có fileUrl thì fetch detail từ API để cập nhật ngay
+    if (!item.fileUrl) {
+      setIsLoadingDetail(true);
+      try {
+        const res = await creatorStudioApi.getVideoDetail(item.contentId);
+        if (res.data?.fileUrl) {
+          setPlayingVideo((prev) =>
+            prev && prev.contentId === item.contentId
+              ? { ...prev, fileUrl: res.data.fileUrl }
+              : prev
+          );
+        }
+      } catch (err) {
+        console.error('Không thể tải URL phương tiện từ API chi tiết:', err);
+      } finally {
+        setIsLoadingDetail(false);
+      }
     }
   };
 
@@ -432,7 +448,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                     </div>
 
                     {/* Hover Callout Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-end p-2.5">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-end p-2.5 pointer-events-none">
                       <span className="text-[11px] font-medium text-white flex items-center gap-1.5 drop-shadow-sm">
                         <Play className="h-3 w-3 fill-current text-accent" />
                         <span>Xem video ngay</span>
@@ -588,14 +604,18 @@ export const CreatorContentLibraryPage: React.FC = () => {
 
               {/* Video Surface Area */}
               <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
-                {playingVideo.fileUrl && !mediaError ? (
+                {isLoadingDetail ? (
+                  <div className="flex flex-col items-center justify-center p-8 space-y-3 text-stone-300">
+                    <RotateCcw className="h-7 w-7 text-accent animate-spin" />
+                    <p className="text-xs font-mono">Đang kiểm tra luồng video sẵn sàng...</p>
+                  </div>
+                ) : playingVideo.fileUrl && !mediaError ? (
                   isVideoMedia(playingVideo.fileUrl) ? (
                     <video
                       key={playingVideo.contentId}
                       controls
                       autoPlay
                       playsInline
-                      crossOrigin="anonymous"
                       className="w-full h-full object-contain"
                       src={resolveMediaUrl(playingVideo.fileUrl)}
                       onError={() => setMediaError(true)}
@@ -618,13 +638,26 @@ export const CreatorContentLibraryPage: React.FC = () => {
                     </div>
                   )
                 ) : (
-                  <div className="text-center p-8 space-y-2 text-stone-400">
+                  <div className="text-center p-8 space-y-3 text-stone-400">
                     <Video className="h-10 w-10 mx-auto opacity-50 text-stone-500" />
-                    <p className="text-xs">
+                    <p className="text-xs max-w-sm mx-auto leading-relaxed">
                       {mediaError
-                        ? 'Không thể tải luồng video (URL hết hạn hoặc tệp đang được bảo trì).'
-                        : 'Video chưa có tệp truyền thông sẵn sàng.'}
+                        ? 'Không thể tải luồng video (URL bảo vệ hoặc đang cập nhật).'
+                        : 'Tác phẩm đang xử lý kết xuất hoặc chưa tải tệp media lên.'}
                     </p>
+                    {playingVideo.fileUrl && (
+                      <div className="pt-1">
+                        <a
+                          href={resolveMediaUrl(playingVideo.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-700 bg-stone-800 text-stone-200 text-xs hover:bg-stone-700 transition-colors"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Mở trực tiếp link tệp media</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
