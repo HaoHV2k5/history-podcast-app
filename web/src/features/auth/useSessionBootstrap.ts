@@ -14,7 +14,7 @@ export const useSessionBootstrap = () => {
 
     const silentProactiveRefresh = async () => {
       const state = useAuthStore.getState();
-      if (!state.isAuthenticated || !state.accessToken || state.accessToken === 'dev-admin-token') {
+      if (!state.isAuthenticated || !state.accessToken) {
         return;
       }
       // Làm mới chủ động trước khi hết hạn 2 phút (120 giây)
@@ -30,7 +30,7 @@ export const useSessionBootstrap = () => {
     const bootstrap = async () => {
       const currentState = useAuthStore.getState();
       if (currentState.isAuthenticated) {
-        if (currentState.accessToken && currentState.accessToken !== 'dev-admin-token') {
+        if (currentState.accessToken) {
           if (isJwtExpiringSoon(currentState.accessToken, 120)) {
             try {
               await refreshAccessToken();
@@ -57,34 +57,6 @@ export const useSessionBootstrap = () => {
             }
           }
         }
-        if (isMounted) setLoading(false);
-        return;
-      }
-
-      // In development mode, allow activating local visual QA session if flagged in sessionStorage
-      if (import.meta.env.DEV && sessionStorage.getItem('su_ky_admin_dev_mode') === 'true') {
-        setAuth(
-          {
-            accessToken: 'dev-admin-token',
-            refreshToken: 'dev-admin-refresh',
-            tokenType: 'Bearer',
-            userId: 1,
-            email: 'admin@suky.vn',
-            role: 'ADMIN',
-            roles: ['ADMIN', 'CREATOR'],
-          },
-          {
-            id: 1,
-            email: 'admin@suky.vn',
-            fullName: 'Quản Trị Viên & Tác Giả Sử Ký',
-            roleName: 'ADMIN',
-            roles: ['ADMIN', 'CREATOR'],
-            isAdmin: true,
-            isCreator: true,
-            status: 'ACTIVE',
-            createdAt: '2026-01-01T00:00:00Z',
-          }
-        );
         if (isMounted) setLoading(false);
         return;
       }
