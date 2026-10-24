@@ -62,42 +62,6 @@ const RootRedirect: React.FC = () => {
   const isLoading = useAuthStore((s) => s.isLoading);
   const hasRole = useAuthStore((s) => s.hasRole);
 
-  const isDevBypass = Boolean(
-    import.meta.env.DEV &&
-      (sessionStorage.getItem('su_ky_admin_dev_mode') === 'true' ||
-        (typeof window !== 'undefined' &&
-          new URLSearchParams(window.location.search).get('dev') === 'true'))
-  );
-
-  if (isDevBypass) {
-    if (!isAuthenticated) {
-      const devUser = {
-        id: 1,
-        email: 'admin@suky.vn',
-        fullName: 'Quản Trị Viên & Tác Giả Sử Ký',
-        roleName: 'ADMIN',
-        roles: ['ADMIN', 'CREATOR'],
-        isAdmin: true,
-        isCreator: true,
-        status: 'ACTIVE',
-        createdAt: '2026-01-01T00:00:00Z',
-      };
-      useAuthStore.getState().setAuth(
-        {
-          accessToken: 'dev-admin-token',
-          refreshToken: 'dev-admin-refresh',
-          tokenType: 'Bearer',
-          userId: 1,
-          email: 'admin@suky.vn',
-          role: 'ADMIN',
-          roles: ['ADMIN', 'CREATOR'],
-        },
-        devUser
-      );
-    }
-    return <Navigate to="/creator?dev=true" replace />;
-  }
-
   if (isLoading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-canvas">
