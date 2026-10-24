@@ -159,10 +159,10 @@ export const Step3VoiceSelector: React.FC<Step3VoiceSelectorProps> = ({
             <div
               key={voice.id}
               onClick={() => onSelectVoice(voice.id)}
-              className={`group p-4 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${
+              className={`group p-4 rounded-xl border text-left card-hover-lift transition-all duration-200 cursor-pointer relative flex flex-col justify-between gap-3 ${
                 isSelected
-                  ? 'border-accent bg-accent-soft/30 ring-1 ring-accent shadow-xs'
-                  : 'border-border bg-surface hover:border-accent/40 hover:bg-surface-subtle/40'
+                  ? 'border-accent bg-accent-soft/30 ring-2 ring-accent/30 shadow-glow-accent scale-[1.01]'
+                  : 'border-border bg-surface hover:border-accent/50 hover:bg-surface-subtle/50 hover:shadow-card-hover'
               }`}
             >
               {/* Card Top: Name + Selection Check */}
@@ -185,9 +185,9 @@ export const Step3VoiceSelector: React.FC<Step3VoiceSelectorProps> = ({
                 </div>
 
                 <div
-                  className={`h-5 w-5 rounded-full flex items-center justify-center border transition-colors ${
+                  className={`h-5 w-5 rounded-full flex items-center justify-center border transition-all duration-200 ${
                     isSelected
-                      ? 'border-accent bg-accent text-canvas'
+                      ? 'border-accent bg-accent text-canvas shadow-xs scale-110'
                       : 'border-border group-hover:border-accent/60'
                   }`}
                 >
@@ -212,16 +212,24 @@ export const Step3VoiceSelector: React.FC<Step3VoiceSelectorProps> = ({
                     e.stopPropagation();
                     onPlayPreview(voice);
                   }}
-                  className={`h-7 px-2.5 text-xs gap-1.5 rounded-lg ${
+                  className={`h-7 px-2.5 text-xs gap-1.5 rounded-lg transition-all duration-200 active:scale-95 ${
                     isPlaying
-                      ? 'bg-accent text-canvas hover:bg-accent/90'
+                      ? 'bg-accent text-canvas hover:bg-accent/90 shadow-xs'
                       : 'text-accent hover:bg-accent-soft'
                   }`}
                 >
                   {isLoading ? (
                     <RotateCcw className="h-3 w-3 animate-spin" />
                   ) : isPlaying ? (
-                    <Pause className="h-3 w-3" />
+                    <div className="flex items-center gap-1">
+                      <Pause className="h-3 w-3" />
+                      <div className="flex items-center gap-0.5 h-2.5">
+                        <span className="sound-bar !bg-canvas !w-[2px]" />
+                        <span className="sound-bar !bg-canvas !w-[2px]" />
+                        <span className="sound-bar !bg-canvas !w-[2px]" />
+                        <span className="sound-bar !bg-canvas !w-[2px]" />
+                      </div>
+                    </div>
                   ) : (
                     <Play className="h-3 w-3" />
                   )}
@@ -244,7 +252,7 @@ export const Step3VoiceSelector: React.FC<Step3VoiceSelectorProps> = ({
           variant="outline"
           size="sm"
           onClick={onPrevStep}
-          className="gap-2 text-xs border-border hover:bg-surface-subtle"
+          className="gap-2 text-xs border-border hover:bg-surface-subtle transition-all duration-200 active:scale-95"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Quay lại Bước 2 (Phân cảnh)</span>
@@ -254,9 +262,9 @@ export const Step3VoiceSelector: React.FC<Step3VoiceSelectorProps> = ({
           type="button"
           size="sm"
           onClick={onNextStep}
-          className="gap-2 text-xs font-semibold px-5 shadow-xs"
+          className="gap-2 text-xs font-semibold px-5 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
         >
-          <span>Tiếp tục: Kết xuất video & Xuất bản (Bước 4)</span>
+          <span>Tiếp tục: Kết xuất video &amp; Xuất bản (Bước 4)</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>

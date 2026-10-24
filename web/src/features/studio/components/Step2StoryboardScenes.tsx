@@ -149,7 +149,7 @@ export const Step2StoryboardScenes: React.FC<Step2StoryboardScenesProps> = ({
           return (
             <div
               key={scene.scene_index}
-              className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-4 transition-all hover:border-border/80"
+              className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-4 card-hover-lift hover:border-accent/40 hover:shadow-card-hover transition-all duration-200"
             >
               {/* Scene Card Header */}
               <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border">
@@ -266,7 +266,7 @@ export const Step2StoryboardScenes: React.FC<Step2StoryboardScenesProps> = ({
           variant="outline"
           size="sm"
           onClick={onPrevStep}
-          className="gap-2 text-xs border-border hover:bg-surface-subtle"
+          className="gap-2 text-xs border-border hover:bg-surface-subtle transition-all duration-200 active:scale-95"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Quay lại Bước 1 (Kịch bản)</span>
@@ -276,7 +276,7 @@ export const Step2StoryboardScenes: React.FC<Step2StoryboardScenesProps> = ({
           type="button"
           size="sm"
           onClick={onNextStep}
-          className="gap-2 text-xs font-semibold px-5 shadow-xs"
+          className="gap-2 text-xs font-semibold px-5 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
         >
           <span>Tiếp tục: Chọn giọng đọc AI (Bước 3)</span>
           <ArrowRight className="h-3.5 w-3.5" />

@@ -86,6 +86,9 @@ export const CreatorStudioPage: React.FC = () => {
   const [storyboardDuration, setStoryboardDuration] = useState<number>(60);
   const [generatedStoryboard, setGeneratedStoryboard] = useState<StoryboardResponse | null>(null);
 
+  // Progressive Sequential Flow (Steps 1 -> 4 unlocked strictly one by one)
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState<number>(1);
+
   // Step 1: Historical Verification State
   const [verificationResult, setVerificationResult] = useState<ScriptVerificationResponse | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -185,7 +188,8 @@ export const CreatorStudioPage: React.FC = () => {
         const extracted = extractNarrationFromStoryboard(sbData.scenes);
         setScriptContent(extracted);
       }
-      // Advance to Step 2
+      // Unlock Step 2 and advance immediately
+      setMaxUnlockedStep((prev) => Math.max(prev, 2));
       setActiveTab('storyboard');
     },
   });
@@ -418,10 +422,12 @@ export const CreatorStudioPage: React.FC = () => {
     setVerificationResult(null);
     setSceneImages({});
     setCoverImageUrl('');
+    setMaxUnlockedStep(1);
     setActiveTab('script');
   };
 
   const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId) || voices[0];
+  const effectiveMaxStep = Math.max(maxUnlockedStep, generatedStoryboard ? 2 : 1);
 
   // Guided Stepper Navigation Configuration
   const STEPS = [
@@ -492,64 +498,92 @@ export const CreatorStudioPage: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Guided Stepper Header */}
-      <div className="p-1.5 rounded-xl border border-border bg-surface shadow-xs overflow-x-auto scrollbar-none">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 min-w-[600px]">
-          {STEPS.map((step) => {
+      {/* 3. Progressive Sequential Stepper (Only displays unlocked steps to prevent confusion) */}
+      <div className="rounded-xl border border-border bg-surface p-3.5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-border/70">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-canvas text-xs font-mono font-bold shadow-xs">
+              {STEPS.findIndex((s) => s.id === activeTab) + 1}
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-ink">
+                  {activeTab === 'script' && 'Bước 1/4: Khởi Tạo Nội Dung & Kịch Bản'}
+                  {activeTab === 'storyboard' && 'Bước 2/4: Phân Cảnh & Ảnh Minh Họa'}
+                  {activeTab === 'voices' && 'Bước 3/4: Lựa Chọn Giọng Đọc AI'}
+                  {activeTab === 'render' && 'Bước 4/4: Kết Xuất Video & Xuất Bản'}
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-accent-soft text-accent border border-accent/20">
+                  Đang thao tác
+                </span>
+              </div>
+              <p className="text-[11px] text-muted mt-0.5">
+                {activeTab === 'script' && 'Tạo kịch bản xong, hệ thống sẽ mở khóa Bước 2 (Phân cảnh & Ảnh minh họa).'}
+                {activeTab === 'storyboard' && 'Xem lại kịch bản từng cảnh, tải ảnh vẽ minh họa hoặc chuyển sang bước Chọn Giọng Đọc.'}
+                {activeTab === 'voices' && 'Nghe thử câu thoại mẫu và chọn giọng đọc AI ưng ý nhất.'}
+                {activeTab === 'render' && 'Kết xuất video hoàn chỉnh và gửi kiểm duyệt AI Shield.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-end sm:self-center">
+            <div className="text-right">
+              <span className="text-[11px] font-mono text-muted tabular-nums block">
+                Tiến độ: {activeTab === 'script' ? '25%' : activeTab === 'storyboard' ? '50%' : activeTab === 'voices' ? '75%' : '100%'}
+              </span>
+              <span className="text-[10px] text-muted">
+                {effectiveMaxStep < 4 ? `Bước tiếp theo sẽ mở khi xong bước này` : 'Đã mở khóa toàn bộ'}
+              </span>
+            </div>
+            <div className="w-20 sm:w-28 h-2.5 rounded-full bg-surface-subtle overflow-hidden border border-border/80 relative shadow-inner">
+              <div
+                className="h-full bg-gradient-to-r from-accent via-accent-hover to-accent transition-all duration-500 rounded-full relative overflow-hidden"
+                style={{
+                  width: activeTab === 'script' ? '25%' : activeTab === 'storyboard' ? '50%' : activeTab === 'voices' ? '75%' : '100%',
+                }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Steps Breadcrumbs (Only shows unlocked steps) */}
+        <div className="flex flex-wrap items-center gap-2">
+          {STEPS.slice(0, effectiveMaxStep).map((step, idx) => {
             const Icon = step.icon;
             const isActive = activeTab === step.id;
-            const isCompletedStep =
-              (step.id === 'script' && Boolean(generatedStoryboard || scriptContent)) ||
-              (step.id === 'storyboard' && Boolean(generatedStoryboard)) ||
-              (step.id === 'voices' && Boolean(selectedVoiceId)) ||
-              (step.id === 'render' && Boolean(activeJobId));
+            const isCompleted = step.step < effectiveMaxStep || (step.id === 'script' && Boolean(generatedStoryboard));
 
             return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => setActiveTab(step.id as 'script' | 'storyboard' | 'voices' | 'render')}
-                className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex items-center gap-3 ${
-                  isActive
-                    ? 'border-accent bg-accent-soft/40 shadow-xs ring-1 ring-accent'
-                    : 'border-border/60 bg-surface hover:border-accent/40 hover:bg-surface-subtle/50'
-                }`}
-              >
-                <div
-                  className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-colors ${
+              <React.Fragment key={step.id}>
+                {idx > 0 && <span className="text-muted text-xs select-none">→</span>}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab(step.id as 'script' | 'storyboard' | 'voices' | 'render')}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 flex items-center gap-2 cursor-pointer ${
                     isActive
-                      ? 'bg-accent text-canvas shadow-xs'
-                      : isCompletedStep
-                      ? 'bg-status-success-bg text-status-success-text border border-status-success-text/30'
-                      : 'bg-surface-subtle text-muted border border-border'
+                      ? 'border-accent bg-accent text-canvas font-bold shadow-glow-accent ring-2 ring-accent/30 scale-[1.02] active:scale-95'
+                      : isCompleted
+                      ? 'border-border bg-surface text-ink hover:border-accent/50 hover:bg-surface-subtle/80 hover:-translate-y-0.5 active:scale-95'
+                      : 'border-border bg-surface text-muted hover:text-ink'
                   }`}
                 >
-                  {isCompletedStep && !isActive ? <CheckCircle2 className="h-4 w-4" /> : step.step}
-                </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-accent' : 'text-muted'}`} />
-                    <span className={`text-xs font-bold truncate ${isActive ? 'text-accent' : 'text-ink'}`}>
-                      {step.label}
-                    </span>
-                    {step.hasBadge && (
-                      <span className="flex h-2 w-2 relative">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] text-muted block truncate">{step.desc}</span>
-                </div>
-              </button>
+                  {isCompleted && !isActive ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text" />
+                  ) : (
+                    <Icon className={`h-3.5 w-3.5 ${isActive ? 'text-canvas' : 'text-accent'}`} />
+                  )}
+                  <span>{step.label}</span>
+                </button>
+              </React.Fragment>
             );
           })}
         </div>
       </div>
 
-      {/* 4. Active Step Content with GSAP Transition */}
-      <div ref={tabContentRef} className="w-full">
+      {/* 4. Active Step Content with GSAP & Smooth Entrance Transition */}
+      <div ref={tabContentRef} className="w-full animate-fade-in-up">
         {/* Step 1: Script Input & RAG Fact-checking */}
         {activeTab === 'script' && (
           <Step1ScriptInput
@@ -573,6 +607,11 @@ export const CreatorStudioPage: React.FC = () => {
             onApplyRevisedScript={(revised) => setScriptContent(revised)}
             copiedKey={copiedKey}
             onCopy={handleCopy}
+            onOpenSettings={() => setIsSettingsOpen(true)}
+            onClearError={() => {
+              generateStoryboardMutation.reset();
+              verifyScriptMutation.reset();
+            }}
           />
         )}
 
@@ -589,7 +628,10 @@ export const CreatorStudioPage: React.FC = () => {
             copiedKey={copiedKey}
             onCopy={handleCopy}
             onPrevStep={() => setActiveTab('script')}
-            onNextStep={() => setActiveTab('voices')}
+            onNextStep={() => {
+              setMaxUnlockedStep((prev) => Math.max(prev, 3));
+              setActiveTab('voices');
+            }}
             onUpdateSceneNarration={(sceneIndex, newNarration) => {
               if (!generatedStoryboard) return;
               const updatedScenes = generatedStoryboard.scenes.map((s) =>
@@ -611,7 +653,10 @@ export const CreatorStudioPage: React.FC = () => {
             isLoadingVoiceId={loadingVoiceId}
             voicePreviewError={voicePreviewError}
             onPrevStep={() => setActiveTab('storyboard')}
-            onNextStep={() => setActiveTab('render')}
+            onNextStep={() => {
+              setMaxUnlockedStep((prev) => Math.max(prev, 4));
+              setActiveTab('render');
+            }}
           />
         )}
 

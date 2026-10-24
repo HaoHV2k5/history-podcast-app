@@ -432,9 +432,9 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                       size="sm"
                       onClick={onSubmitPublish}
                       disabled={isSubmittingPublish}
-                      className="gap-2 text-xs font-semibold px-5 shadow-xs bg-accent text-canvas hover:bg-accent/90"
+                      className="gap-2 text-xs font-semibold px-5 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
                     >
-                      <Sparkles className={`h-3.5 w-3.5 ${isSubmittingPublish ? 'animate-spin' : ''}`} />
+                      <Sparkles className={`h-3.5 w-3.5 ${isSubmittingPublish ? 'animate-spin' : 'animate-pulse'}`} />
                       <span>{isSubmittingPublish ? 'Đang gửi kiểm duyệt...' : 'Gửi kiểm duyệt AI Shield ngay'}</span>
                     </Button>
                   </div>
@@ -702,7 +702,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   (renderMode === 'audio_podcast' && !coverImageUrl.trim()) ||
                   (renderMode === 'whiteboard' && (!sceneValidation.isValid || scenes.length === 0))
                 }
-                className="gap-2 text-xs font-semibold px-6 shadow-xs bg-accent text-canvas hover:bg-accent/90"
+                className="gap-2 text-xs font-semibold px-6 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
               >
                 <Clapperboard className={`h-3.5 w-3.5 ${isStartingRender ? 'animate-spin' : ''}`} />
                 <span>{isStartingRender ? 'Đang khởi chạy render...' : 'Bắt đầu kết xuất Video'}</span>
