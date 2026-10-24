@@ -101,11 +101,11 @@ export const CreatorStudioPage: React.FC = () => {
 
   // Script Editor State
   const [scriptTopic, setScriptTopic] = useState('');
-  const [scriptContent, setScriptContent] = useState(SAMPLE_HISTORICAL_SCRIPT);
+  const [scriptContent, setScriptContent] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Storyboard Generator State
-  const [storyboardTopic, setStoryboardTopic] = useState('Lý Thái Tổ dời đô năm 1010');
+  const [storyboardTopic, setStoryboardTopic] = useState('');
   const [storyboardDuration, setStoryboardDuration] = useState<number>(60);
   const [generatedStoryboard, setGeneratedStoryboard] = useState<StoryboardResponse | null>(null);
 
@@ -856,7 +856,7 @@ export const CreatorStudioPage: React.FC = () => {
                   className="text-xs font-sans leading-relaxed min-h-[220px]"
                 />
                 <p className="text-[11px] text-muted italic">
-                  * Kịch bản trên là nội dung mẫu thử nghiệm. Vui lòng bấm &quot;Thẩm định sử liệu với RAG AI&quot; để đối chiếu thực tế với kho tư liệu chính sử.
+                  * Nhập nội dung kịch bản sử liệu của bạn hoặc bấm &quot;Nạp mẫu Dời Đô 1010&quot; để đối chiếu thực tế với kho tư liệu chính sử qua RAG AI.
                 </p>
               </div>
 

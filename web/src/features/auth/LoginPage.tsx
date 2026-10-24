@@ -90,6 +90,7 @@ export const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -319,69 +320,37 @@ export const LoginPage: React.FC = () => {
             <p className="text-[11px] text-muted leading-relaxed">
               Cổng xác thực nội bộ. Quyền hạn tài khoản được phân định tự động theo vai trò (ADMIN / CREATOR).
             </p>
-            {import.meta.env.DEV && (
-              <div className="pt-2 border-t border-dashed border-border/80">
+            <div className="pt-2 border-t border-dashed border-border/80 space-y-2">
+              <span className="text-[11px] text-muted block">Tài khoản thử nghiệm hệ thống (Dữ liệu thật):</span>
+              <div className="grid grid-cols-2 gap-2">
                 <Button
-                  id="dev-qa-login-btn"
+                  id="fill-admin-account-btn"
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={async () => {
-                    try {
-                      const res = await authApi.login({
-                        email: 'creator@example.com',
-                        password: 'Creator@123',
-                      });
-                      if (res.data) {
-                        useAuthStore.getState().setAccessToken(res.data.accessToken);
-                        let profileData = undefined;
-                        try {
-                          const meRes = await authApi.getCurrentUser();
-                          profileData = meRes.data;
-                        } catch {
-                          // ignore
-                        }
-                        setAuth(res.data, profileData);
-                        navigate('/creator');
-                        return;
-                      }
-                    } catch {
-                      // fallback to mock dev user
-                    }
-                    const devUser = {
-                      id: 1,
-                      email: 'creator@example.com',
-                      fullName: 'Demo Creator Sử Ký',
-                      roleName: 'CREATOR',
-                      roles: ['ADMIN', 'CREATOR'],
-                      isAdmin: true,
-                      isCreator: true,
-                      status: 'ACTIVE',
-                      createdAt: '2026-01-01T00:00:00Z',
-                    };
-                    sessionStorage.setItem('su_ky_admin_dev_mode', 'true');
-                    sessionStorage.setItem('su_ky_admin_access_token', 'dev-admin-token');
-                    sessionStorage.setItem('su_ky_admin_user_data', JSON.stringify(devUser));
-                    useAuthStore.getState().setAuth(
-                      {
-                        accessToken: 'dev-admin-token',
-                        refreshToken: 'dev-admin-refresh',
-                        tokenType: 'Bearer',
-                        userId: 1,
-                        email: 'creator@example.com',
-                        role: 'CREATOR',
-                        roles: ['ADMIN', 'CREATOR'],
-                      },
-                      devUser
-                    );
-                    navigate('/creator');
+                  onClick={() => {
+                    setValue('email', 'admin@historypodcast.com', { shouldValidate: true });
+                    setValue('password', 'Admin@123', { shouldValidate: true });
                   }}
-                  className="text-xs text-muted hover:text-ink min-h-[36px] px-3 w-full border border-dashed border-border hover:bg-surface-subtle"
+                  className="text-xs text-ink h-8 px-2 border-border hover:bg-surface-subtle justify-center"
                 >
-                  Chế độ xem xét giao diện (Dev QA)
+                  Quản trị viên (Admin)
+                </Button>
+                <Button
+                  id="fill-creator-account-btn"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setValue('email', 'creator@example.com', { shouldValidate: true });
+                    setValue('password', 'Creator@123', { shouldValidate: true });
+                  }}
+                  className="text-xs text-ink h-8 px-2 border-border hover:bg-surface-subtle justify-center"
+                >
+                  Nhà sáng tạo (Creator)
                 </Button>
               </div>
-            )}
+            </div>
           </div>
         </div>
 

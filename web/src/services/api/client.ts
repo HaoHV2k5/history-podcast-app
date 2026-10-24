@@ -17,7 +17,7 @@ export const apiClient = axios.create({
  * Kiểm tra xem JWT Access Token đã hết hạn hoặc sắp hết hạn trong vòng `bufferSeconds` giây tới hay chưa.
  */
 export const isJwtExpiringSoon = (token: string | null, bufferSeconds = 60): boolean => {
-  if (!token || token === 'dev-admin-token') return false;
+  if (!token) return false;
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return false;
@@ -64,7 +64,7 @@ const processQueue = (error: unknown, token: string | null = null) => {
  */
 export const refreshAccessToken = async (): Promise<string | null> => {
   const refreshToken = useAuthStore.getState().getRefreshToken();
-  if (!refreshToken || refreshToken === 'dev-admin-refresh') {
+  if (!refreshToken) {
     return null;
   }
 
