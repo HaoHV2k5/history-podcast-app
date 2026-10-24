@@ -69,6 +69,7 @@ env/
 # Vector DB & Heavy Output / Media artifacts
 **/chroma_db/
 **/data/chroma_db/
+tool/data/
 **/outputs/
 *.mp4
 !tool_video_v5/examples/scene-01-monkey-mountain-banana-whiteboard.mp4

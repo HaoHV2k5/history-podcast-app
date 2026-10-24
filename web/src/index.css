@@ -159,4 +159,67 @@
   .sound-bar:nth-child(2) { animation-delay: 0.28s; height: 16px; }
   .sound-bar:nth-child(3) { animation-delay: 0.15s; height: 10px; }
   .sound-bar:nth-child(4) { animation-delay: 0.42s; height: 14px; }
+
+  /* Modern Shimmer Button Highlight */
+  .shimmer-button {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-button::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.22) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: shimmer 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    pointer-events: none;
+  }
+
+  /* Scanline RAG Verifier Animation */
+  .scanline-effect {
+    position: relative;
+    overflow: hidden;
+  }
+  .scanline-effect::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(184, 51, 69, 0.85),
+      transparent
+    );
+    box-shadow: 0 0 12px rgba(184, 51, 69, 0.6);
+    animation: scan-line 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  /* Modern Ambient Dot Pattern Background */
+  .bg-dot-pattern {
+    background-image: radial-gradient(rgba(38, 37, 34, 0.08) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  /* Smooth Card Elevation on Hover */
+  .card-hover-lift {
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+  }
+  .card-hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -4px rgba(38, 37, 34, 0.08), 0 2px 6px -1px rgba(38, 37, 34, 0.04);
+  }
 }
+

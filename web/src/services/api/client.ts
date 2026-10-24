@@ -143,6 +143,13 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    if (error.response?.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+      const serverMsg = (error.response.data as { message?: string }).message;
+      if (serverMsg) {
+        error.message = serverMsg;
+      }
+    }
+
     const status = error.response.status;
     const currentToken = useAuthStore.getState().accessToken;
     const isExpired403 = status === 403 && Boolean(currentToken && isJwtExpiringSoon(currentToken, 0));

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Video,
@@ -16,6 +16,9 @@ import {
   FileText,
   Play,
   Layers,
+  Volume2,
+  ExternalLink,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { channelsApi } from '@/services/api/channels';
@@ -23,6 +26,13 @@ import { creatorStudioApi } from '@/services/api/creatorStudio';
 import { useKycGate } from '@/features/kyc/useKycGate';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { CreatorVideoItem } from '@/types/creatorContent';
 import { formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
 import { gsap } from 'gsap';
 import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
@@ -93,6 +103,56 @@ export const CreatorWorkspaceHome: React.FC = () => {
   });
 
   const videos = Array.isArray(videosRes?.data) ? videosRes.data : [];
+
+  // Quick Watch Video Modal State
+  const [playingVideo, setPlayingVideo] = React.useState<CreatorVideoItem | null>(null);
+  const [mediaError, setMediaError] = React.useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = React.useState(false);
+
+  const resolveMediaUrl = (url?: string | null): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+      return url;
+    }
+    const baseUrl = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    return `${baseUrl}${cleanPath}`;
+  };
+
+  const isVideoMedia = (url?: string | null): boolean => {
+    if (!url) return true;
+    const clean = url.split('?')[0].toLowerCase();
+    return (
+      clean.endsWith('.mp4') ||
+      clean.endsWith('.webm') ||
+      clean.endsWith('.mov') ||
+      clean.endsWith('.mkv') ||
+      !clean.endsWith('.mp3')
+    );
+  };
+
+  const handleWatchVideo = async (item: CreatorVideoItem) => {
+    setMediaError(false);
+    setPlayingVideo(item);
+
+    if (!item.fileUrl) {
+      setIsLoadingDetail(true);
+      try {
+        const res = await creatorStudioApi.getVideoDetail(item.contentId);
+        if (res.data?.fileUrl) {
+          setPlayingVideo((prev) =>
+            prev && prev.contentId === item.contentId
+              ? { ...prev, fileUrl: res.data.fileUrl }
+              : prev
+          );
+        }
+      } catch (err) {
+        console.error('Không thể tải URL phương tiện từ API chi tiết:', err);
+      } finally {
+        setIsLoadingDetail(false);
+      }
+    }
+  };
 
   // Derived real metrics
   const totalVideos = videos.length;
@@ -470,17 +530,24 @@ export const CreatorWorkspaceHome: React.FC = () => {
                   className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F7F5F1] px-2 rounded-lg transition-colors"
                 >
                   <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="h-11 w-11 rounded-lg bg-surface-subtle border border-border flex items-center justify-center shrink-0 text-accent">
-                      <Play className="h-4 w-4 fill-current opacity-80" />
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleWatchVideo(item)}
+                      title={`Xem video: ${item.title}`}
+                      className="h-11 w-11 rounded-lg bg-surface-subtle border border-border flex items-center justify-center shrink-0 text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all cursor-pointer group/btn"
+                    >
+                      <Play className="h-4 w-4 fill-current opacity-80 group-hover/btn:opacity-100" />
+                    </button>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <Link
-                          to={`/creator/content/${item.contentId}`}
-                          className="text-xs font-semibold text-ink hover:text-accent truncate block"
+                        <button
+                          type="button"
+                          onClick={() => handleWatchVideo(item)}
+                          title={`Xem video: ${item.title}`}
+                          className="text-xs font-semibold text-ink hover:text-accent truncate block text-left hover:underline cursor-pointer"
                         >
                           {item.title}
-                        </Link>
+                        </button>
                         {item.isExclusive && (
                           <Badge variant="accent" size="sm">
                             VIP
@@ -594,6 +661,153 @@ export const CreatorWorkspaceHome: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Direct Video Player Modal */}
+      <Dialog
+        open={Boolean(playingVideo)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPlayingVideo(null);
+            setMediaError(false);
+          }
+        }}
+      >
+        <DialogContent
+          maxWidth="max-w-3xl"
+          className="p-0 overflow-hidden bg-black text-canvas border border-stone-800 rounded-2xl shadow-modal focus:outline-none"
+        >
+          {playingVideo && (
+            <div className="flex flex-col">
+              {/* Top Bar */}
+              <div className="p-3.5 px-5 bg-stone-900/90 border-b border-stone-800 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0 pr-2">
+                  <span className="flex h-6 w-6 rounded-md bg-accent/20 text-accent items-center justify-center shrink-0">
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                  </span>
+                  <DialogTitle className="font-serif text-sm font-bold text-white truncate">
+                    {playingVideo.title}
+                  </DialogTitle>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant={getContentStatusBadge(playingVideo.status).variant}>
+                    {getContentStatusBadge(playingVideo.status).label}
+                  </Badge>
+                  {playingVideo.durationSeconds && (
+                    <span className="text-[11px] font-mono text-stone-400 bg-stone-800/80 px-2 py-0.5 rounded">
+                      {formatDuration(playingVideo.durationSeconds)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Video Surface Area */}
+              <div className="relative aspect-video w-full bg-black flex items-center justify-center overflow-hidden">
+                {isLoadingDetail ? (
+                  <div className="flex flex-col items-center justify-center p-8 space-y-3 text-stone-300">
+                    <RotateCcw className="h-7 w-7 text-accent animate-spin" />
+                    <p className="text-xs font-mono">Đang kiểm tra luồng video sẵn sàng...</p>
+                  </div>
+                ) : playingVideo.fileUrl && !mediaError ? (
+                  isVideoMedia(playingVideo.fileUrl) ? (
+                    <video
+                      key={playingVideo.contentId}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-contain"
+                      src={resolveMediaUrl(playingVideo.fileUrl)}
+                      onError={() => setMediaError(true)}
+                    >
+                      Trình duyệt không hỗ trợ thẻ video HTML5.
+                    </video>
+                  ) : (
+                    <div className="w-full max-w-md p-8 text-center space-y-4">
+                      <div className="h-16 w-16 rounded-full bg-accent/20 text-accent mx-auto flex items-center justify-center shadow-glow-accent">
+                        <Volume2 className="h-8 w-8" />
+                      </div>
+                      <p className="text-xs text-stone-300 font-serif">Bản thu âm Podcast Lịch Sử</p>
+                      <audio
+                        controls
+                        autoPlay
+                        className="w-full"
+                        src={resolveMediaUrl(playingVideo.fileUrl)}
+                        onError={() => setMediaError(true)}
+                      />
+                    </div>
+                  )
+                ) : (
+                  <div className="text-center p-8 space-y-3 text-stone-400">
+                    <Video className="h-10 w-10 mx-auto opacity-50 text-stone-500" />
+                    <p className="text-xs max-w-sm mx-auto leading-relaxed">
+                      {mediaError
+                        ? 'Không thể tải luồng video (URL bảo vệ hoặc đang cập nhật).'
+                        : 'Tác phẩm đang xử lý kết xuất hoặc chưa tải tệp media lên.'}
+                    </p>
+                    {playingVideo.fileUrl && (
+                      <div className="pt-1">
+                        <a
+                          href={resolveMediaUrl(playingVideo.fileUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-700 bg-stone-800 text-stone-200 text-xs hover:bg-stone-700 transition-colors"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Mở trực tiếp link tệp media</span>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Description & Metadata Footer */}
+              <div className="p-4 px-5 bg-[#181715] border-t border-stone-800 space-y-3">
+                {playingVideo.description && (
+                  <DialogDescription className="text-xs text-stone-300 line-clamp-3 leading-relaxed">
+                    {playingVideo.description}
+                  </DialogDescription>
+                )}
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs">
+                  <div className="flex items-center gap-3 text-stone-400 text-[11px]">
+                    <span className="font-mono">{formatDate(playingVideo.createdAt)}</span>
+                    {playingVideo.aiShieldScore !== null && playingVideo.aiShieldScore !== undefined && (
+                      <span className="flex items-center gap-1 text-accent font-medium">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>AI Shield: {Number(playingVideo.aiShieldScore).toFixed(1)}/100</span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const cid = playingVideo.contentId;
+                        setPlayingVideo(null);
+                        navigate(`/creator/content/${cid}`);
+                      }}
+                      className="text-xs h-8 gap-1.5 border-stone-700 bg-stone-800 text-stone-200 hover:bg-stone-700 hover:text-white"
+                    >
+                      <span>Quản lý &amp; Chi tiết tác phẩm</span>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => setPlayingVideo(null)}
+                      className="text-xs h-8 px-4 bg-accent text-canvas hover:bg-accent/90"
+                    >
+                      Đóng
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
