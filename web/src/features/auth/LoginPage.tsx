@@ -90,13 +90,12 @@ export const LoginPage: React.FC = () => {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: import.meta.env.DEV ? 'creator@example.com' : '',
-      password: import.meta.env.DEV ? 'Creator@123' : '',
+      email: '',
+      password: '',
     },
   });
 
@@ -316,41 +315,10 @@ export const LoginPage: React.FC = () => {
             </div>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-border text-center space-y-3">
+          <div className="mt-8 pt-6 border-t border-border text-center">
             <p className="text-[11px] text-muted leading-relaxed">
               Cổng xác thực nội bộ. Quyền hạn tài khoản được phân định tự động theo vai trò (ADMIN / CREATOR).
             </p>
-            <div className="pt-2 border-t border-dashed border-border/80 space-y-2">
-              <span className="text-[11px] text-muted block">Tài khoản thử nghiệm hệ thống (Dữ liệu thật):</span>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  id="fill-admin-account-btn"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setValue('email', 'admin@historypodcast.com', { shouldValidate: true });
-                    setValue('password', 'Admin@123', { shouldValidate: true });
-                  }}
-                  className="text-xs text-ink h-8 px-2 border-border hover:bg-surface-subtle justify-center"
-                >
-                  Quản trị viên (Admin)
-                </Button>
-                <Button
-                  id="fill-creator-account-btn"
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setValue('email', 'creator@example.com', { shouldValidate: true });
-                    setValue('password', 'Creator@123', { shouldValidate: true });
-                  }}
-                  className="text-xs text-ink h-8 px-2 border-border hover:bg-surface-subtle justify-center"
-                >
-                  Nhà sáng tạo (Creator)
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
 
