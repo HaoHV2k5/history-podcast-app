@@ -67,12 +67,15 @@ export interface StoryboardScene {
   scene_index: number;
   scene_title: string;
   image_prompt?: string;
+  narration_text?: string;
+  estimated_duration_sec?: number;
   elements: StoryboardElement[];
 }
 
 export interface StoryboardResponse {
   title: string;
   thumbnail_prompt?: string;
+  estimated_duration_sec?: number;
   scenes: StoryboardScene[];
   citations?: Array<{
     id: number;
