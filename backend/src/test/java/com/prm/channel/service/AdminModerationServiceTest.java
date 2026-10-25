@@ -17,6 +17,10 @@ import com.prm.common.enums.ContentStatus;
 import com.prm.common.exception.AppException;
 import com.prm.identity.entity.User;
 import com.prm.identity.repository.UserRepository;
+import com.prm.channel.repository.ArtifactRepository;
+import com.prm.channel.repository.TranscriptRepository;
+import com.prm.common.enums.ArtifactStatus;
+import com.prm.common.service.FileStorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -55,6 +59,15 @@ class AdminModerationServiceTest {
 
     @Mock
     private AiShieldPolicyService aiShieldPolicyService;
+
+    @Mock
+    private ArtifactRepository artifactRepository;
+
+    @Mock
+    private TranscriptRepository transcriptRepository;
+
+    @Mock
+    private FileStorageService fileStorageService;
 
     @InjectMocks
     private AdminModerationServiceImpl adminModerationService;
@@ -188,6 +201,100 @@ class AdminModerationServiceTest {
         assertEquals(ContentStatus.REJECTED.name(), content.getStatus());
         assertEquals("Cần chỉnh sửa lại mốc năm lịch sử ở cảnh 2", review.getReason());
         verify(contentRepository, times(1)).save(content);
+    }
+
+    @Test
+    @DisplayName("Admin phê duyệt phiên bản mới v2: v2 chuyển sang PUBLISHED, v1 cũ được ARCHIVED để thay thế")
+    void testProcessDecision_ApprovedNewVersion_ArchivesOldVersion() {
+        Artifact artifactV1 = Artifact.builder()
+                .id(201L)
+                .content(content)
+                .version(1)
+                .status("PUBLISHED")
+                .fileUrl("https://cloudinary.com/v1.mp4")
+                .build();
+
+        Artifact artifactV2 = Artifact.builder()
+                .id(202L)
+                .content(content)
+                .version(2)
+                .status("PENDING_REVIEW")
+                .fileUrl("https://cloudinary.com/v2.mp4")
+                .build();
+
+        ModerationReview reviewV2 = ModerationReview.builder()
+                .id(301L)
+                .artifact(artifactV2)
+                .decision("PENDING")
+                .build();
+
+        when(moderationReviewRepository.findById(301L)).thenReturn(Optional.of(reviewV2));
+        when(userRepository.findByEmail("admin@historypodcast.com")).thenReturn(Optional.of(adminUser));
+        when(moderationReviewRepository.save(any(ModerationReview.class))).thenAnswer(i -> i.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(i -> i.getArgument(0));
+        when(artifactRepository.findByContentId(content.getId())).thenReturn(List.of(artifactV2, artifactV1));
+
+        AdminModerationDecisionRequest request = AdminModerationDecisionRequest.builder()
+                .decision("APPROVED")
+                .reason("Bản v2 đã sửa phát âm chuẩn xác")
+                .build();
+
+        AdminModerationItemResponse result = adminModerationService.processDecision(301L, "admin@historypodcast.com", request);
+
+        assertNotNull(result);
+        assertEquals("APPROVED", result.getDecision());
+        assertEquals("PUBLISHED", artifactV2.getStatus());
+        assertEquals("ARCHIVED", artifactV1.getStatus());
+        assertEquals(ContentStatus.PUBLISHED.name(), content.getStatus());
+        verify(artifactRepository, atLeastOnce()).save(artifactV2);
+        verify(artifactRepository, atLeastOnce()).save(artifactV1);
+    }
+
+    @Test
+    @DisplayName("Admin từ chối bản vá v2: v2 bị REJECTED, nhưng v1 vẫn giữ nguyên PUBLISHED không bị gãy")
+    void testProcessDecision_RejectedNewVersion_PreservesPublishedV1() {
+        Artifact artifactV1 = Artifact.builder()
+                .id(201L)
+                .content(content)
+                .version(1)
+                .status("PUBLISHED")
+                .fileUrl("https://cloudinary.com/v1.mp4")
+                .build();
+
+        Artifact artifactV2 = Artifact.builder()
+                .id(202L)
+                .content(content)
+                .version(2)
+                .status("PENDING_REVIEW")
+                .fileUrl("https://cloudinary.com/v2.mp4")
+                .build();
+
+        ModerationReview reviewV2 = ModerationReview.builder()
+                .id(302L)
+                .artifact(artifactV2)
+                .decision("PENDING")
+                .build();
+
+        content.setStatus(ContentStatus.PUBLISHED.name());
+
+        when(moderationReviewRepository.findById(302L)).thenReturn(Optional.of(reviewV2));
+        when(userRepository.findByEmail("admin@historypodcast.com")).thenReturn(Optional.of(adminUser));
+        when(moderationReviewRepository.save(any(ModerationReview.class))).thenAnswer(i -> i.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(i -> i.getArgument(0));
+        when(artifactRepository.findByContentId(content.getId())).thenReturn(List.of(artifactV2, artifactV1));
+
+        AdminModerationDecisionRequest request = AdminModerationDecisionRequest.builder()
+                .decision("REJECTED")
+                .reason("Câu 3 phát âm sai")
+                .build();
+
+        AdminModerationItemResponse result = adminModerationService.processDecision(302L, "admin@historypodcast.com", request);
+
+        assertNotNull(result);
+        assertEquals("REJECTED", result.getDecision());
+        assertEquals("REJECTED", artifactV2.getStatus());
+        // Content vẫn giữ PUBLISHED để phục vụ người xem bản v1
+        assertEquals(ContentStatus.PUBLISHED.name(), content.getStatus());
     }
 
     @Test

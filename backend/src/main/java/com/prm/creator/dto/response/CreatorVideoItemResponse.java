@@ -20,7 +20,9 @@ public class CreatorVideoItemResponse {
     private String title;
     private String description;
     private String status; // PUBLISHED, HIDDEN, FAILED, PROCESSING
+    private Integer version;
     private String fileUrl;
+    private String thumbnailUrl;
     private Integer durationSeconds;
     private Boolean isExclusive;
     private Instant createdAt;

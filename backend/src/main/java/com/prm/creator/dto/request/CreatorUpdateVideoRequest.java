@@ -16,4 +16,9 @@ public class CreatorUpdateVideoRequest {
     private String description;
 
     private Boolean isExclusive;
+
+    /**
+     * URL ảnh Thumbnail đại diện do Creator cập nhật thêm vô cho video
+     */
+    private String thumbnailUrl;
 }

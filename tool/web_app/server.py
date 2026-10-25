@@ -103,15 +103,54 @@ class AiShieldVerifyRequest(BaseModel):
     gemini_api_key: Optional[str] = None
 
 
+class PodcastSentenceItem(BaseModel):
+    index: int
+    text: str
+    audio_url: Optional[str] = None
+    duration: Optional[float] = None
+
+
+class PodcastSentencesResponse(BaseModel):
+    job_id: str
+    topic: Optional[str] = None
+    tts_engine: Optional[str] = None
+    voice_name: Optional[str] = None
+    sentences: list[PodcastSentenceItem]
+
+
+class PodcastPatchItem(BaseModel):
+    index: int
+    text: str
+    re_record: Optional[bool] = True
+
+
+class PodcastPatchRequest(BaseModel):
+    job_id: str
+    patches: Optional[list[PodcastPatchItem]] = None
+    sentences: Optional[list[str]] = None
+    tts_engine: Optional[str] = None
+    voice_name: Optional[str] = None
+    elevenlabs_api_key: Optional[str] = None
+    cover_image_b64: Optional[str] = None
+
+
 
 def decode_base64_image(b64_str: str) -> bytes:
     if not b64_str:
         raise ValueError("Dữ liệu hình ảnh cảnh không được để trống")
     b64_str = b64_str.strip()
     if b64_str.startswith("http://") or b64_str.startswith("https://"):
+        parsed = urllib.parse.urlparse(b64_str)
+        host = (parsed.hostname or "").lower()
+        # Chặn SSRF đến các dải IP nội bộ và metadata endpoint
+        if host in ("localhost", "127.0.0.1", "::1", "169.254.169.254") or host.startswith("10.") or host.startswith("192.168."):
+            raise ValueError("Địa chỉ URL hình ảnh không được phép truy cập mạng nội bộ.")
         req = urllib.request.Request(b64_str, headers={"User-Agent": "WhiteboardStudio/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.read()
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content_len = resp.headers.get("Content-Length")
+            if content_len and int(content_len) > 15 * 1024 * 1024:
+                raise ValueError("Kích thước tệp hình ảnh vượt quá 15MB")
+            return resp.read(15 * 1024 * 1024)
     if "," in b64_str:
         b64_str = b64_str.split(",", 1)[1]
     return base64.b64decode(b64_str)
@@ -287,6 +326,272 @@ async def get_rag_status_endpoint():
         }
     except Exception as e:
         return {"status": "error", "error": str(e), "total_chunks": 0}
+
+
+@app.get("/api/podcast/{job_id}/sentences", response_model=PodcastSentencesResponse)
+async def get_podcast_sentences_endpoint(job_id: str):
+    job_dir = OUTPUTS_DIR / job_id
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy dữ liệu kết xuất của job '{job_id}'")
+
+    sentences: list[str] = []
+    manifest_p = job_dir / "manifest.json"
+    topic = ""
+    tts_engine = "edge-tts"
+    voice_name = "vi-VN-NamMinhNeural"
+
+    if manifest_p.exists():
+        try:
+            data = json.loads(manifest_p.read_text(encoding="utf-8"))
+            sentences = data.get("sentences", [])
+            topic = data.get("topic", "")
+            tts_engine = data.get("tts_engine", tts_engine)
+            voice_name = data.get("voice_name", voice_name)
+        except Exception as ex:
+            print(f"[Podcast Patch] Lỗi đọc manifest.json: {ex}")
+
+    if not sentences:
+        script_p = job_dir / "script.txt"
+        if script_p.exists():
+            raw_text = script_p.read_text(encoding="utf-8")
+            sentences = [s.strip() for s in re.split(r"\n\s*\n|\n", raw_text) if s.strip()]
+
+    if not sentences:
+        srt_p = job_dir / "subtitles.srt"
+        if srt_p.exists():
+            srt_content = srt_p.read_text(encoding="utf-8")
+            blocks = srt_content.strip().split("\n\n")
+            for block in blocks:
+                lines = block.strip().split("\n")
+                if len(lines) >= 3:
+                    text = " ".join(lines[2:]).strip()
+                    if text:
+                        sentences.append(text)
+
+    audio_dir = job_dir / "audio_clips"
+    sentence_items: list[PodcastSentenceItem] = []
+    for idx, s in enumerate(sentences, start=1):
+        mp3_p = audio_dir / f"clip_{idx}.mp3"
+        wav_p = audio_dir / f"clip_{idx}.wav"
+        dur = None
+        audio_url = None
+        if wav_p.exists():
+            dur = get_audio_duration_wave(wav_p)
+        if mp3_p.exists():
+            audio_url = f"/outputs/{job_id}/audio_clips/clip_{idx}.mp3"
+        elif wav_p.exists():
+            audio_url = f"/outputs/{job_id}/audio_clips/clip_{idx}.wav"
+
+        sentence_items.append(PodcastSentenceItem(
+            index=idx,
+            text=s,
+            audio_url=audio_url,
+            duration=dur
+        ))
+
+    return PodcastSentencesResponse(
+        job_id=job_id,
+        topic=topic,
+        tts_engine=tts_engine,
+        voice_name=voice_name,
+        sentences=sentence_items
+    )
+
+
+@app.post("/api/podcast/patch")
+def patch_podcast_endpoint(req: PodcastPatchRequest):
+    job_id = req.job_id
+    job_dir = OUTPUTS_DIR / job_id
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy thư mục của job '{job_id}'")
+
+    # 1. Đọc metadata cũ
+    manifest_p = job_dir / "manifest.json"
+    meta = {}
+    if manifest_p.exists():
+        try:
+            meta = json.loads(manifest_p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    existing_sentences: list[str] = meta.get("sentences", [])
+    if not existing_sentences:
+        script_p = job_dir / "script.txt"
+        if script_p.exists():
+            existing_sentences = [s.strip() for s in re.split(r"\n\s*\n|\n", script_p.read_text(encoding="utf-8")) if s.strip()]
+
+    if not existing_sentences:
+        raise HTTPException(status_code=400, detail="Không tìm thấy kịch bản cũ của job để thực hiện vá!")
+
+    tts_engine = req.tts_engine or meta.get("tts_engine") or "edge-tts"
+    voice_name = req.voice_name or meta.get("voice_name") or "vi-VN-NamMinhNeural"
+    el_key = req.elevenlabs_api_key
+
+    # Xử lý cập nhật ảnh bìa mới cho Audio Podcast nếu có yêu cầu
+    cover_b64 = req.cover_image_b64
+    has_new_cover = False
+    if cover_b64 and (cover_b64.strip().startswith("http") or len(cover_b64.strip()) >= 50):
+        try:
+            print(f"[{job_id}] 🖼️ Smart Patch: Creator cập nhật ảnh bìa mới cho Audio Podcast...")
+            raw_cover_bytes = decode_base64_image(cover_b64)
+            cover_png = job_dir / "cover.png"
+            video_bg_png = job_dir / "podcast_video_bg.png"
+            process_podcast_cover(raw_cover_bytes, cover_png, video_bg_png)
+            meta["has_custom_cover"] = True
+            has_new_cover = True
+            print(f"[{job_id}] ✅ Đã cập nhật ảnh bìa và phông nền video podcast thành công!")
+        except Exception as e:
+            print(f"[{job_id}] ⚠️ Lỗi khi cập nhật ảnh bìa mới trong bản vá: {e}")
+
+    # Xây dựng danh sách câu mới và xác định các câu cần thu âm lại
+    new_sentences = list(existing_sentences)
+    re_record_map: dict[int, bool] = {}
+
+    if req.patches:
+        for p in req.patches:
+            idx = p.index
+            if 1 <= idx <= len(new_sentences):
+                old_text = new_sentences[idx - 1]
+                new_sentences[idx - 1] = p.text.strip()
+                if new_sentences[idx - 1] != old_text:
+                    re_record_map[idx] = True if p.re_record is None else bool(p.re_record)
+            elif idx == len(new_sentences) + 1:
+                new_sentences.append(p.text.strip())
+                re_record_map[idx] = True
+    elif req.sentences:
+        for idx, s in enumerate(req.sentences, start=1):
+            if idx <= len(existing_sentences):
+                old_s = existing_sentences[idx - 1]
+                if s.strip() != old_s.strip():
+                    re_record_map[idx] = True
+            else:
+                re_record_map[idx] = True
+        new_sentences = [s.strip() for s in req.sentences if s.strip()]
+
+    audio_dir = job_dir / "audio_clips"
+    audio_dir.mkdir(exist_ok=True)
+
+    modified_count = len(re_record_map)
+    rerecorded_count = 0
+
+    clip_paths_and_starts: list[tuple[Path, float]] = []
+    cues: list[dict] = []
+    current_time = 0.5
+    PAUSE_BETWEEN = 0.45
+
+    for idx, sentence in enumerate(new_sentences, start=1):
+        mp3_p = audio_dir / f"clip_{idx}.mp3"
+        wav_p = audio_dir / f"clip_{idx}.wav"
+
+        need_rerecord = re_record_map.get(idx, False) or not wav_p.exists()
+        if need_rerecord:
+            rerecorded_count += 1
+            print(f"[{job_id}] 🎙️ Smart Patch: Thu âm lại câu {idx}/{len(new_sentences)}: {sentence[:30]}...")
+            dur = generate_single_audio_clip(sentence, mp3_p, wav_p, tts_engine, voice_name, el_key)
+        else:
+            dur = get_audio_duration_wave(wav_p)
+
+        start_s = current_time
+        end_s = start_s + dur
+        clip_paths_and_starts.append((wav_p, start_s))
+        cues.append({
+            "startMs": int(round(start_s * 1000)),
+            "endMs": int(round(end_s * 1000)),
+            "text": sentence
+        })
+        current_time = end_s + PAUSE_BETWEEN
+
+    total_audio_duration = current_time + 0.8
+    podcast_wav = job_dir / "podcast_voice.wav"
+    mix_scene_audio(clip_paths_and_starts, podcast_wav, total_audio_duration)
+
+    podcast_mp3 = job_dir / "podcast_voice.mp3"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(podcast_wav),
+        "-c:a", "libmp3lame",
+        "-b:a", "192k",
+        str(podcast_mp3)
+    ], check=True)
+
+    # Cập nhật SRT
+    srt_full = job_dir / "subtitles.srt"
+    lines = []
+    for i, cue in enumerate(cues, start=1):
+        lines.append(str(i))
+        lines.append(f"{format_srt_time(cue['startMs'])} --> {format_srt_time(cue['endMs'])}")
+        lines.append(cue["text"])
+        lines.append("")
+    srt_full.write_text("\n".join(lines), encoding="utf-8")
+
+    # Render video Podcast
+    cover_png = job_dir / "cover.png"
+    video_bg_png = job_dir / "podcast_video_bg.png"
+    bg_to_use = video_bg_png if video_bg_png.exists() else cover_png
+
+    if not bg_to_use.exists():
+        raise HTTPException(status_code=400, detail="Không tìm thấy tệp ảnh bìa/nền của podcast để kết xuất video!")
+
+    raw_video_p = job_dir / "podcast_base.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-loop", "1",
+        "-i", str(bg_to_use),
+        "-c:v", "libx264",
+        "-tune", "stillimage",
+        "-pix_fmt", "yuv420p",
+        "-r", "25",
+        "-t", f"{total_audio_duration:.3f}",
+        str(raw_video_p)
+    ], check=True)
+
+    sub_video_p = job_dir / "podcast_subbed.mp4"
+    add_subtitles(raw_video_p, cues, sub_video_p)
+
+    final_video = job_dir / "final_whiteboard_video.mp4"
+    podcast_video = job_dir / "final_audio_podcast.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(sub_video_p),
+        "-i", str(podcast_wav),
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-t", f"{total_audio_duration:.3f}",
+        str(final_video)
+    ], check=True)
+
+    shutil.copyfile(final_video, podcast_video)
+
+    # Cập nhật script.txt và manifest.json
+    (job_dir / "script.txt").write_text("\n\n".join(new_sentences), encoding="utf-8")
+    meta["sentences"] = new_sentences
+    meta["updated_at"] = time.time()
+    manifest_p.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if job_id in JOBS:
+        JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
+        JOBS[job_id]["audio_url"] = f"/outputs/{job_id}/podcast_voice.mp3"
+        JOBS[job_id]["srt_url"] = f"/outputs/{job_id}/subtitles.srt"
+        if has_new_cover:
+            JOBS[job_id]["cover_url"] = f"/outputs/{job_id}/cover.png"
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": "completed",
+        "video_url": f"/outputs/{job_id}/final_whiteboard_video.mp4",
+        "audio_url": f"/outputs/{job_id}/podcast_voice.mp3",
+        "cover_url": f"/outputs/{job_id}/cover.png" if has_new_cover else None,
+        "srt_url": f"/outputs/{job_id}/subtitles.srt",
+        "modified_count": modified_count,
+        "re_recorded_count": rerecorded_count,
+        "total_sentences": len(new_sentences),
+        "duration_seconds": int(round(total_audio_duration)),
+        "script_text": "\n\n".join(new_sentences),
+        "has_new_cover": has_new_cover
+    }
 
 
 @app.post("/api/create")
@@ -817,8 +1122,8 @@ YÊU CẦU ĐỊNH DẠNG:
   + visual_desc: Mô tả hình vẽ phác thảo tối giản kiểu doodle/sketch bằng tiếng Anh cho AI tạo ảnh.
 - image_prompt: 1 prompt tổng thể tiếng Anh (16:9) theo chuẩn Notion Doodle để người dùng copy tạo ảnh:
   "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
-- thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa Podcast lịch sử theo chuẩn VUÔNG 1:1 (ví dụ 1200x1200px):
-  "Epic cinematic historical documentary podcast cover art illustration of [chủ đề chính], dramatic atmosphere, volumetric lighting, rich historical color palette, classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark."
+- thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh Thumbnail / Poster đại diện bắt mắt cho video lịch sử (chuẩn tỷ lệ 16:9 cho video hoạt họa bảng trắng hoặc 1:1 cho Audio Podcast):
+  "Epic cinematic historical documentary poster illustration of [chủ đề chính], dramatic historical atmosphere, volumetric lighting, rich classical art style, highly detailed, masterwork, 16:9 widescreen aspect ratio, strictly NO text, NO typography, NO watermark."
 
 Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 {{
@@ -895,9 +1200,9 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                         if not parsed.get("thumbnail_prompt"):
                             clean_topic = re.sub(r'[\r\n\t"]+', ' ', raw_input[:100]).strip()
                             parsed["thumbnail_prompt"] = (
-                                f"Epic cinematic historical documentary podcast cover art illustration of {clean_topic}, "
-                                "dramatic atmosphere, volumetric lighting, rich historical color palette, "
-                                "classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, "
+                                f"Epic cinematic historical documentary poster illustration of {clean_topic}, "
+                                "dramatic historical atmosphere, volumetric lighting, rich classical art style, "
+                                "highly detailed, masterwork, 16:9 widescreen aspect ratio, "
                                 "strictly NO text, NO typography, NO watermark"
                             )
 
@@ -1272,6 +1577,25 @@ def generate_single_audio_clip(
     return max(0.5, dur)
 
 
+def get_audio_duration_wave(wav_path: Path) -> float:
+    """Đo thời lượng của file âm thanh WAV mà không cần sinh lại âm thanh."""
+    try:
+        import wave
+        with wave.open(str(wav_path), "rb") as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            if rate > 0:
+                return max(0.5, frames / float(rate))
+    except Exception:
+        pass
+    cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(wav_path)]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return max(0.5, float(res.stdout.strip()))
+    except Exception:
+        return 5.0
+
+
 def compute_scene_continuous_timeline(audio_durations: list[float]) -> dict:
     """
     Tính toán dòng thời gian nói LIÊN TỤC và chuyển cảnh sau đúng 1.5 giây:
@@ -1533,6 +1857,16 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         display_title = display_title[:50]
         JOBS[job_id]["title"] = display_title
         (job_dir / "script.txt").write_text("\n\n".join(sentences), encoding="utf-8")
+        manifest_data = {
+            "job_id": job_id,
+            "render_mode": "audio_podcast",
+            "topic": display_title,
+            "tts_engine": req.tts_engine,
+            "voice_name": req.voice_name,
+            "sentences": sentences,
+            "created_at": time.time()
+        }
+        (job_dir / "manifest.json").write_text(json.dumps(manifest_data, ensure_ascii=False, indent=2), encoding="utf-8")
 
         # 2. ẢNH BÌA PODCAST
         log(job_id, "🖼️ Bước 2: Chuẩn bị ảnh bìa Podcast (chuẩn vuông 1:1 hoặc tỷ lệ tự do)...", 2, "Ảnh bìa Podcast")
