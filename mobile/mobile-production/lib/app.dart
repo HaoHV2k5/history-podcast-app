@@ -13,6 +13,7 @@ import 'artwork_image.dart';
 import 'episode.dart';
 import 'motion.dart';
 import 'home_navigation.dart';
+import 'livestream_page.dart';
 import 'paper_surface.dart';
 import 'listening_widgets.dart';
 import 'video_surface.dart';
@@ -141,115 +142,237 @@ class _HomeShellState extends State<HomeShell> {
     ),
   );
 
-  Widget discover() => ListView(
-    key: const PageStorageKey('discover-scroll'),
-    padding: EdgeInsets.fromLTRB(
-      24,
-      4,
-      24,
-      widget.state.current == null ? 28 : 118,
-    ),
-    children: [
-      Row(
-        children: [
-          Expanded(child: Text('Khám phá', style: editorial(31))),
-          CircleAction(
-            icon: CupertinoIcons.search,
-            label: 'Tìm câu chuyện',
-            onTap: () => selectTab(1),
-          ),
-        ],
+  Widget discover() => RefreshIndicator(
+    color: Palette.red,
+    backgroundColor: Palette.paper,
+    onRefresh: widget.state.refreshCatalog,
+    child: ListView(
+      key: const PageStorageKey('discover-scroll'),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        4,
+        24,
+        widget.state.current == null ? 28 : 118,
       ),
-      const SizedBox(height: 22),
-      ContinueListening(
-        state: widget.state,
-        onPlay: (e) {
-          if (widget.state.play(e)) {
-            Navigator.of(context)
-                .push(playerRoute(context, PlayerPage(state: widget.state)));
-          }
-        },
-      ),
-      DiscoveryCarousel(
-        onCollection: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => CollectionPage(state: widget.state),
-          ),
-        ),
-        onEpisode: detail,
-      ),
-      const SizedBox(height: 28),
-      const SectionTitle(
-        title: 'Chọn nghe hôm nay',
-        trailing: Text(
-          '01 — 03',
-          style: TextStyle(fontSize: 12, color: Palette.muted),
-        ),
-      ),
-      const SizedBox(height: 14),
-      InkWell(
-        key: const Key('featured-episode'),
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => detail(episodes.first),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Cover(episode: episodes.first, height: 188),
-            const SizedBox(height: 14),
-            const Eyebrow('DỌC MIỀN DI SẢN'),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    episodes.first.title,
-                    style: const TextStyle(
-                      fontSize: 17,
-                      height: 1.5,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Icon(CupertinoIcons.arrow_up_right, size: 20),
-              ],
+            Expanded(child: Text('Khám phá', style: editorial(31))),
+            CircleAction(
+              icon: CupertinoIcons.search,
+              label: 'Tìm câu chuyện',
+              onTap: () => selectTab(1),
             ),
-            const SizedBox(height: 5),
-            Text(
-              'Podcast · ${episodes.first.duration}',
-              style: const TextStyle(color: Palette.muted, fontSize: 12),
-            ),
-            const SizedBox(height: 20),
           ],
         ),
-      ),
-      ...episodes
-          .skip(1)
-          .map((e) => EpisodeRow(episode: e, onTap: () => detail(e))),
-      const SizedBox(height: 24),
-      const SectionTitle(title: 'Câu chuyện qua khung hình'),
-      ...videoEpisodes.map(
-        (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
-      ),
-      const SizedBox(height: 24),
-      const SectionTitle(title: 'Thử trình nghe'),
-      const Text(
-        'Audio kỹ thuật để test, chưa phải giọng kể.',
-        style: TextStyle(color: Palette.muted, fontSize: 12),
-      ),
-      ...audioEpisodes.map(
-        (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
-      ),
-      if (publishedEpisodes.isNotEmpty) ...[
-        const SizedBox(height: 24),
-        const SectionTitle(title: 'Vừa phát hành trên thiết bị'),
-        ...publishedEpisodes.map(
-          (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+        if (widget.state.isLoadingCatalog) ...[
+          const SizedBox(height: 12),
+          const LinearProgressIndicator(
+            key: Key('catalog-loading-indicator'),
+            minHeight: 2,
+            color: Palette.red,
+            backgroundColor: Palette.soft,
+          ),
+        ],
+        if (widget.state.catalogError != null) ...[
+          const SizedBox(height: 14),
+          Container(
+            key: const Key('catalog-error-banner'),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Palette.soft,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Palette.line),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  CupertinoIcons.wifi_slash,
+                  size: 16,
+                  color: Palette.red,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.state.catalogError!,
+                    style: const TextStyle(fontSize: 12, color: Palette.ink),
+                  ),
+                ),
+                TextButton(
+                  key: const Key('retry-catalog-btn'),
+                  onPressed: widget.state.refreshCatalog,
+                  child: const Text('Thử lại'),
+                ),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 22),
+        ContinueListening(
+          state: widget.state,
+          onPlay: (e) {
+            if (widget.state.play(e)) {
+              Navigator.of(context)
+                  .push(playerRoute(context, PlayerPage(state: widget.state)));
+            }
+          },
         ),
+        if (widget.state.activeLivestreams.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          SectionTitle(
+            title: 'Đang phát trực tiếp',
+            trailing: Text(
+              '${widget.state.activeLivestreams.length} phòng',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Palette.red,
+                fontWeight: FontWeight.w600,
+                fontFeatures: [ui.FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...widget.state.activeLivestreams.map(
+            (s) => LivestreamShelfCard(session: s, state: widget.state),
+          ),
+          const SizedBox(height: 10),
+        ],
+        DiscoveryCarousel(
+          onCollection: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CollectionPage(state: widget.state),
+            ),
+          ),
+          onEpisode: detail,
+        ),
+        if (remoteEpisodes.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          SectionTitle(
+            title: 'Tập mới xuất bản',
+            trailing: Text(
+              '${remoteEpisodes.length} tập',
+              style: const TextStyle(fontSize: 12, color: Palette.muted),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...remoteEpisodes.map(
+            (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+          ),
+        ],
+        if (remoteChannels.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const SectionTitle(title: 'Kênh kể chuyện'),
+          const SizedBox(height: 8),
+          ...remoteChannels.map(
+            (c) => ChannelListItem(
+              channel: c,
+              subtitle: '${c.content.length} câu chuyện',
+              onTap: () => openChannel(context, c, widget.state),
+            ),
+          ),
+        ],
+        const SizedBox(height: 28),
+        Builder(
+          builder: (context) {
+            final featuredPool =
+                widget.state.isLiveBackend && remoteEpisodes.isNotEmpty
+                ? remoteEpisodes
+                : episodes;
+            final featured = featuredPool.first;
+            final subFeatured = featuredPool.skip(1).take(2).toList();
+            final videoPool =
+                widget.state.isLiveBackend && remoteEpisodes.isNotEmpty
+                ? remoteEpisodes.where((e) => e.isVideo).toList()
+                : videoEpisodes;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionTitle(
+                  title: 'Chọn nghe hôm nay',
+                  trailing: Text(
+                    '01 — 0${(1 + subFeatured.length).clamp(1, 3)}',
+                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                InkWell(
+                  key: const Key('featured-episode'),
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => detail(featured),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Cover(episode: featured, height: 188),
+                      const SizedBox(height: 14),
+                      Eyebrow(featured.category.toUpperCase()),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              featured.title,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                height: 1.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Icon(CupertinoIcons.arrow_up_right, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${featured.channel} · ${featured.duration}',
+                        style: const TextStyle(
+                          color: Palette.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+                ...subFeatured.map(
+                  (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+                ),
+                if (videoPool.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const SectionTitle(title: 'Câu chuyện qua khung hình'),
+                  ...videoPool.map(
+                    (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+        if (!widget.state.isLiveBackend) ...[
+          const SizedBox(height: 24),
+          const SectionTitle(title: 'Thử trình nghe'),
+          const Text(
+            'Audio kỹ thuật để test, chưa phải giọng kể.',
+            style: TextStyle(color: Palette.muted, fontSize: 12),
+          ),
+          ...audioEpisodes.map(
+            (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+          ),
+        ],
+        if (publishedEpisodes.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const SectionTitle(title: 'Vừa phát hành trên thiết bị'),
+          ...publishedEpisodes.map(
+            (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+          ),
+        ],
+        if (!widget.state.isLiveBackend) ...[
+          const SizedBox(height: 24),
+          const DemoNote(),
+        ],
       ],
-      const SizedBox(height: 24),
-      const DemoNote(),
-    ],
+    ),
   );
 
   Widget searchPage() {
@@ -538,37 +661,43 @@ class CollectionPage extends StatelessWidget {
   const CollectionPage({super.key, required this.state});
   final AppState state;
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Tuyển tập', style: TextStyle(fontSize: 14)),
-    ),
-    body: ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Eyebrow('TUYỂN TẬP / 01'),
-        const SizedBox(height: 16),
-        Text('Theo dấu\nnhững kinh đô.', style: editorial(35)),
-        const SizedBox(height: 16),
-        const Text(
-          'Những nơi từng là trung tâm của một thời, qua những câu chuyện về di sản và đời sống.',
-          style: TextStyle(color: Palette.muted),
-        ),
-        const SizedBox(height: 24),
-        ...episodes.map(
-          (e) => EpisodeRow(
-            episode: e,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => EpisodePage(episode: e, state: state),
+  Widget build(BuildContext context) {
+    final collectionItems =
+        remoteEpisodes.isNotEmpty ? remoteEpisodes : episodes;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tuyển tập', style: TextStyle(fontSize: 14)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Eyebrow('TUYỂN TẬP / 01'),
+          const SizedBox(height: 16),
+          Text('Theo dấu\nnhững kinh đô.', style: editorial(35)),
+          const SizedBox(height: 16),
+          const Text(
+            'Những nơi từng là trung tâm của một thời, qua những câu chuyện về di sản và đời sống.',
+            style: TextStyle(color: Palette.muted),
+          ),
+          const SizedBox(height: 24),
+          ...collectionItems.map(
+            (e) => EpisodeRow(
+              episode: e,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => EpisodePage(episode: e, state: state),
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        const DemoNote(),
-      ],
-    ),
-  );
+          if (!state.isLiveBackend) ...[
+            const SizedBox(height: 24),
+            const DemoNote(),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class EpisodePage extends StatefulWidget {
@@ -581,6 +710,13 @@ class EpisodePage extends StatefulWidget {
 
 class _EpisodePageState extends State<EpisodePage> {
   int tab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.loadEpisodeEngagement(widget.episode.id);
+  }
+
   void openPlayer({int? at}) {
     if (!widget.state.play(widget.episode, startAt: at)) {
       Navigator.of(context).push(
@@ -690,6 +826,7 @@ class _EpisodePageState extends State<EpisodePage> {
                     '${widget.state.getLikeCount(e.id)} thích',
                     style: TextStyle(
                       fontSize: 12,
+                      fontFeatures: const [ui.FontFeature.tabularFigures()],
                       color: widget.state.isLiked(e.id)
                           ? Palette.red
                           : Palette.ink,
@@ -728,23 +865,29 @@ class _EpisodePageState extends State<EpisodePage> {
               ),
               label: Text(
                 widget.state.canPlay(e)
-                    ? (e.isVideo
-                          ? 'Xem video thử'
-                          : e.mediaAsset.isNotEmpty
-                          ? 'Nghe audio thử'
-                          : 'Nghe thử giao diện')
+                    ? (widget.state.isLiveBackend
+                          ? (e.isVideo ? 'Xem video' : 'Nghe tập này')
+                          : (e.isVideo
+                                ? 'Xem video thử'
+                                : e.mediaAsset.isNotEmpty
+                                ? 'Nghe audio thử'
+                                : 'Nghe thử giao diện'))
                     : 'Mở với hội viên của kênh',
               ),
             ),
             const SizedBox(height: 8),
             Text(
               widget.state.canPlay(e)
-                  ? (e.isVideo
-                        ? 'Clip kiểm tra 12 giây · Không có âm thanh'
-                        : e.mediaAsset.isNotEmpty
-                        ? 'Audio kỹ thuật 24 giây · Không phải giọng kể'
-                        : 'Mô phỏng phát · Chưa có âm thanh')
-                  : 'Tập dành riêng cho hội viên · Có chế độ thử',
+                  ? (widget.state.isLiveBackend
+                        ? 'Bản ghi âm & biên tập bởi kênh ${e.channel}'
+                        : (e.isVideo
+                              ? 'Clip kiểm tra 12 giây · Không có âm thanh'
+                              : e.mediaAsset.isNotEmpty
+                              ? 'Audio kỹ thuật 24 giây · Không phải giọng kể'
+                              : 'Mô phỏng phát · Chưa có âm thanh'))
+                  : (widget.state.isLiveBackend
+                        ? 'Tập dành riêng cho hội viên kênh ${e.channel}'
+                        : 'Tập dành riêng cho hội viên · Có chế độ thử'),
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 11, color: Palette.muted),
             ),
@@ -763,10 +906,12 @@ class _EpisodePageState extends State<EpisodePage> {
             Builder(
               builder: (context) {
                 final comments = widget.state.getComments(e.id);
+                final transcript = widget.state.getTranscript(e.id);
                 final tabTitles = [
                   'Giới thiệu',
                   'Nguồn tham khảo',
                   'Bình luận (${comments.length})',
+                  'Bản chép lời',
                 ];
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -823,6 +968,7 @@ class _EpisodePageState extends State<EpisodePage> {
                             style: const TextStyle(
                               fontSize: 12,
                               color: Palette.muted,
+                              fontFeatures: [ui.FontFeature.tabularFigures()],
                             ),
                           ),
                         ),
@@ -834,16 +980,69 @@ class _EpisodePageState extends State<EpisodePage> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        e.sources.isNotEmpty ? e.sources : 'Đây là tập mẫu để thử UI. Chưa có nội dung lịch sử đã kiểm duyệt hoặc tài liệu đối chiếu. Các nguồn sẽ được bổ sung khi có tập thật.',
-                        style: TextStyle(color: Palette.muted, height: 1.8),
+                        e.sources.isNotEmpty
+                            ? e.sources
+                            : (widget.state.isLiveBackend
+                                  ? 'Tư liệu được tổng hợp và đối chiếu bởi ban biên tập kênh ${e.channel}.'
+                                  : 'Đây là tập mẫu để thử UI. Chưa có nội dung lịch sử đã kiểm duyệt hoặc tài liệu đối chiếu. Các nguồn sẽ được bổ sung khi có tập thật.'),
+                        style: const TextStyle(
+                          color: Palette.muted,
+                          height: 1.8,
+                        ),
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Ảnh địa điểm: kho Vietnam Travel (techEdge3030). Xem ASSETS.md trong dự án để tra nguồn ảnh và phông chữ.',
-                        style: TextStyle(color: Palette.muted, fontSize: 12),
-                      ),
-                    ] else ...[
+                      if (transcript.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Trích lục bản chép lời',
+                          style: TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          transcript,
+                          style: const TextStyle(
+                            color: Palette.ink,
+                            height: 1.75,
+                          ),
+                        ),
+                      ],
+                      if (!widget.state.isLiveBackend) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Ảnh địa điểm: kho Vietnam Travel (techEdge3030). Xem ASSETS.md trong dự án để tra nguồn ảnh và phông chữ.',
+                          style: TextStyle(color: Palette.muted, fontSize: 12),
+                        ),
+                      ],
+                    ] else if (tab == 2) ...[
                       EpisodeCommentsSection(episode: e, state: widget.state),
+                    ] else ...[
+                      const Text(
+                        'Bản chép lời (Transcript)',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Palette.soft,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Palette.line),
+                        ),
+                        child: Text(
+                          transcript.isNotEmpty
+                              ? transcript
+                              : (e.description.isNotEmpty
+                                    ? e.description
+                                    : 'Bản chép lời chi tiết cho tập này đang được cập nhật.'),
+                          key: const Key('episode-transcript-text'),
+                          style: const TextStyle(
+                            fontFamily: 'NotoSerif',
+                            fontSize: 14,
+                            height: 1.75,
+                            color: Palette.ink,
+                          ),
+                        ),
+                      ),
                     ],
                   ],
                 );
@@ -1341,11 +1540,19 @@ class PlayerPage extends StatelessWidget {
                 children: [
                   Text(
                     clockLabel(state.position),
-                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Palette.muted,
+                      fontFeatures: [ui.FontFeature.tabularFigures()],
+                    ),
                   ),
                   Text(
                     clockLabel(e.seconds),
-                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Palette.muted,
+                      fontFeatures: [ui.FontFeature.tabularFigures()],
+                    ),
                   ),
                 ],
               ),
@@ -1374,7 +1581,9 @@ class PlayerPage extends StatelessWidget {
                             ? CupertinoIcons.pause_fill
                             : CupertinoIcons.play_fill,
                         size: 30,
-                        label: state.playing ? 'Tạm dừng' : 'Phát thử',
+                        label: state.playing
+                            ? 'Tạm dừng'
+                            : (state.isLiveBackend ? 'Phát' : 'Phát thử'),
                       ),
                     ),
                   ),
@@ -1409,7 +1618,10 @@ class PlayerPage extends StatelessWidget {
                     onPressed: () => speedSheet(context),
                     child: Text(
                       '${state.speed}×',
-                      style: const TextStyle(color: Palette.ink),
+                      style: const TextStyle(
+                        color: Palette.ink,
+                        fontFeatures: [ui.FontFeature.tabularFigures()],
+                      ),
                     ),
                   ),
                   TextButton.icon(
@@ -1449,7 +1661,14 @@ class PlayerPage extends StatelessWidget {
                                   c.title,
                                   style: const TextStyle(fontSize: 14),
                                 ),
-                                trailing: Text(clockLabel(c.seconds)),
+                                trailing: Text(
+                                  clockLabel(c.seconds),
+                                  style: const TextStyle(
+                                    fontFeatures: [
+                                      ui.FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
                                 onTap: () {
                                   state.seek(c.seconds);
                                   Navigator.pop(context);
@@ -1476,8 +1695,12 @@ class PlayerPage extends StatelessWidget {
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        chapter.title,
-                        style: const TextStyle(fontSize: 12),
+                        state.getTranscript(e.id).isNotEmpty
+                            ? state.getTranscript(e.id)
+                            : chapter.title,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, height: 1.5),
                       ),
                     ),
                   ],
@@ -1503,13 +1726,15 @@ class PlayerPage extends StatelessWidget {
                 ),
               ],
               Text(
-                e.isVideo
-                    ? 'Clip kỹ thuật không có âm thanh'
-                    : state.hasRealAudio
-                    ? 'Audio kỹ thuật · Không phải giọng kể lịch sử'
-                    : 'Tập biên tập mẫu · Vị trí mô phỏng, chưa có audio',
+                state.isLiveBackend
+                    ? 'Đang phát từ kênh ${e.channel}'
+                    : (e.isVideo
+                          ? 'Clip kỹ thuật không có âm thanh'
+                          : state.hasRealAudio
+                          ? 'Audio kỹ thuật · Không phải giọng kể lịch sử'
+                          : 'Tập biên tập mẫu · Vị trí mô phỏng, chưa có audio'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Palette.muted),
+                style: const TextStyle(fontSize: 11, color: Palette.muted),
               ),
             ],
           ),
@@ -1585,11 +1810,15 @@ class MiniPlayer extends StatelessWidget {
                                   const SizedBox(height: 2),
                                   Text(
                                     state.playing
-                                        ? (e.isVideo
-                                              ? 'Đang xem video thử'
-                                              : state.hasRealAudio
-                                              ? 'Đang nghe audio thử'
-                                              : 'Đang phát mô phỏng')
+                                        ? (state.isLiveBackend
+                                              ? (e.isVideo
+                                                    ? 'Đang xem video'
+                                                    : 'Đang phát · ${e.channel}')
+                                              : (e.isVideo
+                                                    ? 'Đang xem video thử'
+                                                    : state.hasRealAudio
+                                                    ? 'Đang nghe audio thử'
+                                                    : 'Đang phát mô phỏng'))
                                         : 'Đã tạm dừng',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -1610,7 +1839,9 @@ class MiniPlayer extends StatelessWidget {
                   ),
                   IconButton(
                     key: const Key('mini-player-toggle'),
-                    tooltip: state.playing ? 'Tạm dừng' : 'Phát thử',
+                    tooltip: state.playing
+                        ? 'Tạm dừng'
+                        : (state.isLiveBackend ? 'Phát' : 'Phát thử'),
                     onPressed: state.togglePlaying,
                     style: IconButton.styleFrom(
                       minimumSize: const Size(48, 48),

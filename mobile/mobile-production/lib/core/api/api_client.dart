@@ -3,14 +3,21 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
-  ApiClient({String? baseUrl, SharedPreferences? preferences})
-      : _baseUrl = (baseUrl != null && baseUrl.isNotEmpty)
-            ? (baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl)
-            : 'http://localhost:8080' {
+  ApiClient({
+    String? baseUrl,
+    SharedPreferences? preferences,
+    http.Client? httpClient,
+  }) : _baseUrl = (baseUrl != null && baseUrl.isNotEmpty)
+           ? (baseUrl.endsWith('/')
+                 ? baseUrl.substring(0, baseUrl.length - 1)
+                 : baseUrl)
+           : 'http://localhost:8080',
+       _http = httpClient ?? http.Client() {
     _preferences = preferences;
   }
 
   final String _baseUrl;
+  final http.Client _http;
   SharedPreferences? _preferences;
 
   String get baseUrl => _baseUrl;
@@ -57,13 +64,13 @@ class ApiClient {
     if (queryParams != null && queryParams.isNotEmpty) {
       uri = uri.replace(queryParameters: queryParams);
     }
-    final response = await http.get(uri, headers: _buildHeaders());
+    final response = await _http.get(uri, headers: _buildHeaders());
     return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> post(String path, {Object? body}) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await http.post(
+    final response = await _http.post(
       uri,
       headers: _buildHeaders(),
       body: body != null ? jsonEncode(body) : null,
@@ -73,7 +80,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> put(String path, {Object? body}) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await http.put(
+    final response = await _http.put(
       uri,
       headers: _buildHeaders(),
       body: body != null ? jsonEncode(body) : null,
@@ -83,7 +90,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> patch(String path, {Object? body}) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await http.patch(
+    final response = await _http.patch(
       uri,
       headers: _buildHeaders(),
       body: body != null ? jsonEncode(body) : null,
@@ -93,7 +100,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> delete(String path) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await http.delete(uri, headers: _buildHeaders());
+    final response = await _http.delete(uri, headers: _buildHeaders());
     return _handleResponse(response);
   }
 

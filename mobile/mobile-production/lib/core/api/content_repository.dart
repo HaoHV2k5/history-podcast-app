@@ -64,22 +64,54 @@ class ContentRepository {
 
       return rawList.map((item) {
         final map = item as Map<String, dynamic>;
-        final id = map['id']?.toString() ?? '0';
+        final artifactId = (map['artifactId'] as num?)?.toInt();
+        final contentId = (map['contentId'] as num?)?.toInt();
+        final channelId = (map['channelId'] as num?)?.toInt();
+        final id =
+            (artifactId ?? contentId ?? map['id'])?.toString() ?? '0';
         final title = map['title'] as String? ?? 'Tập Sử Ký';
-        final description = map['description'] as String? ?? '';
-        final duration = (map['duration'] as num?)?.toInt() ?? 300;
-        final channelTitle = map['channelTitle'] as String? ?? 'Sử Ký Triều Trần';
-        final thumbnailUrl = map['thumbnailUrl'] as String? ?? 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c';
-        final mediaUrl = map['mediaUrl'] as String? ?? '';
-        final isExclusive = map['isExclusive'] as bool? ?? false;
-        final isVideoType = map['type']?.toString().toUpperCase() == 'VIDEO';
+        final description =
+            (map['description'] ?? map['textBody'])?.toString() ?? '';
+        final rawDuration =
+            (map['durationSeconds'] ?? map['duration']) as num?;
+        final duration =
+            (rawDuration != null && rawDuration > 0) ? rawDuration.toInt() : 300;
+        final channelTitle =
+            (map['channelName'] ?? map['channelTitle'])?.toString() ??
+            'Sử Ký Triều Trần';
+        const editorialCovers = [
+          'assets/mock/images/ha-noi.jpg',
+          'assets/mock/images/hoi-an.jpg',
+          'assets/mock/images/van-mieu.jpg',
+        ];
+        final coverIndex = ((contentId ?? artifactId ?? 0).abs()) %
+            editorialCovers.length;
+        final rawThumb = map['thumbnailUrl']?.toString().trim() ?? '';
+        final thumbnailUrl = rawThumb.isNotEmpty
+            ? rawThumb
+            : editorialCovers[coverIndex];
+        final mediaUrl =
+            (map['fileUrl'] ?? map['optimizedUrl'] ?? map['mediaUrl'])
+                ?.toString() ??
+            '';
+        final isExclusive = map['isExclusive'] == true;
+        final lowerMedia = mediaUrl.toLowerCase();
+        final isVideoType =
+            map['type']?.toString().toUpperCase() == 'VIDEO' ||
+            lowerMedia.endsWith('.mp4') ||
+            lowerMedia.endsWith('.webm') ||
+            lowerMedia.endsWith('.mov') ||
+            lowerMedia.endsWith('.m3u8');
+        final likeCount = (map['likeCount'] as num?)?.toInt();
+        final dislikeCount = (map['dislikeCount'] as num?)?.toInt();
+        final commentCount = (map['commentCount'] as num?)?.toInt();
 
         return Episode(
           id: id,
           title: title,
           channel: channelTitle,
           image: thumbnailUrl,
-          category: 'Lịch sử Việt Nam',
+          category: map['category']?.toString() ?? 'Lịch sử Việt Nam',
           seconds: duration,
           description: description,
           chapters: const [
@@ -88,6 +120,11 @@ class ContentRepository {
           membersOnly: isExclusive,
           isVideo: isVideoType,
           mediaAsset: mediaUrl,
+          channelId: channelId,
+          contentId: contentId,
+          remoteLikeCount: likeCount,
+          remoteDislikeCount: dislikeCount,
+          remoteCommentCount: commentCount,
         );
       }).toList();
     } catch (_) {
@@ -170,16 +207,24 @@ class ContentRepository {
 
       return items.map((item) {
         final map = item as Map<String, dynamic>;
+        final id = (map['id'] as num?)?.toInt();
         final name = map['name'] as String? ?? 'Kênh Sử Ký';
         final initial = name.isNotEmpty ? name.substring(0, 1) : 'S';
-        final avatar = map['avatarUrl'] as String? ?? 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c';
-        final description = map['description'] as String? ?? 'Kênh lịch sử trên nền tảng Sử Ký';
+        final avatar =
+            (map['avatarUrl'] as String?)?.isNotEmpty == true
+                ? map['avatarUrl'] as String
+                : 'assets/images/hue-citadel.jpg';
+        final cover = map['coverUrl'] as String? ?? '';
+        final description =
+            map['description'] as String? ?? 'Kênh lịch sử trên nền tảng Sử Ký';
 
         return Channel(
           name,
           initial,
           avatar,
           description,
+          id: id,
+          coverImage: cover,
         );
       }).toList();
     } catch (_) {

@@ -1,13 +1,18 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
 import 'components.dart';
+import 'core/api/channel_repository.dart';
+import 'core/api/creator_series_repository.dart';
 import 'design.dart';
 import 'artwork_image.dart';
 import 'artwork_state.dart';
 import 'artwork_editor.dart';
 import 'episode.dart';
+import 'livestream_page.dart';
 import 'studio_pages.dart';
 import 'narrator_pages.dart';
 import 'demo_pages.dart';
@@ -15,6 +20,19 @@ import 'wallet_page.dart';
 import 'publication_page.dart';
 import 'notification_page.dart';
 import 'password_recovery.dart';
+
+String _formatVndPrice(double amount) {
+  final intVal = amount.round();
+  final digits = intVal.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) {
+      buffer.write('.');
+    }
+    buffer.write(digits[i]);
+  }
+  return '$bufferđ';
+}
 
 class ChannelPage extends StatefulWidget {
   const ChannelPage({
@@ -32,18 +50,31 @@ class ChannelPage extends StatefulWidget {
 
 class _ChannelPageState extends State<ChannelPage> {
   String filter = 'Tất cả';
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.loadChannelMembershipPlan(widget.channel.name);
+    if (widget.state.isLiveBackend) {
+      widget.state.refreshWalletBalance();
+    }
+  }
+
   @override
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.state,
     builder: (context, _) {
-      final c = widget.channel;
+      final c = channelByName(widget.channel.name);
       final followed = widget.state.followed.contains(c.name);
       final member = widget.state.memberships.contains(c.name);
+      final seriesList = widget.state.getChannelSeries(c.name);
+      final plan = widget.state.getChannelPlan(c.name);
       final items = c.content.where((e) {
         if (filter == 'Công khai') return !e.membersOnly;
         if (filter == 'Hội viên') return e.membersOnly;
         return true;
       }).toList();
+      final bannerImage = c.coverImage.isNotEmpty ? c.coverImage : c.image;
       return Scaffold(
         appBar: AppBar(
           title: const Text('Kênh kể chuyện', style: TextStyle(fontSize: 14)),
@@ -54,7 +85,7 @@ class _ChannelPageState extends State<ChannelPage> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: ArtworkImage(
-                c.image,
+                bannerImage,
                 height: 190,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -90,7 +121,7 @@ class _ChannelPageState extends State<ChannelPage> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên',
+              '${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
               style: const TextStyle(color: Palette.muted, fontSize: 12),
             ),
             const SizedBox(height: 20),
@@ -105,7 +136,15 @@ class _ChannelPageState extends State<ChannelPage> {
                 label: Text(followed ? 'Đang theo dõi' : 'Theo dõi kênh'),
               ),
             ),
-            if (c.hasMembership) ...[
+            if (widget.state.activeLivestreamsForChannel(c).isNotEmpty) ...[
+              const SizedBox(height: 20),
+              ...widget.state
+                  .activeLivestreamsForChannel(c)
+                  .map(
+                    (s) => ChannelLiveBanner(session: s, state: widget.state),
+                  ),
+            ],
+            if (c.hasMembership || plan != null) ...[
               const SizedBox(height: 20),
               Material(
                 color: Palette.soft,
@@ -137,16 +176,25 @@ class _ChannelPageState extends State<ChannelPage> {
                             children: [
                               Text(
                                 member
-                                    ? 'Bạn đang là hội viên thử'
-                                    : 'Nghe thêm, hiểu sâu hơn.',
+                                    ? (widget.state.isLiveBackend
+                                          ? 'Bạn đang là hội viên kênh'
+                                          : 'Bạn đang là hội viên thử')
+                                    : (plan != null
+                                          ? '${plan.planName} · ${_formatVndPrice(plan.monthlyPrice)}/tháng'
+                                          : 'Nghe thêm, hiểu sâu hơn.'),
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
+                                  fontFeatures: [
+                                    ui.FontFeature.tabularFigures(),
+                                  ],
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                member ? 'Quản lý quyền truy cập của kênh' : 'Khám phá những tập dành riêng cho hội viên',
+                                member
+                                    ? 'Quản lý quyền truy cập của kênh'
+                                    : 'Khám phá những tập dành riêng cho hội viên',
                                 style: const TextStyle(
                                   color: Palette.muted,
                                   fontSize: 12,
@@ -158,6 +206,88 @@ class _ChannelPageState extends State<ChannelPage> {
                         const SizedBox(width: 8),
                         const Icon(CupertinoIcons.chevron_right, size: 16),
                       ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (seriesList.isNotEmpty) ...[
+              const SizedBox(height: 28),
+              SectionTitle(
+                title: 'Series chuyên đề',
+                trailing: Text(
+                  '${seriesList.length} bộ',
+                  style: const TextStyle(fontSize: 12, color: Palette.muted),
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...seriesList.map(
+                (series) => Container(
+                  key: ValueKey('channel-series-${series.id}'),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Palette.paper,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Palette.line),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => SeriesDetailPage(
+                          series: series,
+                          state: widget.state,
+                          onEpisode: widget.onEpisode,
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: ArtworkImage(
+                              (series.coverUrl != null &&
+                                      series.coverUrl!.isNotEmpty)
+                                  ? series.coverUrl!
+                                  : c.image,
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Eyebrow('TUYỂN TẬP SERIES'),
+                                const SizedBox(height: 4),
+                                Text(
+                                  series.title,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${series.itemCount} tập${series.totalDurationSeconds > 0 ? ' · ${(series.totalDurationSeconds / 60).ceil()} phút' : ''}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Palette.muted,
+                                    fontFeatures: [
+                                      ui.FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(CupertinoIcons.chevron_right, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -189,8 +319,152 @@ class _ChannelPageState extends State<ChannelPage> {
             ...items.map(
               (e) => EpisodeRow(episode: e, onTap: () => widget.onEpisode(e)),
             ),
+            if (!widget.state.isLiveBackend) ...[
+              const SizedBox(height: 20),
+              const DemoNote(),
+            ],
+          ],
+        ),
+      );
+    },
+  );
+}
+
+class SeriesDetailPage extends StatefulWidget {
+  const SeriesDetailPage({
+    super.key,
+    required this.series,
+    required this.state,
+    required this.onEpisode,
+  });
+  final SeriesModel series;
+  final AppState state;
+  final ValueChanged<Episode> onEpisode;
+  @override
+  State<SeriesDetailPage> createState() => _SeriesDetailPageState();
+}
+
+class _SeriesDetailPageState extends State<SeriesDetailPage> {
+  bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    setState(() => loading = true);
+    await widget.state.loadSeriesDetail(widget.series.id);
+    if (mounted) setState(() => loading = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: widget.state,
+    builder: (context, _) {
+      final detail = widget.state.seriesDetails[widget.series.id];
+      final seriesEpisodes = widget.state.episodesForSeries(widget.series);
+      final cover =
+          (detail?.coverUrl != null && detail!.coverUrl!.isNotEmpty)
+          ? detail.coverUrl!
+          : (widget.series.coverUrl != null &&
+                widget.series.coverUrl!.isNotEmpty)
+          ? widget.series.coverUrl!
+          : 'assets/images/hue-citadel.jpg';
+
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text(
+            'Series chuyên đề',
+            style: TextStyle(fontSize: 14),
+          ),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ArtworkImage(
+                cover,
+                height: 196,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
             const SizedBox(height: 20),
-            const DemoNote(),
+            Eyebrow(
+              'TUYỂN TẬP SERIES · ${(detail?.channelName ?? widget.series.channelName ?? 'SỬ KÝ').toUpperCase()}',
+            ),
+            const SizedBox(height: 10),
+            Text(detail?.title ?? widget.series.title, style: editorial(30)),
+            const SizedBox(height: 12),
+            if ((detail?.description ?? widget.series.description)?.isNotEmpty ==
+                true)
+              Text(
+                (detail?.description ?? widget.series.description)!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.75,
+                  color: Palette.muted,
+                ),
+              ),
+            const SizedBox(height: 16),
+            Text(
+              '${seriesEpisodes.length} tập trong tuyển tập',
+              style: const TextStyle(
+                fontSize: 12,
+                color: Palette.muted,
+                fontFeatures: [ui.FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 18),
+            if (seriesEpisodes.isNotEmpty)
+              FilledButton.icon(
+                key: const Key('play-series-btn'),
+                onPressed: () {
+                  final playable = seriesEpisodes
+                      .where(widget.state.canPlay)
+                      .toList();
+                  if (playable.isEmpty) {
+                    widget.onEpisode(seriesEpisodes.first);
+                    return;
+                  }
+                  widget.state.play(playable.first);
+                  for (final ep in playable.skip(1)) {
+                    widget.state.addToQueue(ep);
+                  }
+                  widget.onEpisode(playable.first);
+                },
+                icon: const Icon(CupertinoIcons.play_fill, size: 18),
+                label: const Text('Phát toàn bộ Series'),
+              ),
+            const SizedBox(height: 24),
+            if (loading && seriesEpisodes.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: CircularProgressIndicator(color: Palette.red),
+                ),
+              )
+            else if (seriesEpisodes.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text(
+                  'Chưa có tập nào được xuất bản trong Series này.',
+                  style: TextStyle(color: Palette.muted),
+                ),
+              )
+            else ...[
+              const SectionTitle(title: 'Danh sách tập theo thứ tự'),
+              const SizedBox(height: 12),
+              ...seriesEpisodes.map(
+                (ep) => EpisodeRow(
+                  episode: ep,
+                  onTap: () => widget.onEpisode(ep),
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -209,6 +483,15 @@ class MembershipPage extends StatefulWidget {
 class _MembershipPageState extends State<MembershipPage> {
   bool busy = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.loadChannelMembershipPlan(widget.channel.name);
+    if (widget.state.isLiveBackend) {
+      widget.state.refreshWalletBalance();
+    }
+  }
 
   Future<void> change(bool enabled) async {
     if (!enabled) {
@@ -248,7 +531,14 @@ class _MembershipPageState extends State<MembershipPage> {
     }
   }
 
-  void _showReceipt(BuildContext context, bool active) {
+  void _showReceipt(
+    BuildContext context,
+    bool active,
+    MembershipPlanModel? plan,
+  ) {
+    final priceLabel = plan != null
+        ? '${_formatVndPrice(plan.monthlyPrice)} / tháng'
+        : 'Hàng tháng (TBD chi phí)';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -260,9 +550,16 @@ class _MembershipPageState extends State<MembershipPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Eyebrow('BIÊN NHẬN THỬ NGHIỆM · MÔ PHỎNG'),
+              Eyebrow(
+                widget.state.isLiveBackend
+                    ? 'BIÊN NHẬN HỘI VIÊN KÊNH'
+                    : 'BIÊN NHẬN THỬ NGHIỆM · MÔ PHỎNG',
+              ),
               const SizedBox(height: 12),
-              Text('Gói hội viên ${widget.channel.name}', style: editorial(24)),
+              Text(
+                plan?.planName ?? 'Gói hội viên ${widget.channel.name}',
+                style: editorial(24),
+              ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -281,7 +578,9 @@ class _MembershipPageState extends State<MembershipPage> {
                         ),
                         Text(
                           active
-                              ? 'Đang hoạt động (Mô phỏng)'
+                              ? (widget.state.isLiveBackend
+                                    ? 'Đang hoạt động'
+                                    : 'Đang hoạt động (Mô phỏng)')
                               : 'Chưa kích hoạt',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
@@ -309,16 +608,19 @@ class _MembershipPageState extends State<MembershipPage> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           'Chu kỳ',
                           style: TextStyle(color: Palette.muted, fontSize: 13),
                         ),
                         Text(
-                          'Hàng tháng (TBD chi phí)',
-                          style: TextStyle(fontSize: 13),
+                          priceLabel,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontFeatures: [ui.FontFeature.tabularFigures()],
+                          ),
                         ),
                       ],
                     ),
@@ -331,7 +633,7 @@ class _MembershipPageState extends State<MembershipPage> {
                           style: TextStyle(color: Palette.muted, fontSize: 13),
                         ),
                         Text(
-                          'TX-SIM-${widget.channel.name.hashCode.abs() % 100000}',
+                          'TX-${widget.channel.name.hashCode.abs() % 100000}',
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12,
@@ -342,15 +644,17 @@ class _MembershipPageState extends State<MembershipPage> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Lưu ý: Đây là màn hình thử nghiệm giao diện cho môn PRM theo BRD/FRD v1.1. Chưa có cổng thanh toán thật và không thu bất kỳ khoản tiền nào.',
-                style: TextStyle(
-                  color: Palette.muted,
-                  fontSize: 12,
-                  height: 1.6,
+              if (!widget.state.isLiveBackend) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Lưu ý: Đây là màn hình thử nghiệm giao diện cho môn PRM theo BRD/FRD v1.1. Chưa có cổng thanh toán thật và không thu bất kỳ khoản tiền nào.',
+                  style: TextStyle(
+                    color: Palette.muted,
+                    fontSize: 12,
+                    height: 1.6,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -362,8 +666,15 @@ class _MembershipPageState extends State<MembershipPage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.state,
     builder: (context, _) {
-      final c = widget.channel;
+      final c = channelByName(widget.channel.name);
       final active = widget.state.memberships.contains(c.name);
+      final plan = widget.state.getChannelPlan(c.name);
+      final priceBanner = plan != null
+          ? '${_formatVndPrice(plan.monthlyPrice)} / tháng'
+          : (c.monthlyPrice != null && c.monthlyPrice! > 0
+                ? '${_formatVndPrice(c.monthlyPrice!)} / tháng'
+                : null);
+
       return Scaffold(
         appBar: AppBar(
           title: const Text(
@@ -374,7 +685,7 @@ class _MembershipPageState extends State<MembershipPage> {
             IconButton(
               tooltip: 'Biên nhận giao dịch',
               icon: const Icon(CupertinoIcons.doc_text, size: 20),
-              onPressed: () => _showReceipt(context, active),
+              onPressed: () => _showReceipt(context, active, plan),
             ),
             const SizedBox(width: 8),
           ],
@@ -398,9 +709,42 @@ class _MembershipPageState extends State<MembershipPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Eyebrow('HỘI VIÊN / BẢN THỬ', color: Palette.white),
+                  Eyebrow(
+                    widget.state.isLiveBackend
+                        ? 'GÓI HỘI VIÊN CHÍNH THỨC'
+                        : 'HỘI VIÊN / BẢN THỬ',
+                    color: Palette.white,
+                  ),
                   const SizedBox(height: 18),
-                  Text(c.name, style: editorial(26, color: Palette.white)),
+                  Text(
+                    plan?.planName ?? c.name,
+                    style: editorial(26, color: Palette.white),
+                  ),
+                  if (priceBanner != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      priceBanner,
+                      key: const Key('membership-plan-price'),
+                      style: const TextStyle(
+                        color: Palette.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [ui.FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                  if (plan?.description != null &&
+                      plan!.description!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      plan.description!,
+                      style: TextStyle(
+                        color: Palette.white.withValues(alpha: 0.9),
+                        fontSize: 13,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   Row(
                     children: [
@@ -415,7 +759,9 @@ class _MembershipPageState extends State<MembershipPage> {
                       Expanded(
                         child: Text(
                           active
-                              ? 'Đã mở quyền truy cập thử'
+                              ? (widget.state.isLiveBackend
+                                    ? 'Đã kích hoạt quyền hội viên kênh'
+                                    : 'Đã mở quyền truy cập thử')
                               : 'Quyền truy cập riêng cho kênh này',
                           style: const TextStyle(
                             color: Palette.white,
@@ -431,6 +777,14 @@ class _MembershipPageState extends State<MembershipPage> {
             const SizedBox(height: 26),
             const SectionTitle(title: 'Dành cho hội viên'),
             const SizedBox(height: 12),
+            if (plan != null && plan.perks.isNotEmpty)
+              ...plan.perks.map(
+                (perk) => Benefit(
+                  icon: CupertinoIcons.checkmark_seal,
+                  title: perk,
+                  detail: 'Quyền lợi chính thức từ kênh ${c.name}.',
+                ),
+              ),
             Benefit(
               icon: CupertinoIcons.headphones,
               title:
@@ -445,33 +799,12 @@ class _MembershipPageState extends State<MembershipPage> {
             const Benefit(
               icon: CupertinoIcons.person_2,
               title: 'Theo từng kênh',
-              detail: 'Quyền hội viên của kênh này không mở nội dung riêng ở kênh khác.',
+              detail:
+                  'Quyền hội viên của kênh này không mở nội dung riêng ở kênh khác.',
             ),
             const SizedBox(height: 22),
             const Divider(),
             const SizedBox(height: 20),
-            const Text(
-              'Chế độ thử giao diện',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: () => _showReceipt(context, active),
-                icon: const Icon(CupertinoIcons.doc_plaintext, size: 14),
-                label: const Text(
-                  'Xem biên nhận giao dịch thử',
-                  style: TextStyle(fontSize: 12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Giá và chu kỳ hội viên chưa được cấu hình. Nút bên dưới chỉ đổi trạng thái thử trên thiết bị này; không thanh toán, không gia hạn và không tạo hợp đồng.',
-              style: TextStyle(fontSize: 12, color: Palette.muted, height: 1.8),
-            ),
-            const SizedBox(height: 22),
             if (error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -483,120 +816,294 @@ class _MembershipPageState extends State<MembershipPage> {
                   ),
                 ),
               ),
-            Text(
-              'Trạng thái: ${switch (widget.state.checkoutStatus(c.name)) {
-                'pending' => 'Đang chờ thanh toán mẫu',
-                'failed' => 'Thất bại · Có thể thử lại',
-                'expired' => 'Đã hết hạn thử',
-                'active' => 'Đang có quyền thử',
-                'cancelled' => 'Đã tắt quyền thử',
-                _ => 'Chưa đăng ký',
-              }}',
-            ),
-            const SizedBox(height: 12),
-            if (!active && widget.state.checkoutStatus(c.name) != 'pending')
-              FilledButton(
-                key: const Key('checkout-start'),
-                onPressed: busy
-                    ? null
-                    : () async {
-                        setState(() {
-                          busy = true;
-                          error = null;
-                        });
-                        try {
-                          await widget.state.beginCheckout(c.name);
-                        } catch (_) {
-                          error = 'Chưa tạo được giao dịch thử.';
-                        }
-                        if (mounted) setState(() => busy = false);
+            if (widget.state.isLiveBackend) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(CupertinoIcons.creditcard, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Số dư Ví Sử Ký khả dụng',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Palette.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_formatVndPrice(widget.state.walletAvailableBalance.toDouble())} · ${widget.state.displayName}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontFeatures: [ui.FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => WalletPage(
+                              preferences: widget.state.preferences,
+                              walletRepository: widget.state.walletRepository,
+                              withdrawalRepository:
+                                  widget.state.withdrawalRepository,
+                              contractRepository:
+                                  widget.state.contractRepository,
+                              kycRepository: widget.state.kycRepository,
+                            ),
+                          ),
+                        );
+                        await widget.state.refreshWalletBalance();
                       },
-                child: Text(
-                  widget.state.checkoutStatus(c.name) == 'failed'
-                      ? 'Thử đăng ký lại'
-                      : 'Đăng ký hội viên thử',
+                      child: const Text('Ví / Nạp thêm'),
+                    ),
+                  ],
                 ),
               ),
-            if (widget.state.checkoutStatus(c.name) == 'pending')
-              ExpansionTile(
-                initiallyExpanded: true,
-                tilePadding: EdgeInsets.zero,
-                title: const Text('Thử kết quả thanh toán'),
-                children: [
-                  OutlinedButton(
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            setState(() => busy = true);
-                            try {
-                              await widget.state.finishCheckout(c.name, true);
-                            } catch (_) {
-                              error = 'Chưa lưu được kết quả.';
-                            }
-                            if (mounted) setState(() => busy = false);
-                          },
-                    child: const Text('Thử thanh toán thành công'),
-                  ),
-                  TextButton(
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            setState(() => busy = true);
-                            try {
-                              await widget.state.finishCheckout(c.name, false);
-                            } catch (_) {
-                              error = 'Chưa lưu được kết quả.';
-                            }
-                            if (mounted) setState(() => busy = false);
-                          },
-                    child: const Text('Thử thanh toán thất bại'),
-                  ),
-                ],
-              ),
-            if (active)
-              TextButton(
-                onPressed: busy
-                    ? null
-                    : () async {
-                        setState(() => busy = true);
-                        try {
-                          await widget.state.expireMembership(c.name);
-                        } catch (_) {
-                          error = 'Chưa lưu được thay đổi.';
-                        }
-                        if (mounted) setState(() => busy = false);
-                      },
-                child: const Text('Giả lập hội viên hết hạn'),
-              ),
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Đổi quyền trực tiếp để test'),
-              children: [
+              if (!active)
                 FilledButton.icon(
-                  key: const Key('membership-toggle'),
-                  onPressed: busy ? null : () => change(!active),
-                  icon: Icon(
-                    active ? CupertinoIcons.lock : CupertinoIcons.lock_open,
-                    size: 18,
-                  ),
+                  key: const Key('checkout-start'),
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setState(() {
+                            busy = true;
+                            error = null;
+                          });
+                          try {
+                            await widget.state.subscribeChannelMembership(
+                              c.name,
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              final msg = e.toString().replaceFirst(
+                                'ApiException',
+                                '',
+                              );
+                              setState(
+                                () => error = msg.contains(':')
+                                    ? msg.split(':').sublist(1).join(':').trim()
+                                    : 'Chưa hoàn tất đăng ký hội viên. Kiểm tra số dư ví hoặc thử lại.',
+                              );
+                            }
+                          } finally {
+                            if (mounted) setState(() => busy = false);
+                          }
+                        },
+                  icon: const Icon(CupertinoIcons.checkmark_seal, size: 18),
                   label: Text(
                     busy
-                        ? 'Đang lưu…'
-                        : active
-                        ? 'Tắt hội viên thử'
-                        : 'Bật hội viên thử',
+                        ? 'Đang xử lý đăng ký…'
+                        : (priceBanner != null
+                              ? 'Đăng ký hội viên · $priceBanner'
+                              : 'Đăng ký hội viên kênh'),
+                  ),
+                )
+              else ...[
+                FilledButton.icon(
+                  key: const Key('checkout-renew'),
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setState(() {
+                            busy = true;
+                            error = null;
+                          });
+                          try {
+                            await widget.state.subscribeChannelMembership(
+                              c.name,
+                            );
+                          } catch (e) {
+                            if (mounted) {
+                              final msg = e.toString().replaceFirst(
+                                'ApiException',
+                                '',
+                              );
+                              setState(
+                                () => error = msg.contains(':')
+                                    ? msg.split(':').sublist(1).join(':').trim()
+                                    : 'Chưa hoàn tất gia hạn hội viên. Kiểm tra số dư ví hoặc thử lại.',
+                              );
+                            }
+                          } finally {
+                            if (mounted) setState(() => busy = false);
+                          }
+                        },
+                  icon: const Icon(CupertinoIcons.arrow_2_circlepath, size: 17),
+                  label: Text(
+                    busy
+                        ? 'Đang xử lý…'
+                        : (priceBanner != null
+                              ? 'Gia hạn thêm 30 ngày · $priceBanner'
+                              : 'Gia hạn thêm 30 ngày'),
                   ),
                 ),
-              ],
-            ),
-            if (active)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: OutlinedButton(
+                const SizedBox(height: 10),
+                OutlinedButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Quay lại khám phá'),
                 ),
+              ],
+            ] else ...[
+              const Text(
+                'Chế độ thử giao diện',
+                style: TextStyle(fontWeight: FontWeight.w500),
               ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _showReceipt(context, active, plan),
+                  icon: const Icon(CupertinoIcons.doc_plaintext, size: 14),
+                  label: const Text(
+                    'Xem biên nhận giao dịch thử',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Giá và chu kỳ hội viên chưa được cấu hình. Nút bên dưới chỉ đổi trạng thái thử trên thiết bị này; không thanh toán, không gia hạn và không tạo hợp đồng.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Palette.muted,
+                  height: 1.8,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'Trạng thái: ${switch (widget.state.checkoutStatus(c.name)) {
+                  'pending' => 'Đang chờ thanh toán mẫu',
+                  'failed' => 'Thất bại · Có thể thử lại',
+                  'expired' => 'Đã hết hạn thử',
+                  'active' => 'Đang có quyền thử',
+                  'cancelled' => 'Đã tắt quyền thử',
+                  _ => 'Chưa đăng ký',
+                }}',
+              ),
+              const SizedBox(height: 12),
+              if (!active && widget.state.checkoutStatus(c.name) != 'pending')
+                FilledButton(
+                  key: const Key('checkout-start'),
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setState(() {
+                            busy = true;
+                            error = null;
+                          });
+                          try {
+                            await widget.state.beginCheckout(c.name);
+                          } catch (_) {
+                            error = 'Chưa tạo được giao dịch thử.';
+                          }
+                          if (mounted) setState(() => busy = false);
+                        },
+                  child: Text(
+                    widget.state.checkoutStatus(c.name) == 'failed'
+                        ? 'Thử đăng ký lại'
+                        : 'Đăng ký hội viên thử',
+                  ),
+                ),
+              if (widget.state.checkoutStatus(c.name) == 'pending')
+                ExpansionTile(
+                  initiallyExpanded: true,
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('Thử kết quả thanh toán'),
+                  children: [
+                    OutlinedButton(
+                      onPressed: busy
+                          ? null
+                          : () async {
+                              setState(() => busy = true);
+                              try {
+                                await widget.state.finishCheckout(c.name, true);
+                              } catch (_) {
+                                error = 'Chưa lưu được kết quả.';
+                              }
+                              if (mounted) setState(() => busy = false);
+                            },
+                      child: const Text('Thử thanh toán thành công'),
+                    ),
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () async {
+                              setState(() => busy = true);
+                              try {
+                                await widget.state.finishCheckout(
+                                  c.name,
+                                  false,
+                                );
+                              } catch (_) {
+                                error = 'Chưa lưu được kết quả.';
+                              }
+                              if (mounted) setState(() => busy = false);
+                            },
+                      child: const Text('Thử thanh toán thất bại'),
+                    ),
+                  ],
+                ),
+              if (active)
+                TextButton(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          setState(() => busy = true);
+                          try {
+                            await widget.state.expireMembership(c.name);
+                          } catch (_) {
+                            error = 'Chưa lưu được thay đổi.';
+                          }
+                          if (mounted) setState(() => busy = false);
+                        },
+                  child: const Text('Giả lập hội viên hết hạn'),
+                ),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('Đổi quyền trực tiếp để test'),
+                children: [
+                  FilledButton.icon(
+                    key: const Key('membership-toggle'),
+                    onPressed: busy ? null : () => change(!active),
+                    icon: Icon(
+                      active ? CupertinoIcons.lock : CupertinoIcons.lock_open,
+                      size: 18,
+                    ),
+                    label: Text(
+                      busy
+                          ? 'Đang lưu…'
+                          : active
+                          ? 'Tắt hội viên thử'
+                          : 'Bật hội viên thử',
+                    ),
+                  ),
+                ],
+              ),
+              if (active)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Quay lại khám phá'),
+                  ),
+                ),
+            ],
           ],
         ),
       );
@@ -665,7 +1172,9 @@ class ProfileContent extends StatelessWidget {
                   state.isLoggedIn
                       ? (state.userEmail ??
                             state.userPhone ??
-                            'Đã đăng nhập (Mô phỏng)')
+                            (state.isLiveBackend
+                                ? 'Đã đăng nhập'
+                                : 'Đã đăng nhập (Mô phỏng)'))
                       : 'Hồ sơ trên thiết bị này',
                   style: const TextStyle(color: Palette.muted, fontSize: 12),
                 ),
@@ -770,6 +1279,29 @@ class ProfileContent extends StatelessWidget {
           builder: (_) => TransactionHistorySheet(state: state),
         ),
       ),
+      _PersonalLink(
+        key: const Key('open-profile-wallet'),
+        icon: CupertinoIcons.creditcard,
+        title: 'Ví Sử Ký & Nạp / Rút tiền',
+        subtitle: state.isLiveBackend
+            ? 'Số dư khả dụng: ${_formatVndPrice(state.walletAvailableBalance.toDouble())}'
+            : 'Số dư và lịch sử giao dịch',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => WalletPage(
+                preferences: state.preferences,
+                walletRepository: state.walletRepository,
+                withdrawalRepository: state.withdrawalRepository,
+                contractRepository: state.contractRepository,
+                kycRepository: state.kycRepository,
+              ),
+            ),
+          );
+          await state.refreshWalletBalance();
+        },
+      ),
       const SizedBox(height: 20),
       const Divider(),
       const SizedBox(height: 8),
@@ -788,7 +1320,7 @@ class ProfileContent extends StatelessWidget {
       _PersonalLink(
         key: const Key('open-settings'),
         icon: CupertinoIcons.gear,
-        title: 'Cài đặt & bản thử',
+        title: state.isLiveBackend ? 'Cài đặt tài khoản' : 'Cài đặt & bản thử',
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute<void>(
@@ -852,7 +1384,25 @@ class CreativeWorkspacePage extends StatelessWidget {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute<void>(
-              builder: (_) => CreatorStudio(preferences: state.preferences),
+              builder: (_) => CreatorStudio(
+                preferences: state.preferences,
+                channelRepository: state.channelRepository,
+                creatorSeriesRepository: state.creatorSeriesRepository,
+                creatorStudioRepository: state.creatorStudioRepository,
+                kycRepository: state.kycRepository,
+                contractRepository: state.contractRepository,
+                hireRequestRepository: state.hireRequestRepository,
+                milestoneRepository: state.milestoneRepository,
+                deliverableRepository: state.deliverableRepository,
+                disputeRepository: state.disputeRepository,
+                chatRepository: state.chatRepository,
+                narratorProfileRepository: state.narratorProfileRepository,
+                narratorDemoRepository: state.narratorDemoRepository,
+                freelancerRepository: state.freelancerRepository,
+                postRepository: state.postRepository,
+                walletRepository: state.walletRepository,
+                withdrawalRepository: state.withdrawalRepository,
+              ),
             ),
           ),
         ),
@@ -869,6 +1419,18 @@ class CreativeWorkspacePage extends StatelessWidget {
             ),
           ),
         ),
+        _PersonalLink(
+          key: const Key('open-livestream-studio'),
+          icon: CupertinoIcons.dot_radiowaves_left_right,
+          title: 'Phòng phát sóng trực tiếp',
+          subtitle: 'Mở phiên kể chuyện trực tiếp & giao lưu cùng thính giả',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => CreatorLivestreamStudioPage(state: state),
+            ),
+          ),
+        ),
         const SizedBox(height: 20),
         const Divider(),
         const SizedBox(height: 20),
@@ -882,7 +1444,19 @@ class CreativeWorkspacePage extends StatelessWidget {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute<void>(
-              builder: (_) => NarratorHome(preferences: state.preferences),
+              builder: (_) => NarratorHome(
+                preferences: state.preferences,
+                contractRepository: state.contractRepository,
+                hireRequestRepository: state.hireRequestRepository,
+                milestoneRepository: state.milestoneRepository,
+                deliverableRepository: state.deliverableRepository,
+                disputeRepository: state.disputeRepository,
+                chatRepository: state.chatRepository,
+                narratorProfileRepository: state.narratorProfileRepository,
+                narratorDemoRepository: state.narratorDemoRepository,
+                freelancerRepository: state.freelancerRepository,
+                kycRepository: state.kycRepository,
+              ),
             ),
           ),
         ),
@@ -897,7 +1471,13 @@ class CreativeWorkspacePage extends StatelessWidget {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute<void>(
-              builder: (_) => WalletPage(preferences: state.preferences),
+              builder: (_) => WalletPage(
+                preferences: state.preferences,
+                walletRepository: state.walletRepository,
+                withdrawalRepository: state.withdrawalRepository,
+                contractRepository: state.contractRepository,
+                kycRepository: state.kycRepository,
+              ),
             ),
           ),
         ),
@@ -911,7 +1491,11 @@ class PersonalSettingsPage extends StatelessWidget {
   final AppState state;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Cài đặt & bản thử')),
+    appBar: AppBar(
+      title: Text(
+        state.isLiveBackend ? 'Cài đặt tài khoản' : 'Cài đặt & bản thử',
+      ),
+    ),
     body: AnimatedBuilder(
       animation: state,
       builder: (context, _) => ListView(
@@ -928,61 +1512,63 @@ class PersonalSettingsPage extends StatelessWidget {
               builder: (_) => EditNameSheet(state: state),
             ),
           ),
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 16),
-          const Eyebrow('BẢN THỬ GIAO DIỆN'),
-          _PersonalLink(
-            key: const Key('open-demo-data'),
-            icon: CupertinoIcons.square_stack,
-            title: 'Dữ liệu thử giao diện',
-            subtitle: 'Nạp bộ mẫu hoặc khôi phục dữ liệu',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => DemoDataPage(state: state),
+          if (!state.isLiveBackend) ...[
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+            const Eyebrow('BẢN THỬ GIAO DIỆN'),
+            _PersonalLink(
+              key: const Key('open-demo-data'),
+              icon: CupertinoIcons.square_stack,
+              title: 'Dữ liệu thử giao diện',
+              subtitle: 'Nạp bộ mẫu hoặc khôi phục dữ liệu',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => DemoDataPage(state: state),
+                ),
               ),
             ),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(CupertinoIcons.info_circle, size: 21),
-            title: const Text(
-              'Về bản thử Sử Ký',
-              style: TextStyle(fontSize: 14),
-            ),
-            trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
-            onTap: () => showModalBottomSheet<void>(
-              context: context,
-              showDragHandle: true,
-              builder: (_) => const SafeArea(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sử Ký · Bản thử giao diện',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(CupertinoIcons.info_circle, size: 21),
+              title: const Text(
+                'Về bản thử Sử Ký',
+                style: TextStyle(fontSize: 14),
+              ),
+              trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                showDragHandle: true,
+                builder: (_) => const SafeArea(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sử Ký · Bản thử giao diện',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Các kênh và tập là dữ liệu mẫu. Tập kỹ thuật có audio/video phát thật; các tập biên tập chưa có giọng kể. Hồ sơ và quyền thử lưu trên thiết bị, chưa có đồng bộ tài khoản.',
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Bạn có thể tắt hội viên thử ở từng kênh. Không có thanh toán hoặc thu thập thông tin thanh toán.',
-                        style: TextStyle(color: Palette.muted),
-                      ),
-                    ],
+                        SizedBox(height: 16),
+                        Text(
+                          'Các kênh và tập là dữ liệu mẫu. Tập kỹ thuật có audio/video phát thật; các tập biên tập chưa có giọng kể. Hồ sơ và quyền thử lưu trên thiết bị, chưa có đồng bộ tài khoản.',
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          'Bạn có thể tắt hội viên thử ở từng kênh. Không có thanh toán hoặc thu thập thông tin thanh toán.',
+                          style: TextStyle(color: Palette.muted),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ],
           if (state.isLoggedIn) ...[
             const SizedBox(height: 24),
             const Divider(),
@@ -1278,19 +1864,25 @@ class _AuthSheetState extends State<AuthSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: busy ? null : guestLogin,
-                child: const Text('Dùng tài khoản khách thử nghiệm'),
+            if (!widget.state.isLiveBackend) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: busy ? null : guestLogin,
+                  child: const Text('Dùng tài khoản khách thử nghiệm'),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Lưu ý: Xác thực tài khoản mô phỏng theo Use Case UC-06 trong tài liệu. Chưa kết nối OAuth/SMS Gateway thực tế.',
-              style: TextStyle(color: Palette.muted, fontSize: 11, height: 1.5),
-            ),
+              const SizedBox(height: 16),
+              const Text(
+                'Lưu ý: Xác thực tài khoản mô phỏng theo Use Case UC-06 trong tài liệu. Chưa kết nối OAuth/SMS Gateway thực tế.',
+                style: TextStyle(
+                  color: Palette.muted,
+                  fontSize: 11,
+                  height: 1.5,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1314,9 +1906,11 @@ class TransactionHistorySheet extends StatelessWidget {
           const SizedBox(height: 12),
           Text('Gói hội viên & Giao dịch', style: editorial(24)),
           const SizedBox(height: 8),
-          const Text(
-            'Các giao dịch kích hoạt và hủy hội viên thử nghiệm trên thiết bị này.',
-            style: TextStyle(color: Palette.muted, fontSize: 12),
+          Text(
+            state.isLiveBackend
+                ? 'Lịch sử đăng ký và gia hạn gói hội viên các kênh trên Sử Ký.'
+                : 'Các giao dịch kích hoạt và hủy hội viên thử nghiệm trên thiết bị này.',
+            style: const TextStyle(color: Palette.muted, fontSize: 12),
           ),
           const SizedBox(height: 20),
           if (state.memberships.isNotEmpty) ...[
@@ -1552,7 +2146,9 @@ class ChannelMark extends StatelessWidget {
         color: Palette.soft,
         borderRadius: BorderRadius.circular(5),
       ),
-      child: channel.image.startsWith('local-artwork:')
+      child: (channel.image.startsWith('local-artwork:') ||
+              channel.image.startsWith('http://') ||
+              channel.image.startsWith('https://'))
           ? ClipRRect(
               borderRadius: BorderRadius.circular(5),
               child: ArtworkImage(

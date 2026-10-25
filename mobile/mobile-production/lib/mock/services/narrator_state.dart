@@ -2,9 +2,50 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../core/api/chat_repository.dart';
+import '../../core/api/contract_repository.dart';
+import '../../core/api/deliverable_repository.dart';
+import '../../core/api/dispute_repository.dart';
+import '../../core/api/hire_request_repository.dart';
+import '../../core/api/milestone_repository.dart';
+import '../../core/api/narrator_profile_repository.dart';
+import '../../core/api/post_repository.dart';
 import '../../creator_state.dart';
 import '../../narrator_profile.dart';
 import '../../wallet_state.dart';
+
+class ContractChatEntry {
+  final String id;
+  final String senderName;
+  final String senderRole; // 'CREATOR' | 'NARRATOR'
+  final String text;
+  final String timestamp;
+
+  const ContractChatEntry({
+    required this.id,
+    required this.senderName,
+    required this.senderRole,
+    required this.text,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'senderName': senderName,
+    'senderRole': senderRole,
+    'text': text,
+    'timestamp': timestamp,
+  };
+
+  factory ContractChatEntry.fromJson(Map<String, dynamic> json) =>
+      ContractChatEntry(
+        id: (json['id'] ?? '').toString(),
+        senderName: (json['senderName'] ?? '').toString(),
+        senderRole: (json['senderRole'] ?? 'CREATOR').toString(),
+        text: (json['text'] ?? '').toString(),
+        timestamp: (json['timestamp'] ?? '').toString(),
+      );
+}
 
 enum ContractStatus {
   invited,
@@ -134,20 +175,224 @@ class ContractOrder {
   );
 }
 
-/// Local workflow rehearsal. No legal signature, notification or money transfer.
+/// Workflow rehearsal + live backend sync for Marketplace, HireRequest, Contract, Milestone & Chat.
 class NarratorState extends ChangeNotifier {
-  NarratorState(this.creator) {
+  NarratorState(
+    this.creator, {
+    ContractRepository? contractRepository,
+    HireRequestRepository? hireRequestRepository,
+    MilestoneRepository? milestoneRepository,
+    DeliverableRepository? deliverableRepository,
+    DisputeRepository? disputeRepository,
+    ChatRepository? chatRepository,
+    NarratorProfileRepository? narratorProfileRepository,
+    PostRepository? postRepository,
+  }) : contractRepository = contractRepository ?? creator.contractRepository,
+       hireRequestRepository =
+           hireRequestRepository ?? creator.hireRequestRepository,
+       milestoneRepository =
+           milestoneRepository ?? creator.milestoneRepository,
+       deliverableRepository =
+           deliverableRepository ?? creator.deliverableRepository,
+       disputeRepository = disputeRepository ?? creator.disputeRepository,
+       chatRepository = chatRepository ?? creator.chatRepository,
+       narratorProfileRepository =
+           narratorProfileRepository ?? creator.narratorProfileRepository,
+       postRepository = postRepository ?? creator.postRepository {
     final raw = creator.preferences.getString('narratorContractsV1');
     if (raw != null) {
       _orders = (jsonDecode(raw) as List)
           .map((j) => ContractOrder.fromJson(j as Map<String, dynamic>))
           .toList();
     }
+    final rawChats = creator.preferences.getString('narratorContractChatsV1');
+    if (rawChats != null) {
+      try {
+        final decoded = jsonDecode(rawChats) as Map<String, dynamic>;
+        for (final entry in decoded.entries) {
+          if (entry.value is List) {
+            contractMessages[entry.key] = (entry.value as List)
+                .map(
+                  (e) => ContractChatEntry.fromJson(e as Map<String, dynamic>),
+                )
+                .toList();
+          }
+        }
+      } catch (_) {}
+    }
   }
   final CreatorState creator;
+  final ContractRepository? contractRepository;
+  final HireRequestRepository? hireRequestRepository;
+  final MilestoneRepository? milestoneRepository;
+  final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final ChatRepository? chatRepository;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final PostRepository? postRepository;
+
   List<ContractOrder> _orders = [];
   List<ContractOrder> get orders => List.unmodifiable(_orders);
   ContractOrder order(String id) => _orders.firstWhere((o) => o.id == id);
+
+  List<NarratorProfileModel> remoteVoices = [];
+  List<HireRequestModel> hireRequests = [];
+  List<ContractModel> remoteContracts = [];
+  final Map<String, ChatConversationModel> activeConversations = {};
+  final Map<String, List<ContractChatEntry>> contractMessages = {};
+
+  bool get isLiveBackend =>
+      contractRepository != null ||
+      hireRequestRepository != null ||
+      narratorProfileRepository != null;
+
+  int? _extractNumericId(String rawId) {
+    final match = RegExp(r'\d+').firstMatch(rawId);
+    return match != null ? int.tryParse(match.group(0)!) : null;
+  }
+
+  Future<void> syncMarketplaceBackend() async {
+    if (narratorProfileRepository != null) {
+      try {
+        remoteVoices = await narratorProfileRepository!.getAll();
+      } catch (_) {}
+    }
+    if (hireRequestRepository != null) {
+      try {
+        hireRequests = await hireRequestRepository!.getAll();
+      } catch (_) {}
+    }
+    if (contractRepository != null) {
+      try {
+        remoteContracts = await contractRepository!.getMyContracts();
+        var changed = false;
+        final updated = List<ContractOrder>.from(_orders);
+        for (final rc in remoteContracts) {
+          final orderId = 'HD-${rc.id}';
+          if (!updated.any((o) => o.id == orderId)) {
+            final mappedStatus = switch (rc.status.toUpperCase()) {
+              'ACTIVE' => ContractStatus.inProduction,
+              'COMPLETED' => ContractStatus.completed,
+              'REJECTED' => ContractStatus.rejected,
+              'CANCELLED' => ContractStatus.cancelled,
+              'DISPUTED' => ContractStatus.disputed,
+              _ => ContractStatus.invited,
+            };
+            updated.add(
+              ContractOrder(
+                id: orderId,
+                narratorId: 'nar-${rc.freelancerId ?? 1}',
+                narratorName: rc.freelancerFullName ?? 'Nghệ sĩ lồng tiếng',
+                draftId: 'draft-${rc.postId ?? rc.id}',
+                draftTitle: rc.title,
+                channelName: creator.channel.isNotEmpty
+                    ? creator.channel
+                    : (rc.creatorFullName ?? 'Kênh Sử Ký'),
+                notes: rc.description ?? 'Thu âm kịch bản lịch sử',
+                feeProposal: '${rc.totalAmount.round()}đ / tập',
+                deadline: DateTime.now()
+                    .add(const Duration(days: 7))
+                    .toIso8601String(),
+                status: mappedStatus,
+                creatorSigned: mappedStatus == ContractStatus.inProduction ||
+                    mappedStatus == ContractStatus.completed,
+                narratorSigned: mappedStatus == ContractStatus.inProduction ||
+                    mappedStatus == ContractStatus.completed,
+                history: [
+                  '${rc.createdAt ?? DateTime.now().toIso8601String()} · Đồng bộ hợp đồng #${rc.id} từ hệ thống',
+                ],
+              ),
+            );
+            changed = true;
+          }
+        }
+        if (changed) {
+          await _commit(updated);
+          return;
+        }
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  Future<ChatConversationModel> openContractChat(String orderId) async {
+    final numericContractId = _extractNumericId(orderId) ?? 1;
+    if (chatRepository != null) {
+      try {
+        final conv = await chatRepository!.getOrCreateConversation(
+          contractId: numericContractId,
+        );
+        activeConversations[orderId] = conv;
+      } catch (_) {}
+    }
+    final fallbackOrder = _orders.where((o) => o.id == orderId).firstOrNull;
+    final conv = activeConversations.putIfAbsent(
+      orderId,
+      () => ChatConversationModel(
+        conversationId: 'conv_contract_$orderId',
+        partnerId: 2,
+        partnerName: fallbackOrder?.narratorName ?? 'Đối tác thu âm',
+        partnerRole: 'FREELANCER',
+        contextType: 'CONTRACT',
+        contextId: numericContractId,
+      ),
+    );
+    contractMessages.putIfAbsent(orderId, () {
+      if (fallbackOrder == null) return [];
+      return [
+        ContractChatEntry(
+          id: 'msg-init-$orderId',
+          senderName: fallbackOrder.channelName,
+          senderRole: 'CREATOR',
+          text:
+              'Chào ${fallbackOrder.narratorName}, mời bạn xem yêu cầu thu âm tập "${fallbackOrder.draftTitle}": ${fallbackOrder.notes}',
+          timestamp: 'Vừa xong',
+        ),
+      ];
+    });
+    notifyListeners();
+    return conv;
+  }
+
+  List<ContractChatEntry> messagesForOrder(String orderId) =>
+      List.unmodifiable(contractMessages[orderId] ?? const []);
+
+  Future<ContractChatEntry> sendContractChatMessage(
+    String orderId, {
+    required String senderName,
+    required String senderRole,
+    required String text,
+  }) async {
+    final clean = text.trim();
+    if (clean.isEmpty) {
+      throw StateError('Vui lòng nhập nội dung tin nhắn.');
+    }
+    await openContractChat(orderId);
+    final now = DateTime.now();
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final entry = ContractChatEntry(
+      id: 'msg-${now.microsecondsSinceEpoch}',
+      senderName: senderName.trim().isEmpty ? 'Thành viên' : senderName.trim(),
+      senderRole: senderRole,
+      text: clean,
+      timestamp: timeStr,
+    );
+    final current = List<ContractChatEntry>.from(
+      contractMessages[orderId] ?? const [],
+    )..add(entry);
+    contractMessages[orderId] = current;
+    await creator.preferences.setString(
+      'narratorContractChatsV1',
+      jsonEncode(
+        contractMessages.map(
+          (k, v) => MapEntry(k, v.map((m) => m.toJson()).toList()),
+        ),
+      ),
+    );
+    notifyListeners();
+    return entry;
+  }
 
   void _guard() {
     if (!creator.demoVerified ||
@@ -207,8 +452,57 @@ class NarratorState extends ChangeNotifier {
       );
     }
     final d = matches.first;
+    final parsedFee =
+        int.tryParse(
+          RegExp(r'[\d.,]+')
+                  .firstMatch(fee.trim())
+                  ?.group(0)
+                  ?.replaceAll(RegExp(r'[.,]'), '') ??
+              '',
+        ) ??
+        300000;
+    final numericNarratorId = _extractNumericId(narratorId) ?? 1;
+    var generatedOrderId = 'HD-${DateTime.now().microsecondsSinceEpoch}';
+
+    if (hireRequestRepository != null) {
+      try {
+        final hr = await hireRequestRepository!.create(
+          creatorId: creator.channelModel?.id ?? 1,
+          narratorId: numericNarratorId,
+          channelId: creator.channelModel?.id,
+          description: '${d.title} · ${notes.trim()}',
+          proposedPrice: parsedFee.toDouble(),
+          deadline: deadline.toIso8601String(),
+        );
+        hireRequests = [hr, ...hireRequests];
+      } catch (_) {}
+    }
+
+    if (contractRepository != null) {
+      try {
+        final createdContract = await contractRepository!.createAndSendContract(
+          freelancerId: numericNarratorId,
+          serviceType: 'VOICE',
+          title: d.title,
+          description: notes.trim(),
+          milestones: [
+            {
+              'title': 'Bản thu hoàn chỉnh · ${d.title}',
+              'requirement': notes.trim(),
+              'amount': parsedFee.toDouble(),
+              'durationDays': 7,
+              'maxRevisions': 2,
+              'revisionDays': 3,
+            },
+          ],
+        );
+        remoteContracts = [createdContract, ...remoteContracts];
+        generatedOrderId = 'HD-${createdContract.id}';
+      } catch (_) {}
+    }
+
     final o = ContractOrder(
-      id: 'HD-${DateTime.now().microsecondsSinceEpoch}',
+      id: generatedOrderId,
       narratorId: narratorId,
       narratorName: narratorName,
       draftId: d.id,
@@ -253,6 +547,7 @@ class NarratorState extends ChangeNotifier {
 
   Future<void> _act(String id, String action, {String value = ''}) async {
     final o = order(id);
+    final numericContractId = _extractNumericId(o.id);
     ContractOrder next;
     switch (action) {
       case 'accept':
@@ -261,6 +556,11 @@ class NarratorState extends ChangeNotifier {
           ContractStatus.negotiating,
         ].contains(o.status)) {
           throw StateError('Lời mời đã được xử lý.');
+        }
+        if (contractRepository != null && numericContractId != null) {
+          try {
+            await contractRepository!.acceptContract(numericContractId);
+          } catch (_) {}
         }
         next = o.updated(
           status: ContractStatus.pendingSign,
@@ -272,6 +572,11 @@ class NarratorState extends ChangeNotifier {
           ContractStatus.negotiating,
         ].contains(o.status)) {
           throw StateError('Chỉ từ chối lời mời chưa ký.');
+        }
+        if (contractRepository != null && numericContractId != null) {
+          try {
+            await contractRepository!.rejectContract(numericContractId);
+          } catch (_) {}
         }
         next = o.updated(
           status: ContractStatus.rejected,
@@ -310,13 +615,22 @@ class NarratorState extends ChangeNotifier {
             o.narratorSigned) {
           throw StateError('Cần người sáng tạo xác nhận trước.');
         }
+        if (milestoneRepository != null && numericContractId != null) {
+          try {
+            await milestoneRepository!.fundMilestone(numericContractId);
+          } catch (_) {}
+        }
         next = o.updated(
           narratorSigned: true,
           status: ContractStatus.inProduction,
           note: 'Người đọc đã ký hợp đồng',
         );
-        await WalletState(creator.preferences)
-            .reserve(o.id, o.narratorId, o.feeAmount);
+        await WalletState(
+          creator.preferences,
+          walletRepository: creator.walletRepository,
+          withdrawalRepository: creator.withdrawalRepository,
+          contractRepository: contractRepository,
+        ).reserve(o.id, o.narratorId, o.feeAmount);
 
       case 'deliver':
         if (o.status != ContractStatus.inProduction || !o.isFullySigned) {
@@ -329,16 +643,42 @@ class NarratorState extends ChangeNotifier {
             ).hasMatch(value.trim())) {
           throw StateError('Nhập tên file WAV/MP3, không kèm đường dẫn.');
         }
+        final audioFile = value.trim().isEmpty
+            ? '${o.draftId}_master.wav'
+            : value.trim();
+        if (milestoneRepository != null && numericContractId != null) {
+          try {
+            await milestoneRepository!.submitDeliverable(
+              numericContractId,
+              content: 'Bàn giao bản thu $audioFile',
+              fileUrl: audioFile,
+            );
+          } catch (_) {}
+        }
+        if (deliverableRepository != null && numericContractId != null) {
+          try {
+            await deliverableRepository!.create(
+              contractId: numericContractId,
+              fileUrl: audioFile,
+            );
+          } catch (_) {}
+        }
         next = o.updated(
           status: ContractStatus.delivered,
-          audio: value.trim().isEmpty
-              ? '${o.draftId}_master.wav'
-              : value.trim(),
+          audio: audioFile,
           note: 'Bàn giao tên file mẫu',
         );
       case 'revise':
         if (o.status != ContractStatus.delivered || value.trim().length < 5) {
           throw StateError('Ghi rõ phần cần sửa (ít nhất 5 ký tự).');
+        }
+        if (milestoneRepository != null && numericContractId != null) {
+          try {
+            await milestoneRepository!.requestRevision(
+              numericContractId,
+              note: value.trim(),
+            );
+          } catch (_) {}
         }
         next = o.updated(
           status: ContractStatus.inProduction,
@@ -349,11 +689,21 @@ class NarratorState extends ChangeNotifier {
         if (o.status != ContractStatus.delivered) {
           throw StateError('Cần nhận bản thu trước khi nghiệm thu.');
         }
+        if (milestoneRepository != null && numericContractId != null) {
+          try {
+            await milestoneRepository!.approveMilestone(numericContractId);
+          } catch (_) {}
+        }
         next = o.updated(
           status: ContractStatus.completed,
           note: 'Nghiệm thu · Giải ngân sổ ví mẫu, không chuyển tiền thật',
         );
-        await WalletState(creator.preferences).settle(o.id, refund: false);
+        await WalletState(
+          creator.preferences,
+          walletRepository: creator.walletRepository,
+          withdrawalRepository: creator.withdrawalRepository,
+          contractRepository: contractRepository,
+        ).settle(o.id, refund: false);
       case 'cancel':
         if (![
           ContractStatus.invited,
@@ -363,6 +713,11 @@ class NarratorState extends ChangeNotifier {
           throw StateError(
             'Chỉ hủy trước sản xuất. Sau đó cần gửi yêu cầu phân xử.',
           );
+        }
+        if (contractRepository != null && numericContractId != null) {
+          try {
+            await contractRepository!.cancelContract(numericContractId);
+          } catch (_) {}
         }
         next = o.updated(
           status: ContractStatus.cancelled,
@@ -375,6 +730,14 @@ class NarratorState extends ChangeNotifier {
             ].contains(o.status) ||
             value.trim().length < 5) {
           throw StateError('Ghi lý do phân xử trong công việc đã có hiệu lực.');
+        }
+        if (disputeRepository != null && numericContractId != null) {
+          try {
+            await disputeRepository!.openDispute(
+              contractId: numericContractId,
+              reason: value.trim(),
+            );
+          } catch (_) {}
         }
         next = o.updated(
           status: ContractStatus.disputed,

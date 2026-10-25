@@ -79,10 +79,13 @@ class ReviewRepository {
     };
     final res = await client.get('/api/v1/reviews/user/$userId', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => ReviewModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => ReviewModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => ReviewModel.fromJson(e as Map<String, dynamic>)).toList();
     }

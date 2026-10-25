@@ -33,10 +33,13 @@ class WalletRepository {
       'size': size.toString(),
     });
     final data = response['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>)).toList();
     }
@@ -46,6 +49,7 @@ class WalletRepository {
   Future<String> createDeposit({required int amount}) async {
     final response = await apiClient.post('/api/v1/wallets/me/deposits', body: {
       'amount': amount,
+      'description': 'Nạp tiền vào ví Sử Ký qua Mobile',
       'orderInfo': 'Nạp tiền vào ví Sử Ký qua Mobile',
     });
     final data = response['data'] as Map<String, dynamic>;

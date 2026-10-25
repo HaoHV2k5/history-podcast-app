@@ -5,24 +5,110 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../creator_state.dart';
 import '../../episode.dart';
+import '../../core/api/contract_repository.dart';
 import '../../core/api/wallet_repository.dart';
+import '../../core/api/withdrawal_repository.dart';
 
 String money(int value) =>
     '${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.')}đ';
 
 /// WalletState hỗ trợ kết nối trực tiếp API Backend
 class WalletState extends ChangeNotifier {
-  WalletState(this.preferences, {this.walletRepository}) {
+  WalletState(
+    this.preferences, {
+    this.walletRepository,
+    this.withdrawalRepository,
+    this.contractRepository,
+  }) {
     refresh();
   }
   final SharedPreferences preferences;
   final WalletRepository? walletRepository;
+  final WithdrawalRepository? withdrawalRepository;
+  final ContractRepository? contractRepository;
   Map<String, dynamic> data = {};
+  List<WalletTransactionModel> remoteTransactions = [];
+  List<WithdrawalModel> remoteWithdrawals = [];
+  List<BankAccountData> remoteBanks = [];
+  MilestoneFinancialSummaryModel? milestoneFinancials;
+  String? lastDepositPaymentUrl;
+
+  bool get isLiveBackend =>
+      walletRepository != null ||
+      withdrawalRepository != null ||
+      contractRepository != null;
+
   void refresh() {
     data = jsonDecode(
       preferences.getString('walletDemoV1') ??
           '{"wallets":{},"escrows":{},"events":[]}',
     ) as Map<String, dynamic>;
+  }
+
+  Future<void> syncWalletBackend(String owner) async {
+    refresh();
+    var updated = false;
+    if (walletRepository != null) {
+      try {
+        final info = await walletRepository!.getMyWallet();
+        final w = wallet(owner);
+        w['available'] = info.availableBalance.round();
+        w['holding'] = info.pendingBalance.round();
+        updated = true;
+      } catch (_) {}
+      try {
+        remoteTransactions = await walletRepository!.getMyTransactions();
+      } catch (_) {}
+      try {
+        remoteBanks = await walletRepository!.getBankAccounts();
+        if (remoteBanks.isNotEmpty) {
+          final firstBank = remoteBanks.first;
+          wallet(owner)['bank'] = {
+            'id': firstBank.id,
+            'name': firstBank.bankName,
+            'account': firstBank.accountNumber,
+            'holder': firstBank.accountHolderName,
+          };
+          updated = true;
+        }
+      } catch (_) {}
+    }
+    if (withdrawalRepository != null) {
+      try {
+        remoteWithdrawals = await withdrawalRepository!.getMyWithdrawals();
+      } catch (_) {}
+    }
+    if (contractRepository != null) {
+      try {
+        milestoneFinancials =
+            await contractRepository!.getMyMilestoneFinancials();
+      } catch (_) {}
+    }
+    if (updated) {
+      await save();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  Future<String?> topUpWallet(String owner, int amount) async {
+    refresh();
+    if (amount < 50000) {
+      throw StateError('Số tiền nạp tối thiểu là 50.000đ.');
+    }
+    String? paymentUrl;
+    if (walletRepository != null) {
+      try {
+        paymentUrl = await walletRepository!.createDeposit(amount: amount);
+        lastDepositPaymentUrl = paymentUrl;
+      } catch (_) {}
+    }
+    wallet(owner)['available'] = available(owner) + amount;
+    event(
+      'Nạp ${money(amount)} vào ví $owner${paymentUrl != null && paymentUrl.isNotEmpty ? ' · Cổng thanh toán VNPay' : ''}',
+    );
+    await save();
+    return paymentUrl;
   }
 
   Map<String, dynamic> wallet(String owner) =>
@@ -118,6 +204,17 @@ class WalletState extends ChangeNotifier {
     }
     if ((w['withdrawals'] as List).any((r) => r['status'] == 'processing')) {
       throw StateError('Hãy xử lý yêu cầu đang chờ trước.');
+    }
+    if (withdrawalRepository != null) {
+      try {
+        final bankId = (bank['id'] as num?)?.toInt() ??
+            (remoteBanks.isNotEmpty ? remoteBanks.first.id : 1);
+        final created = await withdrawalRepository!.requestWithdrawal(
+          bankAccountId: bankId,
+          amount: amount.toDouble(),
+        );
+        remoteWithdrawals = [created, ...remoteWithdrawals];
+      } catch (_) {}
     }
     w['available'] = available(owner) - amount;
     (w['withdrawals'] as List).insert(0, {

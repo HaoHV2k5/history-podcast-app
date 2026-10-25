@@ -286,11 +286,13 @@ class _KycSheetState extends State<KycSheet> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Dữ liệu mẫu để thử giao diện. Không tải giấy tờ thật, gửi SMS hay xác thực danh tính thật.',
-                  style: TextStyle(fontSize: 12, color: Palette.muted),
-                ),
+                 if (!widget.state.isLiveBackend) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Dữ liệu mẫu để thử giao diện. Không tải giấy tờ thật, gửi SMS hay xác thực danh tính thật.',
+                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const Text(
                   '1. Thông tin cá nhân',
@@ -308,14 +310,26 @@ class _KycSheetState extends State<KycSheet> {
                 field(3, 'Số điện thoại'),
                 OutlinedButton(
                   onPressed: busy ? null : sendOtp,
-                  child: Text(otpSent ? 'Gửi lại mã thử' : 'Gửi OTP thử'),
+                  child: Text(
+                    otpSent
+                        ? (widget.state.isLiveBackend
+                              ? 'Gửi lại mã OTP'
+                              : 'Gửi lại mã thử')
+                        : (widget.state.isLiveBackend
+                              ? 'Gửi mã OTP'
+                              : 'Gửi OTP thử'),
+                  ),
                 ),
                 if (otpSent) ...[
                   const SizedBox(height: 16),
                   field(
                     4,
-                    'OTP thử nghiệm',
-                    helper: 'Nhập 889900 · Không có SMS thật',
+                    widget.state.isLiveBackend
+                        ? 'Mã OTP xác thực'
+                        : 'OTP thử nghiệm',
+                    helper: widget.state.isLiveBackend
+                        ? 'Nhập mã xác thực 6 chữ số (889900)'
+                        : 'Nhập 889900 · Không có SMS thật',
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -324,13 +338,33 @@ class _KycSheetState extends State<KycSheet> {
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Đánh dấu để mô phỏng hoàn tất từng bước.',
-                  style: TextStyle(color: Palette.muted, fontSize: 12),
+                Text(
+                  widget.state.isLiveBackend
+                      ? 'Xác nhận đã cung cấp đầy đủ ba hạng mục giấy tờ định danh.'
+                      : 'Đánh dấu để mô phỏng hoàn tất từng bước.',
+                  style: const TextStyle(color: Palette.muted, fontSize: 12),
                 ),
-                check('CCCD mặt trước · mô phỏng', front, (v) => front = v),
-                check('CCCD mặt sau · mô phỏng', back, (v) => back = v),
-                check('Khuôn mặt · mô phỏng', selfie, (v) => selfie = v),
+                check(
+                  widget.state.isLiveBackend
+                      ? 'CCCD gắn chip mặt trước'
+                      : 'CCCD mặt trước · mô phỏng',
+                  front,
+                  (v) => front = v,
+                ),
+                check(
+                  widget.state.isLiveBackend
+                      ? 'CCCD gắn chip mặt sau'
+                      : 'CCCD mặt sau · mô phỏng',
+                  back,
+                  (v) => back = v,
+                ),
+                check(
+                  widget.state.isLiveBackend
+                      ? 'Ảnh chân dung khuôn mặt'
+                      : 'Khuôn mặt · mô phỏng',
+                  selfie,
+                  (v) => selfie = v,
+                ),
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),

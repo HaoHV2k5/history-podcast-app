@@ -3,6 +3,21 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/channel_repository.dart';
+import '../../core/api/chat_repository.dart';
+import '../../core/api/contract_repository.dart';
+import '../../core/api/creator_series_repository.dart';
+import '../../core/api/creator_studio_repository.dart';
+import '../../core/api/deliverable_repository.dart';
+import '../../core/api/dispute_repository.dart';
+import '../../core/api/freelancer_repository.dart';
+import '../../core/api/hire_request_repository.dart';
+import '../../core/api/kyc_repository.dart';
+import '../../core/api/milestone_repository.dart';
+import '../../core/api/narrator_demo_repository.dart';
+import '../../core/api/narrator_profile_repository.dart';
+import '../../core/api/post_repository.dart';
+import '../../core/api/wallet_repository.dart';
+import '../../core/api/withdrawal_repository.dart';
 
 /// The existing demo's DOB rule, shared by the form and state gate.
 String? validateKycBirthDate(String value, {DateTime? today}) {
@@ -192,6 +207,21 @@ class CreatorState extends ChangeNotifier {
     this.preferences, {
     this.storageKey = 'creatorStudioV1',
     this.channelRepository,
+    this.creatorSeriesRepository,
+    this.creatorStudioRepository,
+    this.kycRepository,
+    this.contractRepository,
+    this.hireRequestRepository,
+    this.milestoneRepository,
+    this.deliverableRepository,
+    this.disputeRepository,
+    this.chatRepository,
+    this.narratorProfileRepository,
+    this.narratorDemoRepository,
+    this.freelancerRepository,
+    this.postRepository,
+    this.walletRepository,
+    this.withdrawalRepository,
   }) {
     final raw = preferences.getString(storageKey);
     if (raw != null) {
@@ -214,7 +244,38 @@ class CreatorState extends ChangeNotifier {
   final SharedPreferences preferences;
   final String storageKey;
   final ChannelRepository? channelRepository;
+  final CreatorSeriesRepository? creatorSeriesRepository;
+  final CreatorStudioRepository? creatorStudioRepository;
+  final KycRepository? kycRepository;
+  final ContractRepository? contractRepository;
+  final HireRequestRepository? hireRequestRepository;
+  final MilestoneRepository? milestoneRepository;
+  final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final ChatRepository? chatRepository;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final NarratorDemoRepository? narratorDemoRepository;
+  final FreelancerRepository? freelancerRepository;
+  final PostRepository? postRepository;
+  final WalletRepository? walletRepository;
+  final WithdrawalRepository? withdrawalRepository;
   ChannelModel? channelModel;
+  MembershipPlanModel? membershipPlan;
+  List<SeriesModel> mySeries = [];
+  CreatorAiSettingModel? aiSettings;
+  List<CreatorVoiceModel> aiVoices = [];
+  List<Map<String, dynamic>> studioVideos = [];
+  Map<String, dynamic>? lastVerification;
+  Map<String, dynamic>? lastStoryboard;
+  Map<String, dynamic>? activeRenderJob;
+
+  bool get isLiveBackend =>
+      channelRepository != null ||
+      creatorSeriesRepository != null ||
+      creatorStudioRepository != null ||
+      kycRepository != null ||
+      contractRepository != null;
+
   bool demoVerified = false;
   KycProfile kyc = const KycProfile();
   String channel = '';
@@ -230,9 +291,83 @@ class CreatorState extends ChangeNotifier {
         channel = myChan.name;
         channelDescription = myChan.description;
         demoVerified = true;
+        if (!kyc.isApproved) {
+          kyc = KycProfile.fixtureApproved();
+        }
+        try {
+          membershipPlan = await channelRepository!.getChannelMembershipPlan(
+            myChan.id,
+          );
+        } catch (_) {}
         notifyListeners();
       } catch (_) {}
     }
+  }
+
+  Future<void> initStudioBackend() async {
+    if (kycRepository != null) {
+      try {
+        final remoteKyc = await kycRepository!.getMyKycProfile();
+        if (remoteKyc != null) {
+          final mappedStatus = switch (remoteKyc.status.toUpperCase()) {
+            'APPROVED' => KycStatus.approved,
+            'REJECTED' => KycStatus.rejected,
+            _ => KycStatus.pending,
+          };
+          kyc = KycProfile(
+            fullName: remoteKyc.fullName,
+            idNumber: kyc.idNumber.isEmpty ? '001099012345' : kyc.idNumber,
+            dob: kyc.dob.isEmpty ? '15/08/1995' : kyc.dob,
+            phone: remoteKyc.phone,
+            idFrontUploaded: true,
+            idBackUploaded: true,
+            selfiePassed: true,
+            status: mappedStatus,
+            rejectionReason: remoteKyc.rejectionReason ?? '',
+          );
+          if (mappedStatus == KycStatus.approved) {
+            demoVerified = true;
+          }
+        }
+      } catch (_) {}
+    }
+    await fetchMyChannel();
+    if (creatorSeriesRepository != null) {
+      try {
+        mySeries = await creatorSeriesRepository!.getMySeries();
+      } catch (_) {}
+    }
+    if (creatorStudioRepository != null) {
+      try {
+        aiSettings = await creatorStudioRepository!.getSettings();
+      } catch (_) {}
+      try {
+        aiVoices = await creatorStudioRepository!.getVoices();
+      } catch (_) {}
+      try {
+        final rawVideos = await creatorStudioRepository!.getVideos();
+        studioVideos = rawVideos
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (drafts.isEmpty && studioVideos.isNotEmpty) {
+          drafts = [
+            for (var i = 0; i < studioVideos.length; i++)
+              CreatorDraft(
+                id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
+                title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
+                script: (studioVideos[i]['summary'] ??
+                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                    .toString(),
+                sources:
+                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                format: 'video',
+                stage: i == 0 ? DraftStage.checked : DraftStage.approved,
+              ),
+          ];
+        }
+      } catch (_) {}
+    }
+    notifyListeners();
   }
 
   Future<void> _commit({
@@ -346,6 +481,18 @@ class CreatorState extends ChangeNotifier {
       selfiePassed: selfie,
       status: KycStatus.pending,
     );
+    if (kycRepository != null) {
+      try {
+        await kycRepository!.submitKyc(
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          contactEmail: preferences.getString('userEmail') ?? 'creator@suky.vn',
+          bankName: 'Vietcombank',
+          bankAccountNumber: idNumber.trim(),
+          bankAccountHolder: fullName.trim().toUpperCase(),
+        );
+      } catch (_) {}
+    }
     await _commit(verified: false, kycProfile: newKyc);
     _otpPhone = null;
   }
@@ -636,5 +783,275 @@ class CreatorState extends ChangeNotifier {
       reason: reason.trim(),
     );
     await _commit(items: items);
+  }
+
+  Future<MembershipPlanModel> saveMembershipPlan({
+    required String name,
+    required double monthlyPrice,
+    String? description,
+    List<String> perks = const [],
+    String status = 'ACTIVE',
+  }) async {
+    final channelId = channelModel?.id ?? 1;
+    if (channelRepository != null) {
+      final saved = await channelRepository!.upsertChannelMembershipPlan(
+        channelId,
+        name: name.trim(),
+        description: description?.trim(),
+        monthlyPrice: monthlyPrice,
+        perks: perks,
+        status: status,
+      );
+      membershipPlan = saved;
+      notifyListeners();
+      return saved;
+    }
+    final localPlan = MembershipPlanModel(
+      id: 1,
+      channelId: channelId,
+      name: name.trim(),
+      description: description?.trim(),
+      monthlyPrice: monthlyPrice,
+      perks: perks,
+      status: status,
+    );
+    membershipPlan = localPlan;
+    notifyListeners();
+    return localPlan;
+  }
+
+  Future<SeriesModel> createCreatorSeries({
+    required String title,
+    String? description,
+    String status = 'PUBLISHED',
+    List<int> contentIds = const [],
+  }) async {
+    if (creatorSeriesRepository != null) {
+      final created = await creatorSeriesRepository!.createSeries(
+        title: title.trim(),
+        description: description?.trim(),
+        status: status,
+        contentIds: contentIds,
+      );
+      mySeries = [created, ...mySeries];
+      notifyListeners();
+      return created;
+    }
+    final localSeries = SeriesModel(
+      id: DateTime.now().millisecondsSinceEpoch % 100000,
+      channelId: channelModel?.id ?? 1,
+      channelName: channel,
+      title: title.trim(),
+      description: description?.trim(),
+      status: status,
+      itemCount: contentIds.length,
+      totalDurationSeconds: 0,
+    );
+    mySeries = [localSeries, ...mySeries];
+    notifyListeners();
+    return localSeries;
+  }
+
+  Future<void> deleteCreatorSeries(int seriesId) async {
+    if (creatorSeriesRepository != null) {
+      await creatorSeriesRepository!.deleteSeries(seriesId);
+    }
+    mySeries = mySeries.where((s) => s.id != seriesId).toList();
+    notifyListeners();
+  }
+
+  Future<SeriesModel?> addVideoToSeries(int seriesId, int contentId) async {
+    if (creatorSeriesRepository != null) {
+      final updated = await creatorSeriesRepository!.addSeriesItem(
+        seriesId,
+        contentId: contentId,
+      );
+      mySeries = mySeries
+          .map((s) => s.id == seriesId ? updated : s)
+          .toList();
+      notifyListeners();
+      return updated;
+    }
+    return null;
+  }
+
+  Future<CreatorAiSettingModel> saveAiSettings({
+    String? geminiApiKey,
+    String? elevenLabsApiKey,
+    String? preferredVoiceId,
+    String? voiceProvider,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final saved = await creatorStudioRepository!.saveSettings(
+        geminiApiKey: geminiApiKey,
+        elevenLabsApiKey: elevenLabsApiKey,
+        preferredVoiceId: preferredVoiceId,
+        voiceProvider: voiceProvider,
+      );
+      aiSettings = saved;
+      notifyListeners();
+      return saved;
+    }
+    final local = CreatorAiSettingModel(
+      geminiApiKey: geminiApiKey,
+      elevenLabsApiKey: elevenLabsApiKey,
+      preferredVoiceId: preferredVoiceId,
+      voiceProvider: voiceProvider,
+    );
+    aiSettings = local;
+    notifyListeners();
+    return local;
+  }
+
+  Future<Map<String, dynamic>> generateAiStoryboard({
+    required String topic,
+    int durationSec = 60,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.generateStoryboard({
+        'topic': topic.trim(),
+        'durationSec': durationSec,
+      });
+      if (res is Map<String, dynamic>) {
+        lastStoryboard = res;
+      } else {
+        lastStoryboard = {'topic': topic.trim(), 'scenes': res};
+      }
+      notifyListeners();
+      return lastStoryboard!;
+    }
+    lastStoryboard = {
+      'topic': topic.trim(),
+      'summary': 'Kịch bản phân cảnh cho chủ đề ${topic.trim()}',
+      'scenes': [
+        {
+          'sceneNo': 1,
+          'narration': 'Bối cảnh lịch sử mở đầu của ${topic.trim()}.',
+          'imagePrompt': 'Vietnamese historical ink illustration',
+        },
+      ],
+    };
+    notifyListeners();
+    return lastStoryboard!;
+  }
+
+  Future<Map<String, dynamic>> verifyHistoricalScript(String script) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.verifyScript(script.trim());
+      lastVerification = res;
+      notifyListeners();
+      return res;
+    }
+    lastVerification = {
+      'verified': true,
+      'accuracyScore': 95,
+      'feedback': 'Sử liệu đạt chuẩn đối chiếu RAG Lịch sử Việt Nam.',
+      'thumbnailPrompt': 'Vietnamese historical editorial illustration 16:9',
+    };
+    notifyListeners();
+    return lastVerification!;
+  }
+
+  Future<Map<String, dynamic>> startAiRender({
+    required String title,
+    required String scriptText,
+    String renderMode = 'whiteboard',
+    String? voiceName,
+    int durationSec = 60,
+    int? seriesId,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.renderVideo({
+        'title': title.trim(),
+        'durationSec': durationSec,
+        'renderMode': renderMode,
+        'scriptText': scriptText.trim(),
+        'voiceName': ?voiceName,
+        if (channelModel != null) 'channelId': channelModel!.id,
+        'seriesId': ?seriesId,
+        if (lastStoryboard != null) 'storyboard': lastStoryboard,
+      });
+      activeRenderJob = res;
+      notifyListeners();
+      return res;
+    }
+    activeRenderJob = {
+      'jobId': 'job-${DateTime.now().millisecondsSinceEpoch}',
+      'contentId': 501,
+      'artifactId': 601,
+      'status': 'PROCESSING',
+      'message': 'Đã khởi chạy tiến trình dựng video.',
+    };
+    notifyListeners();
+    return activeRenderJob!;
+  }
+
+  Future<Map<String, dynamic>> pollRenderJobStatus(
+    String jobId, {
+    int? artifactId,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.getJobStatus(
+        jobId,
+        artifactId: artifactId,
+      );
+      activeRenderJob = {...?activeRenderJob, ...res};
+      try {
+        final rawVideos = await creatorStudioRepository!.getVideos();
+        studioVideos = rawVideos
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (drafts.isEmpty && studioVideos.isNotEmpty) {
+          drafts = [
+            for (var i = 0; i < studioVideos.length; i++)
+              CreatorDraft(
+                id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
+                title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
+                script: (studioVideos[i]['summary'] ??
+                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                    .toString(),
+                sources:
+                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                format: 'video',
+                stage: i == 0 ? DraftStage.checked : DraftStage.approved,
+              ),
+          ];
+        }
+      } catch (_) {}
+      notifyListeners();
+      return activeRenderJob!;
+    }
+    activeRenderJob = {
+      ...?activeRenderJob,
+      'status': 'COMPLETED',
+      'progress': 100,
+    };
+    notifyListeners();
+    return activeRenderJob!;
+  }
+
+  Future<Map<String, dynamic>> submitStudioVideoForPublish(
+    int contentId,
+  ) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.submitVideoForPublish(
+        contentId,
+      );
+      studioVideos = studioVideos
+          .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
+          .toList();
+      notifyListeners();
+      return res;
+    }
+    final updated = {
+      'contentId': contentId,
+      'status': 'PUBLISHED',
+      'aiShieldTierLabel': 'An toàn · Chuẩn sử liệu',
+    };
+    studioVideos = studioVideos
+        .map((v) => v['contentId'] == contentId ? {...v, ...updated} : v)
+        .toList();
+    notifyListeners();
+    return updated;
   }
 }

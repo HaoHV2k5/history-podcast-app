@@ -7,7 +7,24 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api/channel_repository.dart';
+import 'core/api/chat_repository.dart';
+import 'core/api/contract_repository.dart';
+import 'core/api/creator_series_repository.dart';
+import 'core/api/creator_studio_repository.dart';
+import 'core/api/deliverable_repository.dart';
+import 'core/api/dispute_repository.dart';
+import 'core/api/freelancer_repository.dart';
+import 'core/api/hire_request_repository.dart';
+import 'core/api/kyc_repository.dart';
+import 'core/api/milestone_repository.dart';
+import 'core/api/narrator_demo_repository.dart';
+import 'core/api/narrator_profile_repository.dart';
+import 'core/api/post_repository.dart';
+import 'core/api/wallet_repository.dart';
+import 'core/api/withdrawal_repository.dart';
 import 'creator_state.dart';
+import 'creator_studio_extensions.dart';
 import 'design.dart';
 import 'artwork_editor.dart';
 import 'artwork_state.dart';
@@ -19,20 +36,81 @@ import 'workspace_components.dart';
 part 'mock/fixtures/studio_videos.dart';
 
 class CreatorStudio extends StatefulWidget {
-  const CreatorStudio({super.key, required this.preferences});
+  const CreatorStudio({
+    super.key,
+    required this.preferences,
+    this.channelRepository,
+    this.creatorSeriesRepository,
+    this.creatorStudioRepository,
+    this.kycRepository,
+    this.contractRepository,
+    this.hireRequestRepository,
+    this.milestoneRepository,
+    this.deliverableRepository,
+    this.disputeRepository,
+    this.chatRepository,
+    this.narratorProfileRepository,
+    this.narratorDemoRepository,
+    this.freelancerRepository,
+    this.postRepository,
+    this.walletRepository,
+    this.withdrawalRepository,
+  });
   final SharedPreferences preferences;
+  final ChannelRepository? channelRepository;
+  final CreatorSeriesRepository? creatorSeriesRepository;
+  final CreatorStudioRepository? creatorStudioRepository;
+  final KycRepository? kycRepository;
+  final ContractRepository? contractRepository;
+  final HireRequestRepository? hireRequestRepository;
+  final MilestoneRepository? milestoneRepository;
+  final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final ChatRepository? chatRepository;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final NarratorDemoRepository? narratorDemoRepository;
+  final FreelancerRepository? freelancerRepository;
+  final PostRepository? postRepository;
+  final WalletRepository? walletRepository;
+  final WithdrawalRepository? withdrawalRepository;
   @override
   State<CreatorStudio> createState() => _CreatorStudioState();
 }
 
 class _CreatorStudioState extends State<CreatorStudio> {
-  late final CreatorState state = CreatorState(widget.preferences);
+  late final CreatorState state = CreatorState(
+    widget.preferences,
+    channelRepository: widget.channelRepository,
+    creatorSeriesRepository: widget.creatorSeriesRepository,
+    creatorStudioRepository: widget.creatorStudioRepository,
+    kycRepository: widget.kycRepository,
+    contractRepository: widget.contractRepository,
+    hireRequestRepository: widget.hireRequestRepository,
+    milestoneRepository: widget.milestoneRepository,
+    deliverableRepository: widget.deliverableRepository,
+    disputeRepository: widget.disputeRepository,
+    chatRepository: widget.chatRepository,
+    narratorProfileRepository: widget.narratorProfileRepository,
+    narratorDemoRepository: widget.narratorDemoRepository,
+    freelancerRepository: widget.freelancerRepository,
+    postRepository: widget.postRepository,
+    walletRepository: widget.walletRepository,
+    withdrawalRepository: widget.withdrawalRepository,
+  );
   final name = TextEditingController();
   final desc = TextEditingController();
   final form = GlobalKey<FormState>();
   bool busy = false;
   String? error;
   String draftFilter = 'Cần làm';
+
+  @override
+  void initState() {
+    super.initState();
+    if (state.isLiveBackend) {
+      state.initStudioBackend();
+    }
+  }
 
   List<CreatorDraft> draftsFor(String filter) => state.drafts
       .where(
@@ -74,19 +152,19 @@ class _CreatorStudioState extends State<CreatorStudio> {
           edit(const CreatorDraft(id: '', title: '', format: 'video'));
       }
     },
-    itemBuilder: (_) => const [
-      PopupMenuItem(value: 'edit', child: Text('Sửa kênh')),
-      PopupMenuItem(value: 'artwork', child: Text('Ảnh kênh')),
-      PopupMenuItem(value: 'preview', child: Text('Xem trang kênh')),
-      PopupMenuItem(
+    itemBuilder: (_) => [
+      const PopupMenuItem(value: 'edit', child: Text('Sửa kênh')),
+      const PopupMenuItem(value: 'artwork', child: Text('Ảnh kênh')),
+      const PopupMenuItem(value: 'preview', child: Text('Xem trang kênh')),
+      const PopupMenuItem(
         key: Key('open-marketplace-btn'),
         value: 'narrator',
         child: Text('Thuê Narrator'),
       ),
       PopupMenuItem(
-        key: Key('upload-video-stt'),
+        key: const Key('upload-video-stt'),
         value: 'video',
-        child: Text('Nhập video mẫu'),
+        child: Text(state.isLiveBackend ? 'Nhập video & STT' : 'Nhập video mẫu'),
       ),
     ],
   );
@@ -470,7 +548,7 @@ class _CreatorStudioState extends State<CreatorStudio> {
               style: const TextStyle(color: Palette.muted),
             ),
           ],
-          if (!state.demoVerified) ...[
+          if (!state.demoVerified && !state.isLiveBackend) ...[
             const SizedBox(height: 24),
             const StudioNotice(
               'Studio thử nghiệm · Lưu trên thiết bị\nHồ sơ, sản xuất và duyệt đều là mô phỏng. Không tải giấy tờ cá nhân lên bản thử.',
@@ -482,8 +560,10 @@ class _CreatorStudioState extends State<CreatorStudio> {
           if (!state.demoVerified) ...[
             Text('01 / Hồ sơ người sáng tạo', style: editorial(21)),
             const SizedBox(height: 12),
-            const Text(
-              'Kênh thật cần người sáng tạo đủ 18 tuổi và đã được duyệt KYC. Dùng hồ sơ giả lập đáp ứng hai điều kiện này để xem tiếp giao diện.',
+            Text(
+              state.isLiveBackend
+                  ? 'Kênh sáng tạo cần người đăng ký đủ 18 tuổi và hoàn tất xác thực danh tính (KYC).'
+                  : 'Kênh thật cần người sáng tạo đủ 18 tuổi và đã được duyệt KYC. Dùng hồ sơ giả lập đáp ứng hai điều kiện này để xem tiếp giao diện.',
             ),
             const SizedBox(height: 16),
 
@@ -498,18 +578,20 @@ class _CreatorStudioState extends State<CreatorStudio> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           CupertinoIcons.hourglass,
                           size: 16,
                           color: Palette.red,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Hồ sơ KYC đang chờ thẩm định (Mô phỏng · UC-01)',
-                            style: TextStyle(
+                            state.isLiveBackend
+                                ? 'Hồ sơ KYC đang chờ thẩm định'
+                                : 'Hồ sơ KYC đang chờ thẩm định (Mô phỏng · UC-01)',
+                            style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -526,38 +608,40 @@ class _CreatorStudioState extends State<CreatorStudio> {
                         color: Palette.muted,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Giả lập quyết định của quản trị viên:',
-                      style: TextStyle(fontSize: 11, color: Palette.muted),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        OutlinedButton(
-                          onPressed: busy
-                              ? null
-                              : () =>
-                                    act(() => state.simulateKycDecision(true)),
-                          child: const Text(
-                            'Mô phỏng duyệt: Đạt',
-                            style: TextStyle(fontSize: 12),
+                    if (!state.isLiveBackend) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Giả lập quyết định của quản trị viên:',
+                        style: TextStyle(fontSize: 11, color: Palette.muted),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton(
+                            onPressed: busy
+                                ? null
+                                : () =>
+                                      act(() => state.simulateKycDecision(true)),
+                            child: const Text(
+                              'Mô phỏng duyệt: Đạt',
+                              style: TextStyle(fontSize: 12),
+                            ),
                           ),
-                        ),
-                        OutlinedButton(
-                          onPressed: busy
-                              ? null
-                              : () =>
-                                    act(() => state.simulateKycDecision(false)),
-                          child: const Text(
-                            'Mô phỏng: Từ chối',
-                            style: TextStyle(fontSize: 12),
+                          OutlinedButton(
+                            onPressed: busy
+                                ? null
+                                : () =>
+                                      act(() => state.simulateKycDecision(false)),
+                            child: const Text(
+                              'Mô phỏng: Từ chối',
+                              style: TextStyle(fontSize: 12),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -610,32 +694,39 @@ class _CreatorStudioState extends State<CreatorStudio> {
               spacing: 12,
               runSpacing: 8,
               children: [
-                FilledButton(
-                  onPressed: busy ? null : () => act(state.useVerifiedFixture),
-                  child: const Text('Dùng hồ sơ mẫu đã duyệt'),
-                ),
+                if (!state.isLiveBackend)
+                  FilledButton(
+                    onPressed: busy ? null : () => act(state.useVerifiedFixture),
+                    child: const Text('Dùng hồ sơ mẫu đã duyệt'),
+                  ),
                 OutlinedButton.icon(
                   onPressed: busy ? null : openKycSheet,
                   icon: const Icon(CupertinoIcons.person_badge_plus, size: 16),
-                  label: const Text('Điền hồ sơ KYC thử nghiệm'),
+                  label: Text(
+                    state.isLiveBackend
+                        ? 'Xác thực hồ sơ KYC'
+                        : 'Điền hồ sơ KYC thử nghiệm',
+                  ),
                 ),
               ],
             ),
           ] else if (state.channel.isEmpty) ...[
             Text('02 / Đặt tên kênh', style: editorial(23)),
             const SizedBox(height: 10),
-            const Row(
+            Row(
               children: [
-                Icon(
+                const Icon(
                   CupertinoIcons.checkmark_seal_fill,
                   size: 14,
                   color: Palette.red,
                 ),
-                SizedBox(width: 6),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Hồ sơ thử nghiệm · Đã duyệt',
-                    style: TextStyle(color: Palette.muted, fontSize: 12),
+                    state.isLiveBackend
+                        ? 'Hồ sơ KYC · Đã xác thực'
+                        : 'Hồ sơ thử nghiệm · Đã duyệt',
+                    style: const TextStyle(color: Palette.muted, fontSize: 12),
                   ),
                 ),
               ],
@@ -684,7 +775,9 @@ class _CreatorStudioState extends State<CreatorStudio> {
                         );
                       }
                     },
-              child: const Text('Tạo kênh thử'),
+              child: Text(
+                state.isLiveBackend ? 'Tạo kênh sáng tạo' : 'Tạo kênh thử',
+              ),
             ),
           ] else ...[
             Text(
@@ -697,6 +790,63 @@ class _CreatorStudioState extends State<CreatorStudio> {
               onPressed: busy ? null : () => edit(),
               icon: const Icon(CupertinoIcons.pencil, size: 18),
               label: const Text('Viết một tập mới'),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('open-ai-pipeline-btn'),
+                  onPressed: busy
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  AiWhiteboardPipelinePage(state: state),
+                            ),
+                          ),
+                  icon: const Icon(CupertinoIcons.sparkles, size: 15),
+                  label: const Text('Xưởng AI Studio 6 bước'),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('open-series-manager-btn'),
+                  onPressed: busy
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  CreatorSeriesManagerPage(state: state),
+                            ),
+                          ),
+                  icon: const Icon(CupertinoIcons.collections, size: 15),
+                  label: Text(
+                    state.mySeries.isEmpty
+                        ? 'Quản lý Series'
+                        : 'Series (${state.mySeries.length})',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('open-membership-plan-btn'),
+                  onPressed: busy
+                      ? null
+                      : () => showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            showDragHandle: true,
+                            builder: (_) =>
+                                ChannelMembershipPlanSheet(state: state),
+                          ),
+                  icon: const Icon(CupertinoIcons.tickets, size: 15),
+                  label: Text(
+                    state.membershipPlan != null
+                        ? 'Gói Hội viên · ${state.membershipPlan!.monthlyPrice.round()}đ'
+                        : 'Cấu hình Gói Hội viên',
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 28),
             Text('Bàn biên tập', style: editorial(24)),
@@ -759,11 +909,13 @@ class _CreatorStudioState extends State<CreatorStudio> {
               ),
             ],
           ],
-          const SizedBox(height: 24),
-          const Text(
-            'Studio thử nghiệm · Nội dung lưu trên thiết bị.',
-            style: TextStyle(fontSize: 11, color: Palette.muted),
-          ),
+          if (!state.isLiveBackend) ...[
+            const SizedBox(height: 24),
+            const Text(
+              'Studio thử nghiệm · Nội dung lưu trên thiết bị.',
+              style: TextStyle(fontSize: 11, color: Palette.muted),
+            ),
+          ],
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),
@@ -1076,7 +1228,9 @@ class _DraftEditorState extends State<DraftEditor> {
                 ),
                 const SizedBox(height: 24),
                 if (d != null && d.reason.isNotEmpty) ...[
-                  StudioNotice('Góp ý mô phỏng\n${d.reason}'),
+                  StudioNotice(
+                    '${widget.state.isLiveBackend ? 'Góp ý biên tập' : 'Góp ý mô phỏng'}\n${d.reason}',
+                  ),
                   const SizedBox(height: 24),
                 ],
                 if (d != null) ...[
@@ -1234,7 +1388,9 @@ class _DraftEditorState extends State<DraftEditor> {
                     'Chọn định dạng, nghe thử và gửi duyệt.',
                   DraftStage.pending => 'Chờ người kiểm duyệt xem nội dung.',
                   DraftStage.approved =>
-                    'Mở Phát hành nội dung để đưa tập vào danh mục thử.',
+                    widget.state.isLiveBackend
+                        ? 'Mở Phát hành nội dung để xuất bản tập lên kênh.'
+                        : 'Mở Phát hành nội dung để đưa tập vào danh mục thử.',
                   _ => 'Kiểm tra kịch bản đã lưu trước khi sản xuất.',
                 }, style: const TextStyle(height: 1.7)),
                 const SizedBox(height: 12),
@@ -1270,8 +1426,10 @@ class _DraftEditorState extends State<DraftEditor> {
                 if (ready && d.stage == DraftStage.checked) ...[
                   Text(
                     videoFileName.isNotEmpty
-                        ? 'Video mẫu đã nhập · $videoFileSize'
-                        : 'Chọn định dạng tập thử',
+                        ? '${widget.state.isLiveBackend ? 'Video đã tải lên' : 'Video mẫu đã nhập'} · $videoFileSize'
+                        : (widget.state.isLiveBackend
+                              ? 'Chọn định dạng tập'
+                              : 'Chọn định dạng tập thử'),
                   ),
                   if (videoFileName.isNotEmpty)
                     Padding(
@@ -1391,8 +1549,12 @@ class _DraftEditorState extends State<DraftEditor> {
                     onPressed: busy ? null : () => step(DraftStage.pending),
                     child: Text(
                       videoFileName.isNotEmpty
-                          ? 'Gửi video mẫu để duyệt'
-                          : 'Giả lập sản xuất & gửi duyệt',
+                          ? (widget.state.isLiveBackend
+                                ? 'Gửi video để duyệt'
+                                : 'Gửi video mẫu để duyệt')
+                          : (widget.state.isLiveBackend
+                                ? 'Sản xuất & gửi duyệt'
+                                : 'Giả lập sản xuất & gửi duyệt'),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1411,8 +1573,10 @@ class _DraftEditorState extends State<DraftEditor> {
                   ),
                 ],
                 if (d?.stage == DraftStage.pending) ...[
-                  const Text(
-                    'Bản thử đang chờ người duyệt. AI đạt chưa đồng nghĩa với được xuất bản.',
+                  Text(
+                    widget.state.isLiveBackend
+                        ? 'Bản thảo đang chờ hội đồng biên tập duyệt nội dung.'
+                        : 'Bản thử đang chờ người duyệt. AI đạt chưa đồng nghĩa với được xuất bản.',
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton(
@@ -1420,19 +1584,30 @@ class _DraftEditorState extends State<DraftEditor> {
                         ? null
                         : () => step(
                             DraftStage.rejected,
-                            reason: 'Biên tập viên mẫu: ghi rõ tác giả và số trang của nguồn được trích trong phần mở đầu.',
+                            reason:
+                                'Biên tập viên: ghi rõ tác giả và số trang của nguồn được trích trong phần mở đầu.',
                           ),
-                    child: const Text('Thử người duyệt: yêu cầu sửa'),
+                    child: Text(
+                      widget.state.isLiveBackend
+                          ? 'Hội đồng biên tập: yêu cầu sửa'
+                          : 'Thử người duyệt: yêu cầu sửa',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
                     onPressed: busy ? null : () => step(DraftStage.approved),
-                    child: const Text('Thử người duyệt: chấp thuận'),
+                    child: Text(
+                      widget.state.isLiveBackend
+                          ? 'Hội đồng biên tập: chấp thuận'
+                          : 'Thử người duyệt: chấp thuận',
+                    ),
                   ),
                 ],
                 if (d?.stage == DraftStage.approved)
-                  const Text(
-                    'Đã hoàn thành luồng duyệt thử. Tập này chỉ nằm trong Studio trên thiết bị; chưa xuất bản lên Khám phá.',
+                  Text(
+                    widget.state.isLiveBackend
+                        ? 'Tập đã được duyệt nội dung. Mở Phát hành nội dung để xuất bản lên Khám phá.'
+                        : 'Đã hoàn thành luồng duyệt thử. Tập này chỉ nằm trong Studio trên thiết bị; chưa xuất bản lên Khám phá.',
                   ),
                 if (error != null)
                   Padding(

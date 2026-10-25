@@ -113,36 +113,37 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final pickSource = remoteEpisodes.length >= 3 ? remoteEpisodes : episodes;
       final cards = [
         _Pick(
           'TUYỂN TẬP / 01',
           'Theo dấu\nnhững kinh đô.',
-          '3 câu chuyện để bắt đầu.',
+          '${pickSource.length} câu chuyện để bắt đầu.',
           'Mở tuyển tập',
-          episodes.first.image,
+          pickSource.first.image,
           Palette.red,
           Palette.white,
           widget.onCollection,
         ),
         _Pick(
-          'GỢI Ý / VĂN HÓA',
-          'Một thời\nthương cảng.',
-          'Những miền ký ức · 36 phút',
+          'GỢI Ý / ${pickSource[1].category.toUpperCase()}',
+          pickSource[1].title,
+          '${pickSource[1].channel} · ${pickSource[1].duration}',
           'Khám phá tập',
-          episodes[1].image,
+          pickSource[1].image,
           Palette.ink,
           Palette.paper,
-          () => widget.onEpisode(episodes[1]),
+          () => widget.onEpisode(pickSource[1]),
         ),
         _Pick(
-          'GỢI Ý / CON NGƯỜI',
-          'Phố cũ,\nchuyện chưa cũ.',
-          'Chuyện người xưa · 24 phút',
+          'GỢI Ý / ${pickSource[2].category.toUpperCase()}',
+          pickSource[2].title,
+          '${pickSource[2].channel} · ${pickSource[2].duration}',
           'Khám phá tập',
-          episodes[2].image,
+          pickSource[2].image,
           Palette.soft,
           Palette.ink,
-          () => widget.onEpisode(episodes[2]),
+          () => widget.onEpisode(pickSource[2]),
         ),
       ];
       final cardWidth = constraints.maxWidth * .97 - 8;

@@ -3,6 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/api/freelancer_repository.dart';
+import '../../core/api/kyc_repository.dart';
+import '../../core/api/narrator_demo_repository.dart';
+import '../../core/api/narrator_profile_repository.dart';
 import '../../creator_state.dart';
 
 enum NarratorReview { draft, pending, approved, rejected }
@@ -16,12 +20,19 @@ extension NarratorReviewLabel on NarratorReview {
   };
 }
 
-/// Separate narrator verification and profile. All approvals are local fixtures.
+/// Separate narrator verification and profile. Supports live backend + local fallback.
 class NarratorProfileState extends ChangeNotifier {
-  NarratorProfileState(this.preferences) {
+  NarratorProfileState(
+    this.preferences, {
+    this.narratorProfileRepository,
+    this.narratorDemoRepository,
+    this.freelancerRepository,
+    this.kycRepository,
+  }) {
     verification = CreatorState(
       preferences,
       storageKey: 'narratorVerificationV1',
+      kycRepository: kycRepository,
     );
     verification.addListener(notifyListeners);
     final raw = preferences.getString('narratorProfileV1');
@@ -38,7 +49,14 @@ class NarratorProfileState extends ChangeNotifier {
     }
   }
   final SharedPreferences preferences;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final NarratorDemoRepository? narratorDemoRepository;
+  final FreelancerRepository? freelancerRepository;
+  final KycRepository? kycRepository;
   late final CreatorState verification;
+  FreelancerProfileModel? remoteFreelancerProfile;
+  NarratorProfileModel? remoteNarratorProfile;
+  List<NarratorDemoModel> remoteDemos = [];
   String id = 'nar-local',
       name = '',
       bio = '',
@@ -47,10 +65,54 @@ class NarratorProfileState extends ChangeNotifier {
       sample = '',
       reason = '';
   NarratorReview review = NarratorReview.draft;
+  bool get isLiveBackend =>
+      narratorProfileRepository != null ||
+      narratorDemoRepository != null ||
+      freelancerRepository != null ||
+      kycRepository != null;
   bool get canReceiveJobs =>
       verification.kyc.isApproved && review == NarratorReview.approved;
   bool get editable =>
       [NarratorReview.draft, NarratorReview.rejected].contains(review);
+
+  Future<void> syncFromBackend() async {
+    await verification.initStudioBackend();
+    if (freelancerRepository != null) {
+      try {
+        final f = await freelancerRepository!.getMyProfile();
+        remoteFreelancerProfile = f;
+        if (name.isEmpty && (f.userFullName ?? '').isNotEmpty) {
+          name = f.userFullName!;
+        }
+        if (bio.isEmpty && (f.bio ?? '').isNotEmpty) {
+          bio = f.bio!;
+        }
+        if ((f.bio ?? '').isNotEmpty && verification.kyc.isApproved) {
+          review = NarratorReview.approved;
+          if (transcript.isEmpty) {
+            transcript = f.bio!;
+          }
+          if (sample.isEmpty) {
+            sample = 'demo-tu-su.wav';
+          }
+        }
+      } catch (_) {}
+    }
+    if (narratorProfileRepository != null) {
+      try {
+        final profiles = await narratorProfileRepository!.getAll();
+        if (profiles.isNotEmpty) {
+          remoteNarratorProfile = profiles.first;
+        }
+      } catch (_) {}
+    }
+    if (narratorDemoRepository != null) {
+      try {
+        remoteDemos = await narratorDemoRepository!.getAll();
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
 
   Future<void> _save(Map<String, dynamic> j) async {
     final saved = await preferences.setString(
@@ -102,6 +164,38 @@ class NarratorProfileState extends ChangeNotifier {
       throw StateError(
         'Điền tên, giới thiệu/trích đoạn ít nhất 20 ký tự và chọn bản demo mẫu.',
       );
+    }
+    if (freelancerRepository != null) {
+      try {
+        remoteFreelancerProfile = await freelancerRepository!.becomeFreelancer(
+          headline: 'Giọng đọc miền $region · ${name.trim()}',
+          bio: bio.trim(),
+          skills: 'Thu âm lịch sử, Kể chuyện tư liệu ($region)',
+          serviceTypes: 'VOICEOVER',
+          voiceDemoUrl: sample,
+          referencePrice: 300000,
+        );
+      } catch (_) {}
+    }
+    if (narratorProfileRepository != null) {
+      try {
+        remoteNarratorProfile = await narratorProfileRepository!.create(
+          userId: remoteFreelancerProfile?.userId ?? 1,
+          bio: bio.trim(),
+          languages: 'Tiếng Việt ($region)',
+          baseRate: 300000,
+        );
+      } catch (_) {}
+    }
+    if (narratorDemoRepository != null && remoteNarratorProfile != null) {
+      try {
+        final demo = await narratorDemoRepository!.create(
+          narratorProfileId: remoteNarratorProfile!.id,
+          title: 'Demo ${name.trim()} ($region)',
+          fileUrl: sample,
+        );
+        remoteDemos = [demo, ...remoteDemos];
+      } catch (_) {}
     }
     await _save({
       ...json,

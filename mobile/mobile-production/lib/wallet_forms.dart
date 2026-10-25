@@ -111,10 +111,14 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
         surfaceTintColor: Colors.transparent,
         title: Text(
           widget.linkBank
-              ? 'Liên kết ngân hàng mẫu'
+              ? (widget.ledger.isLiveBackend
+                    ? 'Liên kết ngân hàng'
+                    : 'Liên kết ngân hàng mẫu')
               : reviewing
               ? 'Kiểm tra yêu cầu'
-              : 'Yêu cầu rút mẫu',
+              : (widget.ledger.isLiveBackend
+                    ? 'Yêu cầu rút tiền'
+                    : 'Yêu cầu rút mẫu'),
         ),
         content: SingleChildScrollView(
           child: Form(
@@ -124,8 +128,10 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (widget.linkBank) ...[
-                  const Text(
-                    'Dùng thông tin hư cấu. Tên chủ tài khoản phải khớp tên KYC đã duyệt.',
+                  Text(
+                    widget.ledger.isLiveBackend
+                        ? 'Tên chủ tài khoản cần khớp với họ tên KYC đã xác thực.'
+                        : 'Dùng thông tin hư cấu. Tên chủ tài khoản phải khớp tên KYC đã duyệt.',
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -250,9 +256,11 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
               busy
                   ? 'Đang lưu…'
                   : widget.linkBank
-                  ? 'Liên kết mẫu'
+                  ? (widget.ledger.isLiveBackend ? 'Liên kết' : 'Liên kết mẫu')
                   : reviewing
-                  ? 'Xác nhận yêu cầu mẫu'
+                  ? (widget.ledger.isLiveBackend
+                        ? 'Xác nhận rút tiền'
+                        : 'Xác nhận yêu cầu mẫu')
                   : 'Kiểm tra yêu cầu',
             ),
           ),

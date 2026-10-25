@@ -198,14 +198,139 @@ class AppState extends ChangeNotifier {
   final WalletTransactionRepository? walletTransactionRepository;
   final WithdrawalRepository? withdrawalRepository;
 
+  bool get isLiveBackend =>
+      contentRepository != null ||
+      channelRepository != null ||
+      authRepository != null ||
+      membershipRepository != null ||
+      livestreamRepository != null;
+
+  bool isLoadingCatalog = false;
+  String? catalogError;
+  int? currentUserId;
+  int walletAvailableBalance = 0;
+  int walletPendingBalance = 0;
+
+  Future<void> refreshWalletBalance() async {
+    if (walletRepository == null) return;
+    try {
+      final w = await walletRepository!.getMyWallet();
+      walletAvailableBalance = w.availableBalance.round();
+      walletPendingBalance = w.pendingBalance.round();
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  final Map<String, List<SeriesModel>> channelSeries = {};
+  final Map<int, SeriesDetailModel> seriesDetails = {};
+  final Map<String, MembershipPlanModel> channelPlans = {};
+  final Map<String, String> episodeTranscripts = {};
+  final Map<String, int> _reactionIds = {};
+  final List<LivestreamSessionModel> activeLivestreams = [];
+  final Map<int, List<LivestreamChatMessage>> _livestreamChats = {};
+
+  List<SeriesModel> getChannelSeries(String channelName) =>
+      List.unmodifiable(channelSeries[channelName] ?? const []);
+
+  String getTranscript(String episodeId) => episodeTranscripts[episodeId] ?? '';
+
+  MembershipPlanModel? getChannelPlan(String channelName) =>
+      channelPlans[channelName];
+
+  Future<void> refreshCatalog() => initRealBackend();
+
   Future<void> initRealBackend() async {
+    isLoadingCatalog = true;
+    catalogError = null;
+    notifyListeners();
+
+    var hadNetworkFailure = false;
+
     if (contentRepository != null) {
       try {
-        final episodes = await contentRepository!.getPublishedEpisodes();
-        if (episodes.isNotEmpty) {
-          allEpisodes.clear();
-          allEpisodes.addAll(episodes);
+        final fetched = await contentRepository!.getPublishedEpisodes();
+        if (fetched.isNotEmpty) {
+          remoteEpisodes
+            ..clear()
+            ..addAll(fetched);
         }
+      } catch (_) {
+        hadNetworkFailure = true;
+      }
+    }
+
+    if (channelRepository != null || contentRepository != null) {
+      try {
+        final List<Channel> loadedChannels = [];
+        if (channelRepository != null) {
+          final models = await channelRepository!.getAllChannels();
+          for (final m in models) {
+            if (m.name.trim().isEmpty) continue;
+            MembershipPlanModel? plan;
+            try {
+              plan = await channelRepository!.getChannelMembershipPlan(m.id);
+              if (plan != null) {
+                channelPlans[m.name] = plan;
+              }
+            } catch (_) {}
+
+            if (creatorSeriesRepository != null && m.id > 0) {
+              try {
+                final seriesList = await creatorSeriesRepository!
+                    .getPublicChannelSeries(m.id);
+                if (seriesList.isNotEmpty) {
+                  channelSeries[m.name] = seriesList;
+                }
+              } catch (_) {}
+            }
+
+            loadedChannels.add(
+              Channel(
+                m.name,
+                m.name.substring(0, 1).toUpperCase(),
+                (m.avatarUrl != null && m.avatarUrl!.isNotEmpty)
+                    ? m.avatarUrl!
+                    : 'assets/images/hue-citadel.jpg',
+                m.description.isNotEmpty
+                    ? m.description
+                    : 'Kênh kể chuyện lịch sử trên nền tảng Sử Ký.',
+                id: m.id,
+                coverImage: m.coverUrl ?? '',
+                monthlyPrice: plan?.monthlyPrice,
+                hasBackendPlan: plan != null && plan.isActive,
+              ),
+            );
+          }
+        } else if (contentRepository != null) {
+          loadedChannels.addAll(await contentRepository!.getChannels());
+        }
+
+        if (loadedChannels.isNotEmpty) {
+          remoteChannels
+            ..clear()
+            ..addAll(loadedChannels);
+        }
+      } catch (_) {
+        hadNetworkFailure = true;
+      }
+    }
+
+    if (isLoggedIn && userRepository != null) {
+      try {
+        final profile = await userRepository!.getMyProfile();
+        currentUserId = profile.id;
+        if (profile.fullName.trim().isNotEmpty) {
+          displayName = profile.fullName.trim();
+          await preferences.setString('displayName', displayName);
+        }
+      } catch (_) {}
+    }
+
+    if (walletRepository != null) {
+      try {
+        final w = await walletRepository!.getMyWallet();
+        walletAvailableBalance = w.availableBalance.round();
+        walletPendingBalance = w.pendingBalance.round();
       } catch (_) {}
     }
 
@@ -213,11 +338,33 @@ class AppState extends ChangeNotifier {
       try {
         final myMems = await membershipRepository!.getMyMemberships();
         for (final m in myMems) {
-          memberships.add(m.channelName);
+          if (m.channelName.isNotEmpty &&
+              (m.status.isEmpty ||
+                  m.status.toUpperCase() == 'ACTIVE' ||
+                  m.status.toUpperCase() == 'SUCCESS')) {
+            memberships.add(m.channelName);
+            checkoutStates[m.channelName] = 'active';
+          }
+          final txId = 'MEM-${m.channelId}';
+          if (!transactions.any((t) => t.id == txId) &&
+              m.channelName.isNotEmpty) {
+            transactions.insert(
+              0,
+              MembershipTransaction(
+                id: txId,
+                channelName: m.channelName,
+                date: m.startedAt.isNotEmpty
+                    ? m.startedAt.split('T').first
+                    : 'Gần đây',
+                type: 'Đăng ký hội viên',
+                status: m.status.isNotEmpty ? m.status : 'ACTIVE',
+                planTitle: 'Hội viên kênh ${m.channelName}',
+              ),
+            );
+          }
         }
       } catch (_) {}
     }
-
 
     if (commentRepository != null) {
       try {
@@ -229,7 +376,10 @@ class AppState extends ChangeNotifier {
             episodeId: epId,
             authorName: rc.authorName ?? 'Người nghe',
             content: rc.textBody,
-            timeAgo: rc.createdAt != null ? 'Gần đây' : 'Vừa xong',
+            timeAgo: rc.createdAt != null
+                ? rc.createdAt!.split('T').first
+                : 'Vừa xong',
+            isFlagged: rc.status?.toUpperCase() == 'FLAGGED',
           );
           final list = _comments.putIfAbsent(epId, () => []);
           if (!list.any((c) => c.id == epCmt.id)) {
@@ -239,16 +389,493 @@ class AppState extends ChangeNotifier {
       } catch (_) {}
     }
 
-    if (isLoggedIn && userRepository != null) {
+    if (transcriptRepository != null) {
       try {
-        final profile = await userRepository!.getMyProfile();
-        if (profile.fullName.trim().isNotEmpty) {
-          displayName = profile.fullName.trim();
-          await preferences.setString('displayName', displayName);
+        final list = await transcriptRepository!.getAll();
+        for (final t in list) {
+          if (t.textBody.trim().isNotEmpty) {
+            episodeTranscripts[t.artifactId.toString()] = t.textBody.trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (reactionRepository != null) {
+      try {
+        final list = await reactionRepository!.getAll();
+        for (final r in list) {
+          final epId = r.artifactId.toString();
+          if (currentUserId != null && r.userId == currentUserId) {
+            _reactionIds[epId] = r.id;
+            if (r.type.toUpperCase() == 'DISLIKE') {
+              dislikedEpisodes.add(epId);
+              likedEpisodes.remove(epId);
+            } else {
+              likedEpisodes.add(epId);
+              dislikedEpisodes.remove(epId);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (livestreamRepository != null) {
+      try {
+        final liveList = await livestreamRepository!.getLivestreams(
+          status: 'LIVE',
+        );
+        activeLivestreams
+          ..clear()
+          ..addAll(
+            liveList
+                .where((s) => s.status.toUpperCase() == 'LIVE')
+                .map((s) {
+                  if (s.channelName.isNotEmpty) return s;
+                  final chMatch = channels.where((c) => c.id == s.channelId);
+                  return chMatch.isNotEmpty
+                      ? s.copyWith(channelName: chMatch.first.name)
+                      : s;
+                }),
+          );
+      } catch (_) {}
+    }
+
+    if (hadNetworkFailure && remoteEpisodes.isEmpty && remoteChannels.isEmpty) {
+      catalogError =
+          'Chưa kết nối được máy chủ Sử Ký. Đang hiển thị kho tư liệu lưu sẵn.';
+    }
+
+    isLoadingCatalog = false;
+    notifyListeners();
+  }
+
+  Future<void> loadEpisodeEngagement(String episodeId) async {
+    final artId = int.tryParse(episodeId);
+    var changed = false;
+    if (commentRepository != null && artId != null) {
+      try {
+        final list = await commentRepository!.getComments(artifactId: artId);
+        final bucket = _comments.putIfAbsent(episodeId, () => []);
+        for (final rc in list) {
+          final epCmt = EpisodeComment(
+            id: rc.id.toString(),
+            episodeId: episodeId,
+            authorName: rc.authorName ?? 'Người nghe',
+            content: rc.textBody,
+            timeAgo: rc.createdAt != null
+                ? rc.createdAt!.split('T').first
+                : 'Vừa xong',
+            isFlagged: rc.status?.toUpperCase() == 'FLAGGED',
+          );
+          if (!bucket.any((c) => c.id == epCmt.id)) {
+            bucket.insert(0, epCmt);
+            changed = true;
+          }
+        }
+      } catch (_) {}
+    }
+    if (transcriptRepository != null &&
+        !episodeTranscripts.containsKey(episodeId)) {
+      try {
+        final all = await transcriptRepository!.getAll();
+        for (final t in all) {
+          if (t.textBody.trim().isNotEmpty) {
+            episodeTranscripts[t.artifactId.toString()] = t.textBody.trim();
+            changed = true;
+          }
+        }
+      } catch (_) {}
+    }
+    if (changed) notifyListeners();
+  }
+
+  Future<SeriesDetailModel?> loadSeriesDetail(int seriesId) async {
+    if (creatorSeriesRepository == null) return seriesDetails[seriesId];
+    try {
+      final detail = await creatorSeriesRepository!.getPublicSeriesDetail(
+        seriesId,
+      );
+      seriesDetails[seriesId] = detail;
+      for (final item in detail.items) {
+        final epId = item.contentId.toString();
+        if (!allEpisodes.any((e) => e.id == epId || e.contentId == item.contentId)) {
+          final media = item.mediaUrl ?? '';
+          final isVid =
+              media.toLowerCase().endsWith('.mp4') ||
+              media.toLowerCase().endsWith('.webm');
+          remoteEpisodes.add(
+            Episode(
+              id: epId,
+              title: item.title,
+              channel: detail.channelName ?? 'Sử Ký',
+              image:
+                  (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
+                  ? item.thumbnailUrl!
+                  : (detail.coverUrl ?? 'assets/images/hue-citadel.jpg'),
+              category: detail.title,
+              seconds: item.durationSeconds > 0 ? item.durationSeconds : 300,
+              description: item.description ?? detail.description ?? '',
+              chapters: const [Chapter('Mở đầu', 0)],
+              membersOnly: item.isExclusive,
+              isVideo: isVid,
+              mediaAsset: media,
+              channelId: detail.channelId,
+              contentId: item.contentId,
+              seriesId: detail.id,
+              seriesTitle: detail.title,
+            ),
+          );
+        }
+      }
+      notifyListeners();
+      return detail;
+    } catch (_) {
+      return seriesDetails[seriesId];
+    }
+  }
+
+  List<Episode> episodesForSeries(SeriesModel series) {
+    final detail = seriesDetails[series.id];
+    if (detail != null && detail.items.isNotEmpty) {
+      final result = <Episode>[];
+      for (final item in detail.items) {
+        final match = allEpisodes.where(
+          (e) =>
+              e.contentId == item.contentId ||
+              e.id == item.contentId.toString(),
+        );
+        if (match.isNotEmpty) {
+          result.add(match.first);
+        }
+      }
+      if (result.isNotEmpty) return result;
+    }
+    final bySeriesId = allEpisodes
+        .where((e) => e.seriesId == series.id)
+        .toList();
+    if (bySeriesId.isNotEmpty) return bySeriesId;
+    if (series.channelName != null && series.channelName!.isNotEmpty) {
+      return allEpisodes
+          .where((e) => e.channel == series.channelName)
+          .toList();
+    }
+    return const [];
+  }
+
+  Future<MembershipPlanModel?> loadChannelMembershipPlan(
+    String channelName,
+  ) async {
+    final ch = channelByName(channelName);
+    final channelId = ch.id;
+    if (channelId == null || channelId <= 0) return channelPlans[channelName];
+    if (channelRepository != null) {
+      try {
+        final plan = await channelRepository!.getChannelMembershipPlan(
+          channelId,
+        );
+        if (plan != null) {
+          channelPlans[channelName] = plan;
+        }
+      } catch (_) {}
+    }
+    if (membershipRepository != null && isLoggedIn) {
+      try {
+        final check = await membershipRepository!.checkMembership(channelId);
+        if (check.isMember) {
+          memberships.add(channelName);
+          checkoutStates[channelName] = 'active';
         }
       } catch (_) {}
     }
     notifyListeners();
+    return channelPlans[channelName];
+  }
+
+  Future<void> subscribeChannelMembership(String channelName) async {
+    final ch = channelByName(channelName);
+    final channelId = ch.id;
+    if (membershipRepository != null && channelId != null && channelId > 0) {
+      final res = await membershipRepository!.subscribe(channelId);
+      if (walletRepository != null) {
+        try {
+          final w = await walletRepository!.getMyWallet();
+          walletAvailableBalance = w.availableBalance.round();
+          walletPendingBalance = w.pendingBalance.round();
+        } catch (_) {}
+      }
+      memberships.add(channelName);
+      checkoutStates[channelName] = 'active';
+      await preferences.setStringList('demoMemberships', memberships.toList());
+      await preferences.setString(
+        'checkoutStatesV1',
+        jsonEncode(checkoutStates),
+      );
+      final plan = channelPlans[channelName];
+      final now = DateTime.now();
+      final dateStr =
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+      transactions.insert(
+        0,
+        MembershipTransaction(
+          id: 'SUB-${res.id > 0 ? res.id : now.millisecondsSinceEpoch % 1000000}',
+          channelName: channelName,
+          date: dateStr,
+          type: 'Đăng ký hội viên',
+          status: res.status.isNotEmpty ? res.status : 'ACTIVE',
+          planTitle: plan?.planName ?? 'Gói tháng kênh $channelName',
+        ),
+      );
+      await preferences.setStringList(
+        'membershipTransactions',
+        transactions.map((t) => t.toJson()).toList(),
+      );
+      notifyListeners();
+      return;
+    }
+    await setDemoMembership(channelName, true);
+  }
+
+  List<LivestreamSessionModel> activeLivestreamsForChannel(Channel channel) {
+    return activeLivestreams.where((s) {
+      if (s.status.toUpperCase() != 'LIVE') return false;
+      if (channel.id != null && channel.id! > 0 && s.channelId == channel.id) {
+        return true;
+      }
+      return s.channelName.trim().toLowerCase() ==
+          channel.name.trim().toLowerCase();
+    }).toList();
+  }
+
+  String resolveLivestreamChannelName(LivestreamSessionModel session) {
+    if (session.channelName.trim().isNotEmpty) {
+      return session.channelName.trim();
+    }
+    final match = channels.where((c) => c.id == session.channelId);
+    if (match.isNotEmpty) return match.first.name;
+    return channels.isNotEmpty ? channels.first.name : 'Sử Ký';
+  }
+
+  bool canJoinLivestream(LivestreamSessionModel session) {
+    if (!session.isExclusive) return true;
+    final chName = resolveLivestreamChannelName(session);
+    return memberships.contains(chName);
+  }
+
+  Future<void> refreshLivestreams() async {
+    if (livestreamRepository == null) return;
+    try {
+      final liveList = await livestreamRepository!.getLivestreams(
+        status: 'LIVE',
+      );
+      activeLivestreams
+        ..clear()
+        ..addAll(
+          liveList
+              .where((s) => s.status.toUpperCase() == 'LIVE')
+              .map(
+                (s) => s.channelName.isNotEmpty
+                    ? s
+                    : s.copyWith(channelName: resolveLivestreamChannelName(s)),
+              ),
+        );
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<LivestreamTokenModel> joinLivestream(
+    LivestreamSessionModel session, {
+    bool isHost = false,
+  }) async {
+    if (!isHost && session.isExclusive && !canJoinLivestream(session)) {
+      throw StateError('LIVESTREAM_MEMBER_REQUIRED');
+    }
+    if (livestreamRepository != null) {
+      final token = await livestreamRepository!.getJoinToken(session.id);
+      final idx = activeLivestreams.indexWhere((s) => s.id == session.id);
+      if (idx >= 0 && !isHost) {
+        final current = activeLivestreams[idx];
+        activeLivestreams[idx] = current.copyWith(
+          viewerCount: current.viewerCount + 1,
+        );
+        notifyListeners();
+      }
+      return token;
+    }
+    final idx = activeLivestreams.indexWhere((s) => s.id == session.id);
+    if (idx >= 0 && !isHost) {
+      final current = activeLivestreams[idx];
+      activeLivestreams[idx] = current.copyWith(
+        viewerCount: current.viewerCount + 1,
+      );
+      notifyListeners();
+    }
+    return LivestreamTokenModel(
+      appId: 'demo_agora_app_id',
+      agoraChannelName: session.agoraChannelName,
+      token: 'rtc_token_${session.id}',
+      clientUid: currentUserId ?? 1001,
+      role: isHost ? 'PUBLISHER' : 'SUBSCRIBER',
+      expirationSeconds: 3600,
+    );
+  }
+
+  Future<LivestreamSessionModel?> leaveLivestream(
+    int sessionId, {
+    bool reset = false,
+  }) async {
+    if (livestreamRepository != null) {
+      try {
+        final updated = await livestreamRepository!.leaveSession(
+          sessionId,
+          reset: reset,
+        );
+        final idx = activeLivestreams.indexWhere((s) => s.id == sessionId);
+        if (idx >= 0) {
+          activeLivestreams[idx] = updated.channelName.isNotEmpty
+              ? updated
+              : updated.copyWith(
+                  channelName: activeLivestreams[idx].channelName,
+                );
+        }
+        notifyListeners();
+        return updated;
+      } catch (_) {}
+    }
+    final idx = activeLivestreams.indexWhere((s) => s.id == sessionId);
+    if (idx >= 0) {
+      final current = activeLivestreams[idx];
+      final nextCount = reset
+          ? 0
+          : (current.viewerCount - 1).clamp(0, 999999);
+      final updated = current.copyWith(viewerCount: nextCount);
+      activeLivestreams[idx] = updated;
+      notifyListeners();
+      return updated;
+    }
+    return null;
+  }
+
+  Future<LivestreamSessionModel> createLivestreamSession({
+    required int channelId,
+    required String channelName,
+    required String title,
+    String? description,
+    bool isExclusive = false,
+  }) async {
+    if (livestreamRepository != null) {
+      final created = await livestreamRepository!.createSession(
+        channelId: channelId,
+        title: title.trim(),
+        description: description?.trim(),
+        isExclusive: isExclusive,
+      );
+      final enriched = created.channelName.isNotEmpty
+          ? created
+          : created.copyWith(
+              channelName: channelName,
+              creatorName: displayName,
+            );
+      activeLivestreams.removeWhere(
+        (s) => s.channelId == channelId || s.channelName == channelName,
+      );
+      activeLivestreams.insert(0, enriched);
+      notifyListeners();
+      return enriched;
+    }
+
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final localSession = LivestreamSessionModel(
+      id: nowMs % 1000000,
+      channelId: channelId,
+      channelName: channelName,
+      creatorName: displayName,
+      title: title.trim(),
+      description: description?.trim(),
+      agoraChannelName: 'prm_live_${channelId}_$nowMs',
+      status: 'LIVE',
+      isExclusive: isExclusive,
+      viewerCount: 1,
+      startedAt: DateTime.now().toIso8601String(),
+    );
+    activeLivestreams.removeWhere(
+      (s) => s.channelId == channelId || s.channelName == channelName,
+    );
+    activeLivestreams.insert(0, localSession);
+    notifyListeners();
+    return localSession;
+  }
+
+  Future<void> endLivestreamSession(int sessionId) async {
+    if (livestreamRepository != null) {
+      try {
+        await livestreamRepository!.endSession(sessionId);
+      } catch (_) {}
+    }
+    activeLivestreams.removeWhere((s) => s.id == sessionId);
+    notifyListeners();
+  }
+
+  List<LivestreamChatMessage> getLivestreamChats(int sessionId) =>
+      List.unmodifiable(_livestreamChats[sessionId] ?? const []);
+
+  Future<List<LivestreamChatMessage>> fetchLivestreamChats(
+    int sessionId, {
+    int since = 0,
+  }) async {
+    final bucket = _livestreamChats.putIfAbsent(sessionId, () => []);
+    if (livestreamRepository != null) {
+      try {
+        final incoming = await livestreamRepository!.getChatMessages(
+          sessionId,
+          since: since,
+        );
+        var added = false;
+        for (final msg in incoming) {
+          if (!bucket.any((m) => m.id == msg.id)) {
+            bucket.add(msg);
+            added = true;
+          }
+        }
+        if (added) notifyListeners();
+      } catch (_) {}
+    }
+    return List.unmodifiable(bucket);
+  }
+
+  Future<LivestreamChatMessage> sendLivestreamChat(
+    int sessionId,
+    String text, {
+    bool isHost = false,
+  }) async {
+    final trimmed = text.trim();
+    final now = DateTime.now();
+    final hh = now.hour.toString().padLeft(2, '0');
+    final mm = now.minute.toString().padLeft(2, '0');
+    final ss = now.second.toString().padLeft(2, '0');
+    final msg = LivestreamChatMessage(
+      id: 'chat-${now.microsecondsSinceEpoch}',
+      author: displayName,
+      role: isHost ? 'creator' : 'viewer',
+      text: trimmed,
+      timestamp: now.millisecondsSinceEpoch,
+      timeFormatted: '$hh:$mm:$ss',
+    );
+    final bucket = _livestreamChats.putIfAbsent(sessionId, () => []);
+    bucket.add(msg);
+    notifyListeners();
+
+    if (livestreamRepository != null) {
+      try {
+        await livestreamRepository!.sendChatMessage(
+          sessionId,
+          messageId: msg.id,
+          author: msg.author,
+          role: msg.role,
+          text: msg.text,
+        );
+      } catch (_) {}
+    }
+    return msg;
   }
   final Map<String, String> checkoutStates = {};
   final List<String> queue = [];
@@ -367,9 +994,10 @@ class AppState extends ChangeNotifier {
   String? userPhone;
 
   void _loadComments() {
-    // Populate seeds first
-    for (final c in initialSampleComments) {
-      _comments.putIfAbsent(c.episodeId, () => []).add(c);
+    if (!isLiveBackend) {
+      for (final c in initialSampleComments) {
+        _comments.putIfAbsent(c.episodeId, () => []).add(c);
+      }
     }
     final rawUserComments = preferences.getStringList('userComments');
     if (rawUserComments != null) {
@@ -455,8 +1083,18 @@ class AppState extends ChangeNotifier {
       }
 
       await preferences.setBool('isLoggedIn', true);
+      await preferences.remove('manual_logout');
       await preferences.setString('displayName', displayName);
       await preferences.setString('userEmail', res.email);
+      await preferences.remove('walletDemoV1');
+      await preferences.remove('creatorStudioV1');
+      await preferences.remove('narratorProfileV1');
+      await preferences.remove('narratorVerificationV1');
+      memberships.clear();
+      checkoutStates.clear();
+      await preferences.remove('memberships');
+      await preferences.remove('checkoutStates');
+      await initRealBackend();
       notifyListeners();
       return;
     }
@@ -539,8 +1177,18 @@ class AppState extends ChangeNotifier {
         } catch (_) {}
       }
       await preferences.setBool('isLoggedIn', true);
+      await preferences.remove('manual_logout');
       await preferences.setString('displayName', displayName);
       await preferences.setString('userEmail', res.email);
+      await preferences.remove('walletDemoV1');
+      await preferences.remove('creatorStudioV1');
+      await preferences.remove('narratorProfileV1');
+      await preferences.remove('narratorVerificationV1');
+      memberships.clear();
+      checkoutStates.clear();
+      await preferences.remove('memberships');
+      await preferences.remove('checkoutStates');
+      await initRealBackend();
       notifyListeners();
       return;
     }
@@ -592,10 +1240,19 @@ class AppState extends ChangeNotifier {
     isLoggedIn = false;
     userEmail = null;
     userPhone = null;
+    await preferences.setBool('manual_logout', true);
     displayName = 'Người nghe';
+    memberships.clear();
+    checkoutStates.clear();
     await preferences.setBool('isLoggedIn', false);
     await preferences.remove('userEmail');
     await preferences.remove('userPhone');
+    await preferences.remove('memberships');
+    await preferences.remove('checkoutStates');
+    await preferences.remove('walletDemoV1');
+    await preferences.remove('creatorStudioV1');
+    await preferences.remove('narratorProfileV1');
+    await preferences.remove('narratorVerificationV1');
     await preferences.setString('displayName', displayName);
     notifyListeners();
   }
@@ -605,12 +1262,14 @@ class AppState extends ChangeNotifier {
   bool isDisliked(String episodeId) => dislikedEpisodes.contains(episodeId);
 
   int getLikeCount(String episodeId) {
-    final base = seedEpisodeLikes[episodeId] ?? 20;
+    final ep = allEpisodes.where((e) => e.id == episodeId).firstOrNull;
+    final base = ep?.remoteLikeCount ?? seedEpisodeLikes[episodeId] ?? 20;
     return base + (isLiked(episodeId) ? 1 : 0);
   }
 
   void toggleLike(String episodeId) {
-    if (likedEpisodes.contains(episodeId)) {
+    final nowLiked = !likedEpisodes.contains(episodeId);
+    if (!nowLiked) {
       likedEpisodes.remove(episodeId);
     } else {
       likedEpisodes.add(episodeId);
@@ -623,10 +1282,12 @@ class AppState extends ChangeNotifier {
       preferences.setStringList('dislikedEpisodes', dislikedEpisodes.toList()),
     );
     notifyListeners();
+    unawaited(_syncReaction(episodeId, nowLiked ? 'LIKE' : null));
   }
 
   void toggleDislike(String episodeId) {
-    if (dislikedEpisodes.contains(episodeId)) {
+    final nowDisliked = !dislikedEpisodes.contains(episodeId);
+    if (!nowDisliked) {
       dislikedEpisodes.remove(episodeId);
     } else {
       dislikedEpisodes.add(episodeId);
@@ -639,6 +1300,37 @@ class AppState extends ChangeNotifier {
       preferences.setStringList('dislikedEpisodes', dislikedEpisodes.toList()),
     );
     notifyListeners();
+    unawaited(_syncReaction(episodeId, nowDisliked ? 'DISLIKE' : null));
+  }
+
+  Future<void> _syncReaction(String episodeId, String? type) async {
+    if (reactionRepository == null) return;
+    final artId = int.tryParse(episodeId);
+    if (artId == null) return;
+    final uid = currentUserId ?? 1;
+    try {
+      final existingId = _reactionIds[episodeId];
+      if (type == null) {
+        if (existingId != null) {
+          await reactionRepository!.delete(existingId);
+          _reactionIds.remove(episodeId);
+        }
+      } else if (existingId != null) {
+        await reactionRepository!.update(
+          existingId,
+          artifactId: artId,
+          userId: uid,
+          type: type,
+        );
+      } else {
+        final created = await reactionRepository!.create(
+          artifactId: artId,
+          userId: uid,
+          type: type,
+        );
+        _reactionIds[episodeId] = created.id;
+      }
+    } catch (_) {}
   }
 
   // --- Comments Simulation (UC-08) ---
@@ -863,8 +1555,13 @@ class AppState extends ChangeNotifier {
         notifyListeners();
       }
     });
+    final isRemote =
+        episode.mediaAsset.startsWith('http://') ||
+        episode.mediaAsset.startsWith('https://') ||
+        episode.mediaAsset.startsWith('data:');
     await controller.open(
       episode.mediaAsset,
+      asset: !isRemote,
       startAt: position,
       speed: speed,
       autoplay: false,
@@ -908,7 +1605,12 @@ class AppState extends ChangeNotifier {
   Future<void> _openVideo(Episode episode) async {
     _closeVideo();
     final generation = _videoGeneration;
-    final controller = VideoPlayerController.asset(episode.mediaAsset);
+    final isRemote =
+        episode.mediaAsset.startsWith('http://') ||
+        episode.mediaAsset.startsWith('https://');
+    final controller = isRemote
+        ? VideoPlayerController.networkUrl(Uri.parse(episode.mediaAsset))
+        : VideoPlayerController.asset(episode.mediaAsset);
     video = controller;
     videoLoading = true;
     notifyListeners();

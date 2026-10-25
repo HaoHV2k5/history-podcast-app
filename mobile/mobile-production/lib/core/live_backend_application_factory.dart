@@ -130,8 +130,20 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       withdrawalRepository: withdrawalRepository,
     );
 
-    // Tải dữ liệu thật từ Spring Boot backend
-    await appState.initRealBackend();
+    // Tự động đăng nhập tài khoản test 1 triệu nếu phiên trình duyệt mới chưa có JWT token
+    if ((apiClient.token == null || apiClient.token!.isEmpty) &&
+        preferences.getBool('manual_logout') != true) {
+      try {
+        await appState.login(
+          identifier: 'test1tr@example.com',
+          password: 'Creator@123',
+        );
+      } catch (_) {
+        await appState.initRealBackend();
+      }
+    } else {
+      await appState.initRealBackend();
+    }
 
     return SuKyApp(state: appState);
   }

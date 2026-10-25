@@ -40,13 +40,49 @@ class _NotificationPageState extends State<NotificationPage> {
         channel: channelByName(item['title']!),
         state: widget.state,
       ),
-      'narrator' => NarratorHome(preferences: widget.state.preferences),
-      'wallet' => WalletPage(preferences: widget.state.preferences),
+      'narrator' => NarratorHome(
+        preferences: widget.state.preferences,
+        contractRepository: widget.state.contractRepository,
+        hireRequestRepository: widget.state.hireRequestRepository,
+        milestoneRepository: widget.state.milestoneRepository,
+        deliverableRepository: widget.state.deliverableRepository,
+        disputeRepository: widget.state.disputeRepository,
+        chatRepository: widget.state.chatRepository,
+        narratorProfileRepository: widget.state.narratorProfileRepository,
+        narratorDemoRepository: widget.state.narratorDemoRepository,
+        freelancerRepository: widget.state.freelancerRepository,
+        kycRepository: widget.state.kycRepository,
+      ),
+      'wallet' => WalletPage(
+        preferences: widget.state.preferences,
+        walletRepository: widget.state.walletRepository,
+        withdrawalRepository: widget.state.withdrawalRepository,
+        contractRepository: widget.state.contractRepository,
+        kycRepository: widget.state.kycRepository,
+      ),
       'publish' => PublicationPage(
         preferences: widget.state.preferences,
         app: widget.state,
       ),
-      _ => CreatorStudio(preferences: widget.state.preferences),
+      _ => CreatorStudio(
+        preferences: widget.state.preferences,
+        channelRepository: widget.state.channelRepository,
+        creatorSeriesRepository: widget.state.creatorSeriesRepository,
+        creatorStudioRepository: widget.state.creatorStudioRepository,
+        kycRepository: widget.state.kycRepository,
+        contractRepository: widget.state.contractRepository,
+        hireRequestRepository: widget.state.hireRequestRepository,
+        milestoneRepository: widget.state.milestoneRepository,
+        deliverableRepository: widget.state.deliverableRepository,
+        disputeRepository: widget.state.disputeRepository,
+        chatRepository: widget.state.chatRepository,
+        narratorProfileRepository: widget.state.narratorProfileRepository,
+        narratorDemoRepository: widget.state.narratorDemoRepository,
+        freelancerRepository: widget.state.freelancerRepository,
+        postRepository: widget.state.postRepository,
+        walletRepository: widget.state.walletRepository,
+        withdrawalRepository: widget.state.withdrawalRepository,
+      ),
     };
     await Navigator.push(
       context,
@@ -106,7 +142,7 @@ class _NotificationPageState extends State<NotificationPage> {
     for (final event in finance['events'] as List) {
       items.add({
         'id': event as String,
-        'title': 'Sổ ví mẫu',
+        'title': widget.state.isLiveBackend ? 'Biến động số dư ví' : 'Sổ ví mẫu',
         'detail': event,
         'kind': 'wallet',
       });
@@ -118,15 +154,23 @@ class _NotificationPageState extends State<NotificationPage> {
         .where((i) => !unreadOnly || !seen.contains(i['id']))
         .toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Cập nhật trên thiết bị')),
+      appBar: AppBar(
+        title: Text(
+          widget.state.isLiveBackend
+              ? 'Cập nhật hoạt động'
+              : 'Cập nhật trên thiết bị',
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
           Text('Câu chuyện\nđang tiếp diễn.', style: editorial(30)),
           const SizedBox(height: 12),
-          const Text(
-            'Lời mời, duyệt nội dung và sổ ví từ dữ liệu local. Chưa có push notification hoặc đồng bộ tài khoản.',
-            style: TextStyle(color: Palette.muted, height: 1.7),
+          Text(
+            widget.state.isLiveBackend
+                ? 'Thông báo hợp đồng thu âm, hội viên kênh và biến động số dư ví.'
+                : 'Lời mời, duyệt nội dung và sổ ví từ dữ liệu local. Chưa có push notification hoặc đồng bộ tài khoản.',
+            style: const TextStyle(color: Palette.muted, height: 1.7),
           ),
           const SizedBox(height: 20),
           Wrap(

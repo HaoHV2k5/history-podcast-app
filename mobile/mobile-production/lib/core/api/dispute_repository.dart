@@ -119,9 +119,11 @@ class DisputeRepository {
     }
     final res = await client.get('/api/v1/disputes', queryParams: query);
     final data = res['data'];
-    if (data is Map && data.containsKey('content')) {
-      final items = data['content'] as List;
-      return items.map((e) => DisputeModel.fromJson(e as Map<String, dynamic>)).toList();
+    if (data is Map) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems.map((e) => DisputeModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
     } else if (data is List) {
       return data.map((e) => DisputeModel.fromJson(e as Map<String, dynamic>)).toList();
     }

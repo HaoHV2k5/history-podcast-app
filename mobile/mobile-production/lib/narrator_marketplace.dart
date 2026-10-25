@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'creator_state.dart';
+import 'contract_chat_sheet.dart';
 import 'design.dart';
 import 'motion.dart';
 import 'narrator_state.dart';
@@ -51,24 +52,63 @@ class NarratorMarketplacePage extends StatefulWidget {
 
 class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
   late final contracts = NarratorState(widget.state);
-  late final profile = NarratorProfileState(widget.state.preferences);
-  List<NarratorVoice> get voices => [
-    ...sampleNarrators,
-    if (profile.canReceiveJobs &&
-        !sampleNarrators.any((v) => v.id == profile.id))
-      NarratorVoice(
-        id: profile.id,
-        name: profile.name,
-        region: profile.region,
-        tone: profile.bio,
-        sampleQuote: profile.transcript,
-        rating: 0,
-        completedProjects: 0,
-      ),
-  ];
+  late final profile = NarratorProfileState(
+    widget.state.preferences,
+    narratorProfileRepository: widget.state.narratorProfileRepository,
+    narratorDemoRepository: widget.state.narratorDemoRepository,
+    freelancerRepository: widget.state.freelancerRepository,
+    kycRepository: widget.state.kycRepository,
+  );
+  List<NarratorVoice> get voices {
+    final useOnlyRemote =
+        contracts.isLiveBackend && contracts.remoteVoices.isNotEmpty;
+    return [
+      if (!useOnlyRemote) ...sampleNarrators,
+      for (final rv in contracts.remoteVoices)
+        if (useOnlyRemote || !sampleNarrators.any((v) => v.id == 'nar-${rv.id}'))
+          NarratorVoice(
+            id: 'nar-${rv.id}',
+            name: (rv.bio ?? '').contains('·')
+                ? rv.bio!.split('·').first.trim()
+                : 'Giọng kể #${rv.id}',
+            region: (rv.languages ?? '').contains('Nam')
+                ? 'Nam'
+                : (rv.languages ?? '').contains('Trung')
+                ? 'Trung'
+                : 'Bắc',
+            tone: (rv.bio ?? '').contains('·')
+                ? rv.bio!.split('·').sublist(1).join('·').trim()
+                : (rv.bio ?? 'Giọng đọc tư liệu lịch sử truyền cảm'),
+            sampleQuote:
+                'Tư liệu lịch sử được thể hiện rõ ràng, chuẩn mực niên đại · Mức phí tham khảo ${rv.baseRate.round()}đ / tập.',
+            suggestedFee: '${rv.baseRate.round()}đ / tập',
+            rating: 4.9,
+            completedProjects: 12,
+          ),
+      if (profile.canReceiveJobs &&
+          !sampleNarrators.any((v) => v.id == profile.id))
+        NarratorVoice(
+          id: profile.id,
+          name: profile.name,
+          region: profile.region,
+          tone: profile.bio,
+          sampleQuote: profile.transcript,
+          rating: 0,
+          completedProjects: 0,
+        ),
+    ];
+  }
   String selectedRegion = 'Tất cả';
   String voiceQuery = '';
   int activeTab = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (contracts.isLiveBackend) {
+      contracts.syncMarketplaceBackend();
+    }
+  }
   @override
   void dispose() {
     contracts.dispose();
@@ -123,9 +163,11 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
             children: [
               _SheetTitle(title: 'Mời ${narrator.name} thu âm'),
               const SizedBox(height: 12),
-              const Text(
-                'Lời mời thử nghiệm · Chỉ lưu trên thiết bị',
-                style: TextStyle(color: Palette.muted, fontSize: 12),
+              Text(
+                contracts.isLiveBackend
+                    ? 'Khởi tạo lời mời hợp tác & hợp đồng thu âm trực tiếp'
+                    : 'Lời mời thử nghiệm · Chỉ lưu trên thiết bị',
+                style: const TextStyle(color: Palette.muted, fontSize: 12),
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
@@ -226,7 +268,13 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                           }
                         }
                       },
-                child: Text(busy ? 'Đang lưu…' : 'Gửi lời mời mẫu'),
+                child: Text(
+                  busy
+                      ? 'Đang lưu…'
+                      : (contracts.isLiveBackend
+                            ? 'Gửi lời mời thu âm'
+                            : 'Gửi lời mời mẫu'),
+                ),
               ),
             ],
           ),
@@ -316,7 +364,11 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                             }
                           }
                         },
-                  child: const Text('Tải thỏa thuận PDF mẫu'),
+                  child: Text(
+                    contracts.isLiveBackend
+                        ? 'Tải hợp đồng PDF'
+                        : 'Tải thỏa thuận PDF mẫu',
+                  ),
                 ),
                 Text('Hạn bàn giao: ${_date(DateTime.parse(o.deadline))}'),
                 const SizedBox(height: 12),
@@ -324,17 +376,42 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                   o.notes,
                   style: const TextStyle(height: 1.7, color: Palette.muted),
                 ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const Key('open-contract-chat-btn'),
+                  onPressed: busy
+                      ? null
+                      : () => showModalBottomSheet<void>(
+                            context: ctx,
+                            isScrollControlled: true,
+                            showDragHandle: true,
+                            backgroundColor: Palette.paper,
+                            builder: (_) => ContractChatSheet(
+                              contracts: contracts,
+                              order: o,
+                              senderName: o.channelName,
+                              senderRole: 'CREATOR',
+                            ),
+                          ),
+                  icon: const Icon(
+                    CupertinoIcons.chat_bubble_2,
+                    size: 16,
+                  ),
+                  label: const Text('Phòng trao đổi kịch bản & bản thu'),
+                ),
                 const SizedBox(height: 20),
                 const Divider(),
-                const SizedBox(height: 20),
-                const Text(
-                  'Mô phỏng hợp tác trên thiết bị. Có sổ ký quỹ hư cấu; xác nhận không phải chữ ký pháp lý, không chuyển tiền thật.',
-                  style: TextStyle(
-                    color: Palette.muted,
-                    fontSize: 12,
-                    height: 1.7,
+                if (!contracts.isLiveBackend) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Mô phỏng hợp tác trên thiết bị. Có sổ ký quỹ hư cấu; xác nhận không phải chữ ký pháp lý, không chuyển tiền thật.',
+                    style: TextStyle(
+                      color: Palette.muted,
+                      fontSize: 12,
+                      height: 1.7,
+                    ),
                   ),
-                ),
+                ],
                 const SizedBox(height: 20),
                 if (awaiting) ...[
                   Text(
@@ -356,20 +433,32 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                     onPressed: busy
                         ? null
                         : () => act('counter', value: input.text),
-                    child: const Text('Thử người đọc: đề xuất lại'),
+                    child: Text(
+                      contracts.isLiveBackend
+                          ? 'Người đọc: đề xuất lại thù lao'
+                          : 'Thử người đọc: đề xuất lại',
+                    ),
                   ),
                   FilledButton(
                     key: const Key('narrator-accept-invite'),
                     onPressed: busy ? null : () => act('accept'),
                     child: Text(
                       o.status == ContractStatus.negotiating
-                          ? 'Chấp thuận đề xuất mẫu'
-                          : 'Thử người đọc: đồng ý',
+                          ? (contracts.isLiveBackend
+                                ? 'Chấp thuận đề xuất'
+                                : 'Chấp thuận đề xuất mẫu')
+                          : (contracts.isLiveBackend
+                                ? 'Người đọc: đồng ý hợp tác'
+                                : 'Thử người đọc: đồng ý'),
                     ),
                   ),
                   TextButton(
                     onPressed: busy ? null : () => act('reject'),
-                    child: const Text('Từ chối lời mời mẫu'),
+                    child: Text(
+                      contracts.isLiveBackend
+                          ? 'Từ chối lời mời'
+                          : 'Từ chối lời mời mẫu',
+                    ),
                   ),
                 ],
                 if (o.status == ContractStatus.pendingSign) ...[
@@ -383,7 +472,11 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                     FilledButton(
                       key: const Key('creator-sign-btn'),
                       onPressed: busy ? null : () => act('creatorSign'),
-                      child: const Text('Người sáng tạo: xác nhận mẫu'),
+                      child: Text(
+                        contracts.isLiveBackend
+                            ? 'Người sáng tạo: ký xác nhận'
+                            : 'Người sáng tạo: xác nhận mẫu',
+                      ),
                     ),
                   if (o.creatorSigned) ...[
                     const Text(
@@ -394,7 +487,11 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                     FilledButton(
                       key: const Key('narrator-sign-btn'),
                       onPressed: busy ? null : () => act('narratorSign'),
-                      child: const Text('Thử người đọc: xác nhận mẫu'),
+                      child: Text(
+                        contracts.isLiveBackend
+                            ? 'Người đọc: ký xác nhận'
+                            : 'Thử người đọc: xác nhận mẫu',
+                      ),
                     ),
                   ],
                 ],
@@ -410,7 +507,11 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                     key: const Key('simulate-delivery-btn'),
                     onPressed: busy ? null : () => act('deliver'),
                     icon: const Icon(CupertinoIcons.cloud_upload, size: 18),
-                    label: const Text('Thử người đọc: bàn giao file mẫu'),
+                    label: Text(
+                      contracts.isLiveBackend
+                          ? 'Người đọc: bàn giao bản thu'
+                          : 'Thử người đọc: bàn giao file mẫu',
+                    ),
                   ),
                 ],
                 if (o.status == ContractStatus.delivered) ...[
@@ -422,9 +523,14 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                       case final audio?)
                     LocalAudioPreview(bytes: audio.bytes, name: audio.name)
                   else
-                    const Text(
-                      'Chỉ có tên file mẫu · Chọn và bàn giao file trong cùng phiên để nghe thử; chưa upload.',
-                      style: TextStyle(color: Palette.muted, fontSize: 12),
+                    Text(
+                      contracts.isLiveBackend
+                          ? 'Bản thu đã được nộp lên hệ thống nghiệm thu.'
+                          : 'Chỉ có tên file mẫu · Chọn và bàn giao file trong cùng phiên để nghe thử; chưa upload.',
+                      style: const TextStyle(
+                        color: Palette.muted,
+                        fontSize: 12,
+                      ),
                     ),
                   const SizedBox(height: 16),
                   TextField(
@@ -445,14 +551,20 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                   FilledButton(
                     key: const Key('accept-delivery-btn'),
                     onPressed: busy ? null : () => act('complete'),
-                    child: const Text('Nghiệm thu mẫu'),
+                    child: Text(
+                      contracts.isLiveBackend
+                          ? 'Nghiệm thu & giải ngân'
+                          : 'Nghiệm thu mẫu',
+                    ),
                   ),
                 ],
                 if (o.status == ContractStatus.completed) ...[
                   Text('Đã hoàn tất nghiệm thu', style: editorial(20)),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Tiến độ đã lưu trên thiết bị. Chưa phát hành tập hoặc chuyển tiền.',
+                  Text(
+                    contracts.isLiveBackend
+                        ? 'Hợp đồng đã hoàn tất nghiệm thu và giải ngân qua hệ thống ký quỹ.'
+                        : 'Tiến độ đã lưu trên thiết bị. Chưa phát hành tập hoặc chuyển tiền.',
                   ),
                 ],
                 if ([
@@ -471,18 +583,25 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                   const SizedBox(height: 12),
                   TextField(
                     controller: input,
-                    decoration: const InputDecoration(
-                      labelText: 'Lý do cần phân xử (mẫu)',
+                    decoration: InputDecoration(
+                      labelText: contracts.isLiveBackend
+                          ? 'Lý do yêu cầu phân xử'
+                          : 'Lý do cần phân xử (mẫu)',
                     ),
                   ),
                   TextButton(
                     onPressed: busy
                         ? null
                         : () => act('dispute', value: input.text),
-                    child: const Text('Gửi yêu cầu phân xử mẫu'),
+                    child: Text(
+                      contracts.isLiveBackend
+                          ? 'Gửi yêu cầu phân xử'
+                          : 'Gửi yêu cầu phân xử mẫu',
+                    ),
                   ),
                 ],
-                if (o.status == ContractStatus.disputed)
+                if (o.status == ContractStatus.disputed &&
+                    !contracts.isLiveBackend)
                   ExpansionTile(
                     tilePadding: EdgeInsets.zero,
                     title: const Text('Thử kết quả phân xử'),
@@ -556,11 +675,13 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
             'Tìm người đồng hành cho câu chuyện của bạn.',
             style: TextStyle(color: Palette.muted, height: 1.7),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Danh sách và đánh giá dưới đây là dữ liệu mẫu.',
-            style: TextStyle(fontSize: 12, color: Palette.muted),
-          ),
+          if (!contracts.isLiveBackend) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Danh sách và đánh giá dưới đây là dữ liệu mẫu.',
+              style: TextStyle(fontSize: 12, color: Palette.muted),
+            ),
+          ],
           const SizedBox(height: 20),
           Wrap(
             spacing: 12,
@@ -665,9 +786,11 @@ class _NarratorMarketplacePageState extends State<NarratorMarketplacePage> {
                             style: editorial(16).copyWith(height: 1.7),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Trích đoạn kịch bản mẫu · Chưa có audio',
-                            style: TextStyle(
+                          Text(
+                            contracts.isLiveBackend
+                                ? 'Hồ sơ giọng đọc đã xác minh trên hệ thống'
+                                : 'Trích đoạn kịch bản mẫu · Chưa có audio',
+                            style: const TextStyle(
                               fontSize: 11,
                               color: Palette.muted,
                             ),

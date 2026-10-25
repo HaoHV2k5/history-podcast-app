@@ -35,7 +35,11 @@ class PublicationState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> publish(String id, {required bool membersOnly}) async {
+  Future<void> publish(
+    String id, {
+    required bool membersOnly,
+    AppState? app,
+  }) async {
     final draft = creator.drafts.firstWhere((d) => d.id == id);
     if (!creator.kyc.isApproved ||
         draft.stage != DraftStage.approved ||
@@ -50,6 +54,32 @@ class PublicationState extends ChangeNotifier {
     if (items.any((e) => e['id'] == publicId)) {
       throw StateError('Tập đã phát hành trên thiết bị.');
     }
+    if (app != null && app.isLiveBackend) {
+      try {
+        if (id.startsWith('video-') && creator.creatorStudioRepository != null) {
+          final contentId = int.tryParse(id.substring('video-'.length));
+          if (contentId != null) {
+            await creator.creatorStudioRepository!.submitVideoForPublish(
+              contentId,
+            );
+          }
+        } else if (app.contentRepository != null) {
+          final chId =
+              creator.channelModel?.id ??
+              (remoteChannels.isNotEmpty
+                  ? (remoteChannels.first.id ?? 1)
+                  : 1);
+          await app.contentRepository!.createContent(
+            channelId: chId,
+            title: draft.title,
+            textBody: draft.script,
+            status: 'PUBLISHED',
+            isExclusive: membersOnly,
+          );
+        }
+        await app.refreshCatalog();
+      } catch (_) {}
+    }
     final video = draft.format == 'video';
     final episode = Episode(
       id: publicId,
@@ -59,9 +89,12 @@ class PublicationState extends ChangeNotifier {
       channelImage: artworkReference('channel'),
       category: 'Việt Nam',
       seconds: video ? 12 : 24,
-      description:
-          '${video ? 'Video kiểm tra kỹ thuật 12 giây, không phải phim của kịch bản.' : 'Audio kỹ thuật 24 giây, không phải giọng đọc của kịch bản.'}\n\n${draft.script}',
-      chapters: [const Chapter('Bắt đầu bản thử', 0)],
+      description: creator.isLiveBackend
+          ? draft.script
+          : '${video ? 'Video kiểm tra kỹ thuật 12 giây, không phải phim của kịch bản.' : 'Audio kỹ thuật 24 giây, không phải giọng đọc của kịch bản.'}\n\n${draft.script}',
+      chapters: [
+        Chapter(creator.isLiveBackend ? 'Mở đầu' : 'Bắt đầu bản thử', 0),
+      ],
       membersOnly: membersOnly,
       isVideo: video,
       mediaAsset: video
@@ -111,9 +144,39 @@ class PublicationPage extends StatefulWidget {
 }
 
 class _PublicationPageState extends State<PublicationPage> {
-  late CreatorState creator = CreatorState(widget.preferences);
+  CreatorState _buildCreator() => CreatorState(
+    widget.preferences,
+    channelRepository: widget.app.channelRepository,
+    creatorSeriesRepository: widget.app.creatorSeriesRepository,
+    creatorStudioRepository: widget.app.creatorStudioRepository,
+    kycRepository: widget.app.kycRepository,
+    contractRepository: widget.app.contractRepository,
+    hireRequestRepository: widget.app.hireRequestRepository,
+    milestoneRepository: widget.app.milestoneRepository,
+    deliverableRepository: widget.app.deliverableRepository,
+    disputeRepository: widget.app.disputeRepository,
+    chatRepository: widget.app.chatRepository,
+    narratorProfileRepository: widget.app.narratorProfileRepository,
+    narratorDemoRepository: widget.app.narratorDemoRepository,
+    freelancerRepository: widget.app.freelancerRepository,
+    postRepository: widget.app.postRepository,
+    walletRepository: widget.app.walletRepository,
+    withdrawalRepository: widget.app.withdrawalRepository,
+  );
+
+  late CreatorState creator = _buildCreator();
   late PublicationState production = PublicationState(creator);
   bool published = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (creator.isLiveBackend) {
+      creator.initStudioBackend().then((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -126,16 +189,38 @@ class _PublicationPageState extends State<PublicationPage> {
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (_) => CreatorStudio(preferences: widget.preferences),
+        builder: (_) => CreatorStudio(
+          preferences: widget.preferences,
+          channelRepository: widget.app.channelRepository,
+          creatorSeriesRepository: widget.app.creatorSeriesRepository,
+          creatorStudioRepository: widget.app.creatorStudioRepository,
+          kycRepository: widget.app.kycRepository,
+          contractRepository: widget.app.contractRepository,
+          hireRequestRepository: widget.app.hireRequestRepository,
+          milestoneRepository: widget.app.milestoneRepository,
+          deliverableRepository: widget.app.deliverableRepository,
+          disputeRepository: widget.app.disputeRepository,
+          chatRepository: widget.app.chatRepository,
+          narratorProfileRepository: widget.app.narratorProfileRepository,
+          narratorDemoRepository: widget.app.narratorDemoRepository,
+          freelancerRepository: widget.app.freelancerRepository,
+          postRepository: widget.app.postRepository,
+          walletRepository: widget.app.walletRepository,
+          withdrawalRepository: widget.app.withdrawalRepository,
+        ),
       ),
     );
     if (!mounted) return;
     production.dispose();
     creator.dispose();
     setState(() {
-      creator = CreatorState(widget.preferences);
+      creator = _buildCreator();
       production = PublicationState(creator);
     });
+    if (creator.isLiveBackend) {
+      await creator.initStudioBackend();
+      if (mounted) setState(() {});
+    }
   }
 
   @override
@@ -312,11 +397,13 @@ class _PublicationPageState extends State<PublicationPage> {
             trailing: const Icon(Icons.chevron_right, size: 20),
             onTap: openStudio,
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Bản thử · Phát hành trên thiết bị này.',
-            style: TextStyle(fontSize: 11, color: Palette.muted),
-          ),
+          if (!widget.app.isLiveBackend) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Bản thử · Phát hành trên thiết bị này.',
+              style: TextStyle(fontSize: 11, color: Palette.muted),
+            ),
+          ],
         ],
       ),
     );
@@ -449,7 +536,11 @@ class _PublicationReviewPageState extends State<PublicationReviewPage> {
             OutlinedButton(
               key: const Key('unpublish-episode'),
               onPressed: busy ? null : remove,
-              child: const Text('Gỡ khỏi danh mục thử'),
+              child: Text(
+                widget.app.isLiveBackend
+                    ? 'Gỡ khỏi danh mục'
+                    : 'Gỡ khỏi danh mục thử',
+              ),
             ),
           ] else ...[
             Text(
@@ -496,7 +587,9 @@ class _PublicationReviewPageState extends State<PublicationReviewPage> {
                 Expanded(
                   child: Text(
                     ready
-                        ? 'Bản phát thử đã sẵn sàng'
+                        ? (widget.app.isLiveBackend
+                              ? 'Bản phát hành đã sẵn sàng'
+                              : 'Bản phát thử đã sẵn sàng')
                         : failed
                         ? 'Chuẩn bị chưa thành công. Bạn có thể thử lại.'
                         : 'Chuẩn bị bản phát trước khi xác nhận.',
@@ -526,6 +619,7 @@ class _PublicationReviewPageState extends State<PublicationReviewPage> {
                           ? () => widget.production.publish(
                               d.id,
                               membersOnly: membersOnly,
+                              app: widget.app,
                             )
                           : () => widget.production.buildDemo(d.id),
                     ),
@@ -536,7 +630,9 @@ class _PublicationReviewPageState extends State<PublicationReviewPage> {
                     ? 'Xác nhận phát hành'
                     : failed
                     ? 'Thử lại'
-                    : 'Chuẩn bị bản phát thử',
+                    : (widget.app.isLiveBackend
+                          ? 'Chuẩn bị bản phát hành'
+                          : 'Chuẩn bị bản phát thử'),
               ),
             ),
           ],
@@ -548,30 +644,33 @@ class _PublicationReviewPageState extends State<PublicationReviewPage> {
                 child: Text(error!, style: const TextStyle(color: Palette.red)),
               ),
             ),
-          const SizedBox(height: 20),
-          const Text(
-            'Ảnh bìa và bản phát là mẫu kỹ thuật. Chỉ lưu trên thiết bị này.',
-            style: TextStyle(color: Palette.muted, fontSize: 11),
-          ),
-          if (!published) ...[
-            const SizedBox(height: 16),
-            ExpansionTile(
-              title: const Text(
-                'Công cụ kiểm thử',
-                style: TextStyle(fontSize: 12, color: Palette.muted),
-              ),
-              tilePadding: EdgeInsets.zero,
-              children: [
-                TextButton(
-                  onPressed: busy || !eligible
-                      ? null
-                      : () => run(
-                          () => widget.production.buildDemo(d.id, fail: true),
-                        ),
-                  child: const Text('Giả lập lỗi chuẩn bị'),
-                ),
-              ],
+          if (!widget.app.isLiveBackend) ...[
+            const SizedBox(height: 20),
+            const Text(
+              'Ảnh bìa và bản phát là mẫu kỹ thuật. Chỉ lưu trên thiết bị này.',
+              style: TextStyle(color: Palette.muted, fontSize: 11),
             ),
+            if (!published) ...[
+              const SizedBox(height: 16),
+              ExpansionTile(
+                title: const Text(
+                  'Công cụ kiểm thử',
+                  style: TextStyle(fontSize: 12, color: Palette.muted),
+                ),
+                tilePadding: EdgeInsets.zero,
+                children: [
+                  TextButton(
+                    onPressed: busy || !eligible
+                        ? null
+                        : () => run(
+                            () =>
+                                widget.production.buildDemo(d.id, fail: true),
+                          ),
+                    child: const Text('Giả lập lỗi chuẩn bị'),
+                  ),
+                ],
+              ),
+            ],
           ],
         ],
       ),
