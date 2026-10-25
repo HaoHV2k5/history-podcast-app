@@ -16,5 +16,6 @@ public class ArtifactResponse {
     private String sourceType;
     private Integer durationSeconds;
     private String status;
+    private Integer version;
     private Instant createdAt;
 }
