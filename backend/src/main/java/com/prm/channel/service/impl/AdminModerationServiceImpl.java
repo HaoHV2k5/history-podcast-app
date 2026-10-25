@@ -7,15 +7,19 @@ import com.prm.channel.entity.Artifact;
 import com.prm.channel.entity.Content;
 import com.prm.channel.entity.ModerationReview;
 import com.prm.channel.repository.AiFilterLogRepository;
+import com.prm.channel.repository.ArtifactRepository;
 import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.repository.ModerationReviewRepository;
+import com.prm.channel.repository.TranscriptRepository;
 import com.prm.channel.service.AdminModerationService;
 import com.prm.channel.service.AiShieldPolicyService;
 import com.prm.common.dto.PageResponse;
 import com.prm.common.enums.AiShieldTier;
+import com.prm.common.enums.ArtifactStatus;
 import com.prm.common.enums.ContentStatus;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
+import com.prm.common.service.FileStorageService;
 import com.prm.identity.entity.User;
 import com.prm.identity.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +28,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Objects;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -42,6 +49,9 @@ public class AdminModerationServiceImpl implements AdminModerationService {
     private final ContentRepository contentRepository;
     private final UserRepository userRepository;
     private final AiShieldPolicyService aiShieldPolicyService;
+    private final ArtifactRepository artifactRepository;
+    private final TranscriptRepository transcriptRepository;
+    private final FileStorageService fileStorageService;
 
 
     @Override
@@ -115,13 +125,64 @@ public class AdminModerationServiceImpl implements AdminModerationService {
         review.setReviewedAt(Instant.now());
         review = moderationReviewRepository.save(review);
 
-        // 2. Cập nhật Content status
+        // 2. Cập nhật Artifact & Content status
         if ("APPROVED".equals(decision)) {
+            // Đặt artifact được duyệt thành PUBLISHED
+            artifact.setStatus(ArtifactStatus.PUBLISHED.name());
+            if (fileStorageService != null && !StringUtils.hasText(artifact.getOptimizedUrl()) && StringUtils.hasText(artifact.getFileUrl())) {
+                artifact.setOptimizedUrl(fileStorageService.buildOptimizedVideoUrl(artifact.getFileUrl()));
+            }
+            if (artifactRepository != null) {
+                artifactRepository.save(artifact);
+
+                // Lưu trữ (ARCHIVE) tất cả các artifact cũ hơn đang là PUBLISHED để bản mới thay thế hoàn toàn
+                // Đồng thời kích hoạt PUBLISHED cho các artifact đồng hành (ví dụ COVER) cùng version với artifact này
+                List<Artifact> allArtifacts = artifactRepository.findByContentId(content.getId());
+                for (Artifact prev : allArtifacts) {
+                    if (!prev.getId().equals(artifact.getId())) {
+                        if (Objects.equals(prev.getVersion(), artifact.getVersion())) {
+                            prev.setStatus(ArtifactStatus.PUBLISHED.name());
+                            artifactRepository.save(prev);
+                        } else if (ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(prev.getStatus())) {
+                            prev.setStatus(ArtifactStatus.ARCHIVED.name());
+                            artifactRepository.save(prev);
+                        }
+                    }
+                }
+            }
+
             content.setStatus(ContentStatus.PUBLISHED.name());
-            log.info("Admin '{}' APPROVED video ID '{}' ({})", adminEmail, content.getId(), content.getTitle());
+            if (transcriptRepository != null && artifact.getId() != null) {
+                transcriptRepository.findFirstByArtifactIdOrderByCreatedAtDesc(artifact.getId())
+                        .ifPresent(tr -> content.setTextBody(tr.getTextBody()));
+            }
+            log.info("Admin '{}' APPROVED video ID '{}' ({}), artifact ID: {} (version {})",
+                    adminEmail, content.getId(), content.getTitle(), artifact.getId(), artifact.getVersion());
         } else {
-            content.setStatus(ContentStatus.REJECTED.name());
-            log.info("Admin '{}' REJECTED video ID '{}' ({}) with reason: {}", adminEmail, content.getId(), content.getTitle(), request.getReason());
+            // REJECTED
+            artifact.setStatus(ArtifactStatus.REJECTED.name());
+            if (artifactRepository != null) {
+                artifactRepository.save(artifact);
+
+                // Cập nhật tất cả các artifact cùng version (ví dụ COVER) thành REJECTED
+                List<Artifact> allArtifacts = artifactRepository.findByContentId(content.getId());
+                for (Artifact a : allArtifacts) {
+                    if (!a.getId().equals(artifact.getId()) && Objects.equals(a.getVersion(), artifact.getVersion())) {
+                        a.setStatus(ArtifactStatus.REJECTED.name());
+                        artifactRepository.save(a);
+                    }
+                }
+            }
+
+            // Nếu trước đó chưa từng có bản PUBLISHED nào (ví dụ duyệt video lần đầu bị từ chối), content chuyển REJECTED.
+            // Nếu trước đó đã có bản PUBLISHED (v1), content vẫn giữ PUBLISHED để không làm gián đoạn người xem bản v1!
+            boolean hasPublishedArtifact = artifactRepository != null && artifactRepository.findByContentId(content.getId()).stream()
+                    .anyMatch(a -> !a.getId().equals(artifact.getId()) && ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(a.getStatus()));
+            if (!hasPublishedArtifact) {
+                content.setStatus(ContentStatus.REJECTED.name());
+            }
+            log.info("Admin '{}' REJECTED video ID '{}' ({}), artifact ID: {} (version {}) with reason: {}",
+                    adminEmail, content.getId(), content.getTitle(), artifact.getId(), artifact.getVersion(), request.getReason());
         }
         content.setUpdatedAt(Instant.now());
         contentRepository.save(content);

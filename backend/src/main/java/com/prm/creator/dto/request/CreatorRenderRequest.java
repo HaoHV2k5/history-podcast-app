@@ -48,6 +48,11 @@ public class CreatorRenderRequest {
     private String coverImage;
 
     /**
+     * URL ảnh Thumbnail đại diện do Creator chủ động thêm vô cho video
+     */
+    private String thumbnailUrl;
+
+    /**
      * ID của Series muốn gán video này vào (tùy chọn)
      */
     private Long seriesId;

@@ -19,6 +19,7 @@ public class PublicVideoItemResponse {
     private String description;
     private String status;
     private String fileUrl;
+    private String thumbnailUrl;
     private Integer durationSeconds;
     private Boolean isExclusive;
     private Instant createdAt;

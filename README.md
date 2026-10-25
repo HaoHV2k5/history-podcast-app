@@ -9,15 +9,18 @@
 
 ```text
 code/
-├── backend/       # Mã nguồn Server & RESTful API Service
-│   └── README.md  # Chi tiết kiến trúc và hướng dẫn chạy Backend
-├── mobile/        # Mã nguồn ứng dụng di động (Flutter)
-│   └── README.md  # Chi tiết giao diện và hướng dẫn chạy Mobile
-├── web/           # Mã nguồn ứng dụng web (React / Vite)
-│   └── README.md  # Chi tiết tính năng và hướng dẫn chạy Web
-├── doc/           # Tài liệu kỹ thuật, schema & hướng dẫn tích hợp
+├── backend/                  # Mã nguồn Server & RESTful API Service (Spring Boot)
+│   └── README.md             # Chi tiết kiến trúc và hướng dẫn chạy Backend
+├── mobile/                   # Mã nguồn ứng dụng di động (Flutter)
+│   └── README.md             # Chi tiết giao diện và hướng dẫn chạy Mobile
+├── web/                      # Mã nguồn ứng dụng web / Creator & Admin Portal (React / Vite)
+│   └── README.md             # Chi tiết tính năng và hướng dẫn chạy Web
+├── tool/                     # Python AI Engine (RAG, Gemini, Edge-TTS, Whiteboard Stream Render)
+│   └── README.md             # Hướng dẫn động cơ Whiteboard AI Studio
+├── doc/                      # Tài liệu kỹ thuật, schema & hướng dẫn tích hợp
 │   └── livestream-integration-guide.md # Hướng dẫn chi tiết tích hợp Livestream (Agora RTC)
-└── README.md      # Tài liệu tổng quan toàn bộ dự án
+├── README_VIDEO_AUDIO_FLOW.md # 🎬 ĐẶC TẢ CHI TIẾT LUỒNG TẠO VIDEO/AUDIO CREATOR STUDIO
+└── README.md                 # Tài liệu tổng quan toàn bộ dự án
 ```
 
 ---
