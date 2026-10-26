@@ -45,6 +45,7 @@ interface Step4RenderStudioProps {
   onUploadCoverImage: (file: File) => Promise<void>;
   onStartRender: () => void;
   isStartingRender: boolean;
+  isCheckingSoftGuard?: boolean;
   renderError: Error | null;
   // Active Job Monitoring
   activeJobId: string | null;
@@ -77,6 +78,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
   onUploadCoverImage,
   onStartRender,
   isStartingRender,
+  isCheckingSoftGuard = false,
   renderError,
   activeJobId,
   jobStatus,
@@ -705,7 +707,13 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                 className="gap-2 text-xs font-semibold px-6 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
               >
                 <Clapperboard className={`h-3.5 w-3.5 ${isStartingRender ? 'animate-spin' : ''}`} />
-                <span>{isStartingRender ? 'Đang khởi chạy render...' : 'Bắt đầu kết xuất Video'}</span>
+                <span>
+                  {isCheckingSoftGuard
+                    ? '🔍 Đang đối chiếu sử liệu...'
+                    : isStartingRender
+                    ? 'Đang khởi chạy render...'
+                    : 'Bắt đầu kết xuất Video'}
+                </span>
               </Button>
             </div>
           </div>
