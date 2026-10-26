@@ -21,6 +21,7 @@ import {
   X,
   Layers,
   CheckCircle2,
+  Volume2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,6 +111,8 @@ export const HISTORICAL_SCOPE_SUGGESTIONS: HistoricalTopicItem[] = [
 ];
 
 interface Step1ScriptInputProps {
+  renderMode?: 'whiteboard' | 'audio_podcast';
+  setRenderMode?: (mode: 'whiteboard' | 'audio_podcast') => void;
   scriptTopic: string;
   setScriptTopic: (val: string) => void;
   scriptContent: string;
@@ -135,6 +138,8 @@ interface Step1ScriptInputProps {
 }
 
 export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
+  renderMode = 'audio_podcast',
+  setRenderMode,
   scriptTopic,
   setScriptTopic,
   scriptContent,
@@ -221,6 +226,149 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* 0. Thao Tác 1: Lựa Chọn Định Dạng Video (Render Mode) - Chuẩn v3.0 */}
+      <div className="rounded-xl border border-border bg-surface p-5 shadow-xs space-y-3.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-border">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent text-canvas text-xs font-bold">
+              1
+            </span>
+            <h2 className="font-serif text-sm font-bold text-ink">
+              Chọn Định Dạng Video Muốn Tạo
+            </h2>
+          </div>
+          <span className="text-[11px] text-muted">
+            Chọn định dạng phù hợp để AI tối ưu hóa kịch bản và prompt hình ảnh
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {/* Option 1: Audio Podcast */}
+          <button
+            type="button"
+            onClick={() => setRenderMode?.('audio_podcast')}
+            className={`p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer relative ${
+              renderMode === 'audio_podcast'
+                ? 'border-accent bg-accent/5 ring-2 ring-accent/30 shadow-xs'
+                : 'border-border bg-surface-subtle/40 hover:bg-surface-subtle hover:border-accent/40'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`flex h-9 w-9 rounded-lg items-center justify-center shrink-0 transition-colors ${
+                    renderMode === 'audio_podcast'
+                      ? 'bg-accent text-canvas'
+                      : 'bg-surface text-muted border border-border'
+                  }`}
+                >
+                  <Volume2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm font-bold text-ink">
+                      Audio Podcast Video
+                    </span>
+                    <Badge variant="accent" className="text-[10px] py-0 px-1.5 font-sans">
+                      Khuyên Dùng
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-muted block mt-0.5">
+                    Kể chuyện, bình luận lịch sử, tâm sự truyền cảm
+                  </span>
+                </div>
+              </div>
+              <div
+                className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  renderMode === 'audio_podcast'
+                    ? 'border-accent bg-accent text-canvas'
+                    : 'border-border bg-surface'
+                }`}
+              >
+                {renderMode === 'audio_podcast' && <Check className="h-3 w-3 stroke-[3]" />}
+              </div>
+            </div>
+
+            <div className="mt-3.5 pt-2.5 border-t border-border/60 grid grid-cols-3 gap-2 text-[11px] text-muted">
+              <div>
+                <span className="font-semibold text-ink block">⚡ 30 – 60s</span>
+                <span>Thời gian render</span>
+              </div>
+              <div>
+                <span className="font-semibold text-ink block">🖼️ 1 Ảnh duy nhất</span>
+                <span>Chỉ cần ảnh bìa</span>
+              </div>
+              <div>
+                <span className="font-semibold text-ink block">🛠️ Vá siêu tốc</span>
+                <span>Sửa câu &lt; 10s</span>
+              </div>
+            </div>
+          </button>
+
+          {/* Option 2: Whiteboard */}
+          <button
+            type="button"
+            onClick={() => setRenderMode?.('whiteboard')}
+            className={`p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer relative ${
+              renderMode === 'whiteboard'
+                ? 'border-accent bg-accent/5 ring-2 ring-accent/30 shadow-xs'
+                : 'border-border bg-surface-subtle/40 hover:bg-surface-subtle hover:border-accent/40'
+            }`}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={`flex h-9 w-9 rounded-lg items-center justify-center shrink-0 transition-colors ${
+                    renderMode === 'whiteboard'
+                      ? 'bg-accent text-canvas'
+                      : 'bg-surface text-muted border border-border'
+                  }`}
+                >
+                  <Layers className="h-5 w-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm font-bold text-ink">
+                      Hoạt Họa Bảng Trắng
+                    </span>
+                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono">
+                      Whiteboard
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-muted block mt-0.5">
+                    Tái hiện trận đánh, giai thoại lịch sử sinh động
+                  </span>
+                </div>
+              </div>
+              <div
+                className={`h-5 w-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                  renderMode === 'whiteboard'
+                    ? 'border-accent bg-accent text-canvas'
+                    : 'border-border bg-surface'
+                }`}
+              >
+                {renderMode === 'whiteboard' && <Check className="h-3 w-3 stroke-[3]" />}
+              </div>
+            </div>
+
+            <div className="mt-3.5 pt-2.5 border-t border-border/60 grid grid-cols-3 gap-2 text-[11px] text-muted">
+              <div>
+                <span className="font-semibold text-ink block">⏳ 2 – 5 phút</span>
+                <span>Vẽ nét hoạt họa</span>
+              </div>
+              <div>
+                <span className="font-semibold text-ink block">🎨 Từng phân cảnh</span>
+                <span>Cần ảnh Cảnh 1..N</span>
+              </div>
+              <div>
+                <span className="font-semibold text-ink block">🎬 Chuẩn 16:9</span>
+                <span>Bảng giấy cổ</span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
       {/* 1. Dynasty Context Ribbon (Anti-AI-Slop Scope Guide) */}
       <div className="rounded-xl border border-border bg-surface p-3.5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">

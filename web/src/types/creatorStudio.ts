@@ -117,6 +117,7 @@ export interface CreatorRenderRequest {
   storyboard?: Record<string, unknown>;
   sceneImages?: Record<string, string>;
   coverImage?: string;
+  thumbnailUrl?: string;
   ttsEngine?: string;
   voiceName?: string;
   channelId?: number;
@@ -154,3 +155,46 @@ export interface CreatorUploadImageResponse {
   status: string;
   message: string;
 }
+
+export interface CreatorPodcastSentenceItem {
+  index: number;
+  text: string;
+  audioUrl?: string | null;
+  duration?: number | null;
+}
+
+export interface CreatorPodcastSentencesResponse {
+  jobId?: string;
+  topic?: string;
+  ttsEngine?: string;
+  voiceName?: string;
+  sentences: CreatorPodcastSentenceItem[];
+}
+
+export interface CreatorSentencePatchItem {
+  index: number;
+  text: string;
+  reRecord?: boolean;
+}
+
+export interface CreatorPatchPodcastRequest {
+  patches?: CreatorSentencePatchItem[];
+  sentences?: string[];
+  coverImage?: string;
+}
+
+export interface CreatorPatchPodcastResponse {
+  contentId: number;
+  artifactId: number;
+  version: number;
+  jobId: string;
+  status: string;
+  fileUrl?: string;
+  coverUrl?: string;
+  durationSeconds?: number;
+  modifiedCount?: number;
+  reRecordedCount?: number;
+  totalSentences?: number;
+  message?: string;
+}
+

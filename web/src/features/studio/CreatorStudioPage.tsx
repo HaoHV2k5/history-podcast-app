@@ -24,6 +24,7 @@ import {
 import { CreatorVideoItem } from '@/types/creatorContent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -98,6 +99,8 @@ export const CreatorStudioPage: React.FC = () => {
   const [uploadingSceneIndex, setUploadingSceneIndex] = useState<string | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState('');
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   // Step 3: Voice Selection State
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>('vi-VN-NamMinhNeural');
@@ -119,6 +122,11 @@ export const CreatorStudioPage: React.FC = () => {
   // Step 4: Submit Moderation State
   const [publishResult, setPublishResult] = useState<CreatorVideoItem | null>(null);
   const [publishError, setPublishError] = useState<Error | null>(null);
+
+  // 2-Phase Execution States (Nhịp 1: Rào chắn mềm sử liệu -> Nhịp 2: Render ngầm)
+  const [isSoftGuardChecking, setIsSoftGuardChecking] = useState(false);
+  const [softGuardWarning, setSoftGuardWarning] = useState<ScriptVerificationResponse | null>(null);
+  const [isSoftGuardModalOpen, setIsSoftGuardModalOpen] = useState(false);
 
   // Settings Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -357,6 +365,19 @@ export const CreatorStudioPage: React.FC = () => {
     }
   };
 
+  const handleUploadThumbnail = async (file: File) => {
+    setUploadingThumbnail(true);
+    try {
+      const res = await creatorStudioApi.uploadSceneImage(file);
+      const url = res.data?.imageUrl || '';
+      if (url) {
+        setThumbnailUrl(url);
+      }
+    } finally {
+      setUploadingThumbnail(false);
+    }
+  };
+
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -384,10 +405,16 @@ export const CreatorStudioPage: React.FC = () => {
     });
   };
 
-  // Step 4: Submit Render Video
-  const handleStartRender = () => {
+  // Step 4: 2-Phase Creation Flow (Nhịp 1: Rào chắn mềm sử liệu ngầm -> Nhịp 2: Render video ngầm)
+  const executeRender = (scriptOverride?: string) => {
     const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId);
     const finalEngine = selectedVoiceObj?.engine || settings?.ttsEngine || 'edge-tts';
+
+    const finalScript =
+      scriptOverride !== undefined
+        ? scriptOverride
+        : (scriptContent.trim() ||
+          (generatedStoryboard?.scenes ? extractNarrationFromStoryboard(generatedStoryboard.scenes) : ''));
 
     const payload: CreatorRenderRequest = {
       title: renderTitle.trim() || scriptTopic || 'Tác Phẩm Video Lịch Sử',
@@ -395,19 +422,65 @@ export const CreatorStudioPage: React.FC = () => {
       renderMode,
       ttsEngine: finalEngine,
       voiceName: selectedVoiceId,
+      thumbnailUrl: thumbnailUrl || coverImageUrl || sceneImages['1'] || '',
     };
 
     if (renderMode === 'audio_podcast') {
       payload.coverImage = coverImageUrl;
-      payload.scriptText =
-        scriptContent.trim() ||
-        (generatedStoryboard?.scenes ? extractNarrationFromStoryboard(generatedStoryboard.scenes) : '');
+      payload.scriptText = finalScript;
     } else {
       payload.storyboard = generatedStoryboard as unknown as Record<string, unknown>;
       payload.sceneImages = sceneImages;
     }
 
     renderVideoMutation.mutate(payload);
+  };
+
+  const handleStartRender = async () => {
+    const finalScript =
+      scriptContent.trim() ||
+      (generatedStoryboard?.scenes ? extractNarrationFromStoryboard(generatedStoryboard.scenes) : scriptTopic.trim());
+
+    // Nhịp 1: Rào chắn mềm kiểm tra sử liệu ngầm (1 - 2 giây)
+    setIsSoftGuardChecking(true);
+    try {
+      const verifyRes = await creatorStudioApi.verifyScript({ script: finalScript });
+      const report = verifyRes.data;
+
+      // Nếu phát hiện có nghi vấn sử liệu (có claims 'error' hoặc điểm < 75)
+      const hasErrors =
+        report?.claims?.some((c) => c.verdict === 'error') ||
+        (report?.overall_score !== undefined && report.overall_score < 75);
+
+      if (hasErrors && report) {
+        setSoftGuardWarning(report);
+        setIsSoftGuardModalOpen(true);
+        setIsSoftGuardChecking(false);
+        return;
+      }
+    } catch (e) {
+      // Nếu việc đối chiếu sử liệu ngầm gặp trục trặc mạng, tôn trọng Creator và tiếp tục
+      console.warn('Soft-guard check bypassed due to network/engine exception:', e);
+    } finally {
+      setIsSoftGuardChecking(false);
+    }
+
+    // Nhịp 2: Kịch bản chuẩn xác, tự động chạy thẳng sang Render
+    executeRender();
+  };
+
+  const handleApplySoftGuardFixAndRender = () => {
+    const revised = softGuardWarning?.revised_script || '';
+    if (revised) {
+      setScriptContent(revised);
+    }
+    setIsSoftGuardModalOpen(false);
+    executeRender(revised || undefined);
+  };
+
+  const handleBypassSoftGuardAndRender = () => {
+    setIsSoftGuardModalOpen(false);
+    executeRender();
   };
 
   const handleResetNewVideo = () => {
@@ -422,6 +495,8 @@ export const CreatorStudioPage: React.FC = () => {
     setVerificationResult(null);
     setSceneImages({});
     setCoverImageUrl('');
+    setThumbnailUrl('');
+    setUploadingThumbnail(false);
     setMaxUnlockedStep(1);
     setActiveTab('script');
   };
@@ -587,6 +662,8 @@ export const CreatorStudioPage: React.FC = () => {
         {/* Step 1: Script Input & RAG Fact-checking */}
         {activeTab === 'script' && (
           <Step1ScriptInput
+            renderMode={renderMode}
+            setRenderMode={setRenderMode}
             scriptTopic={scriptTopic}
             setScriptTopic={setScriptTopic}
             scriptContent={scriptContent}
@@ -618,6 +695,7 @@ export const CreatorStudioPage: React.FC = () => {
         {/* Step 2: Storyboard Review, Prompt & Scene Image Upload */}
         {activeTab === 'storyboard' && (
           <Step2StoryboardScenes
+            renderMode={renderMode}
             storyboard={generatedStoryboard}
             scriptContent={scriptContent}
             setScriptContent={setScriptContent}
@@ -625,6 +703,14 @@ export const CreatorStudioPage: React.FC = () => {
             onUploadSceneImage={handleUploadSceneImage}
             onRemoveSceneImage={handleRemoveSceneImage}
             uploadingSceneIndex={uploadingSceneIndex}
+            coverImageUrl={coverImageUrl}
+            setCoverImageUrl={setCoverImageUrl}
+            uploadingCover={uploadingCover}
+            onUploadCoverImage={handleUploadCoverImage}
+            thumbnailUrl={thumbnailUrl}
+            setThumbnailUrl={setThumbnailUrl}
+            uploadingThumbnail={uploadingThumbnail}
+            onUploadThumbnail={handleUploadThumbnail}
             copiedKey={copiedKey}
             onCopy={handleCopy}
             onPrevStep={() => setActiveTab('script')}
@@ -676,7 +762,8 @@ export const CreatorStudioPage: React.FC = () => {
             uploadingCover={uploadingCover}
             onUploadCoverImage={handleUploadCoverImage}
             onStartRender={handleStartRender}
-            isStartingRender={renderVideoMutation.isPending}
+            isStartingRender={renderVideoMutation.isPending || isSoftGuardChecking}
+            isCheckingSoftGuard={isSoftGuardChecking}
             renderError={renderVideoMutation.error}
             activeJobId={activeJobId}
             jobStatus={jobStatusData}
@@ -784,6 +871,108 @@ export const CreatorStudioPage: React.FC = () => {
               className="text-xs font-semibold px-4"
             >
               {updateSettingsMutation.isPending ? 'Đang lưu...' : 'Lưu Cấu Hình'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 6. Soft Guard Historical Warning Dialog (Rào Chắn Mềm Sử Liệu) */}
+      <Dialog open={isSoftGuardModalOpen} onOpenChange={setIsSoftGuardModalOpen}>
+        <DialogContent className="max-w-2xl bg-surface border-border max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600">
+                <ShieldAlert className="h-5 w-5" />
+              </span>
+              <div>
+                <DialogTitle className="font-serif text-base font-bold text-ink">
+                  Đối Chiếu Sử Liệu RAG: Phát Hiện Nghi Vấn Lịch Sử
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted">
+                  Hệ thống đối chiếu kịch bản của bạn với kho sách sử chính thống (Đại Việt Sử Ký Toàn Thư, Khâm Định Việt Sử).
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {softGuardWarning && (
+            <div className="space-y-4 py-2 text-xs">
+              {/* Score and summary pill */}
+              <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/25 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <span>Điểm tin cậy sử liệu:</span>
+                    <span className="text-sm font-mono">{softGuardWarning.overall_score || 70} / 100</span>
+                  </span>
+                  <Badge variant="outline" className="text-[10px] bg-surface">
+                    Rào chắn mềm (Soft Guard)
+                  </Badge>
+                </div>
+                {softGuardWarning.summary && (
+                  <p className="text-muted leading-relaxed">{softGuardWarning.summary}</p>
+                )}
+              </div>
+
+              {/* Claims Breakdown */}
+              {softGuardWarning.claims && softGuardWarning.claims.length > 0 && (
+                <div className="space-y-2.5">
+                  <span className="font-semibold text-ink block text-xs">Chi tiết các luận điểm cần lưu ý:</span>
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {softGuardWarning.claims.map((claim, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border text-xs space-y-1.5 ${
+                          claim.verdict === 'error'
+                            ? 'bg-status-error-bg/30 border-status-error-border'
+                            : 'bg-surface-subtle border-border'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold text-ink">
+                            &quot;{claim.claim_text}&quot;
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono shrink-0 uppercase font-bold ${
+                              claim.verdict === 'error'
+                                ? 'bg-status-error-bg text-status-error-text border border-status-error-border'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {claim.verdict === 'error' ? 'Sai lệch' : 'Chưa xác thực'}
+                          </span>
+                        </div>
+                        <p className="text-muted text-[11px] leading-relaxed">{claim.explanation}</p>
+                        {claim.suggested_fix && (
+                          <div className="p-2 rounded bg-surface border border-accent/20 text-[11px] text-accent">
+                            <strong>Đề xuất sửa:</strong> {claim.suggested_fix}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleBypassSoftGuardAndRender}
+              className="text-xs border-border hover:bg-surface-subtle"
+            >
+              <span>Bảo lưu quan điểm, Vẫn tạo video</span>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleApplySoftGuardFixAndRender}
+              className="text-xs font-semibold gap-1.5 bg-accent text-canvas hover:bg-accent/90"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Áp dụng câu sửa của AI &amp; Tạo Video</span>
             </Button>
           </DialogFooter>
         </DialogContent>
