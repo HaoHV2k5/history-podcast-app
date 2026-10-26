@@ -51,6 +51,7 @@ import {
 } from '@/components/ui/dialog';
 import { AiShieldBadge } from '@/features/moderation/components/AiShieldBadge';
 import { formatDateTime, formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
+import { resolveVideoThumbnail } from '../studio/creatorStudioUtils';
 
 export const CreatorContentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1080,9 +1081,9 @@ export const CreatorContentDetailPage: React.FC = () => {
 
           <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
             <div className="relative aspect-video rounded-lg border border-border overflow-hidden bg-surface-subtle flex items-center justify-center">
-              {detail.thumbnailUrl ? (
+              {resolveVideoThumbnail(detail.thumbnailUrl, detail.fileUrl) ? (
                 <img
-                  src={resolveMediaUrl(detail.thumbnailUrl)}
+                  src={resolveVideoThumbnail(detail.thumbnailUrl, detail.fileUrl)}
                   alt="Ảnh Thumbnail Poster"
                   className="w-full h-full object-cover"
                 />

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { CreatorVideoItem } from '@/types/creatorContent';
 import { formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
+import { resolveVideoThumbnail } from '@/features/studio/creatorStudioUtils';
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'ALL', label: 'Tất cả' },
@@ -442,10 +443,10 @@ export const CreatorContentLibraryPage: React.FC = () => {
                     className="relative aspect-video bg-surface-subtle border-b border-border overflow-hidden flex items-center justify-center cursor-pointer group/thumb hover:brightness-95 transition-all duration-200 select-none"
                     title={`Xem video: ${item.title}`}
                   >
-                    {/* Thumbnail Poster Image if present */}
-                    {item.thumbnailUrl ? (
+                    {/* Thumbnail Poster Image if present or auto-derived from video frame */}
+                    {resolveVideoThumbnail(item.thumbnailUrl, item.fileUrl) ? (
                       <img
-                        src={resolveMediaUrl(item.thumbnailUrl)}
+                        src={resolveVideoThumbnail(item.thumbnailUrl, item.fileUrl)}
                         alt={item.title}
                         className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
                         onError={(e) => {
