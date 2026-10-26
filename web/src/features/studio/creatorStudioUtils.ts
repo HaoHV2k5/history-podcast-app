@@ -253,3 +253,39 @@ export const extractNarrationFromStoryboard = (
 
   return lines.join('\n\n');
 };
+
+/**
+ * Resolves a reliable video thumbnail URL.
+ * 1. Uses explicit thumbnailUrl if provided.
+ * 2. If missing and fileUrl is a Cloudinary video, automatically converts .mp4/.webm/.mov to .jpg poster frame.
+ * 3. If missing and fileUrl is a local /outputs/ video, points to the cover/first scene artifact image.
+ */
+export const resolveVideoThumbnail = (
+  thumbnailUrl?: string | null,
+  fileUrl?: string | null,
+  apiBaseUrl?: string
+): string => {
+  if (thumbnailUrl && thumbnailUrl.trim().length > 0) {
+    return resolveMediaUrl(thumbnailUrl.trim(), apiBaseUrl);
+  }
+  if (!fileUrl) return '';
+
+  const cleanFile = fileUrl.trim();
+  // Cloudinary video poster snapshot: replace video extension with .jpg
+  if (
+    cleanFile.includes('cloudinary.com') &&
+    (cleanFile.endsWith('.mp4') || cleanFile.endsWith('.webm') || cleanFile.endsWith('.mov'))
+  ) {
+    return cleanFile.replace(/\.(mp4|webm|mov)$/i, '.jpg');
+  }
+
+  // Local Python outputs video snapshot
+  if (cleanFile.includes('/outputs/') && cleanFile.endsWith('.mp4')) {
+    return resolveMediaUrl(
+      cleanFile.replace(/final_whiteboard_video\.mp4$/i, 'cover.png'),
+      apiBaseUrl
+    );
+  }
+
+  return '';
+};

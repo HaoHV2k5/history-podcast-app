@@ -28,7 +28,9 @@ export interface CreatorVideoItem {
   title: string;
   description?: string | null;
   status: ContentStatus;
+  version?: number | null;
   fileUrl?: string | null;
+  thumbnailUrl?: string | null;
   durationSeconds?: number | null;
   isExclusive?: boolean | null;
   createdAt: string;
