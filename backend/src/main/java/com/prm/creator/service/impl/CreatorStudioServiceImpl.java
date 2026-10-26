@@ -342,11 +342,27 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         String geminiKey = settingOpt.map(CreatorAiSetting::getGeminiApiKey).orElse("");
         String elevenKey = settingOpt.map(CreatorAiSetting::getElevenlabsApiKey).orElse("");
         String ttsEngine = StringUtils.hasText(request.getTtsEngine())
-                ? request.getTtsEngine()
+                ? request.getTtsEngine().trim().toLowerCase()
                 : settingOpt.map(CreatorAiSetting::getTtsEngine).orElse("edge-tts");
         String voiceName = StringUtils.hasText(request.getVoiceName())
-                ? request.getVoiceName()
+                ? request.getVoiceName().trim()
                 : settingOpt.map(CreatorAiSetting::getVoiceName).orElse("vi-VN-NamMinhNeural");
+
+        // Tự động chuẩn hóa tương thích giữa công nghệ TTS và mã giọng đọc
+        if ("elevenlabs".equalsIgnoreCase(ttsEngine)) {
+            if (!StringUtils.hasText(elevenKey)) {
+                log.warn("Creator '{}' selected ElevenLabs but has no ElevenLabs key. Falling back to edge-tts.", email);
+                ttsEngine = "edge-tts";
+                voiceName = "vi-VN-NamMinhNeural";
+            } else if (voiceName.startsWith("vi-VN-") || voiceName.contains("-")) {
+                voiceName = "Brian";
+            }
+        } else {
+            ttsEngine = "edge-tts";
+            if (!voiceName.startsWith("vi-VN-")) {
+                voiceName = "vi-VN-NamMinhNeural";
+            }
+        }
 
         String renderMode = StringUtils.hasText(request.getRenderMode()) ? request.getRenderMode().trim().toLowerCase() : "whiteboard";
         boolean isAudioPodcast = "audio_podcast".equals(renderMode) || "podcast".equals(renderMode) || "audio".equals(renderMode);
@@ -512,7 +528,15 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             toolPayload.put("storyboard", request.getStoryboard());
         }
         if (request.getSceneImages() != null) {
-            toolPayload.put("custom_images", request.getSceneImages());
+            Map<String, String> normalizedImages = new HashMap<>(request.getSceneImages());
+            request.getSceneImages().forEach((k, v) -> {
+                if (v != null) {
+                    String cleanKey = k.toLowerCase().replace("scene_", "").replace("scene", "").trim();
+                    normalizedImages.put(cleanKey, v);
+                    normalizedImages.put("scene_" + cleanKey, v);
+                }
+            });
+            toolPayload.put("custom_images", normalizedImages);
         }
         toolPayload.put("gemini_api_key", geminiKey);
         toolPayload.put("elevenlabs_api_key", elevenKey);
@@ -2006,6 +2030,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         String elevenKey = settingOpt.map(CreatorAiSetting::getElevenlabsApiKey).orElse("");
         String ttsEngine = settingOpt.map(CreatorAiSetting::getTtsEngine).orElse("edge-tts");
         String voiceName = settingOpt.map(CreatorAiSetting::getVoiceName).orElse("vi-VN-NamMinhNeural");
+        if ("elevenlabs".equalsIgnoreCase(ttsEngine) && (voiceName.startsWith("vi-VN-") || voiceName.contains("-"))) {
+            voiceName = "Brian";
+        }
 
         Map<String, Object> toolPayload = new HashMap<>();
         toolPayload.put("job_id", jobId);

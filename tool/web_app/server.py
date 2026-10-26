@@ -234,8 +234,11 @@ async def get_job(job_id: str):
         if video_p.exists():
             JOBS[job_id] = {
                 "id": job_id,
+                "job_id": job_id,
                 "status": "completed",
-                "step": 7,
+                "step": 6,
+                "total_steps": 6,
+                "progress": 100,
                 "step_name": "Đã hoàn thành xuất bản video!",
                 "video_url": f"/outputs/{job_id}/final_whiteboard_video.mp4",
                 "srt_url": f"/outputs/{job_id}/subtitles.srt" if srt_p.exists() else None,
@@ -243,7 +246,15 @@ async def get_job(job_id: str):
             }
         else:
             raise HTTPException(status_code=404, detail="Job không tồn tại")
-    return JOBS[job_id]
+    
+    job = JOBS[job_id]
+    if job.get("status") == "completed":
+        job["progress"] = 100
+    elif "total_steps" in job and job["total_steps"] > 0:
+        step = job.get("step", 0)
+        tot = job["total_steps"]
+        job["progress"] = min(99, int(round((step / tot) * 100)))
+    return job
 
 
 class OutOfScopeHistoryError(Exception):
@@ -602,7 +613,12 @@ async def create_video(req: VideoRequest, background_tasks: BackgroundTasks):
     if render_mode in ["audio_podcast", "podcast", "audio"]:
         cover_b64 = req.cover_image_b64
         if not cover_b64 and req.custom_images:
-            cover_b64 = req.custom_images.get("cover") or req.custom_images.get("1")
+            cover_b64 = (
+                req.custom_images.get("cover")
+                or req.custom_images.get("thumbnail")
+                or req.custom_images.get("1")
+                or req.custom_images.get("scene_1")
+            )
         if not cover_b64 or (not cover_b64.strip().startswith("http") and len(cover_b64.strip()) < 50):
             raise HTTPException(
                 status_code=400,
@@ -639,6 +655,12 @@ def log(job_id: str, message: str, step: int = None, step_name: str = None):
             JOBS[job_id]["step"] = step
         if step_name is not None:
             JOBS[job_id]["step_name"] = step_name
+        if JOBS[job_id].get("status") == "completed":
+            JOBS[job_id]["progress"] = 100
+        else:
+            tot = JOBS[job_id].get("total_steps", 6)
+            st = JOBS[job_id].get("step", 0)
+            JOBS[job_id]["progress"] = min(99, int(round((st / tot) * 100)))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -1366,9 +1388,9 @@ def build_annotation_json(
         elements.append(elem_dict)
 
     ann = {
-        "sceneId": scene_data.get("scene_index", 1),
+        "sceneId": scene_data.get("scene_index") or scene_data.get("sceneNumber", 1),
         "canvas": {"width": 1376, "height": 768},
-        "storyBasis": scene_data.get("scene_title", ""),
+        "storyBasis": scene_data.get("scene_title") or scene_data.get("title", ""),
         "sceneDurationMs": scene_duration_ms,
         "elements": elements
     }
@@ -1552,15 +1574,24 @@ def generate_single_audio_clip(
             )
         # Hỗ trợ cả Voice Name (Brian, Liam, Adam...) lẫn Voice ID trực tiếp từ ElevenLabs
         v_clean = voice_name.strip() if voice_name else "Brian"
+        voice_map_lower = {k.lower(): v for k, v in ELEVENLABS_VOICES.items()}
         if v_clean in ELEVENLABS_VOICES:
             vid = ELEVENLABS_VOICES[v_clean]
-        elif len(v_clean) >= 15:
-            # Người dùng nhập trực tiếp Voice ID (thường là chuỗi mã 20 ký tự)
+        elif v_clean.lower() in voice_map_lower:
+            vid = voice_map_lower[v_clean.lower()]
+        elif len(v_clean) >= 18 and len(v_clean) <= 24 and v_clean.isalnum():
+            # Người dùng nhập trực tiếp Voice ID ElevenLabs (chuỗi 20-24 ký tự alphanumeric)
             vid = v_clean
         else:
-            vid = ELEVENLABS_VOICES.get(v_clean, ELEVENLABS_VOICES["Brian"])
-        # Sẽ raise RuntimeError nếu lỗi - không silent fallback
-        generate_speech_elevenlabs(text, vid, el_key.strip(), out_mp3)
+            # Nếu voice_name không hợp lệ với ElevenLabs (ví dụ: vi-VN-NamMinhNeural), tự động dùng Brian
+            print(f"⚠️ Giọng đọc '{v_clean}' không phải Voice ID ElevenLabs hợp lệ. Tự động dùng giọng Brian ({ELEVENLABS_VOICES['Brian']})")
+            vid = ELEVENLABS_VOICES["Brian"]
+
+        try:
+            generate_speech_elevenlabs(text, vid, el_key.strip(), out_mp3)
+        except Exception as e_eleven:
+            print(f"⚠️ ElevenLabs TTS gặp lỗi ({e_eleven}). Tự động fallback sang Microsoft Edge-TTS vi-VN-NamMinhNeural...")
+            asyncio.run(generate_speech_edge(text, "vi-VN-NamMinhNeural", out_mp3))
     else:
         vname = "vi-VN-NamMinhNeural" if "Nam" in voice_name or voice_name in ["Brian", "Liam", "Adam", "George", "Callum", "Bill"] else "vi-VN-HoaiMyNeural"
         asyncio.run(generate_speech_edge(text, vname, out_mp3))
@@ -1656,6 +1687,17 @@ def mix_scene_audio(
     scene_dur_s: float
 ) -> Path:
     """Trộn các câu thoại vào đúng mốc thời gian liên tục của từng cảnh."""
+    scene_dur_s = max(1.0, float(scene_dur_s))
+    if not clip_files_and_starts:
+        # Nếu không có clip nào, tạo file wav tĩnh (silence) để tránh lỗi ffmpeg amix=inputs=0
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-t", f"{scene_dur_s:.3f}",
+            str(out_wav)
+        ], check=True)
+        return out_wav
+
     inputs = []
     parts = []
     for idx, (p, start_s) in enumerate(clip_files_and_starts):
@@ -1874,7 +1916,12 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         video_bg_png = job_dir / "podcast_video_bg.png"
         cover_b64 = req.cover_image_b64
         if not cover_b64 and req.custom_images:
-            cover_b64 = req.custom_images.get("cover") or req.custom_images.get("1")
+            cover_b64 = (
+                req.custom_images.get("cover")
+                or req.custom_images.get("thumbnail")
+                or req.custom_images.get("1")
+                or req.custom_images.get("scene_1")
+            )
 
         if not cover_b64 or (not cover_b64.strip().startswith("http") and len(cover_b64.strip()) < 50):
             raise ValueError("⚠️ Bắt buộc phải có ảnh bìa cho bản thu Audio Podcast! Vui lòng tải lên ảnh trước khi xuất bản.")
@@ -1973,6 +2020,7 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         # 5. HOÀN TẤT
         JOBS[job_id]["step"] = 5
         JOBS[job_id]["total_steps"] = 5
+        JOBS[job_id]["progress"] = 100
         JOBS[job_id]["step_name"] = "Hoàn tất"
         JOBS[job_id]["status"] = "completed"
         JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
@@ -2019,6 +2067,9 @@ def run_pipeline(job_id: str, req: VideoRequest):
             log(job_id, f"✅ Đã tải kịch bản Studio ({len(storyboard.get('scenes', []))} cảnh): {storyboard.get('title')}", 1, "Nghiên cứu & Kịch bản")
 
         scenes = storyboard.get("scenes", [])
+        for sc_i, sc in enumerate(scenes):
+            if not sc.get("scene_index"):
+                sc["scene_index"] = sc.get("sceneNumber") or (sc_i + 1)
         num_scenes = max(1, len(scenes))
 
         display_t = storyboard.get("title", req.topic or "Whiteboard Animation")
@@ -2029,23 +2080,41 @@ def run_pipeline(job_id: str, req: VideoRequest):
         log(job_id, f"🎨 Bước 2: Chuẩn bị hình ảnh minh họa vẽ tay cho {num_scenes} cảnh...", 2, "Xử lý ảnh vẽ tay")
         img_scenes = []
         
-        # Hỗ trợ custom_images dạng dict {"1": b64, "2": b64, ...} lẫn legacy fields
+        # Hỗ trợ custom_images dạng dict {"1": b64, "2": b64, ...}, {"scene_1": b64, ...} lẫn legacy fields
         custom_b64s = {}
         if req.custom_images:
             for k, v in req.custom_images.items():
+                if not v:
+                    continue
+                v_str = str(v).strip()
                 try:
-                    custom_b64s[int(k)] = v
+                    custom_b64s[int(k)] = v_str
                 except Exception:
                     pass
+                try:
+                    cleaned_k = str(k).lower().replace("scene_", "").replace("scene", "").strip()
+                    custom_b64s[int(cleaned_k)] = v_str
+                except Exception:
+                    pass
+                custom_b64s[str(k).strip()] = v_str
+                custom_b64s[f"scene_{k}"] = v_str
+
         if req.scene_1_b64 and 1 not in custom_b64s:
             custom_b64s[1] = req.scene_1_b64
         if req.scene_2_b64 and 2 not in custom_b64s:
             custom_b64s[2] = req.scene_2_b64
 
-        for sc in scenes:
-            s_idx = sc["scene_index"]
+        for sc_i, sc in enumerate(scenes):
+            s_idx = sc.get("scene_index") or sc.get("sceneNumber") or (sc_i + 1)
             img_p = job_dir / f"scene_{s_idx}.png"
-            b64_val = custom_b64s.get(s_idx)
+            b64_val = (
+                custom_b64s.get(s_idx)
+                or custom_b64s.get(str(s_idx))
+                or custom_b64s.get(f"scene_{s_idx}")
+                or sc.get("imageUrl")
+                or sc.get("image_url")
+                or sc.get("custom_image")
+            )
             if b64_val and (b64_val.strip().startswith("http") or len(b64_val.strip()) > 50):
                 log(job_id, f"   🖼️ Sử dụng ảnh bạn đã tải lên cho Cảnh {s_idx}!")
                 raw_bytes = decode_base64_image(b64_val)
@@ -2067,10 +2136,35 @@ def run_pipeline(job_id: str, req: VideoRequest):
         ann_files = []
 
         for s_i, sc in enumerate(scenes):
-            s_idx = sc["scene_index"]
+            s_idx = sc.get("scene_index") or sc.get("sceneNumber") or (s_i + 1)
             log(job_id, f"   Đang thu âm & khớp nhịp liên tục Cảnh {s_idx}...")
             
-            elements = sc.get("elements", [])[:3]
+            elements = sc.get("elements") or []
+            if not elements:
+                script = sc.get("scriptText") or sc.get("script") or sc.get("text") or ""
+                script = script.strip()
+                if script:
+                    import re
+                    raw_sents = [s.strip() for s in re.split(r'(?<=[.?!])\s+', script) if s.strip()]
+                    if not raw_sents:
+                        raw_sents = [script]
+                    elements = []
+                    for idx, s in enumerate(raw_sents[:3]):
+                        elements.append({
+                            "label": f"Phần {idx+1}",
+                            "narrativeRole": "Dẫn chuyện",
+                            "subtitle": s,
+                            "visual_desc": s
+                        })
+                else:
+                    elements = [{
+                        "label": "Thuyết minh",
+                        "narrativeRole": "Dẫn chuyện",
+                        "subtitle": f"Phân cảnh {s_idx}",
+                        "visual_desc": f"Cảnh {s_idx}"
+                    }]
+            sc["elements"] = elements[:3]
+            elements = sc["elements"]
             audio_durations = []
             clip_paths_and_starts = []
 
@@ -2118,7 +2212,8 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         scene_final_videos = []
         for i, ann_p in enumerate(ann_files):
-            s_idx = scenes[i]["scene_index"]
+            sc = scenes[i]
+            s_idx = sc.get("scene_index") or sc.get("sceneNumber") or (i + 1)
             dur_s = scene_timelines[i]["scene_duration_s"]
             log(job_id, f"   Đang vẽ nét Cảnh {s_idx} ({dur_s:.1f}s)...")
             raw_mp4 = job_dir / f"scene_{s_idx}_raw.mp4"
@@ -2167,6 +2262,8 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         # 6. Hoàn tất
         JOBS[job_id]["step"] = 6
+        JOBS[job_id]["total_steps"] = 6
+        JOBS[job_id]["progress"] = 100
         JOBS[job_id]["step_name"] = "Hoàn tất"
         JOBS[job_id]["status"] = "completed"
         JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
