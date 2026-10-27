@@ -65,11 +65,11 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
   const effectiveMaxStep = Math.max(maxUnlockedStep, hasStoryboard ? 2 : 1);
 
   return (
-    <div className="relative rounded-2xl border border-[#EAE6DF] bg-white p-3.5 sm:px-6 sm:py-4 shadow-2xs overflow-hidden transition-all">
+    <div className="relative rounded-2xl border border-[#EAE6DF] bg-white p-3 sm:px-5 sm:py-3.5 md:px-6 md:py-3.5 shadow-2xs overflow-hidden transition-all">
       {/* Subtle warm rosy blush on the left side matching reference design */}
       <div className="absolute left-0 top-0 bottom-0 w-80 bg-gradient-to-r from-[#B83345]/7 via-[#B83345]/2 to-transparent pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 md:gap-2">
+      <div className="relative z-10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 md:gap-1 lg:gap-2">
         {STUDIO_STEPS.map((step, idx) => {
           const Icon = step.icon;
           const isActive = activeTab === step.id;
@@ -88,7 +88,7 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
                   }
                 }}
                 disabled={!isUnlocked}
-                className={`flex items-center gap-2.5 sm:gap-3 text-left transition-all p-1.5 rounded-xl select-none group ${
+                className={`shrink-0 flex items-center gap-2 sm:gap-2.5 text-left transition-all py-1 px-1 sm:px-1.5 md:px-2 rounded-xl select-none group ${
                   isUnlocked ? 'cursor-pointer hover:bg-[#FAF8F5]/80' : 'cursor-not-allowed opacity-80'
                 }`}
                 title={
@@ -99,7 +99,7 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
               >
                 {/* 1. Number Badge Circle */}
                 <div
-                  className={`flex h-7 w-7 sm:h-7.5 sm:w-7.5 min-w-[28px] min-h-[28px] rounded-full items-center justify-center text-xs sm:text-xs font-bold shrink-0 transition-colors shadow-2xs ${
+                  className={`flex h-7 w-7 rounded-full items-center justify-center text-xs font-bold shrink-0 transition-colors shadow-2xs ${
                     isActive
                       ? 'bg-accent text-white'
                       : isCompleted
@@ -117,28 +117,28 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
 
                 {/* 2. Soft Icon Rounded Square */}
                 <div
-                  className={`flex h-8 w-8 min-w-[32px] min-h-[32px] rounded-xl items-center justify-center shrink-0 transition-colors border ${
+                  className={`flex h-7.5 w-7.5 rounded-xl items-center justify-center shrink-0 transition-colors border ${
                     isActive
                       ? 'bg-[#FAF0F1] text-accent border-accent/25'
                       : isCompleted
                       ? 'bg-[#FAF0F1] text-accent border-accent/25'
                       : 'bg-[#F5F4F0] text-[#78716C] border-[#E7E5E4]'
                   }`}
-                  style={{ width: '32px', height: '32px' }}
+                  style={{ width: '30px', height: '30px' }}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
                 </div>
 
                 {/* 3. Text Group (Title + Subtitle) */}
-                <div className="min-w-0 pr-1">
+                <div className="shrink-0 min-w-0 pr-0.5">
                   <span
-                    className={`block font-sans text-xs sm:text-[13.5px] font-bold leading-tight transition-colors ${
+                    className={`block font-sans text-xs sm:text-[13px] font-bold leading-tight transition-colors ${
                       isActive ? 'text-[#1C1917]' : isCompleted ? 'text-[#1C1917]' : 'text-[#292524]'
                     }`}
                   >
                     {step.title}
                   </span>
-                  <span className="block text-[10.5px] sm:text-[11px] text-[#78716C] leading-normal whitespace-nowrap">
+                  <span className="block text-[10px] sm:text-[11px] text-[#78716C] leading-normal whitespace-nowrap">
                     {step.subtitle}
                   </span>
                 </div>
@@ -146,7 +146,7 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
 
               {/* Connecting Line with Arrowhead between steps */}
               {idx < STUDIO_STEPS.length - 1 && (
-                <div className="hidden lg:flex flex-1 items-center px-2 sm:px-3 min-w-[36px] max-w-[130px]">
+                <div className="hidden md:flex flex-1 items-center px-1 sm:px-1.5 md:px-2 min-w-[14px] max-w-[85px]">
                   <div className="relative w-full h-[1.5px] bg-[#E7E5E4] flex items-center justify-end">
                     {step.stepNumber < effectiveMaxStep && (
                       <div className="absolute inset-0 bg-accent rounded-full" />
