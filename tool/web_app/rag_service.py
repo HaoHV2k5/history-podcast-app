@@ -280,23 +280,23 @@ NHIỆM VỤ CỦA BẠN (CỰC KỲ NGHIÊM NGẶT VÀ CỤ THỂ):
    - revised_script: Viết lại kịch bản hoàn chỉnh, sửa sạch lỗi sai, đưa vào mốc năm 1010, Chiếu dời đô, thế đất Đại La, sự tích rồng vàng bay lên ở thuyền ngự, và loại bỏ hoàn toàn các từ nối rập khuôn AI.
 
 HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ```json):
-{
+{{
   "in_scope": true,
   "overall_score": 70,
   "status": "needs_revision",
   "summary": "...",
   "thumbnail_prompt": "Epic cinematic historical podcast thumbnail illustration...",
   "claims": [
-    {
+    {{
       "claim_text": "...",
       "verdict": "error",
       "explanation": "...",
       "source_reference": "Đại Việt Sử Ký Toàn Thư - Bản Kỷ - Quyển II (Trang 80-81)",
       "suggested_fix": "..."
-    }
+    }}
   ],
   "revised_script": "..."
-}
+}}
 """
 
     payload = {

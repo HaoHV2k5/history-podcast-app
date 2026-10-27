@@ -36,7 +36,7 @@ export const StudioFormatSelector: React.FC<StudioFormatSelectorProps> = ({
           }`}
         >
           <Volume2 className="h-3.5 w-3.5 shrink-0" />
-          <span className="hidden sm:inline">Audio Podcast Video</span>
+          <span className="hidden sm:inline">Video Podcast Âm Thanh</span>
           <span className="inline sm:hidden">Podcast</span>
           <Badge variant="accent" className="text-[9px] py-0 px-1 font-sans ml-0.5 shrink-0">
             Khuyên dùng
@@ -56,7 +56,7 @@ export const StudioFormatSelector: React.FC<StudioFormatSelectorProps> = ({
           <Layers className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden sm:inline">Hoạt Họa Bảng Trắng</span>
           <span className="inline sm:hidden">Bảng Trắng</span>
-          <span className="text-[10px] text-muted font-mono ml-0.5 shrink-0">16:9</span>
+          <span className="text-[10px] text-muted font-sans font-medium ml-0.5 shrink-0">16:9</span>
           {renderMode === 'whiteboard' && <Check className="h-3 w-3 ml-0.5 stroke-[2.5] shrink-0" />}
         </button>
       </div>

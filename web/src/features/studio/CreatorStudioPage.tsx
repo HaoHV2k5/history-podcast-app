@@ -41,6 +41,10 @@ import { Step4RenderStudio } from './components/Step4RenderStudio';
 import type { CreationMode } from './components/StudioCreationMethodToggle';
 import { StudioHeader } from './components/StudioHeader';
 import { StudioWorkflowStepper } from './components/StudioWorkflowStepper';
+import {
+  StepTransitionConfirmationDialog,
+  StepTransitionModalState,
+} from './components/StepTransitionConfirmationDialog';
 import { gsap } from 'gsap';
 import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
 
@@ -127,6 +131,9 @@ export const CreatorStudioPage: React.FC = () => {
   const [isSoftGuardChecking, setIsSoftGuardChecking] = useState(false);
   const [softGuardWarning, setSoftGuardWarning] = useState<ScriptVerificationResponse | null>(null);
   const [isSoftGuardModalOpen, setIsSoftGuardModalOpen] = useState(false);
+
+  // Step Transition Pop-up State (emil-design-eng)
+  const [transitionModal, setTransitionModal] = useState<StepTransitionModalState>(null);
 
   // Settings Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -439,7 +446,7 @@ export const CreatorStudioPage: React.FC = () => {
       durationSec: renderDurationSec || storyboardDuration || 60,
       renderMode,
       ttsEngine: finalEngine,
-      voiceName: selectedVoiceId,
+      voiceName: selectedVoiceId || 'vi-VN-NamMinhNeural',
       thumbnailUrl: thumbnailUrl || coverImageUrl || sceneImages['1'] || '',
     };
 
@@ -524,10 +531,132 @@ export const CreatorStudioPage: React.FC = () => {
     setActiveTab('script');
   };
 
-  const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId) || voices[0];
+  const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId);
   const effectiveMaxStep = Math.max(maxUnlockedStep, generatedStoryboard ? 2 : 1);
 
+  // Guarded transition from Step 2 to Step 3
+  const handleNextFromStoryboard = (explicitTargetTab?: 'voices' | 'render') => {
+    const targetTab = explicitTargetTab || 'voices';
+    const isAudioPodcast = renderMode === 'audio_podcast';
+    const isPendingCover = isAudioPodcast && !coverImageUrl.trim();
+    const totalScenes = generatedStoryboard?.scenes?.length || 0;
+    const uploadedCount =
+      generatedStoryboard?.scenes?.filter((s) => Boolean(sceneImages[String(s.scene_index)]))
+        .length || 0;
+    const isPendingScenes = !isAudioPodcast && uploadedCount < totalScenes;
 
+    if (isPendingCover) {
+      setTransitionModal({
+        type: 'step2_missing_cover',
+        title: 'Bạn Chưa Tải Ảnh Bìa Podcast',
+        description:
+          'Ảnh bìa đại diện là bắt buộc trước khi kết xuất video ở Bước 4. Tuy nhiên, bạn hoàn toàn có thể tiếp tục sang Bước 3 để duyệt và chọn giọng đọc AI trước, rồi quay lại hoặc bổ sung ảnh ở Bước 4.',
+        targetTab,
+      });
+      return;
+    }
+
+    if (isPendingScenes) {
+      setTransitionModal({
+        type: 'step2_missing_scenes',
+        title: 'Chưa Tải Đủ Ảnh Phân Cảnh Bảng Trắng',
+        description: `Bạn mới tải lên ${uploadedCount}/${totalScenes} ảnh phân cảnh. Hoạt họa bảng trắng cần đủ ảnh cho tất cả phân cảnh trước khi kết xuất tại Bước 4. Bạn có muốn chuyển sang Bước 3 để duyệt và chọn giọng đọc trước không?`,
+        uploadedCount,
+        totalScenes,
+        targetTab,
+      });
+      return;
+    }
+
+    // All clear -> unlock & advance
+    setMaxUnlockedStep((prev) => Math.max(prev, targetTab === 'render' ? 4 : 3));
+    setActiveTab(targetTab);
+  };
+
+  // Guarded transition from Step 3 to Step 4
+  const handleNextFromVoices = () => {
+    if (!selectedVoiceId.trim()) {
+      setTransitionModal({
+        type: 'step3_unselected_voice',
+        title: 'Chưa Chọn Giọng Đọc Thuyết Minh Riêng',
+        description:
+          'Bạn chưa chọn giọng đọc riêng trong danh sách 19 giọng đọc lịch sử. Nếu tiếp tục, hệ thống sẽ tự động sử dụng giọng đọc chuẩn mặc định: Nam Minh (Giọng Nam Miền Bắc, Edge-TTS, hào sảng). Bạn có muốn tiếp tục không?',
+        targetTab: 'render',
+      });
+      return;
+    }
+
+    setMaxUnlockedStep((prev) => Math.max(prev, 4));
+    setActiveTab('render');
+  };
+
+  // Guarded transition when clicking on the Stepper tabs
+  const handleSelectTab = (targetTab: 'script' | 'storyboard' | 'voices' | 'render') => {
+    if (targetTab === activeTab) return;
+
+    if (activeTab === 'storyboard' && (targetTab === 'voices' || targetTab === 'render')) {
+      handleNextFromStoryboard(targetTab);
+      return;
+    }
+
+    if (activeTab === 'voices' && targetTab === 'render') {
+      handleNextFromVoices();
+      return;
+    }
+
+    setActiveTab(targetTab);
+  };
+
+  // When clicking on a locked step in the stepper
+  const handleAttemptLockedStep = (targetTab: 'script' | 'storyboard' | 'voices' | 'render') => {
+    if (!generatedStoryboard) {
+      const hasInput = Boolean(scriptTopic.trim() || scriptContent.trim());
+      if (!hasInput) {
+        setTransitionModal({
+          type: 'step1_empty_input',
+          title: 'Chưa Nhập Kịch Bản Lịch Sử (Bắt Buộc)',
+          description:
+            'Bạn chưa nhập chủ đề hoặc kịch bản lịch sử ở Bước 1. Đây là bước bắt buộc để AI có thể tra cứu sử liệu chính thống và lập phân cảnh trước khi mở khóa các bước tiếp theo.',
+        });
+      } else {
+        setTransitionModal({
+          type: 'step1_not_generated',
+          title: 'Chưa Khởi Tạo Phân Cảnh Kịch Bản (Bắt Buộc)',
+          description:
+            'Bạn đã nhập chủ đề nhưng chưa tạo phân cảnh. Vui lòng bấm nút "Tạo kịch bản với AI" ở cuối trang Bước 1 để tạo phân cảnh trước khi chuyển bước.',
+        });
+      }
+      return;
+    }
+
+    if (targetTab === 'voices') {
+      handleNextFromStoryboard('voices');
+    } else if (targetTab === 'render') {
+      if (activeTab === 'voices') {
+        handleNextFromVoices();
+      } else {
+        handleNextFromStoryboard('render');
+      }
+    }
+  };
+
+  // Confirm continue from pop-up dialog
+  const handleConfirmTransition = () => {
+    if (!transitionModal) return;
+
+    if (
+      transitionModal.type === 'step2_missing_cover' ||
+      transitionModal.type === 'step2_missing_scenes'
+    ) {
+      setMaxUnlockedStep((prev) => Math.max(prev, transitionModal.targetTab === 'render' ? 4 : 3));
+      setActiveTab(transitionModal.targetTab);
+    } else if (transitionModal.type === 'step3_unselected_voice') {
+      setMaxUnlockedStep((prev) => Math.max(prev, 4));
+      setActiveTab('render');
+    }
+
+    setTransitionModal(null);
+  };
 
   return (
     <div className="space-y-4 pb-10">
@@ -563,7 +692,8 @@ export const CreatorStudioPage: React.FC = () => {
         maxUnlockedStep={effectiveMaxStep}
         hasStoryboard={Boolean(generatedStoryboard)}
         hasActiveJob={Boolean(activeJobId)}
-        onSelectTab={(tab) => setActiveTab(tab)}
+        onSelectTab={handleSelectTab}
+        onAttemptLockedStep={handleAttemptLockedStep}
       />
 
       {/* 4. Active Step Content with GSAP & Smooth Entrance Transition */}
@@ -625,10 +755,7 @@ export const CreatorStudioPage: React.FC = () => {
             copiedKey={copiedKey}
             onCopy={handleCopy}
             onPrevStep={() => setActiveTab('script')}
-            onNextStep={() => {
-              setMaxUnlockedStep((prev) => Math.max(prev, 3));
-              setActiveTab('voices');
-            }}
+            onNextStep={() => handleNextFromStoryboard('voices')}
             onUpdateSceneNarration={(sceneIndex, newNarration) => {
               if (!generatedStoryboard) return;
               const updatedScenes = generatedStoryboard.scenes.map((s) =>
@@ -654,10 +781,7 @@ export const CreatorStudioPage: React.FC = () => {
             isLoadingVoiceId={loadingVoiceId}
             voicePreviewError={voicePreviewError}
             onPrevStep={() => setActiveTab('storyboard')}
-            onNextStep={() => {
-              setMaxUnlockedStep((prev) => Math.max(prev, 4));
-              setActiveTab('render');
-            }}
+            onNextStep={handleNextFromVoices}
           />
         )}
 
@@ -701,20 +825,20 @@ export const CreatorStudioPage: React.FC = () => {
 
       {/* 5. Settings Modal (Gemini API Key & ElevenLabs Key) */}
       <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <DialogContent className="max-w-md bg-surface border-border">
+        <DialogContent className="max-w-md bg-white/95 backdrop-blur-2xl border-border/80 rounded-2xl shadow-apple-dialog p-6">
           <DialogHeader>
-            <DialogTitle className="font-serif text-base font-bold text-ink flex items-center gap-2">
+            <DialogTitle className="font-serif text-base font-bold text-ink flex items-center gap-2 tracking-tight">
               <Settings className="h-4 w-4 text-accent" />
               <span>Cấu Hình API Key Sáng Tạo</span>
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted">
+            <DialogDescription className="text-xs text-muted leading-relaxed">
               Cấu hình khóa API Google Gemini cá nhân để sử dụng tính năng tra cứu RAG sử liệu và sinh phân cảnh.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             {settingsSuccessMsg && (
-              <div className="p-3 rounded-lg bg-status-success-bg/30 text-status-success-text border border-status-success-text/30 flex items-center gap-2 font-medium">
+              <div className="p-3 rounded-xl bg-status-success-bg/40 text-status-success-text border border-status-success-text/30 flex items-center gap-2 font-medium">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 <span>{settingsSuccessMsg}</span>
               </div>
@@ -728,7 +852,7 @@ export const CreatorStudioPage: React.FC = () => {
                   href="https://aistudio.google.com/app/apikey"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-accent text-[11px] hover:underline flex items-center gap-1"
+                  className="text-accent text-[11px] hover:underline flex items-center gap-1 font-medium"
                 >
                   <span>Lấy key miễn phí</span>
                   <ExternalLink className="h-3 w-3" />
@@ -739,7 +863,7 @@ export const CreatorStudioPage: React.FC = () => {
                 placeholder="AIzaSy..."
                 value={geminiKeyInput}
                 onChange={(e) => setGeminiKeyInput(e.target.value)}
-                className="text-xs h-9 bg-surface-subtle font-mono"
+                className="text-xs h-9 bg-surface-subtle font-mono rounded-xl border-border/80"
               />
               <p className="text-[10px] text-muted">
                 Key được lưu trữ an toàn trong tài khoản của bạn, chỉ sử dụng để gọi RAG và tạo kịch bản.
@@ -757,18 +881,18 @@ export const CreatorStudioPage: React.FC = () => {
                 placeholder="Nhập ElevenLabs Key nếu có..."
                 value={elevenKeyInput}
                 onChange={(e) => setElevenKeyInput(e.target.value)}
-                className="text-xs h-9 bg-surface-subtle font-mono"
+                className="text-xs h-9 bg-surface-subtle font-mono rounded-xl border-border/80"
               />
             </div>
           </div>
 
-          <DialogFooter className="gap-2 pt-2 border-t border-border">
+          <DialogFooter className="gap-2 pt-3 border-t border-border/60">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setIsSettingsOpen(false)}
-              className="text-xs"
+              className="text-xs h-9 px-4 rounded-xl border-border/80 hover:bg-white text-muted hover:text-ink cursor-pointer transition-all duration-150 active:scale-[0.98]"
             >
               Hủy
             </Button>
@@ -783,9 +907,9 @@ export const CreatorStudioPage: React.FC = () => {
                   ttsEngine: ttsEngineInput,
                 })
               }
-              className="text-xs font-semibold px-4"
+              className="text-xs h-9 font-semibold px-5 rounded-xl bg-accent text-white hover:bg-accent/90 shadow-2xs cursor-pointer transition-all duration-150 active:scale-[0.98]"
             >
-              {updateSettingsMutation.isPending ? 'Đang lưu...' : 'Lưu Cấu Hình'}
+              {updateSettingsMutation.isPending ? 'Đang lưu...' : 'Lưu cài đặt'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -793,17 +917,17 @@ export const CreatorStudioPage: React.FC = () => {
 
       {/* 6. Soft Guard Historical Warning Dialog (Rào Chắn Mềm Sử Liệu) */}
       <Dialog open={isSoftGuardModalOpen} onOpenChange={setIsSoftGuardModalOpen}>
-        <DialogContent className="max-w-2xl bg-surface border-border max-h-[85vh] overflow-y-auto">
+        <DialogContent maxWidth="max-w-2xl" className="p-6 bg-white/95 backdrop-blur-2xl border-border/80 rounded-2xl shadow-apple-dialog max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-600 border border-amber-500/30 shrink-0 shadow-xs">
                 <ShieldAlert className="h-5 w-5" />
               </span>
               <div>
-                <DialogTitle className="font-serif text-base font-bold text-ink">
+                <DialogTitle className="font-serif text-base font-bold text-ink tracking-tight">
                   Đối Chiếu Sử Liệu RAG: Phát Hiện Nghi Vấn Lịch Sử
                 </DialogTitle>
-                <DialogDescription className="text-xs text-muted">
+                <DialogDescription className="text-xs text-muted leading-relaxed">
                   Hệ thống đối chiếu kịch bản của bạn với kho sách sử chính thống (Đại Việt Sử Ký Toàn Thư, Khâm Định Việt Sử).
                 </DialogDescription>
               </div>
@@ -813,13 +937,13 @@ export const CreatorStudioPage: React.FC = () => {
           {softGuardWarning && (
             <div className="space-y-4 py-2 text-xs">
               {/* Score and summary pill */}
-              <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/25 space-y-2">
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                     <span>Điểm tin cậy sử liệu:</span>
                     <span className="text-sm font-mono">{softGuardWarning.overall_score || 70} / 100</span>
                   </span>
-                  <Badge variant="outline" className="text-[10px] bg-surface">
+                  <Badge variant="outline" className="text-[10px] bg-surface rounded-full px-2.5">
                     Rào chắn mềm (Soft Guard)
                   </Badge>
                 </div>
@@ -836,10 +960,10 @@ export const CreatorStudioPage: React.FC = () => {
                     {softGuardWarning.claims.map((claim, idx) => (
                       <div
                         key={idx}
-                        className={`p-3 rounded-lg border text-xs space-y-1.5 ${
+                        className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
                           claim.verdict === 'error'
                             ? 'bg-status-error-bg/30 border-status-error-border'
-                            : 'bg-surface-subtle border-border'
+                            : 'bg-surface-subtle/80 border-border'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -847,10 +971,10 @@ export const CreatorStudioPage: React.FC = () => {
                             &quot;{claim.claim_text}&quot;
                           </span>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-mono shrink-0 uppercase font-bold ${
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-mono shrink-0 uppercase font-bold ${
                               claim.verdict === 'error'
                                 ? 'bg-status-error-bg text-status-error-text border border-status-error-border'
-                                : 'bg-amber-100 text-amber-800'
+                                : 'bg-amber-100 text-amber-800 border border-amber-300'
                             }`}
                           >
                             {claim.verdict === 'error' ? 'Sai lệch' : 'Chưa xác thực'}
@@ -858,7 +982,7 @@ export const CreatorStudioPage: React.FC = () => {
                         </div>
                         <p className="text-muted text-[11px] leading-relaxed">{claim.explanation}</p>
                         {claim.suggested_fix && (
-                          <div className="p-2 rounded bg-surface border border-accent/20 text-[11px] text-accent">
+                          <div className="p-2.5 rounded-lg bg-surface border border-accent/20 text-[11px] text-accent">
                             <strong>Đề xuất sửa:</strong> {claim.suggested_fix}
                           </div>
                         )}
@@ -870,13 +994,13 @@ export const CreatorStudioPage: React.FC = () => {
             </div>
           )}
 
-          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-3 border-t border-border">
+          <DialogFooter className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-border/60">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleBypassSoftGuardAndRender}
-              className="text-xs border-border hover:bg-surface-subtle"
+              className="text-xs h-9 px-4 rounded-xl border-border/80 hover:bg-surface-subtle cursor-pointer transition-all duration-150 active:scale-[0.98]"
             >
               <span>Bảo lưu quan điểm, Vẫn tạo video</span>
             </Button>
@@ -884,7 +1008,7 @@ export const CreatorStudioPage: React.FC = () => {
               type="button"
               size="sm"
               onClick={handleApplySoftGuardFixAndRender}
-              className="text-xs font-semibold gap-1.5 bg-accent text-canvas hover:bg-accent/90"
+              className="text-xs h-9 font-semibold px-5 rounded-xl gap-1.5 bg-accent text-white hover:bg-accent/90 shadow-2xs cursor-pointer transition-all duration-150 active:scale-[0.98]"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>Áp dụng câu sửa của AI &amp; Tạo Video</span>
@@ -892,6 +1016,13 @@ export const CreatorStudioPage: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 6. Step Transition Notice & Confirmation Modal (emil-design-eng) */}
+      <StepTransitionConfirmationDialog
+        modalState={transitionModal}
+        onClose={() => setTransitionModal(null)}
+        onConfirmContinue={handleConfirmTransition}
+      />
     </div>
   );
 };

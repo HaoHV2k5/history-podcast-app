@@ -12,7 +12,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onNavigateLibrary,
 }) => {
   return (
-    <div className="relative w-full min-h-[145px] sm:min-h-[165px] flex items-center justify-between transition-colors px-1 pt-2 pb-5">
+    <div className="relative w-full min-h-[145px] sm:min-h-[165px] flex items-center justify-between transition-colors px-1 pt-2 pb-5 overflow-hidden rounded-2xl">
       {/* High-Fidelity Authentic Vietnamese Pagoda Artwork (Transparent PNG, zero bounding box, full architecture visible) */}
       <div
         className="absolute right-0 top-0 bottom-0 w-full sm:w-[760px] md:w-[920px] lg:w-[1080px] xl:w-[1180px] pointer-events-none bg-no-repeat bg-right bg-contain opacity-95 transition-opacity"

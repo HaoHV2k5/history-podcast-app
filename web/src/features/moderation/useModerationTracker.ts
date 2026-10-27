@@ -10,14 +10,17 @@ import {
   DECISIONS_KEY_PREFIX,
   PENDING_SNAPSHOT_KEY_PREFIX,
   UNRESOLVED_SNAPSHOT_KEY_PREFIX,
+  READ_NOTIFICATIONS_KEY_PREFIX,
   MAX_RESOLUTION_RETRIES,
   calculateBackoffDelay,
   safeParseDecisions,
   safeParsePendingSnapshot,
   safeParseUnresolved,
+  safeParseReadIds,
   serializeDecisions,
   serializePendingSnapshot,
   serializeUnresolvedSnapshot,
+  serializeReadIds,
   detectNewlyResolvedIds,
   selectEligibleRetryCandidates,
   evaluateDetailResponse,
@@ -42,6 +45,7 @@ export function useModerationTracker() {
   const decisionsKey = userIdentifier ? `${DECISIONS_KEY_PREFIX}${userIdentifier}` : null;
   const pendingSnapshotKey = userIdentifier ? `${PENDING_SNAPSHOT_KEY_PREFIX}${userIdentifier}` : null;
   const unresolvedSnapshotKey = userIdentifier ? `${UNRESOLVED_SNAPSHOT_KEY_PREFIX}${userIdentifier}` : null;
+  const readIdsKey = userIdentifier ? `${READ_NOTIFICATIONS_KEY_PREFIX}${userIdentifier}` : null;
 
   // Track active user in a ref to guard against cross-account race conditions during async in-flight calls
   const activeUserIdentifierRef = useRef<string | null>(userIdentifier);
@@ -53,6 +57,16 @@ export function useModerationTracker() {
   const [recentDecisions, setRecentDecisions] = useState<ModerationDecisionEvent[]>(() => {
     if (!decisionsKey) return [];
     return safeParseDecisions(sessionStorage.getItem(decisionsKey));
+  });
+
+  // Track read notification identifiers across sessions (persisted in localStorage)
+  const [readIds, setReadIds] = useState<Set<string>>(() => {
+    if (!readIdsKey) return new Set();
+    try {
+      return safeParseReadIds(localStorage.getItem(readIdsKey));
+    } catch {
+      return new Set();
+    }
   });
 
   // Track previous pending items across polling cycles
@@ -82,10 +96,20 @@ export function useModerationTracker() {
       unresolvedMapRef.current = new Map();
     }
 
+    if (readIdsKey) {
+      try {
+        setReadIds(safeParseReadIds(localStorage.getItem(readIdsKey)));
+      } catch {
+        setReadIds(new Set());
+      }
+    } else {
+      setReadIds(new Set());
+    }
+
     return () => {
       isMountedRef.current = false;
     };
-  }, [userIdentifier, decisionsKey, pendingSnapshotKey, unresolvedSnapshotKey]);
+  }, [userIdentifier, decisionsKey, pendingSnapshotKey, unresolvedSnapshotKey, readIdsKey]);
 
   // Query videos that are currently PENDING_REVIEW from backend
   const {
@@ -378,6 +402,58 @@ export function useModerationTracker() {
     }
   }, [decisionsKey]);
 
+  const isRead = useCallback(
+    (id: string) => readIds.has(id),
+    [readIds]
+  );
+
+  const markAsRead = useCallback(
+    (id: string) => {
+      setReadIds((prev) => {
+        if (prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.add(id);
+        if (readIdsKey) {
+          try {
+            localStorage.setItem(readIdsKey, serializeReadIds(next));
+          } catch {
+            // ignore
+          }
+        }
+        return next;
+      });
+    },
+    [readIdsKey]
+  );
+
+  const markAllAsRead = useCallback(() => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      pendingVideos.forEach((v) => next.add(`pending-${v.contentId}`));
+      recentDecisions.forEach((d) => next.add(`decision-${d.id}`));
+      if (readIdsKey) {
+        try {
+          localStorage.setItem(readIdsKey, serializeReadIds(next));
+        } catch {
+          // ignore
+        }
+      }
+      return next;
+    });
+  }, [pendingVideos, recentDecisions, readIdsKey]);
+
+  const unreadPendingCount = useMemo(
+    () => pendingVideos.filter((v) => !readIds.has(`pending-${v.contentId}`)).length,
+    [pendingVideos, readIds]
+  );
+
+  const unreadDecisionsCount = useMemo(
+    () => recentDecisions.filter((d) => !readIds.has(`decision-${d.id}`)).length,
+    [recentDecisions, readIds]
+  );
+
+  const unreadCount = unreadPendingCount + unreadDecisionsCount;
+
   const hasActiveUnresolved = Array.from(unresolvedMapRef.current.values()).some(
     (item) => item.retryCount <= MAX_RESOLUTION_RETRIES
   );
@@ -388,7 +464,14 @@ export function useModerationTracker() {
   return {
     pendingVideos,
     pendingCount,
+    unreadPendingCount,
     recentDecisions,
+    unreadDecisionsCount,
+    unreadCount,
+    readIds,
+    isRead,
+    markAsRead,
+    markAllAsRead,
     exhaustedCount,
     isLoading,
     isFetching,
