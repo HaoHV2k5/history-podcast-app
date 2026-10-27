@@ -63,15 +63,11 @@ services:
     container_name: prm-backend
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       tool:
         condition: service_healthy
     env_file:
       - ./backend/.env
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
       - TOOL_URL=http://tool:8000
     ports:
       - "8080:8080"
