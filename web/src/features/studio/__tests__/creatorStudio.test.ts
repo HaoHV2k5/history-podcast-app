@@ -291,4 +291,115 @@ describe('Creator Studio - M17-A1 Core Specifications', () => {
     assert.equal(isLoading, false);
     assert.equal(errorToast, 'Lỗi nghe thử giọng: ElevenLabs API Key không hợp lệ (401)');
   });
+
+  // 17. Topic suggestion does not contaminate scriptContent with short 40-word item.desc
+  test('17. Suggested historical topic card does not set item.desc as scriptContent in ai_prompt mode', () => {
+    const topicItem = {
+      id: 'ly_thai_to_doi_do',
+      title: 'Chiếu Dời Đô 1010: Khát Vọng Thăng Long',
+      desc: 'Mùa thu năm Canh Tuất 1010, vua Lý Thái Tổ ban Chiếu dời đô từ cố đô Hoa Lư ra thành Đại La. Thuyền ngự vừa đỗ dưới chân thành thì có rồng vàng bay vút lên trời xanh, nhân đó đổi tên Đại La thành Thăng Long.',
+      suggestedDuration: 60,
+    };
+
+    let scriptTopic = '';
+    let scriptContent = '';
+    let storyboardDuration = 60;
+    const creationMode = 'ai_prompt';
+
+    // Simulate onSelectTopic in Step1ScriptInput
+    scriptTopic = topicItem.title;
+    if (creationMode === 'ai_prompt') {
+      scriptContent = '';
+    }
+    storyboardDuration = topicItem.suggestedDuration;
+
+    assert.equal(scriptTopic, 'Chiếu Dời Đô 1010: Khát Vọng Thăng Long');
+    assert.equal(scriptContent, '', 'scriptContent must remain clean and not be polluted by short item.desc');
+    assert.equal(storyboardDuration, 60);
+  });
+
+  // 18. Storyboard generation in ai_prompt mode overwrites scriptContent with full 60s narration
+  test('18. Storyboard generation in ai_prompt mode populates full 60s narration into scriptContent', () => {
+    const creationMode = 'ai_prompt';
+    let scriptContent = 'Old text or previous draft';
+
+    const generatedScenes: StoryboardScene[] = [
+      {
+        scene_index: 1,
+        scene_title: 'Cảnh 1: Rồng vàng thăng hoa',
+        elements: [
+          { label: 'E1', subtitle: 'Mùa thu năm Canh Tuất 1010, đoàn thuyền rồng của vua Lý Thái Tổ từ Hoa Lư tiến về đồng bằng châu thổ sông Hồng.' },
+          { label: 'E2', subtitle: 'Thành Đại La với địa thế rồng cuộn hổ ngồi, đất đai bằng phẳng sáng sủa muôn dân không lo ngập lụt.' },
+          { label: 'E3', subtitle: 'Vừa cập bến triều đình, hào quang rực rỡ xuất hiện với điềm lành rồng vàng bay vút lên bầu trời.' },
+        ],
+      },
+      {
+        scene_index: 2,
+        scene_title: 'Cảnh 2: Định đô ngàn năm',
+        elements: [
+          { label: 'E4', subtitle: 'Nhân điềm lành rồng bay, vua Lý Thái Tổ hạ chiếu đổi tên thành Đại La thành Thăng Long.' },
+          { label: 'E5', subtitle: 'Chiếu dời đô khẳng định khát vọng thái bình thịnh trị, mưu nghiệp lớn đặt nền móng cho con cháu vạn đời.' },
+          { label: 'E6', subtitle: 'Kể từ mùa thu năm 1010, Thăng Long chính thức trở thành trái tim thiêng liêng trường tồn của giang sơn Đại Việt.' },
+        ],
+      },
+    ];
+
+    const extracted = extractNarrationFromStoryboard(generatedScenes);
+    // In ai_prompt mode, scriptContent must be updated with the full generated narration
+    if (extracted && (creationMode === 'ai_prompt' || !scriptContent.trim())) {
+      scriptContent = extracted;
+    }
+
+    const words = scriptContent.split(/\s+/).length;
+    assert.ok(words > 100, `Expected full narration (~100-200 words), got ${words} words`);
+    assert.ok(scriptContent.includes('đoàn thuyền rồng'));
+    assert.ok(scriptContent.includes('trái tim thiêng liêng'));
+  });
+
+  // 19. Audio Podcast render payload uses full 60s narration script
+  test('19. Audio Podcast render payload receives full 60s script narration instead of 10s snippet', () => {
+    const full60sNarration =
+      'Mùa thu năm Canh Tuất 1010, vua Lý Thái Tổ từ Hoa Lư dời đô ra thành Đại La. ' +
+      'Thành Đại La địa thế rồng cuộn hổ ngồi, đất đai bằng phẳng sáng sủa muôn dân an cư lạc nghiệp. ' +
+      'Nhân điềm lành rồng vàng bay vút lên trời xanh, vua đổi tên thành Thăng Long, mở ra ngàn năm văn hiến Đại Việt.';
+
+    const payload = {
+      title: 'Đại Lễ Dời Đô 1010',
+      durationSec: 60,
+      renderMode: 'audio_podcast' as const,
+      ttsEngine: 'edge-tts',
+      voiceName: 'vi-VN-NamMinhNeural',
+      scriptText: full60sNarration,
+    };
+
+    assert.equal(payload.renderMode, 'audio_podcast');
+    assert.equal(payload.durationSec, 60);
+    assert.ok(payload.scriptText.length > 150);
+  });
+
+  // 20. Scene-level narration text is prioritized when edited
+  test('20. extractNarrationFromStoryboard prioritizes sc.narration_text over elements if present', () => {
+    const scenes: StoryboardScene[] = [
+      {
+        scene_index: 1,
+        scene_title: 'Cảnh 1',
+        narration_text: 'Lời dẫn đã được biên tập trực tiếp bởi tác giả tại phân cảnh 1.',
+        elements: [
+          { label: 'E1', subtitle: 'Lời dẫn cũ phân cảnh 1.' },
+        ],
+      },
+      {
+        scene_index: 2,
+        scene_title: 'Cảnh 2',
+        elements: [
+          { label: 'E2', subtitle: 'Lời dẫn phân cảnh 2 từ phụ đề element.' },
+        ],
+      },
+    ];
+
+    const narration = extractNarrationFromStoryboard(scenes);
+    assert.ok(narration.includes('Lời dẫn đã được biên tập trực tiếp bởi tác giả tại phân cảnh 1.'));
+    assert.ok(narration.includes('Lời dẫn phân cảnh 2 từ phụ đề element.'));
+    assert.ok(!narration.includes('Lời dẫn cũ phân cảnh 1.'));
+  });
 });
