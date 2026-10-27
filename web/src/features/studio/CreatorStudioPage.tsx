@@ -38,6 +38,7 @@ import { Step1ScriptInput } from './components/Step1ScriptInput';
 import { Step2StoryboardScenes } from './components/Step2StoryboardScenes';
 import { Step3VoiceSelector } from './components/Step3VoiceSelector';
 import { Step4RenderStudio } from './components/Step4RenderStudio';
+import type { CreationMode } from './components/StudioCreationMethodToggle';
 import { StudioHeader } from './components/StudioHeader';
 import { StudioWorkflowStepper } from './components/StudioWorkflowStepper';
 import { gsap } from 'gsap';
@@ -80,6 +81,7 @@ export const CreatorStudioPage: React.FC = () => {
   }, [activeTab]);
 
   // Step 1: Script & Storyboard Generator State
+  const [creationMode, setCreationMode] = useState<CreationMode>('ai_prompt');
   const [scriptTopic, setScriptTopic] = useState('');
   const [scriptContent, setScriptContent] = useState('');
   const [storyboardDuration, setStoryboardDuration] = useState<number>(60);
@@ -189,10 +191,12 @@ export const CreatorStudioPage: React.FC = () => {
       if (sbData.estimated_duration_sec) {
         setRenderDurationSec(sbData.estimated_duration_sec);
       }
-      // If scriptContent is empty, extract narration text from storyboard scenes
-      if (!scriptContent.trim() && sbData.scenes) {
+      // Populate scriptContent with full generated narration from Gemini AI
+      if (sbData.scenes && sbData.scenes.length > 0) {
         const extracted = extractNarrationFromStoryboard(sbData.scenes);
-        setScriptContent(extracted);
+        if (extracted && (creationMode === 'ai_prompt' || !scriptContent.trim())) {
+          setScriptContent(extracted);
+        }
       }
       // Unlock Step 2 and advance immediately
       setMaxUnlockedStep((prev) => Math.max(prev, 2));
@@ -383,14 +387,20 @@ export const CreatorStudioPage: React.FC = () => {
   };
 
   // Input text classification (Branch A vs Branch B)
-  const effectiveInput = scriptContent.trim() || scriptTopic.trim();
+  const effectiveInput =
+    creationMode === 'manual_script'
+      ? (scriptContent.trim() || scriptTopic.trim())
+      : (scriptTopic.trim() || scriptContent.trim());
   const inputClassification = classifyInputText(effectiveInput);
   const wordCount = effectiveInput.trim() ? effectiveInput.trim().split(/\s+/).length : 0;
   const estimatedReadingSec = Math.max(5, Math.round(wordCount / 2.5));
 
   // Step 1: Submit to generate storyboard
   const handleStartStoryboard = () => {
-    const topicToUse = scriptContent.trim() || scriptTopic.trim();
+    const topicToUse =
+      creationMode === 'manual_script'
+        ? (scriptContent.trim() || scriptTopic.trim())
+        : (scriptTopic.trim() || scriptContent.trim());
     if (!topicToUse) return;
     if (!renderTitle && scriptTopic) {
       setRenderTitle(scriptTopic);
@@ -408,11 +418,21 @@ export const CreatorStudioPage: React.FC = () => {
     const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId);
     const finalEngine = selectedVoiceObj?.engine || settings?.ttsEngine || 'edge-tts';
 
-    const finalScript =
-      scriptOverride !== undefined
-        ? scriptOverride
-        : (scriptContent.trim() ||
-          (generatedStoryboard?.scenes ? extractNarrationFromStoryboard(generatedStoryboard.scenes) : ''));
+    const storyboardNarration = generatedStoryboard?.scenes
+      ? extractNarrationFromStoryboard(generatedStoryboard.scenes)
+      : '';
+
+    let finalScript = scriptOverride;
+    if (finalScript === undefined) {
+      if (creationMode === 'ai_prompt') {
+        finalScript =
+          scriptContent.trim() && scriptContent.trim().length >= storyboardNarration.length * 0.8
+            ? scriptContent.trim()
+            : (storyboardNarration || scriptContent.trim());
+      } else {
+        finalScript = scriptContent.trim() || storyboardNarration;
+      }
+    }
 
     const payload: CreatorRenderRequest = {
       title: renderTitle.trim() || scriptTopic || 'Tác Phẩm Video Lịch Sử',
@@ -435,9 +455,13 @@ export const CreatorStudioPage: React.FC = () => {
   };
 
   const handleStartRender = async () => {
+    const storyboardNarration = generatedStoryboard?.scenes
+      ? extractNarrationFromStoryboard(generatedStoryboard.scenes)
+      : '';
     const finalScript =
-      scriptContent.trim() ||
-      (generatedStoryboard?.scenes ? extractNarrationFromStoryboard(generatedStoryboard.scenes) : scriptTopic.trim());
+      creationMode === 'ai_prompt' && storyboardNarration && (!scriptContent.trim() || scriptContent.trim().length < storyboardNarration.length * 0.8)
+        ? storyboardNarration
+        : (scriptContent.trim() || storyboardNarration || scriptTopic.trim());
 
     // Nhịp 1: Rào chắn mềm kiểm tra sử liệu ngầm (1 - 2 giây)
     setIsSoftGuardChecking(true);
@@ -489,6 +513,7 @@ export const CreatorStudioPage: React.FC = () => {
     setPublishError(null);
     setScriptTopic('');
     setScriptContent('');
+    setCreationMode('ai_prompt');
     setGeneratedStoryboard(null);
     setVerificationResult(null);
     setSceneImages({});
@@ -548,6 +573,8 @@ export const CreatorStudioPage: React.FC = () => {
           <Step1ScriptInput
             renderMode={renderMode}
             setRenderMode={setRenderMode}
+            creationMode={creationMode}
+            setCreationMode={setCreationMode}
             scriptTopic={scriptTopic}
             setScriptTopic={setScriptTopic}
             scriptContent={scriptContent}
@@ -608,6 +635,10 @@ export const CreatorStudioPage: React.FC = () => {
                 s.scene_index === sceneIndex ? { ...s, narration_text: newNarration } : s
               );
               setGeneratedStoryboard({ ...generatedStoryboard, scenes: updatedScenes });
+              const updatedNarration = extractNarrationFromStoryboard(updatedScenes);
+              if (updatedNarration) {
+                setScriptContent(updatedNarration);
+              }
             }}
           />
         )}

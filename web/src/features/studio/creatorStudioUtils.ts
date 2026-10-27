@@ -242,7 +242,9 @@ export const extractNarrationFromStoryboard = (
   const lines: string[] = [];
 
   scenes.forEach((sc) => {
-    if (sc.elements && sc.elements.length > 0) {
+    if (sc.narration_text?.trim()) {
+      lines.push(sc.narration_text.trim());
+    } else if (sc.elements && sc.elements.length > 0) {
       sc.elements.forEach((el) => {
         if (el.subtitle?.trim()) {
           lines.push(el.subtitle.trim());
