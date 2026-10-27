@@ -83,7 +83,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   return (
     <aside
       className={cn(
-        'relative flex flex-col h-screen border-r border-border bg-surface-subtle transition-all duration-200 select-none z-30 shrink-0',
+        'relative flex flex-col h-full border-r border-border bg-surface-subtle transition-all duration-200 select-none z-30 shrink-0',
         collapsed ? 'w-[72px]' : 'w-[232px]',
         className
       )}

@@ -231,7 +231,8 @@ export const StudioHistoricalResearchPanel: React.FC<StudioHistoricalResearchPan
 
           <button
             type="button"
-            onClick={() => onSelectDynasty('ly')}
+            onClick={() => onSelectDynasty(selectedDynasty === 'ly' ? 'all' : 'ly')}
+            title={selectedDynasty === 'ly' ? 'Nhấp để bỏ chọn (chuyển về Tất cả)' : 'Chọn Triều Lý'}
             className={`py-2 px-1 text-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
               selectedDynasty === 'ly'
                 ? 'bg-accent text-white shadow-2xs'
@@ -244,7 +245,8 @@ export const StudioHistoricalResearchPanel: React.FC<StudioHistoricalResearchPan
 
           <button
             type="button"
-            onClick={() => onSelectDynasty('tran')}
+            onClick={() => onSelectDynasty(selectedDynasty === 'tran' ? 'all' : 'tran')}
+            title={selectedDynasty === 'tran' ? 'Nhấp để bỏ chọn (chuyển về Tất cả)' : 'Chọn Triều Trần'}
             className={`py-2 px-1 text-center rounded-xl text-xs font-bold transition-all cursor-pointer ${
               selectedDynasty === 'tran'
                 ? 'bg-accent text-white shadow-2xs'

@@ -6,6 +6,7 @@ import {
   Download,
   Terminal,
   Volume2,
+  Check,
   CheckCircle2,
   AlertCircle,
   RotateCcw,
@@ -20,7 +21,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   CreatorJobStatusResponse,
   CreatorVoiceItem,
@@ -117,7 +117,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
   ];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* =========================================================================
           VIEW A: ACTIVE RENDERING IN PROGRESS OR COMPLETED
          ========================================================================= */}
@@ -138,7 +138,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                       ? 'Kết Xuất Video Thất Bại'
                       : 'Đang Kết Xuất Video & Thuyết Minh...'}
                   </h3>
-                  <span className="text-[11px] text-muted font-mono">Job ID: {activeJobId}</span>
+                  <span className="text-[11px] text-muted font-mono">Mã tiến trình: {activeJobId}</span>
                 </div>
               </div>
 
@@ -146,7 +146,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                 variant={isCompleted ? 'success' : isFailed ? 'error' : 'accent'}
                 className="font-mono text-xs font-bold"
               >
-                {isCompleted ? 'COMPLETED (100%)' : isFailed ? 'FAILED' : `PROCESSING (${progressPercent}%)`}
+                {isCompleted ? 'HOÀN TẤT (100%)' : isFailed ? 'THẤT BẠI' : `ĐANG XỬ LÝ (${progressPercent}%)`}
               </Badge>
             </div>
 
@@ -403,7 +403,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                       )}
                     </div>
                     <p className="text-[11px] text-muted leading-relaxed">
-                      Video hiện đang ở trạng thái <strong>PENDING_REVIEW</strong>. Quản trị viên (Admin) sẽ xem xét phê duyệt trước khi video được công khai trên nền tảng.
+                      Video hiện đang ở trạng thái <strong>Chờ quản trị viên phê duyệt</strong>. Quản trị viên sẽ xem xét duyệt nội dung trước khi tác phẩm được công khai trên nền tảng.
                     </p>
                     <div className="pt-2 flex items-center gap-3">
                       <Button
@@ -549,7 +549,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                       <Video className="h-4 w-4 text-accent" />
                       <span>Hoạt Họa Bảng Trắng</span>
                     </span>
-                    <Badge variant="outline" size="sm">Whiteboard 16:9</Badge>
+                    <Badge variant="outline" size="sm">Bảng trắng 16:9</Badge>
                   </div>
 
                   <p className="text-[11px] text-muted leading-relaxed">
@@ -569,36 +569,111 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
 
             {/* 3. Image Requirements (Podcast Cover vs Scene Images Status) */}
             {renderMode === 'audio_podcast' ? (
-              <div className="space-y-2 p-4 rounded-xl border border-border bg-surface-subtle/40">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
-                    <UploadCloud className="h-3.5 w-3.5 text-accent" />
-                    <span>Ảnh Bìa Đại Diện Podcast (Tỉ lệ 1:1 hoặc 16:9)</span>
-                    <span className="text-status-error-text text-[11px]">*</span>
-                  </label>
+              <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-white shadow-2xs space-y-3">
+                <div className="flex items-center justify-between pb-2.5 border-b border-border/60">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent/10 text-accent shrink-0">
+                      <UploadCloud className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-ink flex items-center gap-1.5">
+                        <span>Ảnh Bìa Đại Diện Podcast (Tỉ lệ 1:1 hoặc 16:9)</span>
+                        <span className="text-status-error-text">*</span>
+                      </h4>
+                      <p className="text-[11px] text-muted">
+                        Ảnh bìa hiển thị làm đại diện trên nền ứng dụng và video phát sóng kèm sóng âm thanh
+                      </p>
+                    </div>
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCoverImageUrl(
-                        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80'
-                      )
-                    }
-                    className="text-[11px] text-accent hover:underline"
+                  <Badge
+                    variant={coverImageUrl ? 'success' : 'error'}
+                    size="sm"
+                    className="font-medium text-[11px] shrink-0"
                   >
-                    Dùng ảnh mẫu Thăng Long
-                  </button>
+                    {coverImageUrl ? '✓ Đã có ảnh bìa' : 'Bắt buộc'}
+                  </Badge>
                 </div>
 
-                <SceneImageUploadDropzone
-                  label="Tải ảnh bìa Podcast"
-                  sublabel="Khung hình 1:1 hoặc 16:9 (PNG / JPG / WebP)"
-                  imageUrl={coverImageUrl}
-                  aspectRatio="1:1"
-                  isUploading={uploadingCover}
-                  onFileSelect={onUploadCoverImage}
-                  onRemoveImage={() => setCoverImageUrl('')}
-                />
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 pt-1">
+                  {/* Compact, balanced Cover Artwork Preview / Dropzone */}
+                  <div className="w-40 sm:w-44 md:w-48 shrink-0">
+                    <SceneImageUploadDropzone
+                      label="Tải ảnh bìa Podcast"
+                      sublabel="Kéo thả hoặc nhấp chọn ảnh"
+                      imageUrl={coverImageUrl}
+                      aspectRatio="1:1"
+                      isUploading={uploadingCover}
+                      onFileSelect={onUploadCoverImage}
+                      onRemoveImage={() => setCoverImageUrl('')}
+                    />
+                  </div>
+
+                  {/* Informational & Action Panel beside the preview */}
+                  <div className="flex-1 min-w-0 space-y-3 flex flex-col justify-between self-stretch text-xs">
+                    <div className="space-y-2">
+                      <div className="p-3 rounded-xl bg-surface-subtle/50 border border-border/60 space-y-1.5">
+                        <span className="font-semibold text-ink text-[11px] uppercase tracking-wider block">
+                          Tiêu chuẩn ảnh bìa nghệ thuật:
+                        </span>
+                        <ul className="text-[11px] text-muted space-y-1 leading-relaxed">
+                          <li className="flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-accent shrink-0" />
+                            <span>Tỉ lệ khuyến nghị: <strong>1:1 (Vuông, 1080×1080px)</strong> hoặc <strong>16:9 (1920×1080px)</strong></span>
+                          </li>
+                          <li className="flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-accent shrink-0" />
+                            <span>Định dạng hỗ trợ: <strong>PNG, JPG, WebP</strong> (Dung lượng tối đa 10MB)</span>
+                          </li>
+                          <li className="flex items-center gap-1.5">
+                            <span className="h-1 w-1 rounded-full bg-accent shrink-0" />
+                            <span>Chủ đề: Tranh khắc gỗ, nhân vật lịch sử, cờ lệnh hoặc bảo vật triều đại</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {coverImageUrl ? (
+                        <div className="flex items-center gap-2 text-[11px] text-status-success-text font-medium">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                          <span>Ảnh bìa đã sẵn sàng để kết xuất cùng âm thanh thuyết minh và sóng âm.</span>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-muted">
+                          Bạn có thể tải ảnh từ thiết bị hoặc chọn nhanh ảnh mẫu có sẵn bên dưới:
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/60">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setCoverImageUrl(
+                            'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1200&auto=format&fit=crop&q=80'
+                          )
+                        }
+                        className="text-xs h-8 px-3 rounded-xl border-border/80 hover:bg-surface-subtle text-accent font-medium gap-1.5 cursor-pointer active:scale-[0.98] transition-transform"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>Dùng ảnh mẫu Thăng Long</span>
+                      </Button>
+
+                      {coverImageUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setCoverImageUrl('')}
+                          className="text-xs h-8 px-3 text-status-error-text hover:bg-status-error-bg rounded-xl cursor-pointer transition-colors active:scale-[0.98]"
+                        >
+                          Gỡ ảnh hiện tại
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="p-4 rounded-xl border border-border bg-surface-subtle/40 space-y-2">
@@ -640,24 +715,133 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
               </div>
             )}
 
-            {/* 4. Configuration Recap Box */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl border border-border bg-surface-subtle/30 text-xs">
-              <div>
-                <span className="text-muted block text-[11px]">Giọng đọc đã chọn:</span>
-                <span className="font-bold text-ink font-serif">
-                  {selectedVoice?.name || 'Chưa chọn'}
-                </span>
-                <span className="text-muted text-[11px] ml-1.5">
-                  ({selectedVoice?.accent || 'Miền Bắc'} • {selectedVoice?.engine || 'edge-tts'})
-                </span>
-              </div>
+            {/* 4. Render Readiness Checklist (Bảng kiểm tra điều kiện kết xuất - emil-design-eng) */}
+            {(() => {
+              const isTitleReady = Boolean(renderTitle.trim());
+              const isImageReady =
+                renderMode === 'audio_podcast'
+                  ? Boolean(coverImageUrl.trim())
+                  : sceneValidation.isValid && scenes.length > 0;
+              const isConfirmReady = confirmCheck;
+              const isAllMandatoryReady = isTitleReady && isImageReady && isConfirmReady;
 
-              <div>
-                <span className="text-muted block text-[11px]">Thời lượng video:</span>
-                <span className="font-bold text-ink font-serif">{renderDurationSec} giây</span>
-                <span className="text-muted text-[11px] ml-1.5">({scenes.length} phân cảnh)</span>
-              </div>
-            </div>
+              return (
+                <div className="rounded-xl border border-border/80 bg-surface-subtle/30 p-4 space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                    <span className="text-xs font-bold text-ink flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-accent" />
+                      <span>Điều kiện sẵn sàng kết xuất video (~{renderDurationSec}s)</span>
+                    </span>
+                    <span className="text-[11px] font-mono">
+                      {isAllMandatoryReady ? (
+                        <span className="text-status-success-text font-bold flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Đủ điều kiện kết xuất</span>
+                        </span>
+                      ) : (
+                        <span className="text-status-warning-text font-semibold flex items-center gap-1">
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          <span>Cần hoàn thiện mục bắt buộc</span>
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {/* Mục 1: Tiêu đề */}
+                    <div
+                      className={`p-2.5 rounded-lg border flex items-start gap-2 transition-colors ${
+                        isTitleReady
+                          ? 'border-status-success-text/30 bg-status-success-bg/20'
+                          : 'border-status-warning-text/40 bg-status-warning-bg/20'
+                      }`}
+                    >
+                      {isTitleReady ? (
+                        <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
+                      ) : (
+                        <span className="h-4 w-4 rounded-full border border-status-warning-text/60 flex items-center justify-center shrink-0 mt-0.5 text-[10px] text-status-warning-text font-bold">
+                          !
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-semibold text-ink block">Tiêu đề tác phẩm (Bắt buộc)</span>
+                        <span className="text-[11px] text-muted truncate block">
+                          {isTitleReady ? renderTitle : 'Chưa nhập tiêu đề'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mục 2: Hình ảnh */}
+                    <div
+                      className={`p-2.5 rounded-lg border flex items-start gap-2 transition-colors ${
+                        isImageReady
+                          ? 'border-status-success-text/30 bg-status-success-bg/20'
+                          : 'border-status-warning-text/40 bg-status-warning-bg/20'
+                      }`}
+                    >
+                      {isImageReady ? (
+                        <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
+                      ) : (
+                        <span className="h-4 w-4 rounded-full border border-status-warning-text/60 flex items-center justify-center shrink-0 mt-0.5 text-[10px] text-status-warning-text font-bold">
+                          !
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-semibold text-ink block">Hình ảnh minh họa (Bắt buộc)</span>
+                        <span className="text-[11px] text-muted truncate block">
+                          {renderMode === 'audio_podcast'
+                            ? coverImageUrl
+                              ? 'Đã có ảnh bìa Podcast'
+                              : 'Chưa tải ảnh bìa'
+                            : sceneValidation.isValid && scenes.length > 0
+                            ? `Đủ ${sceneValidation.assignedCount}/${sceneValidation.totalScenes} ảnh phân cảnh`
+                            : `Thiếu ${sceneValidation.missingScenes.length} ảnh phân cảnh`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mục 3: Giọng đọc (Tùy chọn) */}
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-white flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="font-semibold text-ink">Giọng thuyết minh</span>
+                          <span className="text-[10px] text-muted">(Tùy chọn)</span>
+                        </div>
+                        <span className="text-[11px] text-muted truncate block">
+                          {selectedVoice
+                            ? `${selectedVoice.name} (${selectedVoice.accent || 'Việt Nam'})`
+                            : 'Mặc định: Nam Minh (Miền Bắc, Edge-TTS)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mục 4: Xác nhận */}
+                    <div
+                      className={`p-2.5 rounded-lg border flex items-start gap-2 transition-colors ${
+                        isConfirmReady
+                          ? 'border-status-success-text/30 bg-status-success-bg/20'
+                          : 'border-status-warning-text/40 bg-status-warning-bg/20'
+                      }`}
+                    >
+                      {isConfirmReady ? (
+                        <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
+                      ) : (
+                        <span className="h-4 w-4 rounded-full border border-status-warning-text/60 flex items-center justify-center shrink-0 mt-0.5 text-[10px] text-status-warning-text font-bold">
+                          !
+                        </span>
+                      )}
+                      <div className="min-w-0">
+                        <span className="font-semibold text-ink block">Xác nhận điều kiện (Bắt buộc)</span>
+                        <span className="text-[11px] text-muted truncate block">
+                          {isConfirmReady ? 'Đã xác nhận sẵn sàng' : 'Chưa tích chọn ô bên dưới'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Error Message */}
             {renderError && (
@@ -667,16 +851,42 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
               </div>
             )}
 
-            {/* Confirmation Checkbox */}
-            <div className="flex items-start gap-2.5 pt-1">
-              <Checkbox
-                id="confirm-render-checkbox"
-                checked={confirmCheck}
-                onChange={(e) => setConfirmCheck(e.target.checked)}
-                className="mt-0.5"
-              />
-              <label htmlFor="confirm-render-checkbox" className="text-xs text-muted leading-relaxed cursor-pointer select-none">
-                Tôi xác nhận kịch bản thuyết minh và tài nguyên hình ảnh đã được chuẩn bị đầy đủ và sẵn sàng khởi chạy kết xuất video.
+            {/* Confirmation Checkbox Card (Mathematically Centered Alignment) */}
+            <div
+              onClick={() => setConfirmCheck(!confirmCheck)}
+              className={`p-3.5 sm:p-4 rounded-xl border transition-all duration-150 cursor-pointer select-none ${
+                confirmCheck
+                  ? 'border-accent/40 bg-accent/5 shadow-2xs'
+                  : 'border-border/80 bg-white hover:border-border hover:bg-surface-subtle/30'
+              }`}
+            >
+              <label
+                htmlFor="confirm-render-checkbox"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-3 cursor-pointer select-none"
+              >
+                <div className="relative flex items-center justify-center shrink-0">
+                  <input
+                    id="confirm-render-checkbox"
+                    type="checkbox"
+                    checked={confirmCheck}
+                    onChange={(e) => setConfirmCheck(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div
+                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-150 ${
+                      confirmCheck
+                        ? 'bg-accent border-accent text-white shadow-2xs scale-100'
+                        : 'border-border/90 bg-canvas hover:border-ink-muted'
+                    }`}
+                  >
+                    {confirmCheck && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                  </div>
+                </div>
+
+                <span className="text-xs sm:text-[13px] font-medium text-ink leading-snug">
+                  Tôi xác nhận kịch bản thuyết minh và tài nguyên hình ảnh đã được chuẩn bị đầy đủ và sẵn sàng khởi chạy kết xuất video.
+                </span>
               </label>
             </div>
 
@@ -687,7 +897,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={onPrevStep}
-                className="gap-2 text-xs border-border hover:bg-surface-subtle"
+                className="gap-2 text-xs border-border hover:bg-surface-subtle cursor-pointer"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Quay lại Bước 3 (Giọng đọc)</span>
@@ -704,7 +914,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   (renderMode === 'audio_podcast' && !coverImageUrl.trim()) ||
                   (renderMode === 'whiteboard' && (!sceneValidation.isValid || scenes.length === 0))
                 }
-                className="gap-2 text-xs font-semibold px-6 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
+                className="gap-2 text-xs font-semibold px-6 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Clapperboard className={`h-3.5 w-3.5 ${isStartingRender ? 'animate-spin' : ''}`} />
                 <span>

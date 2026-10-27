@@ -56,9 +56,9 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent maxWidth="max-w-xl" className="p-0 overflow-hidden border-border bg-surface shadow-modal rounded-2xl">
+      <DialogContent maxWidth="max-w-xl" className="p-0 overflow-hidden border-border/80 bg-white/95 backdrop-blur-2xl shadow-apple-dialog rounded-2xl">
         {/* Modal Header */}
-        <div className="bg-gradient-to-b from-status-error-bg/70 via-status-error-bg/30 to-surface p-6 pb-4 border-b border-border/80">
+        <div className="bg-gradient-to-b from-status-error-bg/60 via-status-error-bg/20 to-transparent p-6 pb-4 border-b border-border/60">
           <div className="flex items-start gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-status-error-bg border border-status-error-text/30 text-status-error-text shrink-0 shadow-xs mt-0.5">
               <ShieldAlert className="h-5 w-5" />
@@ -66,10 +66,10 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
 
             <div className="space-y-1.5 flex-1 min-w-0 pr-6">
               <div className="flex flex-wrap items-center gap-2">
-                <DialogTitle className="font-serif text-base font-bold text-ink">
+                <DialogTitle className="font-serif text-base font-bold text-ink tracking-tight">
                   {isScopeError ? 'Chủ Đề Nằm Ngoài Kho Sử Liệu Lý - Trần' : 'Thông Báo Từ Máy Chủ AI Sử Ký'}
                 </DialogTitle>
-                <Badge variant="error" size="sm" className="font-sans font-medium text-[10px]">
+                <Badge variant="error" size="sm" className="font-sans font-semibold text-[10px] rounded-full px-2.5">
                   {isScopeError ? 'ScopeGate RAG' : 'Cần kiểm tra lại'}
                 </Badge>
               </div>
@@ -85,7 +85,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
         {/* Modal Body */}
         <div className="p-6 pt-4 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Feedback Callout */}
-          <div className="p-3.5 rounded-xl bg-surface-subtle/80 border border-border text-xs text-ink/90 space-y-1.5 shadow-2xs">
+          <div className="p-3.5 rounded-xl bg-surface-subtle/70 border border-border/70 text-xs text-ink/90 space-y-1.5 shadow-2xs">
             <div className="text-[11px] font-semibold text-muted uppercase tracking-wider flex items-center gap-1.5">
               <AlertCircle className="h-3.5 w-3.5 text-status-error-text" />
               <span>Phản hồi chi tiết từ AI Fact-Checker:</span>
@@ -112,7 +112,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => onSelectHistoricalTopic(item)}
-                    className="p-3 rounded-xl border border-border bg-surface hover:border-accent hover:bg-accent/5 transition-all text-left group flex items-start gap-2.5 cursor-pointer shadow-2xs"
+                    className="p-3 rounded-xl border border-border/70 bg-surface hover:border-accent hover:bg-accent/5 transition-all text-left group flex items-start gap-2.5 cursor-pointer shadow-2xs active:scale-[0.98]"
                   >
                     <span className="flex h-5 w-5 rounded-md bg-accent/10 text-accent items-center justify-center shrink-0 mt-0.5 group-hover:bg-accent group-hover:text-canvas transition-colors">
                       <Plus className="h-3 w-3" />
@@ -134,7 +134,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 px-6 bg-surface-subtle/50 border-t border-border flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 px-6 bg-[#FAF8F5]/50 border-t border-border/60 flex flex-wrap items-center justify-between gap-3">
           <span className="text-[11px] text-muted">
             Chạm hoặc nhấn ra ngoài màn hình để đóng thông báo
           </span>
@@ -149,7 +149,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
                   onClose();
                   onOpenSettings();
                 }}
-                className="text-xs h-8 gap-1.5 border-border cursor-pointer"
+                className="text-xs h-8 gap-1.5 border-border/80 rounded-xl cursor-pointer active:scale-[0.98] transition-transform"
               >
                 <Key className="h-3.5 w-3.5 text-accent" />
                 <span>Cài đặt Gemini Key</span>
@@ -160,7 +160,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
               variant="outline"
               size="sm"
               onClick={onClose}
-              className="text-xs h-8 px-4 font-medium border-border hover:bg-surface cursor-pointer"
+              className="text-xs h-8 px-4 font-medium border-border/80 hover:bg-surface rounded-xl cursor-pointer active:scale-[0.98] transition-transform"
             >
               Đã hiểu & Đóng
             </Button>

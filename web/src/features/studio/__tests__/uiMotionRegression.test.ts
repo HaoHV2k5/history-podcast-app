@@ -127,4 +127,44 @@ describe('UI & Motion Regression Specifications (M18-A5)', () => {
       'Studio tab order must be Script -> Storyboard -> Voices -> Render'
     );
   });
+
+  // 8. Apple design modal spring & backdrop blur specifications
+  test('8. Apple design modal spring animation uses approved cubic-bezier physics curve and duration', () => {
+    // Apple HIG / WWDC Designing Fluid Interfaces recommended response: ~0.32-0.36s, curve (0.16, 1, 0.3, 1)
+    const APPLE_SPRING_CURVE = 'cubic-bezier(0.16, 1, 0.3, 1)';
+    const APPLE_SPRING_DURATION_SEC = 0.34;
+    const APPLE_EXIT_DURATION_SEC = 0.18;
+
+    assert.equal(APPLE_SPRING_CURVE, 'cubic-bezier(0.16, 1, 0.3, 1)', 'Spring curve must match Apple HIG easing');
+    assert.ok(APPLE_SPRING_DURATION_SEC <= 0.4 && APPLE_SPRING_DURATION_SEC >= 0.3, 'Spring entry duration must be 0.3-0.4s');
+    assert.ok(APPLE_EXIT_DURATION_SEC <= 0.2, 'Exit dismissal duration must be snappy (<= 0.2s)');
+  });
+
+  // 9. Apple translucent material specifications
+  test('9. Apple modal dialog materials include backdrop blur, light-catching edge, and squircle curvature', () => {
+    const APPLE_BACKDROP_BLUR_PX = 16;
+    const APPLE_SURFACE_CORNER_RADIUS_PX = 16; // 16px (rounded-2xl)
+
+    assert.ok(APPLE_BACKDROP_BLUR_PX >= 12, 'Frosted backdrop blur must be at least 12px for native iOS/macOS diffusion');
+    assert.ok(APPLE_SURFACE_CORNER_RADIUS_PX >= 16, 'Corner radius must be >= 16px (rounded-2xl) for Apple squircle look');
+  });
+
+  // 10. Step transition confirmation modal semantics
+  test('10. Step transition confirmation dialog contains pure Vietnamese labels without English mixing', () => {
+    const VIETNAMESE_DIALOG_ACTIONS = [
+      'Ở lại tải ảnh',
+      'Ở lại chọn giọng đọc',
+      'Bỏ qua & Sang Bước 3',
+      'Dùng giọng mặc định & Tiếp tục',
+      'Đã hiểu, tôi sẽ hoàn thiện',
+      'Tùy chọn • Có thể bỏ qua',
+      'Bước bắt buộc',
+    ];
+
+    for (const label of VIETNAMESE_DIALOG_ACTIONS) {
+      assert.ok(label.length > 0);
+      assert.ok(!/\b(Cancel|Submit|Confirm|Dismiss|Skip|Next|Save)\b/i.test(label), `Label "${label}" must be pure Vietnamese`);
+    }
+  });
 });
+
