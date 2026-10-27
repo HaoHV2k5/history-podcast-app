@@ -24,6 +24,8 @@ export { HISTORICAL_SCOPE_SUGGESTIONS };
 interface Step1ScriptInputProps {
   renderMode?: 'whiteboard' | 'audio_podcast';
   setRenderMode?: (mode: 'whiteboard' | 'audio_podcast') => void;
+  creationMode?: CreationMode;
+  setCreationMode?: (mode: CreationMode) => void;
   scriptTopic: string;
   setScriptTopic: (val: string) => void;
   scriptContent: string;
@@ -51,6 +53,8 @@ interface Step1ScriptInputProps {
 export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
   renderMode = 'audio_podcast',
   setRenderMode,
+  creationMode: creationModeProp,
+  setCreationMode: setCreationModeProp,
   scriptTopic,
   setScriptTopic,
   scriptContent,
@@ -74,14 +78,26 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
   onOpenSettings,
   onClearError,
 }) => {
-  const [creationMode, setCreationMode] = useState<CreationMode>(
+  const [internalMode, setInternalMode] = useState<CreationMode>(
     scriptContent.length > 120 ? 'manual_script' : 'ai_prompt'
   );
+  const activeCreationMode = creationModeProp ?? internalMode;
+  const handleSelectMode = (mode: CreationMode) => {
+    if (setCreationModeProp) {
+      setCreationModeProp(mode);
+    } else {
+      setInternalMode(mode);
+    }
+  };
+
   const [selectedDynasty, setSelectedDynasty] = useState<'all' | 'ly' | 'tran'>('all');
   const [narrativeTone, setNarrativeTone] = useState<NarrativeTone>('epic');
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
 
-  const effectiveInput = scriptTopic.trim() || scriptContent.trim();
+  const effectiveInput =
+    activeCreationMode === 'manual_script'
+      ? (scriptContent.trim() || scriptTopic.trim())
+      : (scriptTopic.trim() || scriptContent.trim());
   const isInputEmpty = !effectiveInput;
 
   // Active error handling
@@ -95,7 +111,7 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
   // Selected topic match for contextual RAG panel
   const activeHistoricalItem =
     HISTORICAL_SCOPE_SUGGESTIONS.find(
-      (item) => item.title === scriptTopic || item.title === scriptContent
+      (item) => item.title === scriptTopic || item.shortTitle === scriptTopic || item.title === scriptContent
     ) || null;
 
   return (
@@ -126,12 +142,12 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
 
             {/* Creation Method Selection Cards */}
             <StudioCreationMethodToggle
-              creationMode={creationMode}
-              onSelectMode={setCreationMode}
+              creationMode={activeCreationMode}
+              onSelectMode={handleSelectMode}
             />
 
             {/* Mode A: AI Creation Mode */}
-            {creationMode === 'ai_prompt' ? (
+            {activeCreationMode === 'ai_prompt' ? (
               <div className="space-y-4 pt-1">
                 {/* Topic Input with Pen Icon & Character Counter */}
                 <div className="space-y-1.5">
@@ -147,15 +163,14 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
                       type="text"
                       maxLength={200}
                       placeholder="Ví dụ: Đại Lễ dời đô năm 1010 của vua Lý Thái Tổ..."
-                      value={scriptTopic || scriptContent}
+                      value={scriptTopic}
                       onChange={(e) => {
                         setScriptTopic(e.target.value);
-                        setScriptContent(e.target.value);
                       }}
                       className="text-xs h-11 px-3.5 pr-14 bg-white border-[#E7E5E4] rounded-xl focus:border-accent font-medium text-[#1C1917] shadow-2xs"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#A8A29E] pointer-events-none tabular-nums">
-                      {(scriptTopic || scriptContent).length}/200
+                      {scriptTopic.length}/200
                     </span>
                   </div>
 
@@ -167,10 +182,12 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
 
                 {/* Historical Topic Suggestions */}
                 <StudioSuggestedTopics
-                  selectedTopicTitle={scriptTopic || scriptContent}
+                  selectedTopicTitle={scriptTopic}
                   onSelectTopic={(item) => {
                     setScriptTopic(item.title);
-                    setScriptContent(item.desc);
+                    if (activeCreationMode === 'ai_prompt') {
+                      setScriptContent('');
+                    }
                     setStoryboardDuration(item.suggestedDuration);
                   }}
                 />
@@ -357,7 +374,9 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
         activeError={activeError}
         onSelectHistoricalTopic={(item) => {
           setScriptTopic(item.title);
-          setScriptContent(item.desc);
+          if (activeCreationMode === 'ai_prompt') {
+            setScriptContent('');
+          }
           setStoryboardDuration(item.suggestedDuration);
           setIsErrorModalOpen(false);
           onClearError?.();
