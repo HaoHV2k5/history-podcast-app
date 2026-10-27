@@ -24,6 +24,7 @@ import {
   ChevronRight,
   MoreVertical,
   XCircle,
+  Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { channelsApi } from '@/services/api/channels';
@@ -71,6 +72,142 @@ const MiniSparklineBars: React.FC<{
       />
     ))}
   </div>
+);
+
+// Artwork Illustrations for the 4 Bottom Cards
+const QuillAndScrollArtwork: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    viewBox="0 0 160 120"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn('pointer-events-none select-none', className)}
+    aria-hidden="true"
+  >
+    <path
+      d="M20 70 C35 50, 70 52, 90 70 C110 88, 140 85, 148 72 C152 65, 142 55, 125 58 C100 62, 75 42, 45 48 C25 52, 16 65, 20 70 Z"
+      fill="#FEE2E2"
+      fillOpacity="0.6"
+      stroke="#E11D48"
+      strokeWidth="1.2"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M30 65 C55 58, 95 62, 135 72"
+      stroke="#BE123C"
+      strokeWidth="1"
+      strokeDasharray="2 3"
+    />
+    <path
+      d="M35 73 C60 66, 100 70, 130 78"
+      stroke="#BE123C"
+      strokeWidth="1"
+      strokeDasharray="2 3"
+    />
+    {/* Quill Feather */}
+    <path
+      d="M138 22 C125 35, 110 65, 95 95 C98 90, 104 82, 112 75 C122 66, 136 50, 142 35 C146 25, 144 20, 138 22 Z"
+      fill="#FFE4E6"
+      stroke="#BE123C"
+      strokeWidth="1.4"
+    />
+    <path
+      d="M138 22 Q115 60 92 102"
+      stroke="#9F1239"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const BooksStackArtwork: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    viewBox="0 0 160 120"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn('pointer-events-none select-none', className)}
+    aria-hidden="true"
+  >
+    {/* Bottom Book */}
+    <rect
+      x="25"
+      y="78"
+      width="95"
+      height="18"
+      rx="3"
+      fill="#FEF3C7"
+      stroke="#D97706"
+      strokeWidth="1.2"
+    />
+    <path d="M32 78 V96 M115 78 V96" stroke="#B45309" strokeWidth="1" />
+    {/* Middle Book */}
+    <rect
+      x="35"
+      y="58"
+      width="88"
+      height="17"
+      rx="3"
+      fill="#FDE68A"
+      stroke="#D97706"
+      strokeWidth="1.2"
+    />
+    <path d="M42 58 V75 M118 58 V75" stroke="#B45309" strokeWidth="1" />
+    {/* Open Manuscript on top */}
+    <path
+      d="M50 56 C68 46, 85 46, 92 52 C99 46, 116 46, 134 56 L128 42 C112 34, 98 34, 92 40 C86 34, 72 34, 56 42 Z"
+      fill="#FFFBEB"
+      stroke="#B45309"
+      strokeWidth="1.2"
+    />
+    <path d="M92 40 V52" stroke="#92400E" strokeWidth="1.2" />
+  </svg>
+);
+
+const MicrophoneArtwork: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    viewBox="0 0 160 120"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn('pointer-events-none select-none', className)}
+    aria-hidden="true"
+  >
+    {/* Headphones Band */}
+    <path
+      d="M45 70 C45 38, 115 38, 115 70"
+      stroke="#E11D48"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+    />
+    <rect x="38" y="65" width="14" height="24" rx="6" fill="#FFE4E6" stroke="#BE123C" strokeWidth="1.4" />
+    <rect x="108" y="65" width="14" height="24" rx="6" fill="#FFE4E6" stroke="#BE123C" strokeWidth="1.4" />
+    {/* Classic Studio Microphone */}
+    <rect x="72" y="38" width="16" height="28" rx="8" fill="#FEE2E2" stroke="#9F1239" strokeWidth="1.4" />
+    <path d="M72 48 H88 M72 54 H88 M72 60 H88" stroke="#BE123C" strokeWidth="0.8" />
+    <path d="M66 52 C66 68, 94 68, 94 52" stroke="#9F1239" strokeWidth="1.4" fill="none" />
+    <path d="M80 66 V82 M68 82 H92" stroke="#9F1239" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
+);
+
+const CameraBroadcastArtwork: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    viewBox="0 0 160 120"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={cn('pointer-events-none select-none', className)}
+    aria-hidden="true"
+  >
+    {/* Dual Film Reels */}
+    <circle cx="68" cy="36" r="14" fill="#FFEDD5" stroke="#EA580C" strokeWidth="1.2" />
+    <circle cx="68" cy="36" r="4" fill="#C2410C" />
+    <circle cx="94" cy="36" r="14" fill="#FFEDD5" stroke="#EA580C" strokeWidth="1.2" />
+    <circle cx="94" cy="36" r="4" fill="#C2410C" />
+    {/* Camera Body */}
+    <rect x="52" y="48" width="56" height="32" rx="4" fill="#FED7AA" stroke="#C2410C" strokeWidth="1.4" />
+    {/* Lens & Projection Beams */}
+    <polygon points="108,54 130,42 130,74 108,62" fill="#FDBA74" stroke="#EA580C" strokeWidth="1.2" />
+    <path d="M136 46 L148 40 M136 58 L152 58 M136 70 L148 76" stroke="#F97316" strokeWidth="1" strokeLinecap="round" strokeDasharray="2 3" />
+    {/* Tripod Legs */}
+    <path d="M80 80 L62 108 M80 80 L80 108 M80 80 L98 108" stroke="#9A3412" strokeWidth="1.6" strokeLinecap="round" />
+  </svg>
 );
 
 // Helper to determine historical tags for a video
@@ -275,7 +412,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
               {channel?.name || user?.fullName || 'Đại Việt Sử Ký'}
             </h1>
             <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 leading-relaxed pt-1">
-              Tiếp tục hành trình kể những câu chuyện lịch sử Việt Nam đầy cảm hứng qua video và podcast.
+              Tiếp tục hành trình kể những câu chuyện lịch sử Việt Nam đầy cảm hứng qua video và bản ghi âm.
             </p>
           </div>
 
@@ -428,7 +565,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-accent dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40">
-                <Video className="h-4 w-4" />
+                <BookOpen className="h-4 w-4" />
               </div>
               <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
                 TỔNG TÁC PHẨM
@@ -567,7 +704,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
               <div>
                 <h2 className="text-base font-bold text-ink font-serif tracking-tight">Tác phẩm gần đây</h2>
                 <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Các nội dung bản ghi và video hoạt họa mới nhất của kênh
+                  Các nội dung bản ghi âm và video hoạt họa mới nhất của kênh
                 </p>
               </div>
             </div>
@@ -697,7 +834,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
                         {/* Tags */}
                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 text-sky-700 border border-sky-200/70 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
-                            <Video className="h-2.5 w-2.5" />
+                            <Sparkles className="h-2.5 w-2.5" />
                             <span>Video Sử Ký</span>
                           </span>
                           {tags.map((t) => (
@@ -830,18 +967,21 @@ export const CreatorWorkspaceHome: React.FC = () => {
           onClick={() => navigate('/creator/create')}
           className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-accent/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
         >
-          <div>
+          {/* Subtle Decorative Artwork */}
+          <QuillAndScrollArtwork className="absolute right-0 -bottom-2 w-28 h-20 opacity-40 group-hover:opacity-75 group-hover:scale-105 transition-all duration-300" />
+
+          <div className="relative z-10">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent mb-3.5 group-hover:scale-105 transition-transform">
               <PlusCircle className="h-5 w-5" />
             </div>
             <h3 className="text-sm font-bold text-ink group-hover:text-accent transition-colors">
               Tạo nội dung mới
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
-              Sáng tạo video, podcast lịch sử với sự hỗ trợ của AI.
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed max-w-[180px]">
+              Sáng tạo video, bản ghi âm lịch sử với sự hỗ trợ của AI.
             </p>
           </div>
-          <div className="pt-4 flex items-center justify-between">
+          <div className="pt-5 flex items-center justify-between relative z-10">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-accent group-hover:text-white transition-all">
               <ArrowRight className="h-3.5 w-3.5" />
             </span>
@@ -853,18 +993,21 @@ export const CreatorWorkspaceHome: React.FC = () => {
           onClick={() => navigate('/creator/content')}
           className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-amber-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
         >
-          <div>
+          {/* Subtle Decorative Artwork */}
+          <BooksStackArtwork className="absolute right-0 -bottom-2 w-28 h-20 opacity-40 group-hover:opacity-75 group-hover:scale-105 transition-all duration-300" />
+
+          <div className="relative z-10">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 mb-3.5 group-hover:scale-105 transition-transform">
               <Video className="h-5 w-5" />
             </div>
             <h3 className="text-sm font-bold text-ink group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
               Thư viện nội dung
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed max-w-[180px]">
               Quản lý toàn bộ tác phẩm, lọc theo trạng thái.
             </p>
           </div>
-          <div className="pt-4 flex items-center justify-between">
+          <div className="pt-5 flex items-center justify-between relative z-10">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-amber-600 group-hover:text-white transition-all">
               <ArrowRight className="h-3.5 w-3.5" />
             </span>
@@ -876,18 +1019,21 @@ export const CreatorWorkspaceHome: React.FC = () => {
           onClick={() => navigate('/creator/series')}
           className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-rose-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
         >
-          <div>
+          {/* Subtle Decorative Artwork */}
+          <MicrophoneArtwork className="absolute right-0 -bottom-2 w-28 h-20 opacity-40 group-hover:opacity-75 group-hover:scale-105 transition-all duration-300" />
+
+          <div className="relative z-10">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 mb-3.5 group-hover:scale-105 transition-transform">
               <BookOpen className="h-5 w-5" />
             </div>
             <h3 className="text-sm font-bold text-ink group-hover:text-rose-700 dark:group-hover:text-rose-400 transition-colors">
               Tuyển tập Tác phẩm
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed max-w-[180px]">
               Khám phá các tuyển tập theo chủ đề lịch sử.
             </p>
           </div>
-          <div className="pt-4 flex items-center justify-between">
+          <div className="pt-5 flex items-center justify-between relative z-10">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-rose-600 group-hover:text-white transition-all">
               <ArrowRight className="h-3.5 w-3.5" />
             </span>
@@ -899,18 +1045,21 @@ export const CreatorWorkspaceHome: React.FC = () => {
           onClick={() => navigate('/creator/livestream')}
           className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-orange-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
         >
-          <div>
+          {/* Subtle Decorative Artwork */}
+          <CameraBroadcastArtwork className="absolute right-0 -bottom-2 w-28 h-20 opacity-40 group-hover:opacity-75 group-hover:scale-105 transition-all duration-300" />
+
+          <div className="relative z-10">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 mb-3.5 group-hover:scale-105 transition-transform">
               <Tv className="h-5 w-5" />
             </div>
             <h3 className="text-sm font-bold text-ink group-hover:text-orange-700 dark:group-hover:text-orange-400 transition-colors">
               Phát trực tiếp
             </h3>
-            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
-              Tổ chức livestream thảo luận về lịch sử cùng cộng đồng.
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed max-w-[180px]">
+              Tổ chức phát sóng trực tiếp thảo luận về lịch sử cùng cộng đồng.
             </p>
           </div>
-          <div className="pt-4 flex items-center justify-between">
+          <div className="pt-5 flex items-center justify-between relative z-10">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-orange-600 group-hover:text-white transition-all">
               <ArrowRight className="h-3.5 w-3.5" />
             </span>
