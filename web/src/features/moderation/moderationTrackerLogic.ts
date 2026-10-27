@@ -25,6 +25,7 @@ export interface UnresolvedTransition {
 export const DECISIONS_KEY_PREFIX = 'creator_moderation_decisions_';
 export const PENDING_SNAPSHOT_KEY_PREFIX = 'creator_moderation_pending_snapshot_';
 export const UNRESOLVED_SNAPSHOT_KEY_PREFIX = 'creator_moderation_unresolved_';
+export const READ_NOTIFICATIONS_KEY_PREFIX = 'creator_moderation_read_ids_';
 
 export const MAX_RESOLUTION_RETRIES = 5;
 export const INITIAL_RETRY_DELAY_MS = 2000;
@@ -295,3 +296,25 @@ export function appendDecisionWithoutDuplicate(
   }
   return { updated: [newEvent, ...existing].slice(0, maxKeep), wasAdded: true };
 }
+
+/**
+ * Safely parses read notification IDs from JSON array string.
+ */
+export function safeParseReadIds(raw: string | null): Set<string> {
+  if (!raw) return new Set();
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((item): item is string => typeof item === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
+ * Serializes read notification IDs set to JSON array string.
+ */
+export function serializeReadIds(set: Set<string>): string {
+  return JSON.stringify(Array.from(set));
+}
+

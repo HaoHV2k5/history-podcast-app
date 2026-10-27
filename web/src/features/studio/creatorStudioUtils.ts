@@ -7,7 +7,7 @@
  * file type/size validation, and script formatting.
  */
 
-import type { StoryboardScene } from '../../types/creatorStudio';
+import type { StoryboardScene, CreatorVoiceItem } from '../../types/creatorStudio';
 
 /**
  * Resolves media URLs (video, audio, image, subtitle) against backend-supported public endpoints.
@@ -291,3 +291,98 @@ export const resolveVideoThumbnail = (
 
   return '';
 };
+
+// ─── VOICE REGION & METADATA MAPPING UTILITIES ──────────────────────────────
+
+export type VoiceRegion = 'mien-bac' | 'mien-trung' | 'mien-nam' | 'toan-quoc';
+
+/**
+ * Phân định vùng miền chuẩn xác theo dữ liệu giọng thực tế,
+ * khắc phục triệt để lỗi substring 'nam' (giới tính nam) bị nhầm với 'miền nam'.
+ */
+export const getVoiceRegion = (voice: CreatorVoiceItem): VoiceRegion => {
+  const id = voice.id;
+
+  // 1. Ánh xạ ưu tiên theo ID giọng
+  if (id === 'vi-VN-NamMinhNeural' || id === 'Liam' || id === 'Laura' || id === 'Roger') {
+    return 'mien-nam';
+  }
+  if (
+    id === 'vi-VN-HoaiMyNeural' ||
+    id === 'Sarah' ||
+    id === 'George' ||
+    id === 'Bill' ||
+    id === 'Alice' ||
+    id === 'Matilda' ||
+    id === 'Daniel'
+  ) {
+    return 'mien-bac';
+  }
+  if (id === 'Callum' || id === 'Harry' || id === 'Lily') {
+    return 'mien-trung';
+  }
+  if (id === 'Brian' || id === 'Adam' || id === 'River' || id === 'Will' || id === 'Rachel') {
+    return 'toan-quoc';
+  }
+
+  // 2. Kiểm tra danh sách tags từ hệ thống
+  const tags = voice.tags || [];
+  if (tags.includes('mien-nam')) return 'mien-nam';
+  if (tags.includes('mien-bac')) return 'mien-bac';
+  if (tags.includes('mien-trung')) return 'mien-trung';
+  if (tags.includes('toan-quoc')) return 'toan-quoc';
+
+  // 3. Phân tích cụm từ chính xác (không so khớp từ đơn 'nam' để tránh nhầm với giới tính)
+  const acc = (voice.accent || '').toLowerCase();
+  if (acc.includes('nam bộ') || acc.includes('miền nam') || acc.includes('sài gòn')) return 'mien-nam';
+  if (acc.includes('miền trung') || acc.includes('trung bộ') || acc.includes('huế')) return 'mien-trung';
+  if (acc.includes('chuẩn bắc') || acc.includes('miền bắc') || acc.includes('hà nội') || acc.includes('bắc bộ')) return 'mien-bac';
+
+  return 'toan-quoc';
+};
+
+/**
+ * Hiển thị mô tả sắc thái giọng đọc chuẩn Tiếng Việt, trong sáng và văn hóa lịch sử.
+ */
+export const getVoiceAccentDisplay = (voice: CreatorVoiceItem): string => {
+  if (voice.id === 'vi-VN-NamMinhNeural') {
+    return 'Giọng Nam Bộ truyền cảm, tự nhiên, gần gũi';
+  }
+  if (voice.id === 'vi-VN-HoaiMyNeural') {
+    return 'Giọng Bắc chuẩn, dịu dàng, lắng đọng';
+  }
+  if (voice.id === 'Adam') {
+    return 'Trầm ấm, sâu lắng, gần gũi, biểu cảm phong phú';
+  }
+  if (voice.id === 'Brian') {
+    return 'Hào sảng, uy lực, trầm ấm, vang vọng sử thi';
+  }
+  return voice.accent || 'Giọng đọc chuẩn tiếng Việt';
+};
+
+export const getRegionLabel = (region: VoiceRegion): string => {
+  switch (region) {
+    case 'mien-bac':
+      return 'Miền Bắc';
+    case 'mien-trung':
+      return 'Miền Trung';
+    case 'mien-nam':
+      return 'Miền Nam';
+    case 'toan-quoc':
+      return 'Toàn quốc';
+  }
+};
+
+export const getGenderLabel = (gender: string): string => {
+  if (gender === 'male') return 'Giọng Nam';
+  if (gender === 'female') return 'Giọng Nữ';
+  if (gender === 'custom') return 'Giọng riêng';
+  return 'Trung tính';
+};
+
+export const getEngineLabel = (engine: string): string => {
+  if (engine === 'edge-tts') return 'Miễn phí (Edge-TTS)';
+  if (engine === 'elevenlabs') return 'Cao cấp (ElevenLabs)';
+  return engine;
+};
+

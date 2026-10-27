@@ -184,6 +184,10 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
                 <StudioSuggestedTopics
                   selectedTopicTitle={scriptTopic}
                   onSelectTopic={(item) => {
+                    if (!item) {
+                      setScriptTopic('');
+                      return;
+                    }
                     setScriptTopic(item.title);
                     if (activeCreationMode === 'ai_prompt') {
                       setScriptContent('');
@@ -199,6 +203,37 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
                   storyboardDuration={storyboardDuration}
                   setStoryboardDuration={setStoryboardDuration}
                 />
+
+                {/* Selection State & Action Guidance (emil-design-eng) */}
+                {isInputEmpty ? (
+                  <div className="rounded-xl border border-border/80 bg-[#FAF8F5] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-muted font-sans">
+                      <span className="h-2 w-2 rounded-full bg-status-warning-text shrink-0" />
+                      <span>
+                        <strong>Chưa chọn chủ đề:</strong> Vui lòng nhập chủ đề lịch sử hoặc nhấp chọn một thẻ gợi ý bên trên.
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent border border-accent/20 bg-accent/5 px-2 py-0.5 rounded-md shrink-0">
+                      Bắt buộc hoàn thành
+                    </span>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-accent/25 bg-[#FAF0F1]/40 p-3 flex items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-ink font-sans min-w-0">
+                      <span className="h-2 w-2 rounded-full bg-accent shrink-0 animate-pulse" />
+                      <span className="truncate">
+                        Chủ đề đang chọn: <strong className="text-accent">{scriptTopic}</strong>
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setScriptTopic('')}
+                      className="text-[11px] font-medium text-muted hover:text-accent transition-colors shrink-0 cursor-pointer underline underline-offset-2"
+                    >
+                      Xóa / Bỏ chọn
+                    </button>
+                  </div>
+                )}
 
                 {/* Dominant Primary Action CTA */}
                 <div className="pt-2 flex justify-end">
@@ -312,6 +347,33 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Selection State & Action Guidance (emil-design-eng) */}
+                {isInputEmpty ? (
+                  <div className="rounded-xl border border-border/80 bg-[#FAF8F5] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-muted font-sans">
+                      <span className="h-2 w-2 rounded-full bg-status-warning-text shrink-0" />
+                      <span>
+                        <strong>Chưa nhập kịch bản:</strong> Vui lòng dán nội dung kịch bản hoặc nhấn "Nạp mẫu Dời Đô 1010" phía trên.
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-accent border border-accent/20 bg-accent/5 px-2 py-0.5 rounded-md shrink-0">
+                      Bắt buộc hoàn thành
+                    </span>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-status-success-text/25 bg-status-success-bg/40 p-3 flex items-center justify-between gap-2.5 text-xs">
+                    <div className="flex items-center gap-2 text-ink font-sans min-w-0">
+                      <span className="h-2 w-2 rounded-full bg-status-success-text shrink-0" />
+                      <span className="truncate">
+                        Đã sẵn sàng kịch bản ({wordCount} từ • ~{estimatedReadingSec}s đọc)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-status-success-text border border-status-success-text/30 bg-status-success-bg px-2 py-0.5 rounded-md shrink-0">
+                      Hợp lệ
+                    </span>
+                  </div>
+                )}
 
                 {/* Actions: Fact-check & Advance */}
                 <div className="pt-3 border-t border-border/70 flex flex-wrap items-center justify-between gap-3">

@@ -15,6 +15,7 @@ interface StudioWorkflowStepperProps {
   hasStoryboard: boolean;
   hasActiveJob?: boolean;
   onSelectTab: (tab: StudioTabId) => void;
+  onAttemptLockedStep?: (tab: StudioTabId) => void;
 }
 
 interface StepItemConfig {
@@ -61,6 +62,7 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
   maxUnlockedStep,
   hasStoryboard,
   onSelectTab,
+  onAttemptLockedStep,
 }) => {
   const effectiveMaxStep = Math.max(maxUnlockedStep, hasStoryboard ? 2 : 1);
 
@@ -85,15 +87,16 @@ export const StudioWorkflowStepper: React.FC<StudioWorkflowStepperProps> = ({
                 onClick={() => {
                   if (isUnlocked) {
                     onSelectTab(step.id);
+                  } else {
+                    onAttemptLockedStep?.(step.id);
                   }
                 }}
-                disabled={!isUnlocked}
-                className={`shrink-0 flex items-center gap-2 sm:gap-2.5 text-left transition-all py-1 px-1 sm:px-1.5 md:px-2 rounded-xl select-none group ${
-                  isUnlocked ? 'cursor-pointer hover:bg-[#FAF8F5]/80' : 'cursor-not-allowed opacity-80'
+                className={`shrink-0 flex items-center gap-2 sm:gap-2.5 text-left transition-all py-1 px-1 sm:px-1.5 md:px-2 rounded-xl select-none group cursor-pointer ${
+                  isUnlocked ? 'hover:bg-[#FAF8F5]/80 active:scale-95' : 'opacity-80 hover:bg-[#FAF8F5]/50'
                 }`}
                 title={
                   !isUnlocked
-                    ? `Hoàn thành bước trước để mở khóa bước ${step.title}`
+                    ? `Nhấp để xem điều kiện mở khóa bước ${step.title}`
                     : `Chuyển tới bước ${step.title}`
                 }
               >
