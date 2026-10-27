@@ -32,7 +32,7 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
   {
     title: 'KHÔNG GIAN LÀM VIỆC',
     items: [
-      { id: '01', label: 'Tổng quan Studio', to: '/creator', icon: LayoutDashboard },
+      { id: '01', label: 'Tổng quan Bàn làm việc', to: '/creator', icon: LayoutDashboard },
     ],
   },
   {
@@ -40,7 +40,7 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
     items: [
       { id: '02', label: 'Thư viện nội dung', to: '/creator/content', icon: Video },
       { id: '03', label: 'Tạo nội dung mới', to: '/creator/create', icon: PlusCircle },
-      { id: '04', label: 'Tuyển tập Podcast', to: '/creator/series', icon: BookOpen },
+      { id: '04', label: 'Tuyển tập Tác phẩm', to: '/creator/series', icon: BookOpen },
       { id: '05', label: 'Phát trực tiếp', to: '/creator/livestream', icon: Tv },
     ],
   },
@@ -90,7 +90,7 @@ export const CreatorSidebar: React.FC<CreatorSidebarProps> = ({
                 SỬ KÝ
               </span>
               <span className="text-[11px] font-semibold tracking-wider uppercase text-accent truncate">
-                Creator Studio
+                Xưởng Sáng Tạo
               </span>
             </div>
           )}

@@ -7,10 +7,10 @@ import {
   UserCheck,
   Radio,
   ArrowRight,
-  Sparkles,
   Clock,
   Heart,
   MessageSquare,
+  Eye,
   AlertCircle,
   CheckCircle2,
   FileText,
@@ -19,6 +19,11 @@ import {
   Volume2,
   ExternalLink,
   RotateCcw,
+  BookOpen,
+  Tv,
+  ChevronRight,
+  MoreVertical,
+  XCircle,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { channelsApi } from '@/services/api/channels';
@@ -32,10 +37,63 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown';
 import { CreatorVideoItem } from '@/types/creatorContent';
-import { formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
+import { formatDate, formatDuration, formatRelativeTime, getContentStatusBadge } from '@/utils/formatters';
 import { gsap } from 'gsap';
 import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
+import { cn } from '@/utils/cn';
+
+// Fallback topic thumbnails
+const DEFAULT_TOPIC_THUMBNAILS = [
+  '/assets/studio/topic-bach-dang.png',
+  '/assets/studio/topic-thang-long.png',
+  '/assets/studio/topic-dien-hong.png',
+  '/assets/studio/topic-nhu-nguyet.png',
+];
+
+// Helper mini sparkline distribution bars
+const MiniSparklineBars: React.FC<{
+  heights: number[];
+  colorClass: string;
+}> = ({ heights, colorClass }) => (
+  <div className="flex items-end gap-[3px] h-8 shrink-0 select-none" aria-hidden="true">
+    {heights.map((h, i) => (
+      <div
+        key={i}
+        style={{ height: `${Math.max(8, Math.round(h * 32))}px` }}
+        className={cn('w-[3px] rounded-full transition-all duration-300', colorClass)}
+      />
+    ))}
+  </div>
+);
+
+// Helper to determine historical tags for a video
+function getHistoricalTags(item: CreatorVideoItem): string[] {
+  const tags: string[] = [];
+  const title = (item.title || '').toLowerCase();
+
+  // Detect dynasty
+  if (title.includes('trần') || title.includes('bạch đằng')) tags.push('Triều Trần');
+  else if (title.includes('lý') || title.includes('thăng long')) tags.push('Triều Lý');
+  else if (title.includes('lê') || title.includes('lam sơn')) tags.push('Triều Lê');
+  else if (title.includes('quang trung') || title.includes('tây sơn')) tags.push('Tây Sơn');
+  else if (title.includes('nguyễn') || title.includes('huế')) tags.push('Triều Nguyễn');
+  else tags.push('Sử Ca');
+
+  // Detect topic theme
+  if (title.includes('chiến') || title.includes('đánh') || title.includes('thắng')) tags.push('Chiến tranh');
+  else if (title.includes('dời đô') || title.includes('chiếu') || title.includes('chính')) tags.push('Chính trị');
+  else if (title.includes('khởi nghĩa')) tags.push('Khởi nghĩa');
+  else tags.push('Văn hóa');
+
+  return tags;
+}
 
 export const CreatorWorkspaceHome: React.FC = () => {
   const navigate = useNavigate();
@@ -65,7 +123,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
   }, []);
 
   // 1. Fetch channel identity
-  const { data: channelRes, isLoading: isLoadingChannel } = useQuery({
+  const { data: channelRes } = useQuery({
     queryKey: ['creator', 'my-channel'],
     queryFn: () => channelsApi.getMyChannel(),
     retry: 1,
@@ -90,7 +148,6 @@ export const CreatorWorkspaceHome: React.FC = () => {
     queryKey: ['creator', 'studio-videos', 'dashboard'],
     queryFn: () => creatorStudioApi.getVideos({ sortBy: 'createdAt', sortDir: 'desc' }),
     enabled: isKycApproved,
-    // Live polling every 15s when videos are pending review
     refetchInterval: (query) => {
       const vids = Array.isArray(query.state.data?.data) ? query.state.data.data : [];
       const hasPending = vids.some(
@@ -154,7 +211,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
     }
   };
 
-  // Derived real metrics
+  // Metrics
   const totalVideos = videos.length;
   const publishedVideos = videos.filter((v) => v.status === 'PUBLISHED').length;
   const pendingVideos = videos.filter(
@@ -163,69 +220,104 @@ export const CreatorWorkspaceHome: React.FC = () => {
   const completedVideos = videos.filter((v) => v.status === 'COMPLETED').length;
   const draftVideos = videos.filter((v) => v.status === 'DRAFT').length;
   const rejectedVideos = videos.filter((v) => v.status === 'REJECTED').length;
+  const readyOrDrafts = completedVideos + draftVideos;
 
-  const totalLikes = videos.reduce((acc, v) => acc + (v.likeCount || 0), 0);
-  const totalComments = videos.reduce((acc, v) => acc + (v.commentCount || 0), 0);
+  // Recent content
+  const recentVideos = videos.slice(0, 5);
 
-  // Top 4 recent videos
-  const recentVideos = videos.slice(0, 4);
+  // Recent activities derivation
+  const recentActivities = React.useMemo(() => {
+    return videos.slice(0, 5).map((v) => {
+      let actionTitle = 'Đã lưu bản nháp';
+      let icon = <FileText className="h-3.5 w-3.5 text-stone-500" />;
+
+      if (v.status === 'PUBLISHED') {
+        actionTitle = 'Tác phẩm đã xuất bản';
+        icon = <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />;
+      } else if (v.status === 'PENDING_REVIEW' || v.status === 'PENDING') {
+        actionTitle = 'Tác phẩm đang được kiểm duyệt';
+        icon = <Clock className="h-3.5 w-3.5 text-amber-600 animate-pulse" />;
+      } else if (v.status === 'REJECTED') {
+        actionTitle = 'Tác phẩm bị từ chối';
+        icon = <XCircle className="h-3.5 w-3.5 text-red-600" />;
+      } else if (v.status === 'COMPLETED') {
+        actionTitle = 'Tác phẩm sẵn sàng gửi duyệt';
+        icon = <Layers className="h-3.5 w-3.5 text-sky-600" />;
+      }
+
+      return {
+        id: v.contentId,
+        video: v,
+        actionTitle,
+        icon,
+        timestamp: v.updatedAt || v.createdAt,
+      };
+    });
+  }, [videos]);
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      {/* 1. Header Masthead */}
-      <div className="border-b border-border pb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent mb-2">
-            <Sparkles className="h-4 w-4" />
-            <span>Không Gian Sáng Tạo Sử Ký</span>
-          </div>
-          <h1 className="font-serif text-2xl md:text-3xl font-bold tracking-tight text-ink">
-            {channel?.name ? channel.name : 'Bàn Làm Việc Nhà Sáng Tạo'}
-          </h1>
-          <p className="mt-1 text-xs md:text-sm text-muted">
-            Xin chào <strong className="text-ink font-medium">{user?.email}</strong>. Quản lý tác
-            phẩm podcast, theo dõi trạng thái kiểm duyệt và xuất bản sử liệu.
-          </p>
-        </div>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* 1. Hero Masthead Panorama */}
+      <div className="relative overflow-hidden rounded-2xl border border-stone-200/80 bg-linear-to-r from-[#FFFDF9] via-[#FAF7F2] to-[#F5EFEB] dark:from-stone-900 dark:via-stone-900/90 dark:to-stone-950 p-6 sm:p-8 shadow-xs">
+        {/* Historical Landscape Watermark Graphic */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-full sm:w-2/3 max-w-2xl bg-right bg-contain bg-no-repeat opacity-25 dark:opacity-15 pointer-events-none mix-blend-multiply dark:mix-blend-screen"
+          style={{ backgroundImage: `url('/assets/studio/header-landscape.png')` }}
+          aria-hidden="true"
+        />
 
-        {/* Quick Channel Pill */}
-        {channel ? (
-          <div className="flex items-center gap-3 p-2.5 px-4 rounded-xl border border-border bg-surface shadow-xs">
-            {channel.avatarUrl ? (
-              <img
-                src={channel.avatarUrl}
-                alt={channel.name}
-                className="h-10 w-10 rounded-lg object-cover border border-border"
-              />
-            ) : (
-              <div className="h-10 w-10 rounded-lg bg-accent/10 text-accent flex items-center justify-center font-bold text-sm">
-                <Radio className="h-5 w-5" />
-              </div>
-            )}
-            <div className="text-left">
-              <span className="text-xs font-semibold text-ink block truncate max-w-[160px]">
-                {channel.name}
-              </span>
-              <span className="text-[10px] text-status-success-text font-medium flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-status-success-text" />
-                Kênh hoạt động
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/creator/channel')}
-              className="text-xs ml-2 h-7"
-            >
-              Quản lý
-            </Button>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <p className="text-xs sm:text-sm font-serif italic text-stone-500 dark:text-stone-400">
+              Chào mừng trở lại,
+            </p>
+            <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-ink">
+              {channel?.name || user?.fullName || 'Đại Việt Sử Ký'}
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-600 dark:text-stone-400 leading-relaxed pt-1">
+              Tiếp tục hành trình kể những câu chuyện lịch sử Việt Nam đầy cảm hứng qua video và podcast.
+            </p>
           </div>
-        ) : null}
+
+          <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3.5 shrink-0">
+            {/* Historical Philosophical Quote */}
+            <div className="text-left md:text-right max-w-xs hidden lg:block">
+              <p className="font-serif italic text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
+                “Lịch sử không chỉ để nhớ, mà để truyền cảm hứng cho hôm nay.”
+              </p>
+              <div className="w-12 h-[1px] bg-accent/40 md:ml-auto mt-1.5" />
+            </div>
+
+            {/* Floating Channel Quick Badge */}
+            <div className="flex items-center gap-3 p-2 px-3.5 rounded-xl border border-stone-200/90 dark:border-stone-800 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md shadow-xs">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                <Radio className="h-4 w-4 animate-pulse" />
+              </div>
+              <div className="text-left leading-tight">
+                <span className="text-xs font-bold text-ink block truncate max-w-[140px]">
+                  {channel?.name || 'Kênh Chưa Kích Hoạt'}
+                </span>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Kênh hoạt động
+                </span>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/creator/channel')}
+                className="h-7 px-2.5 text-xs ml-1 border-stone-200 dark:border-stone-800 hover:border-accent hover:text-accent"
+              >
+                Quản lý kênh
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Onboarding Status Alerts (if KYC or Channel is not yet ready) */}
+      {/* 2. Onboarding Status Alerts (KYC Required) */}
       {!isKycApproved && !isLoadingKyc && (
-        <div className="rounded-xl border border-border bg-surface p-5 shadow-xs">
+        <div className="rounded-xl border border-stone-200 bg-surface p-5 shadow-xs">
           <div className="flex items-start gap-4">
             <div className="p-2.5 rounded-lg bg-accent-soft text-accent shrink-0 mt-0.5">
               <UserCheck className="h-5 w-5" />
@@ -237,13 +329,9 @@ export const CreatorWorkspaceHome: React.FC = () => {
                     ? 'Hồ sơ định danh KYC đang được thẩm định'
                     : isKycRejected
                       ? 'Hồ sơ định danh KYC cần được cập nhật lại'
-                      : 'Hoàn tất xác thực KYC để mở khóa toàn bộ tính năng Studio'}
+                      : 'Hoàn tất xác thực KYC để mở khóa toàn bộ tính năng Bàn làm việc'}
                 </h3>
-                <Badge
-                  variant={
-                    isKycPending ? 'pending' : isKycRejected ? 'error' : 'default'
-                  }
-                >
+                <Badge variant={isKycPending ? 'pending' : isKycRejected ? 'error' : 'default'}>
                   {kycStatus || 'CHƯA GỬI'}
                 </Badge>
               </div>
@@ -255,11 +343,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
                     : 'Theo quy định nền tảng, Nhà sáng tạo cần hoàn tất xác thực thông tin định danh tác giả và tài khoản thụ hưởng trước khi khởi tạo kênh và xuất bản nội dung.'}
               </p>
               <div className="pt-1">
-                <Button
-                  size="sm"
-                  onClick={() => navigate('/creator/kyc')}
-                  className="gap-2 text-xs"
-                >
+                <Button size="sm" onClick={() => navigate('/creator/kyc')} className="gap-2 text-xs">
                   <FileText className="h-3.5 w-3.5" />
                   <span>
                     {isKycPending
@@ -275,394 +359,566 @@ export const CreatorWorkspaceHome: React.FC = () => {
         </div>
       )}
 
-      {isKycApproved && !channel && !isLoadingChannel && (
-        <div className="rounded-xl border border-accent/20 bg-accent-soft/30 p-5 shadow-xs">
-          <div className="flex items-start gap-4">
-            <div className="p-2.5 rounded-lg bg-accent text-canvas shrink-0 mt-0.5">
-              <Radio className="h-5 w-5" />
-            </div>
-            <div className="space-y-2 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-ink">
-                  Bước tiếp theo: Thiết lập Kênh Podcast Sử Ký chính thức
-                </h3>
-                <Badge variant="accent">Yêu cầu</Badge>
+      {/* 3. Action Alert Notices (Pending & Rejected Banners) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Pending Review Alert Banner */}
+        {pendingVideos > 0 && (
+          <div className="rounded-xl border border-amber-200/90 bg-amber-50/70 dark:bg-amber-950/20 dark:border-amber-900/60 p-4 flex items-center justify-between gap-3 text-xs text-amber-950 dark:text-amber-200 shadow-2xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
+                <Clock className="h-4 w-4 animate-pulse" />
               </div>
-              <p className="text-xs text-muted leading-relaxed">
-                Hồ sơ tác giả của bạn đã được phê duyệt! Hãy đặt tên kênh, viết mô tả và tải lên ảnh
-                đại diện/ảnh bìa để nhận diện thương hiệu với thính giả.
-              </p>
-              <div className="pt-1">
-                <Button
-                  size="sm"
-                  onClick={() => navigate('/creator/channel')}
-                  className="gap-2 text-xs"
-                >
-                  <Radio className="h-3.5 w-3.5" />
-                  <span>Khởi tạo Kênh Podcast</span>
-                </Button>
+              <div className="min-w-0">
+                <p className="font-semibold text-ink dark:text-amber-100">
+                  Có {pendingVideos} tác phẩm đang trong hàng đợi kiểm duyệt.
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-amber-300/80 truncate">
+                  Hệ thống đang tự động thẩm định và sẽ cập nhật kết quả sớm.
+                </p>
               </div>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/creator/content?status=PENDING_REVIEW')}
+              className="h-8 px-3 text-xs shrink-0 border-amber-300 bg-white/90 dark:bg-stone-900 text-amber-900 dark:text-amber-200 hover:bg-amber-100/60"
+            >
+              <span>Theo dõi kiểm duyệt</span>
+              <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Pending Review Alert Notice (if any) */}
-      {pendingVideos > 0 && (
-        <div className="rounded-xl border border-status-pending-text/30 bg-status-pending-bg p-4 flex items-center justify-between gap-3 text-xs text-status-pending-text shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <Clock className="h-4 w-4 shrink-0 animate-pulse" />
-            <span>
-              Kênh có <strong>{pendingVideos}</strong> tác phẩm đang trong hàng đợi kiểm duyệt của Ban biên tập. Hệ thống đang tự động thăm dò cập nhật kết quả.
-            </span>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate('/creator/content?status=PENDING_REVIEW')}
-            className="text-xs h-7 border-status-pending-text/40 text-status-pending-text hover:bg-status-pending-bg/80"
-          >
-            Theo dõi kiểm duyệt
-          </Button>
-        </div>
-      )}
-
-      {/* Rejected Alert Notice (if any) */}
-      {rejectedVideos > 0 && (
-        <div className="rounded-xl border border-status-error-text/30 bg-status-error-bg p-4 flex items-center justify-between gap-3 text-xs text-status-error-text">
-          <div className="flex items-center gap-2.5">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>
-              Kênh có <strong>{rejectedVideos}</strong> tác phẩm bị từ chối kiểm duyệt. Vui lòng kiểm
-              tra lý do và cập nhật kịch bản.
-            </span>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => navigate('/creator/content?status=REJECTED')}
-            className="text-xs h-7 border-status-error-text/40 text-status-error-text"
-          >
-            Xem danh sách
-          </Button>
-        </div>
-      )}
-
-      {/* 3. Real Verified Metrics Cards */}
-      <div ref={kpiGridRef} className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4.5">
-        {/* Total Content */}
-        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-accent/40 hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-accent/70 group-hover:bg-accent transition-colors" />
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Tổng tác phẩm
-            </span>
-            <div className="p-2 rounded-lg bg-surface-subtle text-ink shadow-2xs group-hover:scale-105 transition-transform">
-              <Video className="h-4 w-4" />
+        {/* Rejected Alert Banner */}
+        {rejectedVideos > 0 && (
+          <div className="rounded-xl border border-red-200/90 bg-red-50/70 dark:bg-red-950/20 dark:border-red-900/60 p-4 flex items-center justify-between gap-3 text-xs text-red-950 dark:text-red-200 shadow-2xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-semibold text-ink dark:text-red-100">
+                  Có {rejectedVideos} tác phẩm bị từ chối kiểm duyệt.
+                </p>
+                <p className="text-[11px] text-stone-500 dark:text-red-300/80 truncate">
+                  Vui lòng kiểm tra lý do và cập nhật kịch bản.
+                </p>
+              </div>
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/creator/content?status=REJECTED')}
+              className="h-8 px-3 text-xs shrink-0 border-red-300 bg-white/90 dark:bg-stone-900 text-red-900 dark:text-red-200 hover:bg-red-100/60"
+            >
+              <span>Xem danh sách</span>
+              <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
           </div>
-          <div className="mt-4">
-            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-ink tracking-tight">
-              {isLoadingVideos ? '—' : totalVideos}
-            </span>
-            <span className="text-xs text-muted block mt-1">Video & Audio Podcast</span>
+        )}
+      </div>
+
+      {/* 4. Four Core KPI Metrics Cards with Editorial Bar Sparklines */}
+      <div ref={kpiGridRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Tổng tác phẩm */}
+        <div
+          onClick={() => navigate('/creator/content')}
+          className="group rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-accent/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-accent dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40">
+                <Video className="h-4 w-4" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+                TỔNG TÁC PHẨM
+              </span>
+            </div>
+            <ChevronRight className="h-4 w-4 text-stone-400 group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+          </div>
+
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <span className="text-3xl font-bold font-mono tabular-nums text-ink tracking-tight block">
+                {isLoadingVideos ? '—' : totalVideos}
+              </span>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400 block mt-0.5">
+                Video &amp; Bản ghi âm
+              </span>
+            </div>
+            <MiniSparklineBars
+              heights={[0.3, 0.5, 0.4, 0.7, 0.6, 0.9, 0.75, 1.0, 0.85]}
+              colorClass="bg-rose-400/60 group-hover:bg-accent transition-colors"
+            />
           </div>
         </div>
 
-        {/* Published */}
-        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-status-success-text/40 hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-status-success-text/70 group-hover:bg-status-success-text transition-colors" />
+        {/* Card 2: Đã xuất bản */}
+        <div
+          onClick={() => navigate('/creator/content?status=PUBLISHED')}
+          className="group rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-emerald-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Đã xuất bản
-            </span>
-            <div className="p-2 rounded-lg bg-status-success-bg text-status-success-text shadow-2xs group-hover:scale-105 transition-transform">
-              <CheckCircle2 className="h-4 w-4" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-900/40">
+                <CheckCircle2 className="h-4 w-4" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+                ĐÃ XUẤT BẢN
+              </span>
             </div>
+            <ChevronRight className="h-4 w-4 text-stone-400 group-hover:text-emerald-600 group-hover:translate-x-0.5 transition-all" />
           </div>
-          <div className="mt-4">
-            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-status-success-text tracking-tight">
-              {isLoadingVideos ? '—' : publishedVideos}
-            </span>
-            <span className="text-xs text-muted block mt-1">Đang phát công khai</span>
+
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <span className="text-3xl font-bold font-mono tabular-nums text-emerald-700 dark:text-emerald-400 tracking-tight block">
+                {isLoadingVideos ? '—' : publishedVideos}
+              </span>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400 block mt-0.5">
+                Tác phẩm công khai
+              </span>
+            </div>
+            <MiniSparklineBars
+              heights={[0.2, 0.35, 0.5, 0.45, 0.7, 0.6, 0.85, 0.9, 1.0]}
+              colorClass="bg-emerald-500/60 group-hover:bg-emerald-600 transition-colors"
+            />
           </div>
         </div>
 
-        {/* Pending Review */}
-        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-status-pending-text/40 hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-status-pending-text/70 group-hover:bg-status-pending-text transition-colors" />
+        {/* Card 3: Chờ kiểm duyệt */}
+        <div
+          onClick={() => navigate('/creator/content?status=PENDING_REVIEW')}
+          className="group rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-amber-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Chờ kiểm duyệt
-            </span>
-            <div className="p-2 rounded-lg bg-status-pending-bg text-status-pending-text shadow-2xs group-hover:scale-105 transition-transform">
-              <Clock className="h-4 w-4" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200/60 dark:border-amber-900/40">
+                <Clock className="h-4 w-4" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+                CHỜ KIỂM DUYỆT
+              </span>
             </div>
+            <ChevronRight className="h-4 w-4 text-stone-400 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all" />
           </div>
-          <div className="mt-4">
-            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-status-pending-text tracking-tight">
-              {isLoadingVideos ? '—' : pendingVideos}
-            </span>
-            <span className="text-xs text-muted block mt-1">Đang rà soát sử liệu</span>
+
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <span className="text-3xl font-bold font-mono tabular-nums text-amber-700 dark:text-amber-400 tracking-tight block">
+                {isLoadingVideos ? '—' : pendingVideos}
+              </span>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400 block mt-0.5">
+                Tác phẩm đang thẩm định
+              </span>
+            </div>
+            <MiniSparklineBars
+              heights={[0.4, 0.6, 0.5, 0.8, 0.95, 0.7, 0.85, 0.9, 0.75]}
+              colorClass="bg-amber-500/60 group-hover:bg-amber-600 transition-colors"
+            />
           </div>
         </div>
 
-        {/* Drafts & Ready to Submit */}
-        <div className="group relative rounded-xl border border-border bg-surface p-5 shadow-subtle hover:-translate-y-1 hover:border-border-line hover:shadow-card-hover transition-all duration-200 flex flex-col justify-between overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-[2.5px] bg-muted/40 group-hover:bg-muted transition-colors" />
+        {/* Card 4: Bản nháp & Chờ gửi */}
+        <div
+          onClick={() => navigate('/creator/content?status=DRAFT')}
+          className="group rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-stone-400 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-              Bản nháp & Chờ gửi
-            </span>
-            <div className="p-2 rounded-lg bg-surface-subtle text-muted shadow-2xs group-hover:scale-105 transition-transform">
-              <Layers className="h-4 w-4" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700">
+                <Layers className="h-4 w-4" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 dark:text-stone-400">
+                BẢN NHÁP &amp; CHỜ GỬI
+              </span>
             </div>
+            <ChevronRight className="h-4 w-4 text-stone-400 group-hover:text-stone-600 group-hover:translate-x-0.5 transition-all" />
           </div>
-          <div className="mt-4">
-            <span className="text-2xl sm:text-3xl font-bold font-mono tabular-nums text-ink tracking-tight">
-              {isLoadingVideos ? '—' : draftVideos + completedVideos}
-            </span>
-            <span className="text-xs text-muted block mt-1">
-              {completedVideos > 0
-                ? `${completedVideos} chờ gửi duyệt, ${draftVideos} bản nháp`
-                : 'Đang biên soạn / Render'}
-            </span>
+
+          <div className="mt-4 flex items-end justify-between">
+            <div>
+              <span className="text-3xl font-bold font-mono tabular-nums text-ink tracking-tight block">
+                {isLoadingVideos ? '—' : readyOrDrafts}
+              </span>
+              <span className="text-[11px] text-stone-500 dark:text-stone-400 block mt-0.5 truncate max-w-[150px]">
+                {completedVideos > 0
+                  ? `${completedVideos} chờ gửi duyệt, ${draftVideos} bản nháp`
+                  : 'Đang biên tập kịch bản'}
+              </span>
+            </div>
+            <MiniSparklineBars
+              heights={[0.2, 0.4, 0.35, 0.6, 0.5, 0.7, 0.8, 0.65, 0.75]}
+              colorClass="bg-stone-400/60 group-hover:bg-stone-600 transition-colors"
+            />
           </div>
         </div>
       </div>
 
-      {/* Engagement summary (if any likes or comments exist) */}
-      {(totalLikes > 0 || totalComments > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-border bg-surface p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-accent-soft text-accent">
-              <Heart className="h-4 w-4" />
+      {/* 5. Awwwards Split Workspace (65% Recent Content / 35% Recent Activities) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Recent Content (Col-span 8) */}
+        <div className="lg:col-span-8 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3.5 border-b border-stone-200/70 dark:border-stone-800">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                <Video className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-ink font-serif tracking-tight">Tác phẩm gần đây</h2>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Các nội dung bản ghi và video hoạt họa mới nhất của kênh
+                </p>
+              </div>
             </div>
-            <div>
-              <span className="text-xs text-muted block">Lượt yêu thích tích lũy</span>
-              <span className="text-lg font-bold font-mono tabular-nums text-ink">{totalLikes.toLocaleString('vi-VN')}</span>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/creator/content')}
+              className="text-xs h-8 px-3 gap-1.5 border-stone-200 dark:border-stone-800 hover:border-accent hover:text-accent"
+            >
+              <span>Xem tất cả</span>
+              <ArrowRight className="h-3 w-3" />
+            </Button>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-surface-subtle text-ink">
-              <MessageSquare className="h-4 w-4" />
+          {/* Loading state */}
+          {isLoadingVideos && (
+            <div className="space-y-3 py-4 animate-pulse">
+              <div className="h-20 bg-stone-100 dark:bg-stone-800 rounded-xl" />
+              <div className="h-20 bg-stone-100 dark:bg-stone-800 rounded-xl" />
+              <div className="h-20 bg-stone-100 dark:bg-stone-800 rounded-xl" />
             </div>
-            <div>
-              <span className="text-xs text-muted block">Bình luận từ thính giả</span>
-              <span className="text-lg font-bold font-mono tabular-nums text-ink">{totalComments.toLocaleString('vi-VN')}</span>
+          )}
+
+          {/* Error state */}
+          {isVideosError && (
+            <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Không thể tải danh sách tác phẩm lúc này. Vui lòng thử lại sau.</span>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* 4. Recent Content Section */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between pb-3 border-b border-border">
-          <div>
-            <h2 className="text-base font-bold text-ink font-serif">Tác phẩm gần đây</h2>
-            <p className="text-xs text-muted mt-0.5">
-              Các nội dung podcast và video hoạt họa mới nhất của kênh
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/creator/content')}
-            className="gap-1.5 text-xs min-h-[36px]"
-          >
-            <span>Đến Thư viện nội dung</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {/* Loading state */}
-        {isLoadingVideos && (
-          <div className="space-y-3 py-4 animate-pulse">
-            <div className="h-16 bg-surface-subtle rounded-lg" />
-            <div className="h-16 bg-surface-subtle rounded-lg" />
-          </div>
-        )}
-
-        {/* Error state */}
-        {isVideosError && (
-          <div className="p-4 rounded-lg border border-status-error-text/30 bg-status-error-bg text-xs text-status-error-text flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>Không thể tải danh sách tác phẩm lúc này. Vui lòng thử lại sau.</span>
-          </div>
-        )}
-
-        {/* Empty library state */}
-        {!isLoadingVideos && !isVideosError && recentVideos.length === 0 && (
-          <div className="py-10 text-center space-y-3">
-            <div className="h-12 w-12 rounded-full bg-surface-subtle border border-border mx-auto flex items-center justify-center text-muted">
-              <Video className="h-6 w-6" />
-            </div>
-            <div className="max-w-md mx-auto space-y-1">
-              <h3 className="text-sm font-semibold text-ink">Thư viện kênh hiện đang trống</h3>
-              <p className="text-xs text-muted leading-relaxed">
-                Kênh chưa có tác phẩm podcast hoặc video nào được khởi tạo. Hãy sử dụng Xưởng Sáng Tác
-                Sử Ký AI để bắt đầu biên soạn kịch bản và xuất bản tác phẩm podcast đầu tiên.
-              </p>
-            </div>
-            <div className="pt-2">
+          {/* Empty state */}
+          {!isLoadingVideos && !isVideosError && recentVideos.length === 0 && (
+            <div className="py-12 text-center space-y-3.5">
+              <div className="h-12 w-12 rounded-full bg-stone-100 dark:bg-stone-800 border border-stone-200 mx-auto flex items-center justify-center text-stone-400">
+                <Video className="h-6 w-6" />
+              </div>
+              <div className="max-w-md mx-auto space-y-1">
+                <h3 className="text-sm font-semibold text-ink">Thư viện tác phẩm hiện đang trống</h3>
+                <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+                  Kênh chưa có tác phẩm video hoặc bản ghi âm nào. Hãy khởi tạo tác phẩm đầu tiên với
+                  sự hỗ trợ của trợ lý biên kịch lịch sử.
+                </p>
+              </div>
               <Button
-                variant="outline"
                 size="sm"
                 onClick={() => navigate('/creator/create')}
-                className="gap-2 text-xs min-h-[40px] px-4 hover:border-accent hover:text-accent"
+                className="gap-2 text-xs min-h-[38px] px-4 bg-accent text-white hover:bg-accent/90"
               >
                 <PlusCircle className="h-4 w-4" />
                 <span>Bắt đầu sáng tác ngay</span>
               </Button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Video list */}
-        {!isLoadingVideos && recentVideos.length > 0 && (
-          <div className="divide-y divide-border">
-            {recentVideos.map((item) => {
-              const statusBadge = getContentStatusBadge(item.status);
-              return (
-                <div
-                  key={item.contentId}
-                  className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F7F5F1] px-2 rounded-lg transition-colors"
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => handleWatchVideo(item)}
-                      title={`Xem video: ${item.title}`}
-                      className="h-11 w-11 rounded-lg bg-surface-subtle border border-border flex items-center justify-center shrink-0 text-accent hover:bg-accent hover:text-white hover:scale-105 transition-all cursor-pointer group/btn"
-                    >
-                      <Play className="h-4 w-4 fill-current opacity-80 group-hover/btn:opacity-100" />
-                    </button>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
+          {/* Video Cards List */}
+          {!isLoadingVideos && recentVideos.length > 0 && (
+            <div className="space-y-3">
+              {recentVideos.map((item, idx) => {
+                const statusBadge = getContentStatusBadge(item.status);
+                const tags = getHistoricalTags(item);
+                const thumbUrl = item.thumbnailUrl || DEFAULT_TOPIC_THUMBNAILS[idx % DEFAULT_TOPIC_THUMBNAILS.length];
+
+                return (
+                  <div
+                    key={item.contentId}
+                    className="group rounded-xl border border-stone-200/70 dark:border-stone-800 hover:border-accent/40 bg-white dark:bg-stone-900/60 p-3 sm:p-3.5 transition-all duration-200 hover:shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5"
+                  >
+                    {/* Left: Thumbnail & Details */}
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      {/* 16:9 Thumbnail preview */}
+                      <div
+                        onClick={() => handleWatchVideo(item)}
+                        className="relative w-28 sm:w-36 aspect-video rounded-lg overflow-hidden shrink-0 border border-stone-200/80 dark:border-stone-700 bg-stone-100 dark:bg-stone-800 cursor-pointer shadow-2xs group/thumb"
+                      >
+                        <img
+                          src={thumbUrl}
+                          alt={item.title}
+                          className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = DEFAULT_TOPIC_THUMBNAILS[0];
+                          }}
+                        />
+                        {/* Play button overlay */}
+                        <div className="absolute inset-0 bg-black/25 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                          <div className="h-7 w-7 rounded-full bg-accent/90 text-white flex items-center justify-center shadow-md">
+                            <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
+                          </div>
+                        </div>
+
+                        {/* Duration badge */}
+                        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/75 backdrop-blur-xs text-[10px] font-mono text-white flex items-center gap-0.5">
+                          <span>{formatDuration(item.durationSeconds)}</span>
+                        </div>
+                      </div>
+
+                      {/* Content details */}
+                      <div className="min-w-0 space-y-1.5 flex-1">
+                        <h3
                           onClick={() => handleWatchVideo(item)}
-                          title={`Xem video: ${item.title}`}
-                          className="text-xs font-semibold text-ink hover:text-accent truncate block text-left hover:underline cursor-pointer"
+                          className="text-xs sm:text-sm font-semibold text-ink group-hover:text-accent truncate block text-left cursor-pointer transition-colors"
+                          title={item.title}
                         >
                           {item.title}
-                        </button>
-                        {item.isExclusive && (
-                          <Badge variant="accent" size="sm">
-                            VIP
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-[11px] text-muted mt-1">
-                        <span>{formatDate(item.createdAt)}</span>
-                        <span>•</span>
-                        <span>{formatDuration(item.durationSeconds)}</span>
-                        {item.likeCount > 0 && (
-                          <>
-                            <span>•</span>
-                            <span className="flex items-center gap-1">
-                              <Heart className="h-3 w-3" />
-                              {item.likeCount}
+                        </h3>
+
+                        {/* Metadata line */}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-stone-500 dark:text-stone-400">
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDate(item.createdAt)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            {(item.viewCount || 0).toLocaleString('vi-VN')}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Heart className="h-3 w-3" />
+                            {item.likeCount || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" />
+                            {item.commentCount || 0}
+                          </span>
+                        </div>
+
+                        {/* Tags */}
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-sky-50 text-sky-700 border border-sky-200/70 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
+                            <Video className="h-2.5 w-2.5" />
+                            <span>Video Sử Ký</span>
+                          </span>
+                          {tags.map((t) => (
+                            <span
+                              key={t}
+                              className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300 border border-stone-200/60 dark:border-stone-700"
+                            >
+                              {t}
                             </span>
-                          </>
-                        )}
+                          ))}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Right: Status Badge & Direct Action */}
+                    <div className="flex items-center gap-2 sm:gap-2.5 self-end sm:self-center shrink-0">
+                      <Badge variant={statusBadge.variant} className="text-[11px] px-2.5 py-0.5">
+                        {statusBadge.label}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/creator/content/${item.contentId}`)}
+                        className="text-xs h-7 px-3 border-stone-200 dark:border-stone-800 hover:border-accent hover:text-accent"
+                      >
+                        Chi tiết
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-stone-400 hover:text-ink cursor-pointer"
+                            aria-label="Tùy chọn tác phẩm"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44 text-xs">
+                          <DropdownMenuItem onClick={() => handleWatchVideo(item)}>
+                            <Play className="h-3.5 w-3.5 mr-2 text-accent" />
+                            <span>Xem tác phẩm</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => navigate(`/creator/content/${item.contentId}`)}>
+                            <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                            <span>Quản lý chi tiết</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Recent Activities Timeline (Col-span 4) */}
+        <div className="lg:col-span-4 rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3.5 border-b border-stone-200/70 dark:border-stone-800">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+                <Clock className="h-4 w-4" />
+              </div>
+              <h2 className="text-base font-bold text-ink font-serif tracking-tight">Hoạt động gần đây</h2>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/creator/content')}
+              className="text-xs h-8 px-2.5 border-stone-200 dark:border-stone-800 hover:border-accent hover:text-accent"
+            >
+              <span>Xem tất cả</span>
+              <ArrowRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+
+          {/* Timeline Feed */}
+          {recentActivities.length === 0 ? (
+            <div className="py-8 text-center text-xs text-stone-400">
+              Chưa có hoạt động mới nào được ghi nhận.
+            </div>
+          ) : (
+            <div className="relative pl-6 space-y-5 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-stone-200 dark:before:bg-stone-800">
+              {recentActivities.map((act, idx) => (
+                <div key={`${act.id}-${idx}`} className="relative group">
+                  {/* Timeline Node Bullet */}
+                  <div className="absolute -left-6 top-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 shadow-2xs">
+                    {act.icon}
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
-                    <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/creator/content/${item.contentId}`)}
-                      className="text-xs h-7 px-2"
-                    >
-                      Chi tiết
-                    </Button>
+                  <div className="flex items-start gap-3">
+                    {/* Small thumbnail preview */}
+                    <img
+                      src={act.video.thumbnailUrl || DEFAULT_TOPIC_THUMBNAILS[idx % DEFAULT_TOPIC_THUMBNAILS.length]}
+                      alt={act.video.title}
+                      className="h-10 w-10 rounded-md object-cover border border-stone-200 dark:border-stone-800 shrink-0"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = DEFAULT_TOPIC_THUMBNAILS[0];
+                      }}
+                    />
+
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="text-[11px] font-medium text-stone-500 dark:text-stone-400 leading-tight">
+                        {act.actionTitle}
+                      </p>
+                      <h4
+                        onClick={() => navigate(`/creator/content/${act.video.contentId}`)}
+                        className="text-xs font-semibold text-ink hover:text-accent truncate cursor-pointer transition-colors"
+                        title={act.video.title}
+                      >
+                        {act.video.title}
+                      </h4>
+                      <p className="text-[10px] text-stone-400 font-mono">
+                        {formatRelativeTime(act.timestamp)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 5. Studio Modules & Roadmap Entry Points */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Module 1: Content Library */}
-        <div
-          onClick={() => navigate('/creator/content')}
-          className="rounded-xl border border-border bg-surface p-5 shadow-xs hover:border-accent/40 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-lg bg-surface-subtle text-accent">
-                <Video className="h-5 w-5" />
-              </div>
-              <Badge variant="success">Hoạt động</Badge>
-            </div>
-            <h3 className="text-sm font-bold text-ink">Thư viện nội dung</h3>
-            <p className="text-xs text-muted mt-1 leading-relaxed">
-              Quản lý toàn bộ danh mục podcast, lọc theo trạng thái duyệt và xem thông số tương tác.
-            </p>
-          </div>
-          <div className="pt-4 flex items-center gap-1 text-xs font-semibold text-accent">
-            <span>Truy cập Thư viện</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </div>
-        </div>
-
-        {/* Module 2: Channel Management */}
-        <div
-          onClick={() => navigate('/creator/channel')}
-          className="rounded-xl border border-border bg-surface p-5 shadow-xs hover:border-accent/40 transition-all cursor-pointer flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-lg bg-surface-subtle text-accent">
-                <Radio className="h-5 w-5" />
-              </div>
-              <Badge variant="success">Hoạt động</Badge>
-            </div>
-            <h3 className="text-sm font-bold text-ink">Hồ sơ & Kênh Podcast</h3>
-            <p className="text-xs text-muted mt-1 leading-relaxed">
-              Cập nhật tên kênh, thông tin giới thiệu, ảnh bìa và nhận diện thương hiệu tác giả.
-            </p>
-          </div>
-          <div className="pt-4 flex items-center gap-1 text-xs font-semibold text-accent">
-            <span>Quản lý Kênh</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </div>
-        </div>
-
-        {/* Module 3: Studio Creator Tooling (Milestone 5) */}
+      {/* 6. Four Illustrated Quick Action Entry Points */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+        {/* Action 1: Tạo nội dung mới */}
         <div
           onClick={() => navigate('/creator/create')}
-          className="rounded-xl border border-border bg-surface p-5 shadow-xs hover:border-accent/40 transition-all cursor-pointer flex flex-col justify-between"
+          className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-accent/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
         >
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-lg bg-surface-subtle text-accent">
-                <PlusCircle className="h-5 w-5" />
-              </div>
-              <Badge variant="success">Hoạt động</Badge>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent mb-3.5 group-hover:scale-105 transition-transform">
+              <PlusCircle className="h-5 w-5" />
             </div>
-            <h3 className="text-sm font-bold text-ink">Xưởng Sáng Tác Sử Ký AI</h3>
-            <p className="text-xs text-muted mt-1 leading-relaxed">
-              Biên kịch từ kho tư liệu lịch sử Đại Việt Sử Ký Toàn Thư, đối chiếu RAG và chọn giọng đọc
-              thuyết minh.
+            <h3 className="text-sm font-bold text-ink group-hover:text-accent transition-colors">
+              Tạo nội dung mới
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+              Sáng tạo video, podcast lịch sử với sự hỗ trợ của AI.
             </p>
           </div>
-          <div className="pt-4 flex items-center gap-1 text-xs font-semibold text-accent">
-            <span>Truy cập Xưởng Dựng</span>
-            <ArrowRight className="h-3.5 w-3.5" />
+          <div className="pt-4 flex items-center justify-between">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-accent group-hover:text-white transition-all">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+
+        {/* Action 2: Thư viện nội dung */}
+        <div
+          onClick={() => navigate('/creator/content')}
+          className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-amber-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 mb-3.5 group-hover:scale-105 transition-transform">
+              <Video className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-bold text-ink group-hover:text-amber-700 dark:group-hover:text-amber-400 transition-colors">
+              Thư viện nội dung
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+              Quản lý toàn bộ tác phẩm, lọc theo trạng thái.
+            </p>
+          </div>
+          <div className="pt-4 flex items-center justify-between">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-amber-600 group-hover:text-white transition-all">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+
+        {/* Action 3: Tuyển tập Tác phẩm */}
+        <div
+          onClick={() => navigate('/creator/series')}
+          className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-rose-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 mb-3.5 group-hover:scale-105 transition-transform">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-bold text-ink group-hover:text-rose-700 dark:group-hover:text-rose-400 transition-colors">
+              Tuyển tập Tác phẩm
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+              Khám phá các tuyển tập theo chủ đề lịch sử.
+            </p>
+          </div>
+          <div className="pt-4 flex items-center justify-between">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-rose-600 group-hover:text-white transition-all">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
+          </div>
+        </div>
+
+        {/* Action 4: Phát trực tiếp */}
+        <div
+          onClick={() => navigate('/creator/livestream')}
+          className="group relative overflow-hidden rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-white/95 dark:bg-stone-900/90 p-5 shadow-xs hover:border-orange-500/40 hover:shadow-sm transition-all duration-200 cursor-pointer flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 mb-3.5 group-hover:scale-105 transition-transform">
+              <Tv className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-bold text-ink group-hover:text-orange-700 dark:group-hover:text-orange-400 transition-colors">
+              Phát trực tiếp
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 leading-relaxed">
+              Tổ chức livestream thảo luận về lịch sử cùng cộng đồng.
+            </p>
+          </div>
+          <div className="pt-4 flex items-center justify-between">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 group-hover:bg-orange-600 group-hover:text-white transition-all">
+              <ArrowRight className="h-3.5 w-3.5" />
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Direct Video Player Modal */}
+      {/* 7. Direct Video Player Modal (Apple Design Spring Physics) */}
       <Dialog
         open={Boolean(playingVideo)}
         onOpenChange={(open) => {
@@ -726,7 +982,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
                       <div className="h-16 w-16 rounded-full bg-accent/20 text-accent mx-auto flex items-center justify-center shadow-glow-accent">
                         <Volume2 className="h-8 w-8" />
                       </div>
-                      <p className="text-xs text-stone-300 font-serif">Bản thu âm Podcast Lịch Sử</p>
+                      <p className="text-xs text-stone-300 font-serif">Bản thu âm Tác phẩm Sử Ký</p>
                       <audio
                         controls
                         autoPlay
