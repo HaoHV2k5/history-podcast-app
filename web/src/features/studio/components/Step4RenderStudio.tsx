@@ -112,7 +112,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
     'Tổng hợp giọng đọc thuyết minh (TTS)',
     'Tạo phụ đề SRT đồng bộ',
     'Kết xuất khung hình MP4',
-    'Tải video lên Cloudinary CDN',
+    'Lưu trữ & đồng bộ video',
     'Hoàn tất video',
   ];
 

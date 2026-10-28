@@ -181,7 +181,7 @@ export const SceneImageUploadDropzone: React.FC<SceneImageUploadDropzoneProps> =
           /* State B: Upload in Progress */
           <div className="flex flex-col items-center justify-center gap-2 text-center text-xs p-4">
             <Loader2 className="h-7 w-7 animate-spin text-accent" />
-            <span className="font-medium text-ink">Đang tải ảnh lên Cloudinary...</span>
+            <span className="font-medium text-ink">Đang tải hình ảnh lên...</span>
             <span className="text-[11px] text-muted">Vui lòng đợi trong giây lát</span>
           </div>
         ) : (
