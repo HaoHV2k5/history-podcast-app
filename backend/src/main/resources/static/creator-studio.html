@@ -1560,7 +1560,7 @@
       line-height: 1.55;
       padding: 10px 12px;
       resize: vertical;
-      min-height: 75px;
+      min-height: 85px;
       outline: none;
       margin-bottom: 10px;
       box-sizing: border-box;
@@ -1620,7 +1620,7 @@
       border: 1px solid var(--hairline);
       border-radius: var(--rounded-xs);
       resize: vertical;
-      min-height: 95px;
+      min-height: 110px;
       padding: 10px 12px;
       outline: none;
       line-height: 1.5;
@@ -3763,6 +3763,7 @@
     const state = {
       currentStudioMode: 'whiteboard', // 'whiteboard' | 'audio_podcast'
       selectedDuration: 30,
+      userManuallyChangedDuration: false,
       currentStoryboard: null,
       cloudinarySceneImages: {}, // sceneIndex -> url
       customThumbnailUrl: null,
@@ -4152,24 +4153,56 @@
       setTopicPrompt('Đại Thắng Bạch Đằng 1288 - Hưng Đạo Vương Trần Quốc Tuấn dùng kế cọc ngầm đánh tan thủy quân Nguyên Mông');
     }
 
+    function countWords(str) {
+      if (!str) return 0;
+      return (str.trim().match(/\S+/g) || []).length;
+    }
+
     function onScriptInputChange() {
       const text = $('scriptInputBox').value.trim();
       const label = $('smartModeLabel');
       const hint = $('smartModeHint');
+      const words = countWords(text);
 
-      if (text.length >= 100) {
+      if (words >= 15 || text.includes('\n')) {
         label.className = 'mode-indicator-tag direct';
-        label.innerHTML = '<span>Kịch Bản Tự Soạn (Giữ Nguyên Tác)</span>';
-        hint.textContent = 'Giữ nguyên văn bản gốc, tự động phân cảnh và câu theo thời lượng.';
+        label.innerHTML = '<span>Kịch Bản Tự Soạn (Giữ Nguyên Tác 100%)</span>';
+
+        // Tự động tối ưu thời lượng dựa trên số lượng từ thực tế (~45-65 từ/cảnh 30s)
+        let recommendedDuration = 30;
+        let recommendedScenes = 1;
+        if (words <= 75) {
+          recommendedDuration = 30;
+          recommendedScenes = 1;
+        } else if (words <= 140) {
+          recommendedDuration = 60;
+          recommendedScenes = 2;
+        } else if (words <= 200) {
+          recommendedDuration = 90;
+          recommendedScenes = 3;
+        } else {
+          recommendedDuration = 180;
+          recommendedScenes = 6;
+        }
+
+        // Tự động khớp thời lượng tối ưu
+        if (!state.userManuallyChangedDuration || state.selectedDuration > recommendedDuration) {
+          selectDuration(recommendedDuration, true);
+        }
+
+        hint.innerHTML = `<b style="color:var(--semantic-success);">${words} từ</b> (~${recommendedDuration}s - ${recommendedScenes} cảnh). Hệ thống giữ nguyên 100% từng câu chữ của bạn, không thêm thắt hay sửa lời.`;
       } else {
         label.className = 'mode-indicator-tag rag';
         label.innerHTML = '<span>AI Biên Kịch (RAG Sử Liệu)</span>';
-        hint.textContent = 'Tự động tra cứu sử liệu và sáng tác kịch bản chuẩn xác.';
+        hint.textContent = 'Nhập chủ đề ngắn: AI tự động tra cứu sử liệu chính thống và sáng tác kịch bản chuẩn xác.';
       }
     }
 
-    function selectDuration(dur) {
+    function selectDuration(dur, isAuto = false) {
       state.selectedDuration = dur;
+      if (!isAuto) {
+        state.userManuallyChangedDuration = true;
+      }
       document.querySelectorAll('.duration-pill').forEach(b => {
         b.classList.toggle('active', Number(b.getAttribute('data-dur')) === dur);
       });
@@ -4271,12 +4304,15 @@
       startStreamerProgress();
 
       try {
+        const words = countWords(input);
+        const isVerbatim = (words >= 15 || input.includes('\n'));
         const res = await fetch('/api/v1/creator/studio/storyboard', {
           method: 'POST',
           headers: getAuthHeaders(true),
           body: JSON.stringify({
             topic: input,
-            durationSec: state.selectedDuration
+            durationSec: state.selectedDuration,
+            keepOriginalScript: isVerbatim
           })
         });
 
@@ -4332,16 +4368,21 @@
       if (!ta) return;
       ta.style.height = 'auto';
       const isPrompt = ta.classList.contains('prompt-text-readonly');
-      const minH = isPrompt ? 95 : 75;
-      ta.style.height = Math.max(ta.scrollHeight + 4, minH) + 'px';
+      const minH = isPrompt ? 110 : 85;
+      const targetH = Math.max(ta.scrollHeight + 6, minH);
+      ta.style.height = targetH + 'px';
+      ta.style.overflowY = (ta.scrollHeight > targetH) ? 'auto' : 'hidden';
     }
 
     function autoResizeAllWorkbenchTextareas() {
-      requestAnimationFrame(() => {
+      const runResize = () => {
         document.querySelectorAll('#whiteboardWorkbench .narration-input, #whiteboardWorkbench .prompt-text-readonly, #thumbnailPromptText, #podcastCoverPromptText').forEach(ta => {
           autoResizeTextarea(ta);
         });
-      });
+      };
+      requestAnimationFrame(runResize);
+      setTimeout(runResize, 150);
+      setTimeout(runResize, 450);
     }
 
     // --- STAGE 2: RENDER WHITEBOARD SCENES & THUMBNAIL POSTER ---

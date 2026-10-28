@@ -17,4 +17,6 @@ public class CreatorStoryboardRequest {
     private Integer durationSec = 60;
 
     private String geminiApiKey;
+
+    private Boolean keepOriginalScript;
 }
