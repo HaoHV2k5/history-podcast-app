@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
@@ -32,6 +32,8 @@ import {
   UploadCloud,
   Wrench,
   Image as ImageIcon,
+  Check,
+  ExternalLink,
 } from 'lucide-react';
 import { creatorStudioApi, BusinessApiError } from '@/services/api/creatorStudio';
 import { CreatorSentencePatchItem } from '@/types/creatorStudio';
@@ -52,12 +54,23 @@ import {
 import { AiShieldBadge } from '@/features/moderation/components/AiShieldBadge';
 import { formatDateTime, formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
 import { resolveVideoThumbnail } from '../studio/creatorStudioUtils';
+import { gsap } from 'gsap';
+import { isReducedMotion } from '@/utils/motion';
 
 export const CreatorContentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const contentId = id ? parseInt(id, 10) : NaN;
+
+  // Animation Refs for GSAP Entrance
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const shieldRef = useRef<HTMLDivElement>(null);
+  const scriptRef = useRef<HTMLDivElement>(null);
+  const engagementRef = useRef<HTMLDivElement>(null);
 
   // Feedback notifications
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -128,6 +141,70 @@ export const CreatorContentDetailPage: React.FC = () => {
     return `${baseUrl}${cleanPath}`;
   };
 
+  // GSAP Smooth Float-in Entrance Animation
+  useEffect(() => {
+    if (isReducedMotion() || isLoading || !detail) return;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+
+      if (heroRef.current) {
+        tl.fromTo(
+          heroRef.current,
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.45 }
+        );
+      }
+
+      if (bannerRef.current) {
+        tl.fromTo(
+          bannerRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.4 },
+          '-=0.25'
+        );
+      }
+
+      if (mediaRef.current) {
+        tl.fromTo(
+          mediaRef.current,
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.42 },
+          '-=0.22'
+        );
+      }
+
+      if (shieldRef.current) {
+        tl.fromTo(
+          shieldRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.38 },
+          '-=0.2'
+        );
+      }
+
+      if (scriptRef.current) {
+        tl.fromTo(
+          scriptRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.38 },
+          '-=0.2'
+        );
+      }
+
+      if (engagementRef.current) {
+        tl.fromTo(
+          engagementRef.current,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.35 },
+          '-=0.2'
+        );
+      }
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, [isLoading, detail?.contentId]);
+
   // Mutation: Submit for Review & AI Shield
   const submitMutation = useMutation({
     mutationFn: () => creatorStudioApi.submitVideoForPublish(contentId),
@@ -139,11 +216,11 @@ export const CreatorContentDetailPage: React.FC = () => {
       setSubmitConsent(false);
       setFeedback({
         type: 'success',
-        message: 'Đã gửi video kiểm duyệt thành công! Hệ thống AI Shield đã phân tích nội dung và video hiện đang trong hàng đợi Admin xem xét.',
+        message: 'Đã gửi tác phẩm vào hàng đợi kiểm duyệt thành công! AI Shield sẽ thẩm định và Admin sẽ xét duyệt sớm.',
       });
     },
     onError: (err: unknown) => {
-      let msg = 'Có lỗi xảy ra khi gửi video kiểm duyệt.';
+      let msg = 'Không thể gửi video kiểm duyệt.';
       if (err instanceof BusinessApiError) {
         msg = err.message;
       } else if (axios.isAxiosError(err)) {
@@ -155,22 +232,21 @@ export const CreatorContentDetailPage: React.FC = () => {
     },
   });
 
-  // Mutation: Update Video Metadata
+  // Mutation: Update Metadata
   const updateMutation = useMutation({
     mutationFn: (payload: { title: string; description?: string; isExclusive?: boolean }) =>
-      creatorStudioApi.updateVideo(contentId, payload),
+      creatorStudioApi.updateVideoMetadata(contentId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['creator', 'studio-video', contentId] });
       queryClient.invalidateQueries({ queryKey: ['creator', 'studio-videos'] });
       setEditDialogOpen(false);
-      setEditError(null);
       setFeedback({
         type: 'success',
-        message: 'Cập nhật thông tin tác phẩm thành công!',
+        message: 'Đã cập nhật thông tin tác phẩm thành công!',
       });
     },
     onError: (err: unknown) => {
-      let msg = 'Không thể cập nhật thông tin tác phẩm.';
+      let msg = 'Không thể cập nhật thông tin.';
       if (err instanceof BusinessApiError) {
         msg = err.message;
       } else if (axios.isAxiosError(err)) {
@@ -182,21 +258,20 @@ export const CreatorContentDetailPage: React.FC = () => {
     },
   });
 
-  // Mutation: Toggle Visibility (HIDDEN <-> PUBLISHED)
+  // Mutation: Toggle Visibility (Hidden <-> Published)
   const visibilityMutation = useMutation({
-    mutationFn: (hidden: boolean) => creatorStudioApi.updateVisibility(contentId, hidden),
+    mutationFn: (hidden: boolean) => creatorStudioApi.toggleVideoVisibility(contentId, hidden),
     onSuccess: (_, hidden) => {
       queryClient.invalidateQueries({ queryKey: ['creator', 'studio-video', contentId] });
       queryClient.invalidateQueries({ queryKey: ['creator', 'studio-videos'] });
-      queryClient.invalidateQueries({ queryKey: ['creator', 'dashboard'] });
       setVisibilityOpen(false);
       setFeedback({
         type: 'success',
-        message: hidden ? 'Đã tạm ẩn video khỏi danh mục công khai.' : 'Đã công khai video trên hệ thống Sử Ký.',
+        message: hidden ? 'Đã tạm ẩn tác phẩm khỏi danh mục công khai.' : 'Đã công khai lại tác phẩm thành công!',
       });
     },
     onError: (err: unknown) => {
-      let msg = 'Không thể thay đổi trạng thái hiển thị của video.';
+      let msg = 'Không thể thay đổi trạng thái hiển thị.';
       if (err instanceof BusinessApiError) {
         msg = err.message;
       } else if (axios.isAxiosError(err)) {
@@ -251,7 +326,6 @@ export const CreatorContentDetailPage: React.FC = () => {
   // Mutation: Smart Patch Podcast (< 10s)
   const patchPodcastMutation = useMutation({
     mutationFn: async () => {
-      // Build patch items
       const patches: CreatorSentencePatchItem[] = [];
       Object.entries(editedSentences).forEach(([idxStr, text]) => {
         const idx = parseInt(idxStr, 10);
@@ -368,21 +442,20 @@ export const CreatorContentDetailPage: React.FC = () => {
   // Invalid ID parameter
   if (isNaN(contentId) || contentId <= 0) {
     return (
-      <div className="space-y-6 max-w-4xl">
-        <Button
-          variant="ghost"
-          size="sm"
+      <div className="space-y-6 max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <button
+          type="button"
           onClick={() => navigate('/creator/content')}
-          className="gap-2 text-xs"
+          className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-stone-200/90 bg-white/95 hover:bg-white text-xs font-medium text-stone-600 hover:text-[#A22A2A] hover:border-[#A22A2A]/40 transition-all shadow-2xs cursor-pointer"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-stone-500 group-hover:text-[#A22A2A]" />
           <span>Quay lại Thư viện nội dung</span>
-        </Button>
+        </button>
 
-        <div className="rounded-xl border border-border bg-surface p-8 text-center space-y-3">
-          <AlertCircle className="h-8 w-8 text-status-error-text mx-auto" />
-          <h2 className="text-base font-bold text-ink">Mã tác phẩm không hợp lệ</h2>
-          <p className="text-xs text-muted">Vui lòng chọn tác phẩm từ danh sách thư viện.</p>
+        <div className="rounded-2xl border border-stone-200/90 bg-white p-8 text-center space-y-3 shadow-2xs">
+          <AlertCircle className="h-8 w-8 text-rose-600 mx-auto" />
+          <h2 className="text-base font-bold text-stone-900 font-serif">Mã tác phẩm không hợp lệ</h2>
+          <p className="text-xs text-stone-500">Vui lòng chọn tác phẩm từ danh sách thư viện nội dung.</p>
         </div>
       </div>
     );
@@ -391,10 +464,14 @@ export const CreatorContentDetailPage: React.FC = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="space-y-6 max-w-4xl animate-pulse">
-        <div className="h-8 bg-surface-subtle rounded w-48" />
-        <div className="aspect-video bg-surface-subtle rounded-xl border border-border" />
-        <div className="h-32 bg-surface-subtle rounded-xl border border-border" />
+      <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-pulse">
+        <div className="h-9 bg-stone-200/70 rounded-xl w-48" />
+        <div className="h-44 bg-stone-200/60 rounded-2xl border border-stone-200" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 aspect-video bg-stone-200/60 rounded-2xl border border-stone-200" />
+          <div className="h-64 bg-stone-200/60 rounded-2xl border border-stone-200" />
+        </div>
+        <div className="h-48 bg-stone-200/60 rounded-2xl border border-stone-200" />
       </div>
     );
   }
@@ -433,29 +510,28 @@ export const CreatorContentDetailPage: React.FC = () => {
     }
 
     return (
-      <div className="space-y-6 max-w-4xl">
-        <Button
-          variant="ghost"
-          size="sm"
+      <div className="space-y-6 max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <button
+          type="button"
           onClick={() => navigate('/creator/content')}
-          className="gap-2 text-xs"
+          className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-stone-200/90 bg-white/95 hover:bg-white text-xs font-medium text-stone-600 hover:text-[#A22A2A] hover:border-[#A22A2A]/40 transition-all shadow-2xs cursor-pointer"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-stone-500 group-hover:text-[#A22A2A]" />
           <span>Quay lại Thư viện nội dung</span>
-        </Button>
+        </button>
 
-        <div className="rounded-xl border border-status-error-text/30 bg-status-error-bg p-8 text-center space-y-4">
-          <AlertCircle className="h-10 w-10 text-status-error-text mx-auto" />
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-8 text-center space-y-4 shadow-2xs">
+          <AlertCircle className="h-10 w-10 text-rose-600 mx-auto" />
           <div className="space-y-1.5 max-w-md mx-auto">
-            <h2 className="text-base font-bold text-status-error-text">{errorTitle}</h2>
-            <p className="text-xs text-status-error-text/90 leading-relaxed">{errorDesc}</p>
+            <h2 className="text-base font-bold text-rose-900 font-serif">{errorTitle}</h2>
+            <p className="text-xs text-rose-700 leading-relaxed">{errorDesc}</p>
           </div>
           <div className="pt-2 flex justify-center gap-3">
             <Button
               size="sm"
               variant="outline"
               onClick={() => refetch()}
-              className="gap-2 text-xs border-status-error-text/30 text-status-error-text"
+              className="gap-2 text-xs border-rose-300 bg-white text-rose-700 hover:bg-rose-50"
             >
               <RotateCcw className="h-3.5 w-3.5" />
               <span>Thử lại</span>
@@ -463,7 +539,7 @@ export const CreatorContentDetailPage: React.FC = () => {
             <Button
               size="sm"
               onClick={() => navigate('/creator/content')}
-              className="text-xs"
+              className="text-xs bg-[#A22A2A] hover:bg-[#8B0000] text-white"
             >
               Về Thư viện nội dung
             </Button>
@@ -473,7 +549,6 @@ export const CreatorContentDetailPage: React.FC = () => {
     );
   }
 
-  const statusBadge = getContentStatusBadge(detail.status);
   const mediaUrl = resolveMediaUrl(detail.fileUrl);
   const isVideoFile =
     Boolean(mediaUrl) &&
@@ -494,29 +569,81 @@ export const CreatorContentDetailPage: React.FC = () => {
     detail.status === 'HIDDEN' ||
     detail.status === 'PUBLISHED';
 
+  // Custom Status Badge Styles matching Library Design System
+  const getCustomStatusBadge = (status: string) => {
+    switch (status) {
+      case 'PUBLISHED':
+        return {
+          label: 'Đã xuất bản',
+          className: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+          dotColor: 'bg-emerald-500',
+        };
+      case 'PENDING_REVIEW':
+      case 'PENDING':
+        return {
+          label: 'Chờ duyệt',
+          className: 'bg-amber-50 text-amber-700 border-amber-200/80',
+          dotColor: 'bg-amber-500',
+        };
+      case 'COMPLETED':
+        return {
+          label: 'Chờ gửi duyệt',
+          className: 'bg-rose-50 text-rose-700 border-rose-200/80',
+          dotColor: 'bg-[#A22A2A]',
+        };
+      case 'REJECTED':
+        return {
+          label: 'Bị từ chối',
+          className: 'bg-red-50 text-red-700 border-red-200/80',
+          dotColor: 'bg-red-500',
+        };
+      case 'HIDDEN':
+        return {
+          label: 'Đã ẩn',
+          className: 'bg-stone-100 text-stone-700 border-stone-200/80',
+          dotColor: 'bg-stone-400',
+        };
+      case 'DRAFT':
+        return {
+          label: 'Bản nháp',
+          className: 'bg-stone-100 text-stone-600 border-stone-200/80',
+          dotColor: 'bg-stone-400',
+        };
+      default:
+        return {
+          label: status,
+          className: 'bg-stone-100 text-stone-700 border-stone-200/80',
+          dotColor: 'bg-stone-400',
+        };
+    }
+  };
+
+  const currentBadge = getCustomStatusBadge(detail.status);
+
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div ref={containerRef} className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 pb-16">
       {/* Feedback Toast / Alert Bar */}
       {feedback && (
         <div
+          role="alert"
           className={`p-4 rounded-xl border text-xs flex items-start justify-between gap-3 shadow-xs transition-all ${
             feedback.type === 'success'
-              ? 'border-status-success-text/30 bg-status-success-bg text-status-success-text'
-              : 'border-status-error-text/30 bg-status-error-bg text-status-error-text'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              : 'border-red-200 bg-red-50 text-red-800'
           }`}
         >
           <div className="flex items-start gap-2.5">
             {feedback.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-status-success-text" />
+              <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
             ) : (
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-status-error-text" />
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />
             )}
             <p className="leading-relaxed font-medium">{feedback.message}</p>
           </div>
           <button
             type="button"
             onClick={() => setFeedback(null)}
-            className="text-current hover:opacity-70 p-0.5"
+            className="text-current hover:opacity-70 p-0.5 cursor-pointer"
             title="Đóng thông báo"
           >
             <X className="h-3.5 w-3.5" />
@@ -524,125 +651,150 @@ export const CreatorContentDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Navigation Back & Quick Actions */}
-      <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate('/creator/content')}
-          className="gap-2 text-xs text-muted hover:text-ink -ml-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Quay lại Thư viện nội dung</span>
-        </Button>
+      {/* 1. Header & Hero Section with Vietnamese Historical Aesthetics */}
+      <div
+        ref={heroRef}
+        className="relative overflow-hidden rounded-2xl border border-stone-200/90 bg-gradient-to-b from-[#FDFBF7] via-[#FAF6F0] to-[#F5EFEB]/40 p-6 sm:p-8 shadow-2xs backdrop-blur-sm"
+      >
+        {/* Subtle Historical Ink Wash Decoration */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 pointer-events-none opacity-20 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#A22A2A]/20 via-amber-700/10 to-transparent" />
 
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="font-mono text-xs">
-            Mã nội dung: #{detail.contentId}
-          </Badge>
-          {detail.version && detail.version > 1 && (
-            <Badge variant="accent" className="font-mono text-xs">
-              Phiên bản: v{detail.version}
-            </Badge>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isFetching}
-            className="text-xs h-7 px-2"
-            title="Làm mới dữ liệu"
+        {/* Top Navigation & Utility Pills */}
+        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-stone-200/80">
+          <button
+            type="button"
+            onClick={() => navigate('/creator/content')}
+            className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-stone-200/90 bg-white/95 hover:bg-white text-xs font-medium text-stone-600 hover:text-[#A22A2A] hover:border-[#A22A2A]/40 transition-all shadow-2xs cursor-pointer"
           >
-            <RotateCcw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </div>
+            <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5 text-stone-500 group-hover:text-[#A22A2A]" />
+            <span>Quay lại Thư viện nội dung</span>
+          </button>
 
-      {/* 2. Title & Status Header */}
-      <div className="border-b border-border pb-5 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-          {detail.isExclusive && (
-            <Badge variant="accent">
-              <Sparkles className="h-3 w-3 mr-1" />
-              Độc quyền Hội viên VIP
-            </Badge>
-          )}
-          {detail.channelName && (
-            <span className="text-xs text-muted flex items-center gap-1">
-              <Radio className="h-3.5 w-3.5 text-accent" />
-              <span>
-                Kênh: <strong>{detail.channelName}</strong>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-stone-200/80 bg-white/90 text-xs font-mono text-stone-600">
+              Mã tác phẩm: #{detail.contentId}
+            </span>
+            {detail.version && detail.version > 1 && (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-xs font-mono font-semibold text-[#A22A2A]">
+                Phiên bản: v{detail.version}
               </span>
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-          <h1 className="font-serif text-2xl md:text-3xl font-bold tracking-tight text-ink flex-1">
-            {detail.title}
-          </h1>
-
-          {/* Quick Edit Action */}
-          {canEditMetadata && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleOpenEdit}
-              className="text-xs gap-1.5 shrink-0"
+            )}
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-stone-200/80 bg-white/90 hover:bg-white text-stone-600 hover:text-stone-900 transition-colors cursor-pointer disabled:opacity-50"
+              title="Làm mới dữ liệu từ máy chủ"
             >
-              <Edit3 className="h-3.5 w-3.5 text-accent" />
-              <span>Chỉnh sửa thông tin</span>
-            </Button>
-          )}
+              <RotateCcw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-[#A22A2A]' : ''}`} />
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 text-xs text-muted pt-1">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
-            <span>Ngày tạo: {formatDateTime(detail.createdAt)}</span>
-          </span>
-          {detail.durationSeconds && detail.durationSeconds > 0 ? (
-            <span className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5" />
-              <span>Thời lượng: {formatDuration(detail.durationSeconds)}</span>
+        {/* Hero Title & Main Actions */}
+        <div className="relative z-10 pt-5 space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5">
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#A22A2A]">
+                <Video className="h-4 w-4 text-[#A22A2A]" />
+                <span>Chi Tiết &amp; Quản Trị Tác Phẩm Sử Ký</span>
+              </div>
+              <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-stone-900 leading-snug">
+                {detail.title}
+              </h1>
+            </div>
+
+            {/* Quick Edit Action Button */}
+            {canEditMetadata && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenEdit}
+                className="self-start text-xs gap-1.5 h-9 px-4 rounded-xl border-stone-300 bg-white/90 hover:bg-white text-stone-700 hover:text-[#A22A2A] shadow-2xs transition-all cursor-pointer"
+              >
+                <Edit3 className="h-3.5 w-3.5 text-[#A22A2A]" />
+                <span>Chỉnh sửa thông tin</span>
+              </Button>
+            )}
+          </div>
+
+          {/* Metadata Chips Bar */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs">
+            {/* Status Pill */}
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border shadow-2xs ${currentBadge.className}`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${currentBadge.dotColor}`} />
+              <span>{currentBadge.label}</span>
             </span>
-          ) : null}
-          {detail.artifactId && (
-            <span className="font-mono text-[11px] text-muted">
-              Artifact ID: #{detail.artifactId}
+
+            {/* VIP Exclusive Pill */}
+            {detail.isExclusive && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-800 text-xs font-medium shadow-2xs">
+                <Sparkles className="h-3 w-3 text-amber-600" />
+                <span>Độc quyền Hội viên VIP</span>
+              </span>
+            )}
+
+            {/* Channel Pill */}
+            {detail.channelName && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-stone-200/90 bg-white/90 text-stone-600 text-xs">
+                <Radio className="h-3 w-3 text-[#A22A2A]" />
+                <span>Kênh: <strong>{detail.channelName}</strong></span>
+              </span>
+            )}
+
+            {/* Date Pill */}
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-stone-200/80 bg-white/80 text-stone-500 text-xs">
+              <Calendar className="h-3 w-3 text-stone-400" />
+              <span>Ngày tạo: {formatDateTime(detail.createdAt)}</span>
             </span>
-          )}
+
+            {/* Duration Pill */}
+            {detail.durationSeconds && detail.durationSeconds > 0 ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-stone-200/80 bg-white/80 text-stone-500 text-xs">
+                <Clock className="h-3 w-3 text-stone-400" />
+                <span>Thời lượng: {formatDuration(detail.durationSeconds)}</span>
+              </span>
+            ) : null}
+
+            {detail.artifactId && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-stone-100 font-mono text-[11px] text-stone-400">
+                Artifact ID: #{detail.artifactId}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* 3. Lifecycle & Publication Workflow Action Banner */}
-      <div className="rounded-xl border p-5 shadow-xs transition-all">
+      {/* 2. Lifecycle & Publication Workflow Action Banner */}
+      <div
+        ref={bannerRef}
+        className="rounded-2xl border border-stone-200/90 bg-white/95 p-6 shadow-2xs backdrop-blur-sm"
+      >
         {/* State: COMPLETED -> Ready for Review */}
         {detail.status === 'COMPLETED' && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-accent-soft text-accent flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-rose-50 border border-rose-100 text-[#A22A2A] flex items-center justify-center shrink-0 shadow-2xs">
                 <Send className="h-5 w-5" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-ink">
+                <h3 className="text-sm sm:text-base font-bold text-stone-900 font-serif">
                   Tác phẩm đã kết xuất xong — Sẵn sàng gửi kiểm duyệt xuất bản
                 </h3>
-                <p className="text-xs text-muted leading-relaxed">
-                  Tệp video/âm thanh đã sẵn sàng. Bạn có thể kiểm tra kịch bản và nghe thử bên dưới.
-                  Khi gửi kiểm duyệt, hệ thống AI Shield sẽ tự động thẩm định tính xác thực lịch sử
-                  và đưa tác phẩm vào hàng đợi để Quản trị viên (Admin) phê duyệt.
+                <p className="text-xs text-stone-500 leading-relaxed max-w-3xl">
+                  Tệp video và âm thanh đã được kết xuất hoàn chỉnh. Khi gửi duyệt, hệ thống AI Shield sẽ tự động đối chiếu sử liệu chính thống, chấm điểm mức độ tin cậy và chuyển vào hàng đợi để Ban biên tập Sử Ký phê duyệt phát sóng.
                 </p>
               </div>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-border">
+            <div className="pt-3 flex flex-wrap items-center gap-3 border-t border-stone-200/80">
               <Button
                 size="sm"
                 onClick={() => setSubmitOpen(true)}
                 disabled={!isEligibleForReview || submitMutation.isPending}
-                className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+                className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white font-medium rounded-xl shadow-xs transition-all cursor-pointer"
               >
                 {submitMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -656,7 +808,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenEdit}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 <span>Chỉnh sửa thông tin</span>
@@ -670,9 +822,9 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setThumbPreviewUrl(null);
                   setThumbnailOpen(true);
                 }}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
-                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <ImageIcon className="h-3.5 w-3.5 text-[#A22A2A]" />
                 <span>Đổi Thumbnail Poster</span>
               </Button>
 
@@ -685,7 +837,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setPatchCoverPreview(null);
                   setPatchModalOpen(true);
                 }}
-                className="text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-rose-200 hover:border-[#A22A2A]/40 bg-rose-50/50 text-[#A22A2A] hover:bg-rose-50 cursor-pointer"
               >
                 <Wrench className="h-3.5 w-3.5" />
                 <span>Vá Kịch Bản Siêu Tốc (&lt; 10s)</span>
@@ -696,40 +848,38 @@ export const CreatorContentDetailPage: React.FC = () => {
 
         {/* State: PENDING_REVIEW -> Under Moderation */}
         {detail.status === 'PENDING_REVIEW' && (
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-status-pending-bg text-status-pending-text flex items-center justify-center shrink-0">
+          <div className="space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs">
                 <Clock className="h-5 w-5 animate-pulse" />
               </div>
               <div className="space-y-1.5 flex-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-bold text-ink">
+                  <h3 className="text-sm sm:text-base font-bold text-stone-900 font-serif">
                     Đang trong hàng đợi kiểm duyệt của Ban biên tập
                   </h3>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-status-pending-bg border border-status-pending-text/30 text-[10px] font-medium text-status-pending-text">
-                    <span className="h-1.5 w-1.5 rounded-full bg-status-pending-text animate-ping" />
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200/80 text-[11px] font-medium text-amber-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping" />
                     <span>Tự động theo dõi quyết định (8s)</span>
                   </span>
                 </div>
-                <p className="text-xs text-muted leading-relaxed">
-                  Tác phẩm đã vượt qua thẩm định AI Shield sơ bộ và đang chờ Quản trị viên (Admin)
-                  xem xét phê duyệt. Hệ thống đang tự động cập nhật kết quả theo thời gian thực — giao
-                  diện sẽ tự động chuyển trạng thái ngay khi có quyết định chính thức.
+                <p className="text-xs text-stone-500 leading-relaxed max-w-3xl">
+                  Tác phẩm đã qua thẩm định AI Shield sơ bộ và đang chờ Quản trị viên (Admin) xem xét phê duyệt. Hệ thống đang tự động cập nhật kết quả theo thời gian thực — giao diện sẽ tự động chuyển trạng thái ngay khi có quyết định chính thức.
                 </p>
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-between border-t border-border text-[11px] text-muted">
-              <span>Đang mở chế độ thăm dò tự động (Polling)</span>
+            <div className="pt-3 flex items-center justify-between border-t border-stone-200/80 text-xs text-stone-500">
+              <span>Đang mở chế độ thăm dò tự động (Polling theo thời gian thực)</span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => refetch()}
                 disabled={isFetching}
-                className="h-7 px-2.5 text-xs gap-1.5 text-muted hover:text-ink cursor-pointer"
+                className="h-8 px-3 text-xs gap-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg cursor-pointer"
                 title="Kiểm tra trạng thái ngay từ máy chủ"
               >
-                <RotateCcw className={`h-3 w-3 ${isFetching ? 'animate-spin text-accent' : ''}`} />
+                <RotateCcw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin text-[#A22A2A]' : ''}`} />
                 <span>Kiểm tra ngay</span>
               </Button>
             </div>
@@ -739,40 +889,40 @@ export const CreatorContentDetailPage: React.FC = () => {
         {/* State: REJECTED -> Action Required */}
         {detail.status === 'REJECTED' && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-status-error-bg text-status-error-text flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center shrink-0 shadow-2xs">
                 <ShieldAlert className="h-5 w-5" />
               </div>
-              <div className="space-y-1.5 flex-1">
-                <h3 className="text-sm font-bold text-status-error-text">
+              <div className="space-y-2 flex-1">
+                <h3 className="text-sm sm:text-base font-bold text-red-800 font-serif">
                   Tác phẩm bị từ chối phê duyệt bởi Ban biên tập
                 </h3>
-                <p className="text-xs text-muted leading-relaxed">
-                  Quản trị viên đã xem xét kết quả AI Shield và từ chối phê duyệt tác phẩm này với
-                  lý do dưới đây. Vui lòng rà soát lại thông tin hoặc kịch bản trước khi gửi thẩm định lại.
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Quản trị viên đã xem xét kết quả thẩm định và từ chối phê duyệt tác phẩm này với lý do dưới đây. Vui lòng rà soát lại kịch bản hoặc thông tin trước khi gửi thẩm định lại.
                 </p>
 
                 {/* Prominent Rejection Reason Box */}
                 {detail.moderationReason && (
-                  <div className="mt-2 p-3 rounded-lg border border-status-error-text/30 bg-status-error-bg text-xs text-status-error-text font-medium leading-relaxed">
-                    <strong>Lý do từ chối:</strong> {detail.moderationReason}
+                  <div className="mt-2 p-3.5 rounded-xl border border-red-200 bg-red-50/80 text-xs text-red-800 leading-relaxed font-medium">
+                    <strong className="block text-red-900 mb-0.5">Lý do từ chối từ Ban biên tập:</strong>
+                    <span>{detail.moderationReason}</span>
                   </div>
                 )}
 
-                <div className="mt-2 p-2.5 rounded-lg border border-border bg-surface-subtle text-[11px] text-muted space-y-1">
+                <div className="mt-2 p-3 rounded-xl border border-stone-200 bg-[#FAF9F6] text-[11px] text-stone-500 space-y-1">
                   <p>
-                    <strong>Lưu ý:</strong> Chỉnh sửa tiêu đề/mô tả chỉ cập nhật thông tin hiển thị bên ngoài. Nếu lý do từ chối liên quan đến giọng đọc, hình ảnh hoặc sai lệch sử liệu trong video đã kết xuất, việc chỉnh sửa metadata sẽ không thể khắc phục được. Bạn cần quay lại <strong>Creator Studio</strong> để chỉnh sửa kịch bản và kết xuất video mới. Việc gửi thẩm định lại không đảm bảo tác phẩm sẽ được phê duyệt.
+                    <strong>Lưu ý:</strong> Chỉnh sửa tiêu đề/mô tả chỉ cập nhật thông tin hiển thị bên ngoài. Nếu lý do từ chối liên quan đến giọng đọc, hình ảnh hoặc sai lệch sử liệu trong video đã kết xuất, bạn cần dùng tính năng <strong>Vá kịch bản siêu tốc</strong> hoặc tạo bản kết xuất mới trong <strong>Studio</strong>.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-border">
+            <div className="pt-3 flex flex-wrap items-center gap-3 border-t border-stone-200/80">
               <Button
                 size="sm"
                 onClick={() => setSubmitOpen(true)}
                 disabled={submitMutation.isPending}
-                className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+                className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white font-medium rounded-xl shadow-xs cursor-pointer"
               >
                 {submitMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -786,10 +936,10 @@ export const CreatorContentDetailPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenEdit}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
                 <Edit3 className="h-3.5 w-3.5" />
-                <span>Chỉnh sửa tiêu đề & mô tả</span>
+                <span>Chỉnh sửa tiêu đề &amp; mô tả</span>
               </Button>
 
               <Button
@@ -800,9 +950,9 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setThumbPreviewUrl(null);
                   setThumbnailOpen(true);
                 }}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
-                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <ImageIcon className="h-3.5 w-3.5 text-[#A22A2A]" />
                 <span>Đổi Thumbnail Poster</span>
               </Button>
 
@@ -815,7 +965,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setPatchCoverPreview(null);
                   setPatchModalOpen(true);
                 }}
-                className="text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-rose-200 hover:border-[#A22A2A]/40 bg-rose-50/50 text-[#A22A2A] hover:bg-rose-50 cursor-pointer"
               >
                 <Wrench className="h-3.5 w-3.5" />
                 <span>Vá Kịch Bản Siêu Tốc (&lt; 10s)</span>
@@ -825,7 +975,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/creator/studio')}
-                className="text-xs gap-1.5 text-muted hover:text-ink"
+                className="text-xs h-9 px-3 gap-1.5 text-stone-500 hover:text-stone-900 cursor-pointer"
               >
                 <Film className="h-3.5 w-3.5" />
                 <span>Tạo bản kết xuất mới trong Studio</span>
@@ -837,28 +987,27 @@ export const CreatorContentDetailPage: React.FC = () => {
         {/* State: PUBLISHED -> Publicly live */}
         {detail.status === 'PUBLISHED' && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-status-success-bg text-status-success-text flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-ink">
+                <h3 className="text-sm sm:text-base font-bold text-stone-900 font-serif">
                   Tác phẩm đã được xuất bản công khai
                 </h3>
-                <p className="text-xs text-muted leading-relaxed">
-                  Tác phẩm đang được phát sóng công khai trên nền tảng Sử Ký cho toàn bộ thính giả.
-                  Tệp truyền thông đã được tối ưu hóa đường truyền qua mạng lưới CDN.
+                <p className="text-xs text-stone-500 leading-relaxed max-w-3xl">
+                  Tác phẩm đang được phát sóng công khai trên nền tảng Sử Ký cho toàn bộ thính giả. Tệp truyền thông đã được tối ưu hóa đường truyền qua mạng lưới CDN tốc độ cao.
                 </p>
               </div>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-border">
+            <div className="pt-3 flex flex-wrap items-center gap-3 border-t border-stone-200/80">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenVisibility(true)}
                 disabled={visibilityMutation.isPending}
-                className="text-xs gap-1.5 text-muted hover:text-status-error-text hover:border-status-error-text/40"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 text-stone-600 hover:text-red-700 hover:border-red-300 bg-white cursor-pointer"
               >
                 <EyeOff className="h-3.5 w-3.5" />
                 <span>Tạm ẩn tác phẩm</span>
@@ -868,7 +1017,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenEdit}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 <span>Chỉnh sửa thông tin</span>
@@ -882,9 +1031,9 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setThumbPreviewUrl(null);
                   setThumbnailOpen(true);
                 }}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
-                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <ImageIcon className="h-3.5 w-3.5 text-[#A22A2A]" />
                 <span>Đổi Thumbnail Poster</span>
               </Button>
 
@@ -897,7 +1046,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setPatchCoverPreview(null);
                   setPatchModalOpen(true);
                 }}
-                className="text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-rose-200 hover:border-[#A22A2A]/40 bg-rose-50/50 text-[#A22A2A] hover:bg-rose-50 cursor-pointer"
               >
                 <Wrench className="h-3.5 w-3.5" />
                 <span>Vá Kịch Bản Siêu Tốc (&lt; 10s)</span>
@@ -909,27 +1058,26 @@ export const CreatorContentDetailPage: React.FC = () => {
         {/* State: HIDDEN -> Currently Hidden */}
         {detail.status === 'HIDDEN' && (
           <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-lg bg-surface-subtle text-muted flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="h-11 w-11 rounded-xl bg-stone-100 border border-stone-200 text-stone-600 flex items-center justify-center shrink-0 shadow-2xs">
                 <EyeOff className="h-5 w-5" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-ink">
+                <h3 className="text-sm sm:text-base font-bold text-stone-900 font-serif">
                   Tác phẩm đang tạm ẩn khỏi danh mục công khai
                 </h3>
-                <p className="text-xs text-muted leading-relaxed">
-                  Tác phẩm đã qua kiểm duyệt nhưng hiện đang được ẩn. Thính giả sẽ không nhìn thấy
-                  hoặc tìm kiếm được nội dung này cho đến khi bạn công khai lại.
+                <p className="text-xs text-stone-500 leading-relaxed max-w-3xl">
+                  Tác phẩm đã qua kiểm duyệt nhưng hiện đang được ẩn. Thính giả sẽ không nhìn thấy hoặc tìm kiếm được nội dung này cho đến khi bạn công khai lại.
                 </p>
               </div>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-border">
+            <div className="pt-3 flex flex-wrap items-center gap-3 border-t border-stone-200/80">
               <Button
                 size="sm"
                 onClick={() => handleOpenVisibility(false)}
                 disabled={visibilityMutation.isPending}
-                className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+                className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white font-medium rounded-xl shadow-xs cursor-pointer"
               >
                 <Eye className="h-3.5 w-3.5" />
                 <span>Công khai lại tác phẩm</span>
@@ -939,7 +1087,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 variant="outline"
                 size="sm"
                 onClick={handleOpenEdit}
-                className="text-xs gap-1.5"
+                className="text-xs h-9 px-4 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 <span>Chỉnh sửa thông tin</span>
@@ -952,13 +1100,13 @@ export const CreatorContentDetailPage: React.FC = () => {
         {detail.status === 'PROCESSING' && (
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 text-accent animate-spin" />
+              <Loader2 className="h-5 w-5 text-[#A22A2A] animate-spin" />
               <div>
-                <h3 className="text-sm font-bold text-ink">Video đang được kết xuất trong Creator Studio</h3>
-                <p className="text-xs text-muted">Vui lòng theo dõi tiến trình trực tiếp tại màn hình Studio.</p>
+                <h3 className="text-sm font-bold text-stone-900 font-serif">Video đang được kết xuất trong Creator Studio</h3>
+                <p className="text-xs text-stone-500">Vui lòng theo dõi tiến trình trực tiếp tại màn hình Studio.</p>
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate('/creator/studio')} className="text-xs">
+            <Button size="sm" variant="outline" onClick={() => navigate('/creator/studio')} className="text-xs rounded-xl">
               Mở Studio
             </Button>
           </div>
@@ -967,13 +1115,13 @@ export const CreatorContentDetailPage: React.FC = () => {
         {detail.status === 'FAILED' && (
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-status-error-text" />
+              <AlertCircle className="h-5 w-5 text-red-600" />
               <div>
-                <h3 className="text-sm font-bold text-status-error-text">Quá trình kết xuất video thất bại</h3>
-                <p className="text-xs text-muted">Bạn có thể tạo và chạy lại tiến trình kết xuất mới trong Studio.</p>
+                <h3 className="text-sm font-bold text-red-700 font-serif">Quá trình kết xuất video thất bại</h3>
+                <p className="text-xs text-stone-500">Bạn có thể tạo và chạy lại tiến trình kết xuất mới trong Studio.</p>
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate('/creator/studio')} className="text-xs">
+            <Button size="sm" variant="outline" onClick={() => navigate('/creator/studio')} className="text-xs rounded-xl">
               Mở Studio
             </Button>
           </div>
@@ -982,49 +1130,49 @@ export const CreatorContentDetailPage: React.FC = () => {
         {detail.status === 'DRAFT' && (
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <FileText className="h-5 w-5 text-muted" />
+              <FileText className="h-5 w-5 text-stone-400" />
               <div>
-                <h3 className="text-sm font-bold text-ink">Tác phẩm đang ở trạng thái bản nháp</h3>
-                <p className="text-xs text-muted">Hoàn thiện kịch bản và kết xuất video để sẵn sàng gửi duyệt.</p>
+                <h3 className="text-sm font-bold text-stone-900 font-serif">Tác phẩm đang ở trạng thái bản nháp</h3>
+                <p className="text-xs text-stone-500">Hoàn thiện kịch bản và kết xuất video để sẵn sàng gửi duyệt.</p>
               </div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate('/creator/studio')} className="text-xs">
+            <Button size="sm" variant="outline" onClick={() => navigate('/creator/studio')} className="text-xs rounded-xl">
               Đến Studio
             </Button>
           </div>
         )}
       </div>
 
-      {/* 4. Media Player & Thumbnail Poster Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 3. Media Player & Thumbnail Poster Section */}
+      <div ref={mediaRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Video / Audio Player (2 cols on lg) */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-surface overflow-hidden shadow-xs flex flex-col justify-between">
-          <div className="p-4 border-b border-border flex items-center justify-between bg-surface-subtle/50">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-              <Play className="h-3.5 w-3.5 text-accent" />
+        <div className="lg:col-span-2 rounded-2xl border border-stone-200/90 bg-white/95 overflow-hidden shadow-2xs flex flex-col justify-between">
+          <div className="p-4 px-5 border-b border-stone-200/80 flex items-center justify-between bg-[#FAF9F6]">
+            <span className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-2">
+              <Play className="h-3.5 w-3.5 text-[#A22A2A]" />
               <span>Bản Xem Trước Phương Tiện (Media Preview)</span>
             </span>
-            <span className="text-[11px] text-muted font-mono">
+            <span className="text-[11px] text-stone-500 font-mono">
               {mediaUrl ? (isVideoFile ? 'Tệp Video MP4 Sẵn Sàng' : 'Tệp Audio Sẵn Sàng') : 'Chưa có tệp Media'}
             </span>
           </div>
 
-          <div className="p-4 bg-black/95 flex-1 flex items-center justify-center min-h-[240px]">
+          <div className="p-4 sm:p-5 bg-[#141210] flex-1 flex items-center justify-center min-h-[300px]">
             {mediaUrl && !mediaError ? (
               isVideoFile ? (
                 <video
                   controls
                   crossOrigin="anonymous"
-                  className="w-full max-h-[420px] rounded-lg shadow-sm"
+                  className="w-full max-h-[460px] rounded-xl shadow-lg border border-stone-800"
                   src={mediaUrl}
                   onError={() => setMediaError(true)}
                 >
                   Trình duyệt không hỗ trợ phát thẻ video HTML5.
                 </video>
               ) : (
-                <div className="w-full max-w-lg py-6 space-y-3 text-center">
-                  <div className="h-12 w-12 rounded-full bg-accent/20 text-accent mx-auto flex items-center justify-center">
-                    <Play className="h-6 w-6 fill-current ml-0.5" />
+                <div className="w-full max-w-lg py-8 space-y-4 text-center">
+                  <div className="h-14 w-14 rounded-full bg-red-500/20 text-[#A22A2A] mx-auto flex items-center justify-center">
+                    <Play className="h-7 w-7 fill-current ml-0.5" />
                   </div>
                   <audio
                     controls
@@ -1037,9 +1185,9 @@ export const CreatorContentDetailPage: React.FC = () => {
                 </div>
               )
             ) : (
-              <div className="text-center py-10 space-y-3 text-muted">
-                <Video className="h-10 w-10 mx-auto opacity-50" />
-                <div className="space-y-1">
+              <div className="text-center py-12 space-y-3 text-stone-400">
+                <Video className="h-10 w-10 mx-auto opacity-40 text-stone-500" />
+                <div className="space-y-1.5 max-w-sm mx-auto">
                   <p className="text-xs text-stone-400">
                     {mediaError
                       ? 'Không thể phát luồng trực tiếp (Tệp cục bộ hoặc URL đã hết hạn).'
@@ -1052,7 +1200,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                         download
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-700 bg-stone-900 text-stone-200 text-xs hover:bg-stone-800 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-700 bg-stone-800 text-stone-200 text-xs hover:bg-stone-700 transition-colors"
                       >
                         <Download className="h-3.5 w-3.5" />
                         <span>Tải trực tiếp tệp Media ({mediaUrl.split('/').pop() || 'media'})</span>
@@ -1066,39 +1214,39 @@ export const CreatorContentDetailPage: React.FC = () => {
         </div>
 
         {/* Right: Thumbnail Poster Card (1 col on lg) */}
-        <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs flex flex-col justify-between">
-          <div className="p-4 border-b border-border flex items-center justify-between bg-surface-subtle/50">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-              <ImageIcon className="h-3.5 w-3.5 text-accent" />
+        <div className="rounded-2xl border border-stone-200/90 bg-white/95 overflow-hidden shadow-2xs flex flex-col justify-between">
+          <div className="p-4 px-5 border-b border-stone-200/80 flex items-center justify-between bg-[#FAF9F6]">
+            <span className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5 text-[#A22A2A]" />
               <span>Ảnh Thumbnail Poster</span>
             </span>
             {detail.version && detail.version > 1 && (
-              <Badge variant="accent" className="font-mono text-[10px]">
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-rose-50 text-[#A22A2A] font-semibold">
                 v{detail.version}
-              </Badge>
+              </span>
             )}
           </div>
 
-          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
-            <div className="relative aspect-video rounded-lg border border-border overflow-hidden bg-surface-subtle flex items-center justify-center">
+          <div className="p-4 sm:p-5 space-y-4 flex-1 flex flex-col justify-between">
+            <div className="relative aspect-video rounded-xl border border-stone-200 overflow-hidden bg-[#FAF9F6] flex items-center justify-center group shadow-2xs">
               {resolveVideoThumbnail(detail.thumbnailUrl, detail.fileUrl) ? (
                 <img
                   src={resolveVideoThumbnail(detail.thumbnailUrl, detail.fileUrl)}
-                  alt="Ảnh Thumbnail Poster"
-                  className="w-full h-full object-cover"
+                  alt={`Poster cho tác phẩm ${detail.title}`}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
               ) : (
-                <div className="text-center p-4 space-y-1.5 text-muted">
-                  <ImageIcon className="h-8 w-8 mx-auto opacity-40" />
-                  <p className="text-[11px] text-muted">Chưa có ảnh Thumbnail riêng</p>
-                  <p className="text-[10px] text-muted/70">Hệ thống đang hiển thị ảnh mặc định từ Cảnh 1.</p>
+                <div className="text-center p-4 space-y-1.5 text-stone-400">
+                  <ImageIcon className="h-8 w-8 mx-auto opacity-30" />
+                  <p className="text-xs text-stone-500 font-medium">Chưa có ảnh Thumbnail riêng</p>
+                  <p className="text-[11px] text-stone-400">Hệ thống đang hiển thị poster mặc định từ Cảnh 1.</p>
                 </div>
               )}
             </div>
 
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] text-muted leading-relaxed">
-                Poster tĩnh hiển thị ngoài Trang chủ &amp; Danh sách phát khi thính giả duyệt tìm tác phẩm.
+            <div className="space-y-2.5 pt-1">
+              <p className="text-xs text-stone-500 leading-relaxed">
+                Poster tĩnh tỉ lệ chuẩn 16:9 hiển thị nổi bật trên Trang chủ và Danh sách phát khi thính giả duyệt tìm tác phẩm.
               </p>
               <Button
                 variant="outline"
@@ -1108,9 +1256,9 @@ export const CreatorContentDetailPage: React.FC = () => {
                   setThumbPreviewUrl(null);
                   setThumbnailOpen(true);
                 }}
-                className="w-full text-xs gap-1.5"
+                className="w-full text-xs h-9 gap-1.5 rounded-xl border-stone-300 hover:border-stone-400 bg-white text-stone-700 cursor-pointer"
               >
-                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <ImageIcon className="h-3.5 w-3.5 text-[#A22A2A]" />
                 <span>Đổi ảnh Thumbnail Poster</span>
               </Button>
             </div>
@@ -1118,24 +1266,27 @@ export const CreatorContentDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. AI Shield & Moderation Review Details */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-5">
-        <div className="flex items-center justify-between border-b border-border pb-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-accent" />
-            <span>Thẩm Định Sử Liệu AI Shield & Quyết Định Kiểm Duyệt</span>
+      {/* 4. AI Shield & Moderation Review Details */}
+      <div
+        ref={shieldRef}
+        className="rounded-2xl border border-stone-200/90 bg-white/95 p-6 sm:p-8 shadow-2xs space-y-5"
+      >
+        <div className="flex items-center justify-between border-b border-stone-200/80 pb-4">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-[#A22A2A]" />
+            <span>Thẩm Định Sử Liệu AI Shield &amp; Quyết Định Kiểm Duyệt</span>
           </h2>
-          <span className="text-[11px] text-muted">
+          <span className="text-[11px] font-mono text-stone-400">
             MarkItDown + RAG Embedding Policy
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
           {/* Card 1: AI Shield Evaluation */}
-          <div className="p-4 rounded-lg border border-border bg-surface-subtle space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
+          <div className="p-5 rounded-xl border border-stone-200/90 bg-[#FAF9F6] space-y-3.5 flex flex-col justify-between">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-muted block font-medium">Đánh giá AI Shield</span>
+                <span className="text-stone-600 font-semibold text-xs block">Đánh giá AI Shield</span>
                 {detail.aiShieldTier ? (
                   <AiShieldBadge
                     tier={detail.aiShieldTier}
@@ -1149,38 +1300,38 @@ export const CreatorContentDetailPage: React.FC = () => {
               </div>
 
               {detail.aiShieldScore !== null && detail.aiShieldScore !== undefined ? (
-                <div className="space-y-2 pt-1">
+                <div className="space-y-2.5 pt-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold font-mono text-ink">
+                    <span className="text-3xl font-bold font-mono text-stone-900">
                       {Number(detail.aiShieldScore).toFixed(1)}
                     </span>
-                    <span className="text-muted text-xs">/ 100 điểm tin cậy</span>
+                    <span className="text-stone-500 text-xs">/ 100 điểm tin cậy</span>
                   </div>
 
                   {/* Progress bar */}
-                  <div className="w-full bg-border rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-stone-200/80 rounded-full h-2 overflow-hidden">
                     <div
                       className={`h-full transition-all duration-500 ${
                         Number(detail.aiShieldScore) >= 80
-                          ? 'bg-status-success-text'
+                          ? 'bg-emerald-600'
                           : Number(detail.aiShieldScore) >= 50
-                            ? 'bg-status-pending-text'
-                            : 'bg-status-error-text'
+                            ? 'bg-amber-500'
+                            : 'bg-red-500'
                       }`}
                       style={{ width: `${Math.min(100, Math.max(0, Number(detail.aiShieldScore)))}%` }}
                     />
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-muted italic pt-1">
+                <p className="text-xs text-stone-500 italic pt-1">
                   Tác phẩm sẽ được thẩm định đối chiếu tự động khi bạn nhấn &quot;Gửi kiểm duyệt xuất bản&quot;.
                 </p>
               )}
 
               {detail.aiShieldReason && (
-                <div className="pt-2 border-t border-border space-y-1">
-                  <span className="text-[11px] font-semibold text-ink block">Nhận xét từ AI Shield:</span>
-                  <p className="text-muted text-[11px] leading-relaxed">
+                <div className="pt-3 border-t border-stone-200/80 space-y-1">
+                  <span className="text-[11px] font-semibold text-stone-800 block">Nhận xét từ AI Shield:</span>
+                  <p className="text-stone-600 text-xs leading-relaxed">
                     {detail.aiShieldReason}
                   </p>
                 </div>
@@ -1188,24 +1339,24 @@ export const CreatorContentDetailPage: React.FC = () => {
             </div>
 
             {/* Threshold guide & Disclaimer */}
-            <div className="pt-2 text-[10px] text-muted border-t border-border/60 space-y-1">
+            <div className="pt-3 text-[10px] text-stone-400 border-t border-stone-200/60 space-y-1">
               <div>
                 <span>Quy chuẩn phân tầng: </span>
-                <span className="text-status-error-text font-medium">&lt;50% Đỏ</span> |{' '}
-                <span className="text-amber-500 font-medium">50-80% Khá</span> |{' '}
-                <span className="text-emerald-500 font-medium">80-90% Tốt</span> |{' '}
-                <span className="text-status-success-text font-medium">&gt;90% Xuất sắc</span>
+                <span className="text-red-600 font-medium">&lt;50% Đỏ</span> |{' '}
+                <span className="text-amber-600 font-medium">50-80% Khá</span> |{' '}
+                <span className="text-emerald-600 font-medium">80-90% Tốt</span> |{' '}
+                <span className="text-emerald-700 font-medium">&gt;90% Xuất sắc</span>
               </div>
-              <p className="text-[10px] text-muted/80 leading-normal italic">
-                * Điểm số AI Shield là kết quả đánh giá đối chiếu tự động với kho sử liệu, mang tính chất tham khảo hỗ trợ và không phải là bảo chứng tuyệt đối hay cam kết được Ban biên tập phê duyệt.
+              <p className="text-[10px] text-stone-400 leading-normal italic">
+                * Điểm số AI Shield là kết quả đánh giá đối chiếu tự động với kho sử liệu chính thống, mang tính chất tham khảo hỗ trợ và là căn cứ để Ban biên tập xem xét phê duyệt.
               </p>
             </div>
           </div>
 
           {/* Card 2: Admin Moderation Decision */}
-          <div className="p-4 rounded-lg border border-border bg-surface-subtle space-y-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <span className="text-muted block font-medium">Quyết định Ban Kiểm Duyệt</span>
+          <div className="p-5 rounded-xl border border-stone-200/90 bg-[#FAF9F6] space-y-3.5 flex flex-col justify-between">
+            <div className="space-y-3">
+              <span className="text-stone-600 font-semibold text-xs block">Quyết định Ban Kiểm Duyệt</span>
 
               <div className="flex items-center gap-2">
                 <Badge
@@ -1230,34 +1381,37 @@ export const CreatorContentDetailPage: React.FC = () => {
               </div>
 
               {detail.moderationReason ? (
-                <div className="pt-2 space-y-1 border-t border-border">
-                  <span className="text-[11px] font-semibold text-ink block">
+                <div className="pt-2.5 space-y-1 border-t border-stone-200/80">
+                  <span className="text-[11px] font-semibold text-stone-800 block">
                     Ý kiến phản hồi từ Quản trị viên:
                   </span>
-                  <p className="text-muted text-[11px] leading-relaxed">
+                  <p className="text-stone-600 text-xs leading-relaxed">
                     {detail.moderationReason}
                   </p>
                 </div>
               ) : (
-                <p className="text-xs text-muted italic pt-1">
+                <p className="text-xs text-stone-500 italic pt-1">
                   Chưa có ý kiến phản hồi nào từ Quản trị viên.
                 </p>
               )}
             </div>
 
-            <div className="pt-2 text-[10px] text-muted border-t border-border/60">
+            <div className="pt-3 text-[10px] text-stone-400 border-t border-stone-200/60">
               Quyết định từ Ban biên tập Sử Ký là căn cứ chính thức để xuất bản nội dung ra cộng đồng.
             </div>
           </div>
         </div>
       </div>
 
-      {/* 6. Description & Script Body */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-            <FileText className="h-4 w-4 text-accent" />
-            <span>Kịch bản & Nội dung sử liệu</span>
+      {/* 5. Description & Script Body */}
+      <div
+        ref={scriptRef}
+        className="rounded-2xl border border-stone-200/90 bg-white/95 p-6 sm:p-8 shadow-2xs space-y-4"
+      >
+        <div className="flex items-center justify-between border-b border-stone-200/80 pb-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-[#A22A2A]" />
+            <span>Kịch Bản &amp; Nội Dung Sử Liệu</span>
           </h2>
 
           {canEditMetadata && (
@@ -1265,52 +1419,55 @@ export const CreatorContentDetailPage: React.FC = () => {
               variant="ghost"
               size="sm"
               onClick={handleOpenEdit}
-              className="text-xs h-7 px-2 gap-1 text-muted hover:text-ink"
+              className="text-xs h-8 px-3 gap-1.5 text-stone-600 hover:text-[#A22A2A] hover:bg-stone-50 rounded-lg cursor-pointer"
             >
-              <Edit3 className="h-3 w-3" />
+              <Edit3 className="h-3.5 w-3.5" />
               <span>Chỉnh sửa</span>
             </Button>
           )}
         </div>
 
         {detail.description ? (
-          <div className="text-xs md:text-sm text-ink leading-relaxed whitespace-pre-wrap font-sans bg-surface-subtle p-4 rounded-lg border border-border">
+          <div className="text-xs sm:text-sm text-stone-800 leading-relaxed whitespace-pre-wrap font-sans bg-[#FAF9F6] p-5 sm:p-6 rounded-xl border border-stone-200/80 shadow-2xs">
             {detail.description}
           </div>
         ) : (
-          <p className="text-xs text-muted italic">Chưa có nội dung mô tả kịch bản.</p>
+          <p className="text-xs text-stone-400 italic py-4">Chưa có nội dung mô tả kịch bản.</p>
         )}
       </div>
 
-      {/* 7. Audience Engagement & Comments */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-accent" />
-          <span>Tương tác từ Thính giả</span>
+      {/* 6. Audience Engagement & Comments */}
+      <div
+        ref={engagementRef}
+        className="rounded-2xl border border-stone-200/90 bg-white/95 p-6 sm:p-8 shadow-2xs space-y-5"
+      >
+        <h2 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-[#A22A2A]" />
+          <span>Tương Tác Từ Thính GiẢ</span>
         </h2>
 
         {/* Counter cards */}
-        <div className="grid grid-cols-3 gap-3 text-center">
-          <div className="p-3 rounded-lg border border-border bg-surface-subtle">
-            <span className="text-[11px] text-muted block">Lượt thích</span>
-            <span className="text-base font-bold text-ink mt-0.5 flex items-center justify-center gap-1">
-              <Heart className="h-3.5 w-3.5 text-accent" />
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="p-4 rounded-xl border border-stone-200/90 bg-[#FAF9F6] shadow-2xs">
+            <span className="text-[11px] text-stone-500 font-medium block">Lượt thích</span>
+            <span className="text-lg sm:text-xl font-bold font-mono text-stone-900 mt-1 flex items-center justify-center gap-1.5">
+              <Heart className="h-4 w-4 text-[#A22A2A] fill-[#A22A2A]/20" />
               {detail.likeCount || 0}
             </span>
           </div>
 
-          <div className="p-3 rounded-lg border border-border bg-surface-subtle">
-            <span className="text-[11px] text-muted block">Lượt không thích</span>
-            <span className="text-base font-bold text-muted mt-0.5 flex items-center justify-center gap-1">
-              <ThumbsDown className="h-3.5 w-3.5" />
+          <div className="p-4 rounded-xl border border-stone-200/90 bg-[#FAF9F6] shadow-2xs">
+            <span className="text-[11px] text-stone-500 font-medium block">Lượt không thích</span>
+            <span className="text-lg sm:text-xl font-bold font-mono text-stone-500 mt-1 flex items-center justify-center gap-1.5">
+              <ThumbsDown className="h-4 w-4" />
               {detail.dislikeCount || 0}
             </span>
           </div>
 
-          <div className="p-3 rounded-lg border border-border bg-surface-subtle">
-            <span className="text-[11px] text-muted block">Bình luận</span>
-            <span className="text-base font-bold text-ink mt-0.5 flex items-center justify-center gap-1">
-              <MessageSquare className="h-3.5 w-3.5 text-ink" />
+          <div className="p-4 rounded-xl border border-stone-200/90 bg-[#FAF9F6] shadow-2xs">
+            <span className="text-[11px] text-stone-500 font-medium block">Bình luận</span>
+            <span className="text-lg sm:text-xl font-bold font-mono text-stone-900 mt-1 flex items-center justify-center gap-1.5">
+              <MessageSquare className="h-4 w-4 text-stone-700" />
               {detail.commentCount || 0}
             </span>
           </div>
@@ -1318,22 +1475,22 @@ export const CreatorContentDetailPage: React.FC = () => {
 
         {/* Comment list */}
         {detail.comments && detail.comments.length > 0 ? (
-          <div className="pt-2 space-y-3 divide-y divide-border">
-            <span className="text-xs font-semibold text-ink block">
+          <div className="pt-2 space-y-3 divide-y divide-stone-200/80">
+            <span className="text-xs font-semibold text-stone-800 block">
               Danh sách bình luận ({detail.comments.length})
             </span>
             {detail.comments.map((c) => (
               <div key={c.id} className="pt-3 space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-muted">
-                  <span className="font-medium text-ink">{c.userEmail}</span>
-                  <span>{formatDate(c.createdAt)}</span>
+                <div className="flex items-center justify-between text-[11px] text-stone-500">
+                  <span className="font-medium text-stone-800">{c.userEmail}</span>
+                  <span className="font-mono">{formatDate(c.createdAt)}</span>
                 </div>
-                <p className="text-xs text-ink leading-relaxed">{c.textBody}</p>
+                <p className="text-xs text-stone-700 leading-relaxed">{c.textBody}</p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-muted text-center py-4 italic">
+          <p className="text-xs text-stone-400 text-center py-6 italic">
             Chưa có bình luận nào cho tác phẩm này.
           </p>
         )}
@@ -1343,48 +1500,47 @@ export const CreatorContentDetailPage: React.FC = () => {
       {/* DIALOG 1: Submit for Review & AI Shield Gate                             */}
       {/* ========================================================================= */}
       <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
-        <DialogContent maxWidth="max-w-lg">
+        <DialogContent maxWidth="max-w-lg" className="rounded-2xl border-stone-200">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-accent" />
+            <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold text-stone-900">
+              <ShieldCheck className="h-5 w-5 text-[#A22A2A]" />
               <span>Gửi Kiểm Duyệt Xuất Bản</span>
             </DialogTitle>
-            <DialogDescription>
-              Kích hoạt quy trình thẩm định AI Shield tự động và chuyển video vào danh sách chờ
-              kiểm duyệt của Ban biên tập.
+            <DialogDescription className="text-xs text-stone-500">
+              Kích hoạt quy trình thẩm định AI Shield tự động và chuyển video vào danh sách chờ kiểm duyệt của Ban biên tập.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             {/* Content summary box */}
-            <div className="p-3.5 rounded-lg border border-border bg-surface-subtle space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted">Tiêu đề tác phẩm:</span>
-                <span className="font-semibold text-ink text-right max-w-[260px] truncate">
+            <div className="p-4 rounded-xl border border-stone-200 bg-[#FAF9F6] space-y-2.5">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Tiêu đề tác phẩm:</span>
+                <span className="font-semibold text-stone-900 text-right max-w-[260px] truncate">
                   {detail.title}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Thời lượng kết xuất:</span>
-                <span className="font-mono text-ink">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Thời lượng kết xuất:</span>
+                <span className="font-mono text-stone-800 font-medium">
                   {formatDuration(detail.durationSeconds || 0)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted">Quyền truy cập:</span>
-                <span className="text-ink">
+              <div className="flex justify-between items-center">
+                <span className="text-stone-500">Quyền truy cập:</span>
+                <span className="text-stone-800 font-medium">
                   {detail.isExclusive ? 'Độc quyền VIP' : 'Miễn phí / Công khai'}
                 </span>
               </div>
             </div>
 
             {/* Verification checklist notice */}
-            <div className="p-3.5 rounded-lg border border-accent/20 bg-accent-soft space-y-2 text-ink">
-              <span className="font-semibold flex items-center gap-1.5 text-accent">
+            <div className="p-4 rounded-xl border border-rose-200 bg-rose-50/60 space-y-2 text-stone-800">
+              <span className="font-semibold flex items-center gap-1.5 text-[#A22A2A]">
                 <Sparkles className="h-4 w-4" />
                 <span>Quy trình tự động hóa AI Shield:</span>
               </span>
-              <ul className="list-disc list-inside space-y-1 text-muted">
+              <ul className="list-disc list-inside space-y-1 text-stone-600 text-[11px] leading-relaxed">
                 <li>MarkItDown trích xuất văn bản kịch bản và lời dẫn.</li>
                 <li>RAG Embedding đối chiếu với kho sử liệu chính thống.</li>
                 <li>Chấm điểm tính xác thực (0 – 100%) và phân tầng chính sách.</li>
@@ -1404,7 +1560,7 @@ export const CreatorContentDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -1413,7 +1569,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 setSubmitConsent(false);
               }}
               disabled={submitMutation.isPending}
-              className="text-xs"
+              className="text-xs h-9 px-4 rounded-xl border-stone-300"
             >
               Hủy bỏ
             </Button>
@@ -1421,7 +1577,7 @@ export const CreatorContentDetailPage: React.FC = () => {
               size="sm"
               onClick={() => submitMutation.mutate()}
               disabled={!submitConsent || submitMutation.isPending}
-              className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+              className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white rounded-xl font-medium shadow-xs"
             >
               {submitMutation.isPending ? (
                 <>
@@ -1443,22 +1599,21 @@ export const CreatorContentDetailPage: React.FC = () => {
       {/* DIALOG 2: Edit Metadata Dialog                                           */}
       {/* ========================================================================= */}
       <Dialog open={editOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent maxWidth="max-w-lg">
+        <DialogContent maxWidth="max-w-lg" className="rounded-2xl border-stone-200">
           <form onSubmit={handleSaveEdit}>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Edit3 className="h-5 w-5 text-accent" />
+              <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold text-stone-900">
+                <Edit3 className="h-5 w-5 text-[#A22A2A]" />
                 <span>Chỉnh Sửa Thông Tin Hiển Thị</span>
               </DialogTitle>
-              <DialogDescription>
-                Cập nhật tiêu đề, tóm tắt mô tả hiển thị hoặc chế độ độc quyền. Lưu ý: Thao tác này
-                không thay đổi kịch bản gốc hay âm thanh/hình ảnh trong tệp video đã kết xuất.
+              <DialogDescription className="text-xs text-stone-500">
+                Cập nhật tiêu đề, tóm tắt mô tả hiển thị hoặc chế độ độc quyền. Thao tác này không thay đổi âm thanh hay hình ảnh trong tệp video đã kết xuất.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-3 text-xs">
               {editError && (
-                <div className="p-3 rounded-lg border border-status-error-text/30 bg-status-error-bg text-status-error-text flex items-center gap-2">
+                <div className="p-3 rounded-xl border border-red-200 bg-red-50 text-red-800 flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>{editError}</span>
                 </div>
@@ -1466,8 +1621,8 @@ export const CreatorContentDetailPage: React.FC = () => {
 
               {/* Title Input */}
               <div className="space-y-1.5">
-                <label htmlFor="edit-title" className="font-semibold text-ink block">
-                  Tiêu đề tác phẩm <span className="text-status-error-text">*</span>
+                <label htmlFor="edit-title" className="font-semibold text-stone-800 block">
+                  Tiêu đề tác phẩm <span className="text-red-600">*</span>
                 </label>
                 <Input
                   id="edit-title"
@@ -1475,14 +1630,14 @@ export const CreatorContentDetailPage: React.FC = () => {
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
                   placeholder="Ví dụ: Đại chiến Bạch Đằng 938..."
-                  className="text-xs h-9 bg-canvas"
+                  className="text-xs h-9 bg-white border-stone-300 rounded-lg"
                   required
                 />
               </div>
 
               {/* Description Input */}
               <div className="space-y-1.5">
-                <label htmlFor="edit-desc" className="font-semibold text-ink block">
+                <label htmlFor="edit-desc" className="font-semibold text-stone-800 block">
                   Mô tả / Tóm tắt hiển thị
                 </label>
                 <Textarea
@@ -1490,9 +1645,9 @@ export const CreatorContentDetailPage: React.FC = () => {
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                   placeholder="Nhập mô tả tóm tắt tác phẩm hiển thị cho thính giả..."
-                  className="text-xs min-h-[100px] bg-canvas"
+                  className="text-xs min-h-[100px] bg-white border-stone-300 rounded-lg leading-relaxed"
                 />
-                <span className="text-[10px] text-muted block">
+                <span className="text-[10px] text-stone-400 block">
                   Cập nhật thông tin tóm tắt bên ngoài thẻ video, không thay đổi kịch bản lồng tiếng gốc.
                 </span>
               </div>
@@ -1509,14 +1664,14 @@ export const CreatorContentDetailPage: React.FC = () => {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setEditDialogOpen(false)}
                 disabled={updateMutation.isPending}
-                className="text-xs"
+                className="text-xs h-9 px-4 rounded-xl border-stone-300"
               >
                 Hủy
               </Button>
@@ -1524,7 +1679,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 type="submit"
                 size="sm"
                 disabled={updateMutation.isPending}
-                className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+                className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white rounded-xl font-medium shadow-xs cursor-pointer"
               >
                 {updateMutation.isPending ? (
                   <>
@@ -1544,41 +1699,41 @@ export const CreatorContentDetailPage: React.FC = () => {
       {/* DIALOG 3: Visibility Toggle Dialog (HIDDEN <-> PUBLISHED)                */}
       {/* ========================================================================= */}
       <Dialog open={visibilityOpen} onOpenChange={setVisibilityOpen}>
-        <DialogContent maxWidth="max-w-md">
+        <DialogContent maxWidth="max-w-md" className="rounded-2xl border-stone-200">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold">
               {targetHidden ? (
                 <>
-                  <EyeOff className="h-5 w-5 text-status-error-text" />
-                  <span>Xác Nhận Tạm Ẩn Tác Phẩm</span>
+                  <EyeOff className="h-5 w-5 text-red-600" />
+                  <span className="text-stone-900">Xác Nhận Tạm Ẩn Tác Phẩm</span>
                 </>
               ) : (
                 <>
-                  <Eye className="h-5 w-5 text-status-success-text" />
-                  <span>Xác Nhận Công Khai Lại Tác Phẩm</span>
+                  <Eye className="h-5 w-5 text-emerald-600" />
+                  <span className="text-stone-900">Xác Nhận Công Khai Lại Tác Phẩm</span>
                 </>
               )}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-stone-500">
               {targetHidden
                 ? 'Tác phẩm sẽ bị ẩn khỏi danh mục phát sóng công khai và người xem sẽ không thể tìm thấy.'
                 : 'Tác phẩm sẽ được công khai trở lại trên nền tảng Sử Ký cho toàn bộ thính giả.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2 text-xs text-muted">
+          <div className="py-2 text-xs text-stone-600">
             <p>
               Tác phẩm: <strong>{detail.title}</strong>
             </p>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setVisibilityOpen(false)}
               disabled={visibilityMutation.isPending}
-              className="text-xs"
+              className="text-xs h-9 px-4 rounded-xl border-stone-300"
             >
               Hủy
             </Button>
@@ -1586,8 +1741,8 @@ export const CreatorContentDetailPage: React.FC = () => {
               size="sm"
               onClick={() => visibilityMutation.mutate(targetHidden)}
               disabled={visibilityMutation.isPending}
-              className={`gap-2 text-xs text-white ${
-                targetHidden ? 'bg-status-error-text hover:bg-status-error-text/90' : 'bg-accent hover:bg-accent/90'
+              className={`gap-2 text-xs h-9 px-5 rounded-xl text-white font-medium shadow-xs cursor-pointer ${
+                targetHidden ? 'bg-red-600 hover:bg-red-700' : 'bg-[#A22A2A] hover:bg-[#8B0000]'
               }`}
             >
               {visibilityMutation.isPending ? (
@@ -1603,21 +1758,20 @@ export const CreatorContentDetailPage: React.FC = () => {
       {/* DIALOG 4: Upload Video Thumbnail Poster (16:9)                            */}
       {/* ========================================================================= */}
       <Dialog open={thumbnailOpen} onOpenChange={setThumbnailOpen}>
-        <DialogContent maxWidth="max-w-md">
+        <DialogContent maxWidth="max-w-md" className="rounded-2xl border-stone-200">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-accent" />
+            <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold text-stone-900">
+              <ImageIcon className="h-5 w-5 text-[#A22A2A]" />
               <span>Cập Nhật Ảnh Bìa Thumbnail (Poster)</span>
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-stone-500">
               Tải lên hình ảnh đại diện tỷ lệ 16:9 để hiển thị nổi bật trên trang chủ và danh sách phát của kênh.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-3 text-xs">
-            {/* Dropzone / File Picker */}
             <div className="space-y-2">
-              <label className="font-semibold text-ink block">
+              <label className="font-semibold text-stone-800 block">
                 Chọn ảnh Poster mới (JPG, PNG, WebP)
               </label>
               <SceneImageUploadDropzone
@@ -1636,13 +1790,13 @@ export const CreatorContentDetailPage: React.FC = () => {
                 }}
               />
               {detail.thumbnailUrl && !selectedThumbFile && (
-                <div className="mt-2 text-muted text-[11px] flex items-center gap-1.5">
-                  <span>Ảnh thumbnail hiện tại đang dùng:</span>
+                <div className="mt-2 text-stone-500 text-[11px] flex items-center gap-1.5">
+                  <span>Ảnh thumbnail hiện tại:</span>
                   <a
                     href={resolveMediaUrl(detail.thumbnailUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-accent underline font-mono truncate max-w-[220px]"
+                    className="text-[#A22A2A] underline font-mono truncate max-w-[220px]"
                   >
                     Xem ảnh gốc
                   </a>
@@ -1651,7 +1805,7 @@ export const CreatorContentDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
             <Button
               type="button"
               variant="outline"
@@ -1662,7 +1816,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 setThumbPreviewUrl(null);
               }}
               disabled={uploadThumbnailMutation.isPending}
-              className="text-xs"
+              className="text-xs h-9 px-4 rounded-xl border-stone-300"
             >
               Hủy bỏ
             </Button>
@@ -1674,7 +1828,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                 }
               }}
               disabled={!selectedThumbFile || uploadThumbnailMutation.isPending}
-              className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+              className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white rounded-xl font-medium shadow-xs cursor-pointer"
             >
               {uploadThumbnailMutation.isPending ? (
                 <>
@@ -1696,37 +1850,37 @@ export const CreatorContentDetailPage: React.FC = () => {
       {/* DIALOG 5: Smart Script Patching (< 10s)                                   */}
       {/* ========================================================================= */}
       <Dialog open={patchModalOpen} onOpenChange={setPatchModalOpen}>
-        <DialogContent maxWidth="max-w-2xl">
+        <DialogContent maxWidth="max-w-2xl" className="rounded-2xl border-stone-200">
           <DialogHeader>
             <div className="flex items-center justify-between">
-              <DialogTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-accent" />
+              <DialogTitle className="flex items-center gap-2 font-serif text-lg font-bold text-stone-900">
+                <Wrench className="h-5 w-5 text-[#A22A2A]" />
                 <span>Vá Kịch Bản Siêu Tốc (Smart Script Patching)</span>
               </DialogTitle>
-              <Badge variant="accent" className="font-mono text-[10px]">
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded-full bg-rose-50 text-[#A22A2A] font-semibold border border-rose-200">
                 &lt; 10s · Tiết kiệm 90% chi phí
-              </Badge>
+              </span>
             </div>
-            <DialogDescription>
+            <DialogDescription className="text-xs text-stone-500">
               Chỉ thu âm lại đúng các câu bạn chỉnh sửa và ghép lại video trong chưa đầy 10 giây. Bản video cũ vẫn tiếp tục phát sóng cho khán giả xem bình thường mà không bị gián đoạn.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs max-h-[60vh] overflow-y-auto pr-1">
             {/* Optional Cover Image Replacement */}
-            <div className="p-3.5 rounded-xl border border-border bg-surface-subtle space-y-2">
+            <div className="p-4 rounded-xl border border-stone-200 bg-[#FAF9F6] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-ink flex items-center gap-1.5">
-                  <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <span className="font-semibold text-stone-800 flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-[#A22A2A]" />
                   <span>Thay đổi ảnh bìa Podcast (Tùy chọn)</span>
                 </span>
                 {patchCoverFile && (
-                  <Badge variant="accent" size="sm" className="text-[10px]">
+                  <span className="font-medium text-[10px] px-2 py-0.5 rounded bg-rose-50 text-[#A22A2A] border border-rose-200">
                     Đã chọn ảnh mới
-                  </Badge>
+                  </span>
                 )}
               </div>
-              <p className="text-[11px] text-muted">
+              <p className="text-[11px] text-stone-500">
                 Nếu bạn muốn cập nhật ảnh bìa mới cho video cùng lúc với việc sửa câu kịch bản.
               </p>
               <div className="pt-1">
@@ -1751,7 +1905,7 @@ export const CreatorContentDetailPage: React.FC = () => {
             {/* Sentences List */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-ink">
+                <span className="font-semibold text-stone-800">
                   Danh sách câu thoại trong kịch bản ({podcastSentences.length} câu)
                 </span>
                 <Button
@@ -1759,7 +1913,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                   size="sm"
                   onClick={() => refetchSentences()}
                   disabled={isLoadingSentences}
-                  className="text-xs h-7 px-2 text-muted hover:text-ink gap-1"
+                  className="text-xs h-7 px-2 text-stone-500 hover:text-stone-900 gap-1 rounded-lg cursor-pointer"
                 >
                   <RotateCcw className={`h-3 w-3 ${isLoadingSentences ? 'animate-spin' : ''}`} />
                   <span>Tải lại câu</span>
@@ -1767,14 +1921,14 @@ export const CreatorContentDetailPage: React.FC = () => {
               </div>
 
               {isLoadingSentences ? (
-                <div className="py-12 text-center space-y-2 text-muted">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-accent" />
+                <div className="py-12 text-center space-y-2 text-stone-400">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-[#A22A2A]" />
                   <p className="text-xs">Đang nạp danh sách câu từ máy chủ...</p>
                 </div>
               ) : podcastSentences.length === 0 ? (
-                <div className="p-6 text-center border border-dashed border-border rounded-xl text-muted space-y-1">
-                  <AlertCircle className="h-5 w-5 mx-auto text-muted" />
-                  <p className="font-medium text-ink">Chưa có phân tách câu cho video này</p>
+                <div className="p-6 text-center border border-dashed border-stone-200 rounded-xl text-stone-400 space-y-1 bg-[#FAF9F6]">
+                  <AlertCircle className="h-5 w-5 mx-auto text-stone-400" />
+                  <p className="font-medium text-stone-700">Chưa có phân tách câu cho video này</p>
                   <p className="text-[11px]">
                     Tính năng vá kịch bản siêu tốc chỉ hỗ trợ tác phẩm có dữ liệu câu kịch bản từ bản kết xuất gần nhất.
                   </p>
@@ -1789,22 +1943,23 @@ export const CreatorContentDetailPage: React.FC = () => {
                     return (
                       <div
                         key={idx}
-                        className={`p-3 rounded-lg border transition-all ${
+                        className={`p-3.5 rounded-xl border transition-all ${
                           isModified
-                            ? 'border-accent bg-accent-soft/20 shadow-xs'
-                            : 'border-border bg-surface'
+                            ? 'border-[#A22A2A] bg-rose-50/40 shadow-xs'
+                            : 'border-stone-200 bg-white'
                         }`}
                       >
                         <div className="flex items-center justify-between pb-2">
                           <div className="flex items-center gap-2">
-                            <Badge
-                              variant={isModified ? 'accent' : 'outline'}
-                              className="font-mono text-[10px]"
+                            <span
+                              className={`font-mono text-[10px] px-2 py-0.5 rounded font-semibold ${
+                                isModified ? 'bg-rose-100 text-[#A22A2A]' : 'bg-stone-100 text-stone-600'
+                              }`}
                             >
                               Câu #{idx + 1}
-                            </Badge>
+                            </span>
                             {isModified && (
-                              <span className="text-[10px] font-semibold text-accent animate-pulse">
+                              <span className="text-[10px] font-semibold text-[#A22A2A] animate-pulse">
                                 ● Sẽ thu âm lại
                               </span>
                             )}
@@ -1812,13 +1967,11 @@ export const CreatorContentDetailPage: React.FC = () => {
 
                           {/* Audio preview button for this sentence */}
                           {sentence.audioUrl && (
-                            <Button
+                            <button
                               type="button"
-                              variant="ghost"
-                              size="sm"
                               onClick={() => handlePlaySentenceAudio(sentence.audioUrl, idx)}
-                              className={`h-6 px-2 text-[11px] gap-1 rounded-md ${
-                                isPlaying ? 'bg-accent text-white' : 'text-muted hover:text-ink'
+                              className={`h-6 px-2.5 text-[11px] gap-1 rounded-md inline-flex items-center transition-colors cursor-pointer ${
+                                isPlaying ? 'bg-[#A22A2A] text-white' : 'text-stone-500 hover:text-stone-900 hover:bg-stone-100'
                               }`}
                               title="Nghe thử câu này"
                             >
@@ -1833,7 +1986,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                                   <span>Nghe thử</span>
                                 </>
                               )}
-                            </Button>
+                            </button>
                           )}
                         </div>
 
@@ -1847,12 +2000,12 @@ export const CreatorContentDetailPage: React.FC = () => {
                             }));
                           }}
                           rows={2}
-                          className="text-xs bg-canvas resize-none"
+                          className="text-xs bg-white border-stone-300 resize-none rounded-lg"
                           placeholder="Nhập nội dung chỉnh sửa cho câu này..."
                         />
 
                         {isModified && (
-                          <div className="pt-1.5 flex justify-end">
+                          <div className="pt-2 flex justify-end">
                             <button
                               type="button"
                               onClick={() => {
@@ -1862,7 +2015,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                                   return copy;
                                 });
                               }}
-                              className="text-[10px] text-muted hover:text-ink underline"
+                              className="text-[10px] text-stone-500 hover:text-stone-900 underline cursor-pointer"
                             >
                               Khôi phục câu gốc
                             </button>
@@ -1876,11 +2029,11 @@ export const CreatorContentDetailPage: React.FC = () => {
             </div>
           </div>
 
-          <DialogFooter className="border-t border-border pt-3">
+          <DialogFooter className="border-t border-stone-200 pt-3">
             <div className="flex items-center justify-between w-full">
-              <div className="text-[11px] text-muted">
+              <div className="text-[11px] text-stone-500">
                 {Object.keys(editedSentences).length > 0 || patchCoverFile ? (
-                  <span className="text-accent font-semibold">
+                  <span className="text-[#A22A2A] font-semibold">
                     Đã chọn sửa {Object.keys(editedSentences).length} câu {patchCoverFile ? '+ 1 ảnh bìa mới' : ''}
                   </span>
                 ) : (
@@ -1901,7 +2054,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                     setPlayingSentenceIdx(null);
                   }}
                   disabled={patchPodcastMutation.isPending}
-                  className="text-xs"
+                  className="text-xs h-9 px-4 rounded-xl border-stone-300"
                 >
                   Hủy bỏ
                 </Button>
@@ -1913,7 +2066,7 @@ export const CreatorContentDetailPage: React.FC = () => {
                     patchPodcastMutation.isPending ||
                     (Object.keys(editedSentences).length === 0 && !patchCoverFile)
                   }
-                  className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+                  className="gap-2 text-xs h-9 px-5 bg-[#A22A2A] hover:bg-[#8B0000] text-white rounded-xl font-medium shadow-xs cursor-pointer"
                 >
                   {patchPodcastMutation.isPending ? (
                     <>
