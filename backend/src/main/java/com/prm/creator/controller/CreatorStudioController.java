@@ -46,8 +46,11 @@ public class CreatorStudioController {
 
     @Operation(summary = "Tải ảnh minh họa cảnh lên Cloudinary", description = "Upload file ảnh cảnh vẽ tay lên Cloudinary, trả về link HTTPS an toàn để lưu vào hệ thống")
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<CreatorUploadImageResponse> uploadSceneImage(@RequestParam("file") MultipartFile file) {
-        CreatorUploadImageResponse response = creatorStudioService.uploadSceneImage(file);
+    public ApiResponse<CreatorUploadImageResponse> uploadSceneImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "folder", required = false) String folder
+    ) {
+        CreatorUploadImageResponse response = creatorStudioService.uploadSceneImage(file, folder);
         return ApiResponse.success("Tải ảnh lên Cloudinary thành công", response);
     }
 
