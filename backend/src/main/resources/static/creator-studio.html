@@ -1636,13 +1636,19 @@
     /* Dropzones & Previews */
     .upload-dropzone {
       border: 1.5px dashed var(--hairline-strong);
-      border-radius: var(--rounded-md);
-      padding: 18px 12px;
+      border-radius: var(--rounded-lg);
+      padding: 16px 12px;
       text-align: center;
       background: var(--surface-card);
       cursor: pointer;
       position: relative;
-      transition: all 0.2s ease;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .upload-dropzone.drag-active {
+      border-color: var(--primary);
+      background: rgba(14, 165, 233, 0.08);
+      transform: scale(1.01);
     }
 
     .upload-dropzone:hover {
@@ -1650,13 +1656,60 @@
       background: var(--surface-strong);
     }
 
-    .upload-dropzone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
+    .upload-dropzone-actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 5;
+    }
+
+    .btn-paste-clipboard {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #0284c7;
+      background: rgba(14, 165, 233, 0.08);
+      border: 1px solid rgba(14, 165, 233, 0.32);
+      border-radius: var(--rounded-pill);
       cursor: pointer;
-      width: 100%;
-      height: 100%;
+      transition: all 0.18s ease;
+    }
+
+    .btn-paste-clipboard:hover {
+      background: rgba(14, 165, 233, 0.18);
+      border-color: #0284c7;
+      transform: translateY(-1px);
+    }
+
+    .btn-paste-clipboard:active {
+      transform: translateY(1px);
+    }
+
+    .paste-shortcut-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .paste-kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      background: var(--canvas-soft);
+      border: 1px solid var(--hairline-strong);
+      border-radius: 4px;
+      color: var(--ink);
     }
 
     .dropzone-title {
@@ -2987,17 +3040,32 @@
 
             <!-- Upload Dropzone for Thumbnail -->
             <div>
-              <div class="upload-dropzone" id="wbThumbnailDropzone">
-                <input type="file" id="wbThumbnailFileInput" accept="image/*" onchange="uploadThumbnailFile(this.files)">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 6px auto; color: var(--muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <div class="dropzone-title">Tải ảnh Thumbnail 16:9</div>
+              <div class="upload-dropzone" id="wbThumbnailDropzone"
+                   ondragover="handleThumbnailDragOver(event)"
+                   ondragleave="handleThumbnailDragLeave(event)"
+                   ondrop="handleThumbnailDrop(event)"
+                   onclick="triggerThumbnailInput(event)">
+                <input type="file" id="wbThumbnailFileInput" accept="image/*" style="display:none;" onchange="uploadThumbnailFile(this.files)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 6px auto; color: var(--muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div class="dropzone-title">Tải ảnh Thumbnail Poster 16:9</div>
                 <div class="dropzone-hint">Định dạng 1280x720px</div>
+
+                <div class="upload-dropzone-actions" onclick="event.stopPropagation()">
+                  <button type="button" class="btn-paste-clipboard" onclick="pasteThumbnailFromClipboard(event)" title="Dán ảnh Thumbnail trực tiếp từ Clipboard">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+                    <span>Dán ảnh (Ctrl + V)</span>
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="triggerThumbnailInput(event)" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--hairline-strong);">
+                    Chọn file
+                  </button>
+                </div>
               </div>
 
               <div class="image-preview-card" id="wbThumbnailPreviewCard" style="display:none;">
                 <img id="wbThumbnailPreviewImg" alt="Thumbnail Preview" src="">
                 <div class="image-card-controls">
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="triggerThumbnailInput()">Đổi ảnh</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="triggerThumbnailInput(event)">📁 Đổi ảnh</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="pasteThumbnailFromClipboard(event)" style="color:var(--primary);">📋 Dán đè</button>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="removeThumbnail()">Xóa</button>
                 </div>
               </div>
@@ -3766,6 +3834,7 @@
       userManuallyChangedDuration: false,
       currentStoryboard: null,
       cloudinarySceneImages: {}, // sceneIndex -> url
+      lastActiveSceneIndex: 1,
       customThumbnailUrl: null,
       customPodcastCoverUrl: null,
       activeJobId: null,
@@ -4489,6 +4558,8 @@
         card.className = 'scene-editorial-card';
         card.id = `wbSceneCard_${sIdx}`;
         card.style.opacity = '1';
+        card.setAttribute('onmouseenter', `state.lastActiveSceneIndex = ${sIdx}`);
+        card.setAttribute('onclick', `state.lastActiveSceneIndex = ${sIdx}`);
         card.innerHTML = `
           <div class="scene-top-bar">
             <span class="scene-index-badge">Cảnh #${sIdx} (${formatTime(startSec)} - ${formatTime(endSec)})</span>
@@ -4522,18 +4593,38 @@
             <textarea id="promptText_${sIdx}" class="prompt-text-readonly" readonly>${escapeHtml(sc.image_prompt || '')}</textarea>
           </div>
 
-          <div class="upload-dropzone" id="dropzone_${sIdx}" style="display: ${hasImg ? 'none' : 'block'};">
-            <input type="file" id="fileInput_${sIdx}" accept="image/*" onchange="uploadSceneImageFile(${sIdx}, this.files)">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted); margin:0 auto 4px auto;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="dropzone-title">Kéo thả hoặc tải ảnh <b>Cảnh #${sIdx}</b></div>
-            <div class="dropzone-hint">Chuẩn tỉ lệ 16:9 (1280x720px)</div>
+          <!-- Redesigned Dropzone with Clipboard Paste & Drag-Drop -->
+          <div class="upload-dropzone" id="dropzone_${sIdx}"
+               ondragover="handleDropzoneDragOver(${sIdx}, event)"
+               ondragleave="handleDropzoneDragLeave(${sIdx}, event)"
+               ondrop="handleDropzoneDrop(${sIdx}, event)"
+               onclick="triggerSceneFileInput(${sIdx}, event)"
+               style="display: ${hasImg ? 'none' : 'block'};">
+            <input type="file" id="fileInput_${sIdx}" accept="image/*" style="display:none;" onchange="uploadSceneImageFile(${sIdx}, this.files)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary); margin:0 auto 6px auto;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="dropzone-title">Kéo thả ảnh hoặc dán ảnh <b>Cảnh #${sIdx}</b></div>
+            <div class="dropzone-hint">Chuẩn tỉ lệ 16:9 (1280x720px) • PNG, JPG, WebP</div>
+
+            <div class="upload-dropzone-actions" onclick="event.stopPropagation()">
+              <button type="button" class="btn-paste-clipboard" onclick="pasteImageFromClipboard(${sIdx}, event)" title="Dán ảnh trực tiếp từ Clipboard">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+                <span>Dán ảnh (Ctrl + V)</span>
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="triggerSceneFileInput(${sIdx}, event)" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--hairline-strong);">
+                Chọn file
+              </button>
+            </div>
+            <div class="paste-shortcut-hint">
+              <span>hoặc bấm</span> <span class="paste-kbd">Ctrl</span>+<span class="paste-kbd">V</span> <span>để dán tức thì</span>
+            </div>
           </div>
 
           <div class="image-preview-card" id="previewContainer_${sIdx}" style="display: ${hasImg ? 'block' : 'none'};">
             <img id="previewImg_${sIdx}" alt="Cảnh ${sIdx}" src="${currentImgUrl}">
             <div class="image-card-controls">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="triggerSceneFileInput(${sIdx})">Đổi ảnh</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="removeSceneImage(${sIdx})" style="color:#ffffff;">Xóa</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="triggerSceneFileInput(${sIdx}, event)">📁 Đổi ảnh</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="pasteImageFromClipboard(${sIdx}, event)" style="color:var(--primary);">📋 Dán đè</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="removeSceneImage(${sIdx})" style="color:#ffffff;">✕ Xóa</button>
             </div>
           </div>
         `;
@@ -4581,18 +4672,48 @@
       });
     }
 
-    function triggerSceneFileInput(sIdx) {
+    function triggerSceneFileInput(sIdx, e) {
+      if (e) e.stopPropagation();
+      state.lastActiveSceneIndex = sIdx;
       const input = $('fileInput_' + sIdx);
       if (input) input.click();
     }
 
-    // Upload Scene Image -> Cloudinary (POST /upload-image) with Instant Preview
-    async function uploadSceneImageFile(sIdx, files) {
-      if (!files || !files[0]) return;
-      const file = files[0];
+    function handleDropzoneDragOver(sIdx, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('dropzone_' + sIdx);
+      if (dz) dz.classList.add('drag-active');
+    }
+
+    function handleDropzoneDragLeave(sIdx, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('dropzone_' + sIdx);
+      if (dz) dz.classList.remove('drag-active');
+    }
+
+    function handleDropzoneDrop(sIdx, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('dropzone_' + sIdx);
+      if (dz) dz.classList.remove('drag-active');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        uploadSceneImageBlob(sIdx, e.dataTransfer.files[0], e.dataTransfer.files[0].name);
+      }
+    }
+
+    // Upload Scene Image Blob -> Cloudinary (POST /upload-image) with Instant Preview
+    async function uploadSceneImageBlob(sIdx, fileOrBlob, filename = 'scene_image.png') {
+      if (!fileOrBlob) return;
+      if (fileOrBlob.type && !fileOrBlob.type.startsWith('image/')) {
+        showToast('Vui lòng chọn hoặc dán file hình ảnh hợp lệ (PNG, JPG, WebP)!', 'warning');
+        return;
+      }
+      state.lastActiveSceneIndex = sIdx;
 
       // Instant local preview
-      const localUrl = URL.createObjectURL(file);
+      const localUrl = URL.createObjectURL(fileOrBlob);
       const img = $('previewImg_' + sIdx);
       const container = $('previewContainer_' + sIdx);
       const dz = $('dropzone_' + sIdx);
@@ -4607,7 +4728,7 @@
       }
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileOrBlob, filename);
 
       try {
         const res = await fetch('/api/v1/creator/studio/upload-image', {
@@ -4630,13 +4751,51 @@
           st.className = 'scene-cloud-status ready';
         }
         updateReadinessBar();
-        showToast(`Đã lưu ảnh Cảnh #${sIdx} lên Cloudinary!`, 'success');
+        showToast(`✓ Đã lưu ảnh Cảnh #${sIdx} lên Cloudinary!`, 'success');
       } catch (err) {
         showToast(`Lỗi upload Cảnh #${sIdx}: ${err.message}`, 'error');
         if (st) {
           st.textContent = '✕ Lỗi tải ảnh';
           st.className = 'scene-cloud-status';
         }
+      }
+    }
+
+    function uploadSceneImageFile(sIdx, files) {
+      if (!files || !files[0]) return;
+      uploadSceneImageBlob(sIdx, files[0], files[0].name);
+    }
+
+    async function pasteImageFromClipboard(sIdx, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      state.lastActiveSceneIndex = sIdx;
+
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showToast(`Bạn hãy click vào thẻ Cảnh #${sIdx} rồi bấm phím tắt Ctrl + V (hoặc Cmd + V trên Mac) để dán ảnh!`, 'info');
+        return;
+      }
+
+      try {
+        const items = await navigator.clipboard.read();
+        let foundImage = false;
+        for (const item of items) {
+          const imgType = item.types.find(t => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            foundImage = true;
+            uploadSceneImageBlob(sIdx, blob, `clipboard_scene_${sIdx}.png`);
+            break;
+          }
+        }
+        if (!foundImage) {
+          showToast(`Không tìm thấy hình ảnh nào trong Clipboard! Hãy chụp màn hình hoặc Copy Image trước khi dán.`, 'warning');
+        }
+      } catch (err) {
+        console.warn('Clipboard read error:', err);
+        showToast(`Hãy click vào thẻ Cảnh #${sIdx} rồi bấm Ctrl + V (hoặc Cmd + V) để dán ảnh!`, 'info');
       }
     }
 
@@ -4715,23 +4874,51 @@
     }
 
     // Upload Dedicated Thumbnail Poster 16:9
-    function triggerThumbnailInput() {
+    function triggerThumbnailInput(e) {
+      if (e) e.stopPropagation();
       const input = $('wbThumbnailFileInput');
       if (input) input.click();
     }
 
-    async function uploadThumbnailFile(files) {
-      if (!files || !files[0]) return;
-      const file = files[0];
+    function handleThumbnailDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('wbThumbnailDropzone');
+      if (dz) dz.classList.add('drag-active');
+    }
+
+    function handleThumbnailDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('wbThumbnailDropzone');
+      if (dz) dz.classList.remove('drag-active');
+    }
+
+    function handleThumbnailDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('wbThumbnailDropzone');
+      if (dz) dz.classList.remove('drag-active');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        uploadThumbnailBlob(e.dataTransfer.files[0], e.dataTransfer.files[0].name);
+      }
+    }
+
+    async function uploadThumbnailBlob(fileOrBlob, filename = 'thumbnail.png') {
+      if (!fileOrBlob) return;
+      if (fileOrBlob.type && !fileOrBlob.type.startsWith('image/')) {
+        showToast('Vui lòng chọn hoặc dán file hình ảnh hợp lệ (PNG, JPG, WebP)!', 'warning');
+        return;
+      }
 
       // Instant preview
-      const localUrl = URL.createObjectURL(file);
+      const localUrl = URL.createObjectURL(fileOrBlob);
       $('wbThumbnailPreviewImg').src = localUrl;
       $('wbThumbnailPreviewCard').style.display = 'block';
       $('wbThumbnailDropzone').style.display = 'none';
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileOrBlob, filename);
 
       try {
         showToast('Đang tải ảnh Thumbnail lên Cloudinary...', 'info');
@@ -4746,9 +4933,46 @@
 
         state.customThumbnailUrl = data.data.imageUrl;
         $('wbThumbnailPreviewImg').src = state.customThumbnailUrl;
-        showToast('Đã lưu Thumbnail Poster 16:9 thành công!', 'success');
+        showToast('✓ Đã lưu Thumbnail Poster 16:9 thành công!', 'success');
       } catch (err) {
         showToast('Lỗi: ' + err.message, 'error');
+      }
+    }
+
+    function uploadThumbnailFile(files) {
+      if (!files || !files[0]) return;
+      uploadThumbnailBlob(files[0], files[0].name);
+    }
+
+    async function pasteThumbnailFromClipboard(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showToast('Hãy click vào ô Thumbnail rồi bấm phím tắt Ctrl + V (hoặc Cmd + V) để dán ảnh!', 'info');
+        return;
+      }
+
+      try {
+        const items = await navigator.clipboard.read();
+        let foundImage = false;
+        for (const item of items) {
+          const imgType = item.types.find(t => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            foundImage = true;
+            uploadThumbnailBlob(blob, 'pasted_thumbnail.png');
+            break;
+          }
+        }
+        if (!foundImage) {
+          showToast('Không tìm thấy hình ảnh nào trong Clipboard! Hãy copy hoặc chụp ảnh trước khi dán.', 'warning');
+        }
+      } catch (err) {
+        console.warn('Clipboard read error:', err);
+        showToast('Hãy bấm phím tắt Ctrl + V (hoặc Cmd + V) để dán ảnh Thumbnail trực tiếp!', 'info');
       }
     }
 
@@ -6815,6 +7039,54 @@
         delay: 1.5
       });
     }
+
+    // --- GLOBAL CLIPBOARD PASTE LISTENER (Ctrl+V / Cmd+V Anywhere) ---
+    document.addEventListener('paste', function(e) {
+      if (!e.clipboardData || !e.clipboardData.items) return;
+      const items = e.clipboardData.items;
+      let imageItem = null;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.indexOf('image') !== -1) {
+          imageItem = items[i];
+          break;
+        }
+      }
+
+      if (!imageItem) {
+        // Normal text paste, let default textarea/input behavior proceed
+        return;
+      }
+
+      // Found image item from clipboard!
+      e.preventDefault();
+      const blob = imageItem.getAsFile();
+      if (!blob) return;
+
+      // Determine target scene:
+      let targetIdx = state.lastActiveSceneIndex;
+      const scenes = state.currentStoryboard?.scenes || [];
+
+      // If lastActiveSceneIndex is not valid, find first scene without an image
+      if (!targetIdx || !scenes.some(s => (s.scene_index || 1) === targetIdx)) {
+        const emptyScene = scenes.find(s => !state.cloudinarySceneImages[s.scene_index || 1]);
+        if (emptyScene) {
+          targetIdx = emptyScene.scene_index || 1;
+        } else if (scenes.length > 0) {
+          targetIdx = scenes[0].scene_index || 1;
+        }
+      }
+
+      if (targetIdx && scenes.length > 0) {
+        uploadSceneImageBlob(targetIdx, blob, `clipboard_scene_${targetIdx}.png`);
+        showToast(`📋 Đã dán ảnh từ Clipboard vào Cảnh #${targetIdx}!`, 'success');
+      } else {
+        const thumbDrop = $('wbThumbnailDropzone');
+        if (thumbDrop && thumbDrop.style.display !== 'none') {
+          uploadThumbnailBlob(blob, 'clipboard_thumbnail.png');
+          showToast('📋 Đã dán ảnh từ Clipboard vào Thumbnail Poster!', 'success');
+        }
+      }
+    });
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
