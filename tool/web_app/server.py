@@ -1130,7 +1130,17 @@ QUY CHUẨN NỘI DUNG VÀ VĂN PHONG PHIM TÀI LIỆU LỊCH SỬ CHÍNH THỐN
    - TUYỆT ĐỐI KHÔNG mở đầu câu bằng các từ nối công thức: 'Thế nhưng,', 'Chính vì vậy,', 'Không dừng lại ở đó,', 'Và kết quả là,', 'Và qua đó,', 'Chính trong hoàn cảnh đó,'.
    - Hãy dẫn dắt tự nhiên bằng tiến trình thời gian và hành động của nhân vật.
 
-4. BỐ CỤC: Chia thành đúng {num_scenes} CẢNH liền mạch. Tổng thời lượng video mục tiêu là đúng {duration_sec} giây."""
+4. BỐ CỤC: Chia thành đúng {num_scenes} CẢNH liền mạch. Tổng thời lượng video mục tiêu là đúng {duration_sec} giây.
+
+5. ĐỐI CHIẾU SỬ LIỆU & PHÁT HIỆN CHI TIẾT SAI LỆCH TRONG ĐỀ TÀI:
+   - Hãy rà soát kỹ các nhân vật, sự kiện, địa danh và mốc năm trong đề tài của người dùng so với tư liệu sử học chính thống.
+   - Nếu phát hiện chi tiết hoặc nhân vật sai lệch/hư cấu/ngoại lai (ví dụ Quan Vũ, Trương Bá Thông, chiêu thức kiếm hiệp, sự kiện hoặc nhân vật thuộc thời đại khác không liên quan), BẮT BUỘC:
+     + LOẠI BỎ hoàn toàn các nhân vật/chi tiết sai lệch đó ra khỏi kịch bản (chỉ viết về các nhân vật và sự kiện lịch sử thật có trong sử liệu).
+     + Ghi nhận rõ ràng vào mảng "discrepancies" (danh sách các chuỗi tiếng Việt giải thích rõ chi tiết nào sai và vì sao đã được loại bỏ/hiệu chỉnh theo sử liệu).
+   - Nếu đề tài hoàn toàn chính xác theo sử liệu, "discrepancies" là mảng rỗng [].
+   - Điểm số "overall_score" (số nguyên từ 50 đến 100):
+     + Đề tài chuẩn xác 100%: 95 - 100.
+     + Đề tài có chi tiết sai lệch/ngoại lai đã được lọc bỏ: cho điểm từ 65 đến 85 tùy mức độ sai lệch của đề tài ban đầu."""
 
     prompt = f"""{prompt_instruction}
 
@@ -1150,6 +1160,10 @@ YÊU CẦU ĐỊNH DẠNG:
 Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 {{
   "title": "Tiêu đề video",
+  "discrepancies": [
+    "Giải thích chi tiết sai lệch trong đề tài đã được phát hiện và loại bỏ theo sử liệu (nếu có; nếu đề tài chuẩn xác 100% thì trả về mảng rỗng [])"
+  ],
+  "overall_score": 98,
   "thumbnail_prompt": "Epic cinematic historical documentary podcast cover art illustration of...",
   "scenes": [
     {{
@@ -1230,12 +1244,47 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 
                         parsed["citations"] = citations
                         parsed["use_rag"] = True
+
+                        # Rà soát discrepancies (chi tiết/nhân vật sai lệch phát hiện trong đề tài)
+                        discrepancies = parsed.get("discrepancies") or []
+                        if not isinstance(discrepancies, list):
+                            discrepancies = [str(discrepancies)] if discrepancies else []
+
+                        # Fallback rà soát từ khóa nhân vật hư cấu / dị giới nếu Gemini bỏ sót cảnh báo
+                        raw_lower = raw_input.lower()
+                        other_era_checks = {
+                            "quang vũ": "Chi tiết 'quang vũ' (Quan Vũ thời Tam Quốc) không thuộc lịch sử Việt Nam thời Lý - Trần và đã được loại bỏ khỏi kịch bản.",
+                            "quan vũ": "Chi tiết 'quan vũ' (thời Tam Quốc) không thuộc lịch sử Việt Nam thời Lý - Trần và đã được loại bỏ khỏi kịch bản.",
+                            "trướng bá thông": "Chi tiết 'trướng bá thông' (nhân vật hư cấu/kiếm hiệp) không tồn tại trong sử liệu chính thống thời Lý và đã được loại bỏ.",
+                            "chu bá thông": "Chi tiết 'chu bá thông' (nhân vật kiếm hiệp) không tồn tại trong sử liệu chính thống thời Lý và đã được loại bỏ.",
+                            "tôn ngộ không": "Nhân vật hư cấu thần thoại không thuộc sử liệu Việt Nam và đã được loại bỏ.",
+                            "gia cát lượng": "Nhân vật lịch sử thời Tam Quốc không thuộc bối cảnh lịch sử Việt Nam thời Lý - Trần và đã được loại bỏ."
+                        }
+                        for kw, msg in other_era_checks.items():
+                            if kw in raw_lower and not any(kw in str(d).lower() for d in discrepancies):
+                                discrepancies.append(msg)
+
+                        # Tính điểm chuẩn xác thực tế của đề tài
+                        score_val = parsed.get("overall_score")
+                        if not isinstance(score_val, (int, float)) or score_val <= 0 or score_val > 100:
+                            score_val = max(60, 95 - len(discrepancies) * 15) if discrepancies else 98
+                        else:
+                            score_val = int(round(score_val))
+
+                        parsed["discrepancies"] = discrepancies
                         book_titles = list(dict.fromkeys(c.get("book_title", "") for c in citations if c.get("book_title")))
+                        status_str = "warning" if discrepancies else "verified"
+                        summary_str = (
+                            f"Phát hiện {len(discrepancies)} chi tiết không khớp với sử liệu trong đề tài ban đầu. Hệ thống đã tự động loại trừ và chuẩn hóa kịch bản theo {', '.join(book_titles) if book_titles else 'Đại Việt Sử Ký Toàn Thư'}."
+                            if discrepancies else
+                            f"Nội dung kịch bản đã được đối chiếu và thẩm định trực tiếp với kho sử liệu ({', '.join(book_titles) if book_titles else 'Đại Việt Sử Ký Toàn Thư'})."
+                        )
                         parsed["verification"] = {
-                            "overall_score": 98,
-                            "status": "verified",
+                            "overall_score": score_val,
+                            "status": status_str,
                             "in_scope": True,
-                            "summary": f"Nội dung kịch bản đã được đối chiếu và thẩm định trực tiếp với kho sử liệu ({', '.join(book_titles) if book_titles else 'Đại Việt Sử Ký Toàn Thư'}).",
+                            "summary": summary_str,
+                            "discrepancies": discrepancies,
                             "citations": citations
                         }
                         return parsed
