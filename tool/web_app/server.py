@@ -1136,7 +1136,7 @@ QUY CHUẨN NỘI DUNG VÀ VĂN PHONG PHIM TÀI LIỆU LỊCH SỬ CHÍNH THỐN
    - Hãy rà soát kỹ các nhân vật, sự kiện, địa danh và mốc năm trong đề tài của người dùng so với tư liệu sử học chính thống.
    - Nếu phát hiện chi tiết hoặc nhân vật sai lệch/hư cấu/ngoại lai (ví dụ Quan Vũ, Trương Bá Thông, chiêu thức kiếm hiệp, sự kiện hoặc nhân vật thuộc thời đại khác không liên quan), BẮT BUỘC:
      + LOẠI BỎ hoàn toàn các nhân vật/chi tiết sai lệch đó ra khỏi kịch bản (chỉ viết về các nhân vật và sự kiện lịch sử thật có trong sử liệu).
-     + Ghi nhận rõ ràng vào mảng "discrepancies" (danh sách các chuỗi tiếng Việt giải thích rõ chi tiết nào sai và vì sao đã được loại bỏ/hiệu chỉnh theo sử liệu).
+     + Ghi nhận CỰC KỲ NGẮN GỌN (tối đa 1 câu, dưới 25 từ mỗi ý) vào mảng "discrepancies", chỉ nêu rõ: Đã loại bỏ [chi tiết sai] do không thuộc sử liệu [sự kiện/triều đại]. Tuyệt đối KHÔNG viết bài luận giải thích dài dòng.
    - Nếu đề tài hoàn toàn chính xác theo sử liệu, "discrepancies" là mảng rỗng [].
    - Điểm số "overall_score" (số nguyên từ 50 đến 100):
      + Đề tài chuẩn xác 100%: 95 - 100.
@@ -1161,7 +1161,7 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 {{
   "title": "Tiêu đề video",
   "discrepancies": [
-    "Giải thích chi tiết sai lệch trong đề tài đã được phát hiện và loại bỏ theo sử liệu (nếu có; nếu đề tài chuẩn xác 100% thì trả về mảng rỗng [])"
+    "Đã loại bỏ chi tiết 'quang vũ' và 'trướng bá thông' do không có trong sử liệu thời Lý."
   ],
   "overall_score": 98,
   "thumbnail_prompt": "Epic cinematic historical documentary podcast cover art illustration of...",
@@ -1253,16 +1253,29 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                         # Fallback rà soát từ khóa nhân vật hư cấu / dị giới nếu Gemini bỏ sót cảnh báo
                         raw_lower = raw_input.lower()
                         other_era_checks = {
-                            "quang vũ": "Chi tiết 'quang vũ' (Quan Vũ thời Tam Quốc) không thuộc lịch sử Việt Nam thời Lý - Trần và đã được loại bỏ khỏi kịch bản.",
-                            "quan vũ": "Chi tiết 'quan vũ' (thời Tam Quốc) không thuộc lịch sử Việt Nam thời Lý - Trần và đã được loại bỏ khỏi kịch bản.",
-                            "trướng bá thông": "Chi tiết 'trướng bá thông' (nhân vật hư cấu/kiếm hiệp) không tồn tại trong sử liệu chính thống thời Lý và đã được loại bỏ.",
-                            "chu bá thông": "Chi tiết 'chu bá thông' (nhân vật kiếm hiệp) không tồn tại trong sử liệu chính thống thời Lý và đã được loại bỏ.",
-                            "tôn ngộ không": "Nhân vật hư cấu thần thoại không thuộc sử liệu Việt Nam và đã được loại bỏ.",
-                            "gia cát lượng": "Nhân vật lịch sử thời Tam Quốc không thuộc bối cảnh lịch sử Việt Nam thời Lý - Trần và đã được loại bỏ."
+                            "quang vũ": "Đã loại bỏ 'quang vũ' (Quan Vũ) không thuộc sử liệu thời Lý - Trần.",
+                            "quan vũ": "Đã loại bỏ 'quan vũ' không thuộc sử liệu thời Lý - Trần.",
+                            "trướng bá thông": "Đã loại bỏ 'trướng bá thông' do là nhân vật hư cấu không có trong sử liệu.",
+                            "chu bá thông": "Đã loại bỏ 'chu bá thông' do là nhân vật hư cấu không có trong sử liệu.",
+                            "tôn ngộ không": "Đã loại bỏ nhân vật thần thoại 'Tôn Ngộ Không'.",
+                            "gia cát lượng": "Đã loại bỏ 'Gia Cát Lượng' không thuộc sử liệu thời Lý - Trần."
                         }
                         for kw, msg in other_era_checks.items():
                             if kw in raw_lower and not any(kw in str(d).lower() for d in discrepancies):
                                 discrepancies.append(msg)
+
+                        # Rút gọn các câu giải thích quá dài và làm sạch dấu bullet đầu dòng
+                        clean_discrepancies = []
+                        for d in discrepancies:
+                            d_str = str(d).strip()
+                            d_str = re.sub(r"^[\s•\-\*\d\.\)]+", "", d_str).strip()
+                            # Nếu dài quá 130 ký tự, lấy câu đầu tiên để thông báo ngắn gọn súc tích
+                            if len(d_str) > 130 and "." in d_str:
+                                first_sen = d_str.split(".")[0].strip() + "."
+                                clean_discrepancies.append(first_sen)
+                            else:
+                                clean_discrepancies.append(d_str)
+                        discrepancies = [c for c in clean_discrepancies if c]
 
                         # Tính điểm chuẩn xác thực tế của đề tài
                         score_val = parsed.get("overall_score")
