@@ -1787,25 +1787,20 @@
       overflow: hidden;
       text-align: center;
       padding: 20px;
-    }
-
-    .podcast-cover-box input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
       cursor: pointer;
-      width: 100%;
-      height: 100%;
-      z-index: 2;
+      transition: all 0.2s ease;
     }
 
-    .podcast-cover-img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: none;
+    .podcast-cover-box:hover,
+    .podcast-cover-box.drag-over {
+      border-color: var(--primary);
+      background: rgba(14, 165, 233, 0.05);
+    }
+
+    .image-preview-card.podcast-cover-preview {
+      aspect-ratio: 1 / 1;
+      border-radius: var(--rounded-xl);
+      border: none;
     }
 
     /* ==========================================================================
@@ -3235,19 +3230,44 @@
                 Ảnh bìa vuông 1:1
               </label>
 
-              <div class="podcast-cover-box" id="podCoverDropzone">
-                <input type="file" id="podCoverFileInput" accept="image/*" onchange="uploadPodcastCoverFile(this.files)">
+              <div class="podcast-cover-box" id="podCoverDropzone"
+                   ondragover="handlePodcastCoverDragOver(event)"
+                   ondragleave="handlePodcastCoverDragLeave(event)"
+                   ondrop="handlePodcastCoverDrop(event)"
+                   onclick="triggerPodcastCoverInput(event)">
+                <input type="file" id="podCoverFileInput" accept="image/*" style="display:none;" onchange="uploadPodcastCoverFile(this.files)">
                 <div id="podCoverPlaceholder">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 8px auto; color: var(--muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <div style="font-size:0.88rem; font-weight:600; color:var(--ink);">Kéo thả ảnh bìa vuông vào đây</div>
-                  <div style="font-size:0.75rem; color:var(--muted); margin-top:4px;">Khuyên dùng tỷ lệ 1:1 (1200x1200px)</div>
+                  <div class="dropzone-title" style="font-size:0.88rem; font-weight:600; color:var(--ink);">Kéo thả hoặc dán ảnh bìa vuông 1:1</div>
+                  <div class="dropzone-hint" style="font-size:0.75rem; color:var(--muted); margin-top:4px;">Chuẩn 1200x1200px • PNG, JPG, WebP</div>
+
+                  <div class="upload-dropzone-actions" onclick="event.stopPropagation()">
+                    <button type="button" class="btn-paste-clipboard" onclick="pastePodcastCoverFromClipboard(event)" title="Dán ảnh bìa Podcast trực tiếp từ Clipboard">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+                      <span>Dán ảnh (Ctrl + V)</span>
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="triggerPodcastCoverInput(event)" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--hairline-strong);">
+                      Chọn file
+                    </button>
+                  </div>
+                  <div class="paste-shortcut-hint">
+                    <span>hoặc bấm</span> <span class="paste-kbd">Ctrl</span>+<span class="paste-kbd">V</span> <span>để dán tức thì</span>
+                  </div>
                 </div>
-                <img id="podCoverPreviewImg" class="podcast-cover-img" alt="Podcast Cover Preview" src="">
+
+                <div class="image-preview-card podcast-cover-preview" id="podCoverPreviewCard" style="display:none; width:100%; height:100%; position:absolute; inset:0;">
+                  <img id="podCoverPreviewImg" class="podcast-cover-img" alt="Podcast Cover Preview" src="" style="width:100%; height:100%; object-fit:cover; display:block;">
+                  <div class="image-card-controls" onclick="event.stopPropagation()">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="triggerPodcastCoverInput(event)">📁 Đổi ảnh</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="pastePodcastCoverFromClipboard(event)" style="color:var(--primary);">📋 Dán đè</button>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="removePodcastCover(event)">Xóa</button>
+                  </div>
+                </div>
               </div>
 
               <div id="podCoverActionRow" style="display:none; justify-content:space-between; align-items:center; margin-top:8px;">
-                <span style="font-size:0.75rem; color:var(--semantic-success); font-weight:500;">Đã lưu Cloudinary CDN</span>
-                <button type="button" class="btn btn-ghost btn-sm" onclick="removePodcastCover()">Đổi ảnh khác</button>
+                <span style="font-size:0.75rem; color:var(--semantic-success); font-weight:500;">✓ Đã lưu Cloudinary CDN</span>
+                <span style="font-size:0.75rem; color:var(--muted);">Ảnh bìa vuông 1:1</span>
               </div>
 
               <!-- Cover Prompt -->
@@ -5408,14 +5428,76 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
       });
     }
 
-    async function uploadPodcastCoverFile(files) {
-      if (!files || !files[0]) return;
-      const file = files[0];
+    function triggerPodcastCoverInput(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const inp = $('podCoverFileInput');
+      if (inp) inp.click();
+    }
+
+    function handlePodcastCoverDragOver(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = $('podCoverDropzone');
+      if (dropzone) dropzone.classList.add('drag-over');
+    }
+
+    function handlePodcastCoverDragLeave(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = $('podCoverDropzone');
+      if (dropzone) dropzone.classList.remove('drag-over');
+    }
+
+    function handlePodcastCoverDrop(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = $('podCoverDropzone');
+      if (dropzone) dropzone.classList.remove('drag-over');
+      if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+        uploadPodcastCoverFile(event.dataTransfer.files);
+      }
+    }
+
+    async function pastePodcastCoverFromClipboard(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showToast('Hãy click vào ô Ảnh Bìa Podcast rồi nhấn phím tắt Ctrl + V (hoặc Cmd + V trên Mac) để dán ảnh!', 'info');
+        return;
+      }
+      try {
+        const items = await navigator.clipboard.read();
+        let foundImage = false;
+        for (const item of items) {
+          const imgType = item.types.find(t => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            foundImage = true;
+            uploadPodcastCoverBlob(blob, 'clipboard_podcast_cover.png');
+            break;
+          }
+        }
+        if (!foundImage) {
+          showToast('Không tìm thấy hình ảnh nào trong Clipboard! Hãy chụp màn hình hoặc Copy Image trước khi dán.', 'warning');
+        }
+      } catch (err) {
+        console.warn('Clipboard read error, fallback to shortcut:', err);
+        showToast('Hãy nhấn tổ hợp phím Ctrl + V (hoặc Cmd + V trên Mac) để dán ảnh vào đây!', 'info');
+      }
+    }
+
+    async function uploadPodcastCoverBlob(blob, filename) {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', blob, filename || 'clipboard_podcast_cover.png');
+      formData.append('folder', 'podcasts/covers');
 
       try {
-        showToast('Đang tải ảnh bìa lên Cloudinary...', 'info');
+        showToast('Đang tải ảnh bìa Podcast lên Cloudinary...', 'info');
         const res = await fetch('/api/v1/creator/studio/upload-image', {
           method: 'POST',
           headers: getAuthHeaders(false),
@@ -5427,7 +5509,7 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
 
         state.customPodcastCoverUrl = data.data.imageUrl;
         $('podCoverPreviewImg').src = state.customPodcastCoverUrl;
-        $('podCoverPreviewImg').style.display = 'block';
+        $('podCoverPreviewCard').style.display = 'block';
         $('podCoverPlaceholder').style.display = 'none';
         $('podCoverActionRow').style.display = 'flex';
         showToast('Đã lưu ảnh bìa Podcast lên Cloudinary!', 'success');
@@ -5436,9 +5518,18 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
       }
     }
 
-    function removePodcastCover() {
+    async function uploadPodcastCoverFile(files) {
+      if (!files || !files[0]) return;
+      uploadPodcastCoverBlob(files[0], files[0].name);
+    }
+
+    function removePodcastCover(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       state.customPodcastCoverUrl = null;
-      $('podCoverPreviewImg').style.display = 'none';
+      $('podCoverPreviewCard').style.display = 'none';
       $('podCoverPlaceholder').style.display = 'block';
       $('podCoverActionRow').style.display = 'none';
       $('podCoverFileInput').value = '';
@@ -7405,7 +7496,16 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
       const blob = imageItem.getAsFile();
       if (!blob) return;
 
-      // Determine target scene:
+      // 1. Kiểm tra nếu đang ở chế độ Video Podcast hoặc màn hình Podcast Workbench đang hiển thị:
+      const isPodcastActive = state.videoFormat === 'audio_podcast' || 
+                              ($('podcastWorkbench') && $('podcastWorkbench').style.display !== 'none');
+      if (isPodcastActive) {
+        uploadPodcastCoverBlob(blob, 'clipboard_podcast_cover.png');
+        showToast('📋 Đã dán ảnh từ Clipboard vào Ảnh Bìa Podcast 1:1!', 'success');
+        return;
+      }
+
+      // 2. Chế độ Video Vẽ Tay (Whiteboard): Xác định cảnh mục tiêu hoặc Thumbnail
       let targetIdx = state.lastActiveSceneIndex;
       const scenes = state.currentStoryboard?.scenes || [];
 
