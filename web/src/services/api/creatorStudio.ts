@@ -252,9 +252,15 @@ export const creatorStudioApi = {
    * Tải ảnh minh họa cảnh hoặc thumbnail lên Cloudinary
    * POST /api/v1/creator/studio/upload-image
    */
-  uploadSceneImage: async (file: File): Promise<ApiResponse<CreatorUploadImageResponse>> => {
+  uploadSceneImage: async (
+    file: File,
+    folder?: 'whiteboard/scenes' | 'whiteboard/thumbnails' | 'whiteboard/covers' | 'podcasts/covers' | 'series/covers'
+  ): Promise<ApiResponse<CreatorUploadImageResponse>> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (folder) {
+      formData.append('folder', folder);
+    }
     const res = await apiClient.post<ApiResponse<CreatorUploadImageResponse>>(
       '/api/v1/creator/studio/upload-image',
       formData,
@@ -317,10 +323,14 @@ export const creatorStudioApi = {
    */
   uploadVideoThumbnail: async (
     contentId: number,
-    file: File
+    file: File,
+    folder?: string
   ): Promise<ApiResponse<CreatorVideoItem>> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (folder) {
+      formData.append('folder', folder);
+    }
     const res = await apiClient.post<ApiResponse<CreatorVideoItem>>(
       `/api/v1/creator/studio/videos/${contentId}/thumbnail`,
       formData,
