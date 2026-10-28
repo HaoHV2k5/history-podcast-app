@@ -10,7 +10,6 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   Tv,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -76,12 +75,25 @@ export const CreatorSidebar: React.FC<CreatorSidebarProps> = ({
         className
       )}
     >
-      {/* Brand / Studio Identity Masthead */}
+      {/* Brand Book-Seal Masthead (Identical to Admin Portal) */}
       <div className="h-16 flex items-center px-4 border-b border-border bg-surface-subtle">
         <div className="flex items-center gap-3 overflow-hidden">
-          {/* Studio Clapper/Video Seal Icon */}
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-canvas shadow-xs">
-            <Sparkles className="h-5 w-5" />
+          {/* Book Seal Icon */}
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-canvas shadow-xs border border-accent-hover/30">
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+              <path d="M6 6h10" />
+              <path d="M6 10h10" />
+              <path d="M6 14h6" />
+            </svg>
           </div>
 
           {!collapsed && (
@@ -89,7 +101,7 @@ export const CreatorSidebar: React.FC<CreatorSidebarProps> = ({
               <span className="font-serif text-base font-bold tracking-tight text-ink leading-tight">
                 SỬ KÝ
               </span>
-              <span className="text-[11px] font-semibold tracking-wider uppercase text-accent truncate">
+              <span className="text-[11px] font-medium tracking-wider uppercase text-muted truncate">
                 Xưởng Sáng Tạo
               </span>
             </div>
