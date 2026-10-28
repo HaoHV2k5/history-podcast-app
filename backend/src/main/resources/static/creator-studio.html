@@ -1459,8 +1459,8 @@
 
     .scenes-grid-container {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 22px;
       margin: 20px 0;
       min-height: 100px;
     }
@@ -1469,10 +1469,10 @@
       background: var(--surface-card);
       border: 1px solid var(--hairline);
       border-radius: var(--rounded-xl);
-      padding: 20px;
+      padding: 22px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow: var(--shadow-subtle);
       opacity: 1 !important;
@@ -1535,7 +1535,7 @@
       background: var(--canvas-soft);
       border: 1px solid var(--hairline-soft);
       border-radius: var(--rounded-md);
-      padding: 12px;
+      padding: 14px;
     }
 
     .narration-label {
@@ -1544,7 +1544,7 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--muted);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
     }
@@ -1556,17 +1556,20 @@
       background: var(--surface-card);
       color: var(--ink);
       font-family: var(--font-body);
-      font-size: 0.85rem;
-      line-height: 1.5;
-      padding: 8px 10px;
+      font-size: 0.88rem;
+      line-height: 1.55;
+      padding: 10px 12px;
       resize: vertical;
-      min-height: 60px;
+      min-height: 75px;
       outline: none;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, height 0.1s ease;
     }
 
     .narration-input:focus {
       border-color: var(--ink);
+      box-shadow: 0 0 0 1px var(--ink);
     }
 
     /* Prompt Box */
@@ -1574,14 +1577,14 @@
       background: var(--canvas-soft);
       border: 1px solid var(--hairline);
       border-radius: var(--rounded-md);
-      padding: 10px;
+      padding: 12px;
     }
 
     .prompt-top-bar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .prompt-title-tag {
@@ -1611,14 +1614,23 @@
     .prompt-text-readonly {
       width: 100%;
       font-family: var(--font-mono);
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       color: var(--body);
-      background: transparent;
-      border: none;
+      background: rgba(0, 0, 0, 0.02);
+      border: 1px solid var(--hairline);
+      border-radius: var(--rounded-xs);
       resize: vertical;
-      min-height: 54px;
+      min-height: 95px;
+      padding: 10px 12px;
       outline: none;
-      line-height: 1.45;
+      line-height: 1.5;
+      box-sizing: border-box;
+      transition: height 0.1s ease;
+    }
+
+    .prompt-text-readonly:focus {
+      border-color: var(--hairline-strong);
+      background: var(--surface-card);
     }
 
     /* Dropzones & Previews */
@@ -2632,7 +2644,7 @@
             </div>
             <div style="flex:1;">
               <div class="fact-check-alert-title">
-                <span>Lưu ý đối chiếu sử liệu từ đề tài của bạn</span>
+                <span>Lưu ý đối chiếu sử liệu</span>
                 <span class="fact-check-tag">Đã tự động chuẩn hóa</span>
               </div>
               <div class="fact-check-alert-desc" id="wbFactCheckDesc"></div>
@@ -2735,7 +2747,7 @@
             </div>
             <div style="flex:1;">
               <div class="fact-check-alert-title">
-                <span>Lưu ý đối chiếu sử liệu từ đề tài của bạn</span>
+                <span>Lưu ý đối chiếu sử liệu</span>
                 <span class="fact-check-tag">Đã tự động chuẩn hóa</span>
               </div>
               <div class="fact-check-alert-desc" id="podFactCheckDesc"></div>
@@ -3858,6 +3870,23 @@
       }
     }
 
+    // --- DYNAMIC TEXTAREA AUTO-RESIZE UTILITIES ---
+    function autoResizeTextarea(ta) {
+      if (!ta) return;
+      ta.style.height = 'auto';
+      const isPrompt = ta.classList.contains('prompt-text-readonly');
+      const minH = isPrompt ? 95 : 75;
+      ta.style.height = Math.max(ta.scrollHeight + 4, minH) + 'px';
+    }
+
+    function autoResizeAllWorkbenchTextareas() {
+      requestAnimationFrame(() => {
+        document.querySelectorAll('#whiteboardWorkbench .narration-input, #whiteboardWorkbench .prompt-text-readonly, #thumbnailPromptText, #podcastCoverPromptText').forEach(ta => {
+          autoResizeTextarea(ta);
+        });
+      });
+    }
+
     // --- STAGE 2: RENDER WHITEBOARD SCENES & THUMBNAIL POSTER ---
     function renderWhiteboardScenes(scenes) {
       const container = $('wbScenesContainer');
@@ -3876,9 +3905,14 @@
           const descEl = $('wbFactCheckDesc');
           if (descEl) {
             descEl.innerHTML = `
-              <p>Phát hiện một số nhân vật hoặc chi tiết trong đề tài không khớp với sử liệu chính thống thời Lý - Trần. Hệ thống đã <strong>tự động loại trừ và chuẩn hóa</strong> để kịch bản bám sát 100% sử liệu gốc:</p>
-              <ul>
-                ${disc.map(d => `<li>• ${escapeHtml(typeof d === 'string' ? d : JSON.stringify(d))}</li>`).join('')}
+              <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px;">
+                ${disc.map(d => {
+                  const clean = String(d || '').replace(/^[\s•\-\*\d\.\)]+/, '').trim();
+                  return `<li style="display:flex; align-items:flex-start; gap:8px; font-size:0.84rem; line-height:1.45;">
+                    <span style="color:var(--semantic-warning); font-weight:700; line-height:1.2;">•</span>
+                    <span>${escapeHtml(clean)}</span>
+                  </li>`;
+                }).join('')}
               </ul>
             `;
           }
@@ -3932,6 +3966,7 @@
       if (thumbBox) {
         thumbBox.value = sb.thumbnail_prompt ||
           `Epic cinematic historical movie poster of ${sb.title || 'Vietnam History'}, dramatic volumetric lighting, classical lacquer and oil painting masterwork style, 16:9 aspect ratio, strictly NO text, NO typography, 8k resolution`;
+        autoResizeTextarea(thumbBox);
       }
 
       if (!Array.isArray(scenes) || scenes.length === 0) {
@@ -3976,7 +4011,7 @@
                 <div style="font-size:0.7rem; color:var(--muted); font-weight:600; margin-bottom:2px;">
                   #${eIdx + 1} (${escapeHtml(el.label || `Đoạn ${eIdx + 1}`)})
                 </div>
-                <textarea id="sub_${sIdx}_${eIdx}" class="narration-input">${escapeHtml(el.subtitle || '')}</textarea>
+                <textarea id="sub_${sIdx}_${eIdx}" class="narration-input" oninput="autoResizeTextarea(this)">${escapeHtml(el.subtitle || '')}</textarea>
               </div>
             `).join('')}
           </div>
@@ -4009,6 +4044,7 @@
       });
 
       updateReadinessBar();
+      autoResizeAllWorkbenchTextareas();
 
       // Safe GSAP animation: clearProps guarantees cards remain 100% visible even after animation
       if (window.gsap) {
@@ -4249,6 +4285,7 @@
       if (promptBox) {
         promptBox.value = sb.thumbnail_prompt ||
           `Square 1:1 podcast cover art painting of ${(sb.title || 'Vietnam History')}, dramatic volumetric lighting, classical historical atmosphere, rich color tones, highly detailed, masterwork, strictly NO text, 1200x1200px`;
+        autoResizeTextarea(promptBox);
       }
 
       const container = $('podSentencesListContainer');
@@ -4268,9 +4305,14 @@
           const descEl = $('podFactCheckDesc');
           if (descEl) {
             descEl.innerHTML = `
-              <p>Phát hiện một số nhân vật hoặc chi tiết trong đề tài không khớp với sử liệu chính thống thời Lý - Trần. Hệ thống đã <strong>tự động loại trừ và chuẩn hóa</strong> để nội dung podcast bám sát 100% sử liệu gốc:</p>
-              <ul>
-                ${disc.map(d => `<li>• ${escapeHtml(typeof d === 'string' ? d : JSON.stringify(d))}</li>`).join('')}
+              <ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px;">
+                ${disc.map(d => {
+                  const clean = String(d || '').replace(/^[\s•\-\*\d\.\)]+/, '').trim();
+                  return `<li style="display:flex; align-items:flex-start; gap:8px; font-size:0.84rem; line-height:1.45;">
+                    <span style="color:var(--semantic-warning); font-weight:700; line-height:1.2;">•</span>
+                    <span>${escapeHtml(clean)}</span>
+                  </li>`;
+                }).join('')}
               </ul>
             `;
           }
@@ -4289,6 +4331,8 @@
           podBadge.style.color = 'var(--semantic-success)';
         }
       }
+
+      autoResizeAllWorkbenchTextareas();
     }
 
     function copyPodcastCoverPrompt() {
