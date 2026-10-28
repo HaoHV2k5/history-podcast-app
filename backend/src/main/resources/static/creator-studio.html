@@ -1636,13 +1636,19 @@
     /* Dropzones & Previews */
     .upload-dropzone {
       border: 1.5px dashed var(--hairline-strong);
-      border-radius: var(--rounded-md);
-      padding: 18px 12px;
+      border-radius: var(--rounded-lg);
+      padding: 16px 12px;
       text-align: center;
       background: var(--surface-card);
       cursor: pointer;
       position: relative;
-      transition: all 0.2s ease;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .upload-dropzone.drag-active {
+      border-color: var(--primary);
+      background: rgba(14, 165, 233, 0.08);
+      transform: scale(1.01);
     }
 
     .upload-dropzone:hover {
@@ -1650,13 +1656,60 @@
       background: var(--surface-strong);
     }
 
-    .upload-dropzone input[type="file"] {
-      position: absolute;
-      inset: 0;
-      opacity: 0;
+    .upload-dropzone-actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 5;
+    }
+
+    .btn-paste-clipboard {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #0284c7;
+      background: rgba(14, 165, 233, 0.08);
+      border: 1px solid rgba(14, 165, 233, 0.32);
+      border-radius: var(--rounded-pill);
       cursor: pointer;
-      width: 100%;
-      height: 100%;
+      transition: all 0.18s ease;
+    }
+
+    .btn-paste-clipboard:hover {
+      background: rgba(14, 165, 233, 0.18);
+      border-color: #0284c7;
+      transform: translateY(-1px);
+    }
+
+    .btn-paste-clipboard:active {
+      transform: translateY(1px);
+    }
+
+    .paste-shortcut-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .paste-kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      background: var(--canvas-soft);
+      border: 1px solid var(--hairline-strong);
+      border-radius: 4px;
+      color: var(--ink);
     }
 
     .dropzone-title {
@@ -2497,50 +2550,156 @@
       line-height: 1.55;
     }
 
-    /* Toast Notifications */
+    /* Toast Notifications (Redesigned with UI/UX Pro Max & Taste) */
     .toast-container {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 2000;
+      bottom: 28px;
+      right: 28px;
+      z-index: 3000;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       pointer-events: none;
+      max-width: 440px;
+      width: calc(100vw - 40px);
     }
 
+    .toast-card,
     .toast-bubble {
       pointer-events: auto;
-      background: rgba(12, 10, 9, 0.94);
-      color: #ffffff;
-      padding: 12px 20px;
-      border-radius: var(--rounded-pill);
-      font-size: 0.85rem;
-      font-weight: 500;
+      background: var(--surface-card);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--rounded-lg);
+      padding: 14px 16px;
       display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      align-items: flex-start;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
     }
 
-    .toast-icon-circle {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
+    [data-theme="dark"] .toast-card,
+    [data-theme="dark"] .toast-bubble {
+      background: rgba(18, 18, 20, 0.94);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .toast-card:hover,
+    .toast-bubble:hover {
+      transform: translateY(-2px);
+    }
+
+    .toast-icon-box {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
       flex-shrink: 0;
+      margin-top: 1px;
     }
 
-    .toast-icon-circle.success { background: #16a34a; color: #fff; }
-    .toast-icon-circle.error { background: #dc2626; color: #fff; }
-    .toast-icon-circle.info { background: #3b82f6; color: #fff; }
+    .toast-icon-box.success {
+      background: rgba(34, 197, 94, 0.14);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.28);
+    }
+
+    .toast-icon-box.error {
+      background: rgba(239, 68, 68, 0.14);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.28);
+    }
+
+    .toast-icon-box.warning {
+      background: rgba(245, 158, 11, 0.14);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.28);
+    }
+
+    .toast-icon-box.info {
+      background: rgba(14, 165, 233, 0.14);
+      color: #0ea5e9;
+      border: 1px solid rgba(14, 165, 233, 0.28);
+    }
+
+    .toast-content {
+      flex: 1;
+      min-width: 0;
+      padding-right: 6px;
+    }
+
+    .toast-title {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toast-body {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .toast-body::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .toast-body::-webkit-scrollbar-thumb {
+      background: var(--hairline-strong);
+      border-radius: 4px;
+    }
+
+    .toast-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      transition: all 0.15s ease;
+      font-size: 0.8rem;
+    }
+
+    .toast-close-btn:hover {
+      color: var(--ink);
+      background: var(--canvas-soft);
+    }
+
+    .toast-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2.5px;
+      background: var(--primary);
+      width: 100%;
+      transform-origin: left;
+    }
+
+    .toast-progress-bar.error { background: #ef4444; }
+    .toast-progress-bar.success { background: #22c55e; }
+    .toast-progress-bar.warning { background: #f59e0b; }
+    .toast-progress-bar.info { background: #0ea5e9; }
 
     /* Button Loading Shimmer */
     .btn-action-loading {
@@ -2987,17 +3146,32 @@
 
             <!-- Upload Dropzone for Thumbnail -->
             <div>
-              <div class="upload-dropzone" id="wbThumbnailDropzone">
-                <input type="file" id="wbThumbnailFileInput" accept="image/*" onchange="uploadThumbnailFile(this.files)">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 6px auto; color: var(--muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <div class="dropzone-title">Tải ảnh Thumbnail 16:9</div>
+              <div class="upload-dropzone" id="wbThumbnailDropzone"
+                   ondragover="handleThumbnailDragOver(event)"
+                   ondragleave="handleThumbnailDragLeave(event)"
+                   ondrop="handleThumbnailDrop(event)"
+                   onclick="triggerThumbnailInput(event)">
+                <input type="file" id="wbThumbnailFileInput" accept="image/*" style="display:none;" onchange="uploadThumbnailFile(this.files)">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="margin: 0 auto 6px auto; color: var(--muted);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div class="dropzone-title">Tải ảnh Thumbnail Poster 16:9</div>
                 <div class="dropzone-hint">Định dạng 1280x720px</div>
+
+                <div class="upload-dropzone-actions" onclick="event.stopPropagation()">
+                  <button type="button" class="btn-paste-clipboard" onclick="pasteThumbnailFromClipboard(event)" title="Dán ảnh Thumbnail trực tiếp từ Clipboard">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+                    <span>Dán ảnh (Ctrl + V)</span>
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="triggerThumbnailInput(event)" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--hairline-strong);">
+                    Chọn file
+                  </button>
+                </div>
               </div>
 
               <div class="image-preview-card" id="wbThumbnailPreviewCard" style="display:none;">
                 <img id="wbThumbnailPreviewImg" alt="Thumbnail Preview" src="">
                 <div class="image-card-controls">
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="triggerThumbnailInput()">Đổi ảnh</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="triggerThumbnailInput(event)">📁 Đổi ảnh</button>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="pasteThumbnailFromClipboard(event)" style="color:var(--primary);">📋 Dán đè</button>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="removeThumbnail()">Xóa</button>
                 </div>
               </div>
@@ -3308,6 +3482,88 @@
     </section>
 
   </main>
+
+  <!-- ==========================================================================
+       MODAL 0: TỪ CHỐI CHỦ ĐỀ SỬ LIỆU / NGOÀI PHẠM VI (HISTORICAL SCOPE REJECTION)
+       ========================================================================== -->
+  <div class="modal-overlay" id="modalTopicRejected">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header-bar" style="border-bottom: 1px solid rgba(239, 68, 68, 0.18); background: rgba(239, 68, 68, 0.04);">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.28);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ef4444; margin-bottom:2px;">
+              Kiểm Định Sử Liệu Đại Việt
+            </div>
+            <h3 style="font-size:1.05rem; font-weight:700; color:var(--ink); margin:0;">Chủ Đề Chưa Phù Hợp Chính Sử</h3>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalTopicRejected')" aria-label="Đóng">✕</button>
+      </div>
+
+      <div class="modal-body-content" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Card 1: Đề tài creator đã nhập -->
+        <div style="background: var(--canvas-soft); border: 1px solid var(--hairline-strong); border-radius: var(--rounded-md); padding: 12px 16px;">
+          <div style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display:flex; align-items:center; gap:6px;">
+            <span>📜 Nội dung bạn đã nhập:</span>
+          </div>
+          <div id="topicRejectedPrompt" style="font-size: 0.84rem; color: var(--ink); line-height: 1.5; font-style: italic; max-height: 90px; overflow-y: auto;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Card 2: Chi tiết sai lệch sử liệu -->
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.22); border-radius: var(--rounded-md); padding: 14px 16px;">
+          <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: #ef4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️ Điểm sai lệch được phát hiện:</span>
+          </div>
+          <div id="topicRejectedReason" style="font-size: 0.86rem; color: var(--ink); line-height: 1.55; font-weight: 500;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Card 3: Phạm vi kho sử liệu Lý - Trần -->
+        <div style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--rounded-md); padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start;">
+          <div style="color: #0284c7; flex-shrink: 0; margin-top: 2px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--muted); line-height: 1.5;">
+            <span style="font-weight: 600; color: var(--ink);">Phạm vi hệ thống hỗ trợ:</span> Kho sách sử của Studio hiện được giới hạn chuyên biệt cho các sự kiện &amp; nhân vật thuộc <b>Thời kỳ Nhà Lý (1009 – 1225)</b> và <b>Thời kỳ Nhà Trần (1225 – 1400)</b> theo <i>Đại Việt Sử Ký Toàn Thư</i>.
+          </div>
+        </div>
+
+        <!-- Gợi ý đề tài mẫu thay thế -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase; color: var(--muted);">
+            💡 Gợi ý kịch bản chuẩn sử bạn có thể thử ngay:
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="applySampleHistoricalTopic(1)" style="font-size: 0.76rem; border: 1px solid var(--hairline-strong); padding: 5px 12px; border-radius: var(--rounded-pill);">
+              🛡️ Lý Thường Kiệt &amp; Phòng Tuyến Như Nguyệt (1077)
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="applySampleHistoricalTopic(2)" style="font-size: 0.76rem; border: 1px solid var(--hairline-strong); padding: 5px 12px; border-radius: var(--rounded-pill);">
+              ⚔️ Trần Hưng Đạo &amp; Chiến Thắng Bạch Đằng (1288)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-bar" style="background: var(--canvas-soft); padding: 14px 24px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modalTopicRejected')">
+          <span>Đóng</span>
+        </button>
+        <button type="button" class="btn btn-primary" onclick="focusAndEditScriptInput()">
+          <span>✏️ Chỉnh Sửa Kịch Bản Ngay</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ==========================================================================
        MODAL 1: RÀO CHẮN MỀM KIỂM TRA SỬ LIỆU (STAGE 3 SOFT VERIFICATION)
@@ -3766,6 +4022,7 @@
       userManuallyChangedDuration: false,
       currentStoryboard: null,
       cloudinarySceneImages: {}, // sceneIndex -> url
+      lastActiveSceneIndex: 1,
       customThumbnailUrl: null,
       customPodcastCoverUrl: null,
       activeJobId: null,
@@ -3809,39 +4066,189 @@
       }
     }
 
-    // --- TOAST NOTIFICATIONS (GSAP ANIMATED WITH HIGH TASTE) ---
-    function showToast(msg, type = 'info') {
+    // --- TOPIC REJECTION / HISTORICAL VALIDATION MODAL ---
+    function openTopicRejectionModal(rawMessage, userPrompt) {
+      const modal = $('modalTopicRejected');
+      if (!modal) {
+        showToast(rawMessage, 'error', 'Chủ đề bị từ chối');
+        return;
+      }
+
+      const input = userPrompt || $('scriptInputBox')?.value?.trim() || '';
+      const promptEl = $('topicRejectedPrompt');
+      if (promptEl) promptEl.textContent = input || 'Không có nội dung kịch bản';
+
+      // Parse the reason from rawMessage
+      let reason = 'Đề tài không phù hợp với phạm vi lịch sử thời kỳ Nhà Lý - Trần hoặc chứa chi tiết mâu thuẫn chính sử.';
+      if (rawMessage) {
+        const match = rawMessage.match(/Lý do:\s*([^]+?)(?=\s*Hệ thống hiện được giới hạn|$)/i);
+        if (match && match[1]) {
+          reason = match[1].trim();
+        } else {
+          reason = rawMessage.replace(/^[⚠️\s]*CHỦ ĐỀ BỊ TỪ CHỐI[^\n:]*[:\n]*/i, '').trim();
+        }
+      }
+      const reasonEl = $('topicRejectedReason');
+      if (reasonEl) reasonEl.textContent = reason;
+
+      openModal('modalTopicRejected');
+    }
+
+    function focusAndEditScriptInput() {
+      closeModal('modalTopicRejected');
+      const box = $('scriptInputBox');
+      if (box) {
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => box.focus(), 300);
+      }
+    }
+
+    function applySampleHistoricalTopic(type) {
+      closeModal('modalTopicRejected');
+      const box = $('scriptInputBox');
+      if (!box) return;
+
+      if (type === 1) {
+        box.value = `Thời Lý: Lý Thường Kiệt và phòng tuyến sông Như Nguyệt
+
+Năm 1077, trước nguy cơ xâm lăng của đại quân nhà Tống, thái úy Lý Thường Kiệt đã chủ động lập phòng tuyến kiên cố bên bờ nam sông Như Nguyệt.
+
+Giữa đêm thanh vắng, bài thơ thần "Nam quốc sơn hà" vang vọng từ đền thờ hai vị thần Trương Hống, Trương Hát, thổi bùng ý chí quyết chiến và niềm tin tất thắng của toàn quân Đại Việt.
+
+Bằng tài thao lược xuất chúng cùng chiến thuật bất ngờ tập kích, quân đội nhà Lý đã đập tan mộng bành trướng của quân Tống, bảo vệ vững chắc nền độc lập, tự chủ của non sông.`;
+      } else {
+        box.value = `Thời Trần: Hào khí Đông A và đại thắng Bạch Đằng
+
+Năm 1288, quân và dân Đại Việt bước vào cuộc kháng chiến lần thứ ba chống giặc Mông - Nguyên dưới sự thống lĩnh tối cao của Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn.
+
+Tại hội nghị Diên Hồng, muôn người như một đồng thanh hô vang "Đánh!", kết tinh sức mạnh đoàn kết vĩ đại của tinh thần phụ tử chi binh và hào khí Đông A bất diệt.
+
+Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm được bố trí tài tình kết hợp thủy triều rút đã nhấn chìm toàn bộ chiến thuyền thủy quân Ô Mã Nhi, ghi dấu son chói lọi trong lịch sử vệ quốc của dân tộc.`;
+      }
+
+      autoResizeTextarea(box);
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('Đã nạp mẫu kịch bản lịch sử chuẩn xác. Bạn có thể nhấn "Tạo Kịch Bản & Phân Cảnh AI"!', 'success', 'Đã nạp mẫu chuẩn');
+    }
+
+    // --- TOAST NOTIFICATIONS (ELEVATED ELEVENLABS & GSAP DESIGN) ---
+    function showToast(msg, type = 'info', customTitle = null, duration = null) {
+      if (!msg) return;
+
+      // Intercept historical out-of-scope or fact discrepancy rejection to open dedicated modal
+      if (typeof msg === 'string' && (msg.includes('CHỦ ĐỀ BỊ TỪ CHỐI') || msg.includes('CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN'))) {
+        openTopicRejectionModal(msg, $('scriptInputBox')?.value?.trim());
+        return;
+      }
+
       const container = $('toastContainer');
       if (!container) return;
 
       const toast = document.createElement('div');
-      toast.className = 'toast-bubble';
-      const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '✦';
-      const iconClass = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+      toast.className = 'toast-card';
+
+      // Parse title and body
+      let title = customTitle;
+      let bodyText = String(msg || '').trim();
+
+      if (!title) {
+        if (bodyText.startsWith('Lỗi:') || type === 'error') {
+          title = 'Đã xảy ra lỗi';
+          bodyText = bodyText.replace(/^Lỗi:\s*/i, '');
+        } else if (type === 'success') {
+          title = 'Thành công';
+        } else if (type === 'warning') {
+          title = 'Cảnh báo sử liệu';
+        } else {
+          title = 'Thông báo';
+        }
+      }
+
+      // Semantic SVG icons
+      let iconSvg = '';
+      if (type === 'success') {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+      } else if (type === 'error') {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      } else if (type === 'warning') {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+      } else {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+      }
+
       toast.innerHTML = `
-        <span class="toast-icon-circle ${iconClass}">${icon}</span>
-        <span>${escapeHtml(msg)}</span>
+        <div class="toast-icon-box ${type}">
+          ${iconSvg}
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">${escapeHtml(title)}</div>
+          <div class="toast-body">${escapeHtml(bodyText)}</div>
+        </div>
+        <button type="button" class="toast-close-btn" aria-label="Đóng thông báo">✕</button>
+        <div class="toast-progress-bar ${type}"></div>
       `;
+
       container.appendChild(toast);
 
+      // Dismiss logic with hover pause
+      const closeBtn = toast.querySelector('.toast-close-btn');
+      const progressBar = toast.querySelector('.toast-progress-bar');
+      const timeoutMs = duration || (type === 'error' ? 6500 : 3800);
+      let dismissTimer = null;
+      let isPaused = false;
+
+      function removeThisToast() {
+        if (toast.dataset.removing) return;
+        toast.dataset.removing = 'true';
+        if (window.gsap) {
+          gsap.to(toast, {
+            opacity: 0,
+            y: 12,
+            scale: 0.94,
+            duration: 0.22,
+            ease: 'power2.in',
+            onComplete: () => toast.remove()
+          });
+        } else {
+          toast.remove();
+        }
+      }
+
+      if (closeBtn) {
+        closeBtn.onclick = (e) => {
+          e.stopPropagation();
+          clearTimeout(dismissTimer);
+          removeThisToast();
+        };
+      }
+
+      // Animate Progress Bar & Entrance
       if (window.gsap) {
         gsap.fromTo(toast, 
-          { opacity: 0, y: 24, scale: 0.9 }, 
-          { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.6)', clearProps: 'transform' }
+          { opacity: 0, y: 20, scale: 0.92 }, 
+          { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.5)', clearProps: 'transform' }
         );
-        setTimeout(() => {
-          gsap.to(toast, { 
-            opacity: 0, 
-            scale: 0.9, 
-            y: -12, 
-            duration: 0.25, 
-            ease: 'power2.in', 
-            onComplete: () => toast.remove() 
-          });
-        }, 3400);
-      } else {
-        setTimeout(() => toast.remove(), 3400);
+
+        const tweenProgress = gsap.fromTo(progressBar,
+          { scaleX: 1 },
+          { scaleX: 0, duration: timeoutMs / 1000, ease: 'linear' }
+        );
+
+        toast.addEventListener('mouseenter', () => {
+          isPaused = true;
+          tweenProgress.pause();
+          clearTimeout(dismissTimer);
+        });
+
+        toast.addEventListener('mouseleave', () => {
+          if (!isPaused) return;
+          isPaused = false;
+          tweenProgress.resume();
+          dismissTimer = setTimeout(removeThisToast, 2000);
+        });
       }
+
+      dismissTimer = setTimeout(removeThisToast, timeoutMs);
     }
 
     // --- BUTTON MICRO-INTERACTION (GSAP TACTILE BOUNCE) ---
@@ -4353,7 +4760,12 @@
         }
       } catch (err) {
         stopStreamerProgress();
-        showToast('Lỗi: ' + err.message, 'error');
+        const errMsg = err.message || 'Lỗi khi tạo kịch bản từ máy chủ';
+        if (errMsg.includes('CHỦ ĐỀ BỊ TỪ CHỐI') || errMsg.includes('CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN')) {
+          openTopicRejectionModal(errMsg, input);
+        } else {
+          showToast(errMsg, 'error', 'Lỗi tạo kịch bản');
+        }
       } finally {
         if (btn) {
           btn.classList.remove('btn-action-loading');
@@ -4489,6 +4901,8 @@
         card.className = 'scene-editorial-card';
         card.id = `wbSceneCard_${sIdx}`;
         card.style.opacity = '1';
+        card.setAttribute('onmouseenter', `state.lastActiveSceneIndex = ${sIdx}`);
+        card.setAttribute('onclick', `state.lastActiveSceneIndex = ${sIdx}`);
         card.innerHTML = `
           <div class="scene-top-bar">
             <span class="scene-index-badge">Cảnh #${sIdx} (${formatTime(startSec)} - ${formatTime(endSec)})</span>
@@ -4522,18 +4936,38 @@
             <textarea id="promptText_${sIdx}" class="prompt-text-readonly" readonly>${escapeHtml(sc.image_prompt || '')}</textarea>
           </div>
 
-          <div class="upload-dropzone" id="dropzone_${sIdx}" style="display: ${hasImg ? 'none' : 'block'};">
-            <input type="file" id="fileInput_${sIdx}" accept="image/*" onchange="uploadSceneImageFile(${sIdx}, this.files)">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted); margin:0 auto 4px auto;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            <div class="dropzone-title">Kéo thả hoặc tải ảnh <b>Cảnh #${sIdx}</b></div>
-            <div class="dropzone-hint">Chuẩn tỉ lệ 16:9 (1280x720px)</div>
+          <!-- Redesigned Dropzone with Clipboard Paste & Drag-Drop -->
+          <div class="upload-dropzone" id="dropzone_${sIdx}"
+               ondragover="handleDropzoneDragOver(${sIdx}, event)"
+               ondragleave="handleDropzoneDragLeave(${sIdx}, event)"
+               ondrop="handleDropzoneDrop(${sIdx}, event)"
+               onclick="triggerSceneFileInput(${sIdx}, event)"
+               style="display: ${hasImg ? 'none' : 'block'};">
+            <input type="file" id="fileInput_${sIdx}" accept="image/*" style="display:none;" onchange="uploadSceneImageFile(${sIdx}, this.files)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary); margin:0 auto 6px auto;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="dropzone-title">Kéo thả ảnh hoặc dán ảnh <b>Cảnh #${sIdx}</b></div>
+            <div class="dropzone-hint">Chuẩn tỉ lệ 16:9 (1280x720px) • PNG, JPG, WebP</div>
+
+            <div class="upload-dropzone-actions" onclick="event.stopPropagation()">
+              <button type="button" class="btn-paste-clipboard" onclick="pasteImageFromClipboard(${sIdx}, event)" title="Dán ảnh trực tiếp từ Clipboard">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg>
+                <span>Dán ảnh (Ctrl + V)</span>
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="triggerSceneFileInput(${sIdx}, event)" style="font-size:0.75rem; padding:4px 10px; border:1px solid var(--hairline-strong);">
+                Chọn file
+              </button>
+            </div>
+            <div class="paste-shortcut-hint">
+              <span>hoặc bấm</span> <span class="paste-kbd">Ctrl</span>+<span class="paste-kbd">V</span> <span>để dán tức thì</span>
+            </div>
           </div>
 
           <div class="image-preview-card" id="previewContainer_${sIdx}" style="display: ${hasImg ? 'block' : 'none'};">
             <img id="previewImg_${sIdx}" alt="Cảnh ${sIdx}" src="${currentImgUrl}">
             <div class="image-card-controls">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="triggerSceneFileInput(${sIdx})">Đổi ảnh</button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="removeSceneImage(${sIdx})" style="color:#ffffff;">Xóa</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="triggerSceneFileInput(${sIdx}, event)">📁 Đổi ảnh</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="pasteImageFromClipboard(${sIdx}, event)" style="color:var(--primary);">📋 Dán đè</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="removeSceneImage(${sIdx})" style="color:#ffffff;">✕ Xóa</button>
             </div>
           </div>
         `;
@@ -4581,18 +5015,48 @@
       });
     }
 
-    function triggerSceneFileInput(sIdx) {
+    function triggerSceneFileInput(sIdx, e) {
+      if (e) e.stopPropagation();
+      state.lastActiveSceneIndex = sIdx;
       const input = $('fileInput_' + sIdx);
       if (input) input.click();
     }
 
-    // Upload Scene Image -> Cloudinary (POST /upload-image) with Instant Preview
-    async function uploadSceneImageFile(sIdx, files) {
-      if (!files || !files[0]) return;
-      const file = files[0];
+    function handleDropzoneDragOver(sIdx, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('dropzone_' + sIdx);
+      if (dz) dz.classList.add('drag-active');
+    }
+
+    function handleDropzoneDragLeave(sIdx, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('dropzone_' + sIdx);
+      if (dz) dz.classList.remove('drag-active');
+    }
+
+    function handleDropzoneDrop(sIdx, e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('dropzone_' + sIdx);
+      if (dz) dz.classList.remove('drag-active');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        uploadSceneImageBlob(sIdx, e.dataTransfer.files[0], e.dataTransfer.files[0].name);
+      }
+    }
+
+    // Upload Scene Image Blob -> Cloudinary (POST /upload-image) with Instant Preview
+    async function uploadSceneImageBlob(sIdx, fileOrBlob, filename = 'scene_image.png') {
+      if (!fileOrBlob) return;
+      if (fileOrBlob.type && !fileOrBlob.type.startsWith('image/')) {
+        showToast('Vui lòng chọn hoặc dán file hình ảnh hợp lệ (PNG, JPG, WebP)!', 'warning');
+        return;
+      }
+      state.lastActiveSceneIndex = sIdx;
 
       // Instant local preview
-      const localUrl = URL.createObjectURL(file);
+      const localUrl = URL.createObjectURL(fileOrBlob);
       const img = $('previewImg_' + sIdx);
       const container = $('previewContainer_' + sIdx);
       const dz = $('dropzone_' + sIdx);
@@ -4607,7 +5071,7 @@
       }
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileOrBlob, filename);
 
       try {
         const res = await fetch('/api/v1/creator/studio/upload-image', {
@@ -4630,13 +5094,51 @@
           st.className = 'scene-cloud-status ready';
         }
         updateReadinessBar();
-        showToast(`Đã lưu ảnh Cảnh #${sIdx} lên Cloudinary!`, 'success');
+        showToast(`✓ Đã lưu ảnh Cảnh #${sIdx} lên Cloudinary!`, 'success');
       } catch (err) {
         showToast(`Lỗi upload Cảnh #${sIdx}: ${err.message}`, 'error');
         if (st) {
           st.textContent = '✕ Lỗi tải ảnh';
           st.className = 'scene-cloud-status';
         }
+      }
+    }
+
+    function uploadSceneImageFile(sIdx, files) {
+      if (!files || !files[0]) return;
+      uploadSceneImageBlob(sIdx, files[0], files[0].name);
+    }
+
+    async function pasteImageFromClipboard(sIdx, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      state.lastActiveSceneIndex = sIdx;
+
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showToast(`Bạn hãy click vào thẻ Cảnh #${sIdx} rồi bấm phím tắt Ctrl + V (hoặc Cmd + V trên Mac) để dán ảnh!`, 'info');
+        return;
+      }
+
+      try {
+        const items = await navigator.clipboard.read();
+        let foundImage = false;
+        for (const item of items) {
+          const imgType = item.types.find(t => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            foundImage = true;
+            uploadSceneImageBlob(sIdx, blob, `clipboard_scene_${sIdx}.png`);
+            break;
+          }
+        }
+        if (!foundImage) {
+          showToast(`Không tìm thấy hình ảnh nào trong Clipboard! Hãy chụp màn hình hoặc Copy Image trước khi dán.`, 'warning');
+        }
+      } catch (err) {
+        console.warn('Clipboard read error:', err);
+        showToast(`Hãy click vào thẻ Cảnh #${sIdx} rồi bấm Ctrl + V (hoặc Cmd + V) để dán ảnh!`, 'info');
       }
     }
 
@@ -4715,23 +5217,51 @@
     }
 
     // Upload Dedicated Thumbnail Poster 16:9
-    function triggerThumbnailInput() {
+    function triggerThumbnailInput(e) {
+      if (e) e.stopPropagation();
       const input = $('wbThumbnailFileInput');
       if (input) input.click();
     }
 
-    async function uploadThumbnailFile(files) {
-      if (!files || !files[0]) return;
-      const file = files[0];
+    function handleThumbnailDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('wbThumbnailDropzone');
+      if (dz) dz.classList.add('drag-active');
+    }
+
+    function handleThumbnailDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('wbThumbnailDropzone');
+      if (dz) dz.classList.remove('drag-active');
+    }
+
+    function handleThumbnailDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dz = $('wbThumbnailDropzone');
+      if (dz) dz.classList.remove('drag-active');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        uploadThumbnailBlob(e.dataTransfer.files[0], e.dataTransfer.files[0].name);
+      }
+    }
+
+    async function uploadThumbnailBlob(fileOrBlob, filename = 'thumbnail.png') {
+      if (!fileOrBlob) return;
+      if (fileOrBlob.type && !fileOrBlob.type.startsWith('image/')) {
+        showToast('Vui lòng chọn hoặc dán file hình ảnh hợp lệ (PNG, JPG, WebP)!', 'warning');
+        return;
+      }
 
       // Instant preview
-      const localUrl = URL.createObjectURL(file);
+      const localUrl = URL.createObjectURL(fileOrBlob);
       $('wbThumbnailPreviewImg').src = localUrl;
       $('wbThumbnailPreviewCard').style.display = 'block';
       $('wbThumbnailDropzone').style.display = 'none';
 
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', fileOrBlob, filename);
 
       try {
         showToast('Đang tải ảnh Thumbnail lên Cloudinary...', 'info');
@@ -4746,9 +5276,46 @@
 
         state.customThumbnailUrl = data.data.imageUrl;
         $('wbThumbnailPreviewImg').src = state.customThumbnailUrl;
-        showToast('Đã lưu Thumbnail Poster 16:9 thành công!', 'success');
+        showToast('✓ Đã lưu Thumbnail Poster 16:9 thành công!', 'success');
       } catch (err) {
         showToast('Lỗi: ' + err.message, 'error');
+      }
+    }
+
+    function uploadThumbnailFile(files) {
+      if (!files || !files[0]) return;
+      uploadThumbnailBlob(files[0], files[0].name);
+    }
+
+    async function pasteThumbnailFromClipboard(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      if (!navigator.clipboard || !navigator.clipboard.read) {
+        showToast('Hãy click vào ô Thumbnail rồi bấm phím tắt Ctrl + V (hoặc Cmd + V) để dán ảnh!', 'info');
+        return;
+      }
+
+      try {
+        const items = await navigator.clipboard.read();
+        let foundImage = false;
+        for (const item of items) {
+          const imgType = item.types.find(t => t.startsWith('image/'));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            foundImage = true;
+            uploadThumbnailBlob(blob, 'pasted_thumbnail.png');
+            break;
+          }
+        }
+        if (!foundImage) {
+          showToast('Không tìm thấy hình ảnh nào trong Clipboard! Hãy copy hoặc chụp ảnh trước khi dán.', 'warning');
+        }
+      } catch (err) {
+        console.warn('Clipboard read error:', err);
+        showToast('Hãy bấm phím tắt Ctrl + V (hoặc Cmd + V) để dán ảnh Thumbnail trực tiếp!', 'info');
       }
     }
 
@@ -6815,6 +7382,54 @@
         delay: 1.5
       });
     }
+
+    // --- GLOBAL CLIPBOARD PASTE LISTENER (Ctrl+V / Cmd+V Anywhere) ---
+    document.addEventListener('paste', function(e) {
+      if (!e.clipboardData || !e.clipboardData.items) return;
+      const items = e.clipboardData.items;
+      let imageItem = null;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.indexOf('image') !== -1) {
+          imageItem = items[i];
+          break;
+        }
+      }
+
+      if (!imageItem) {
+        // Normal text paste, let default textarea/input behavior proceed
+        return;
+      }
+
+      // Found image item from clipboard!
+      e.preventDefault();
+      const blob = imageItem.getAsFile();
+      if (!blob) return;
+
+      // Determine target scene:
+      let targetIdx = state.lastActiveSceneIndex;
+      const scenes = state.currentStoryboard?.scenes || [];
+
+      // If lastActiveSceneIndex is not valid, find first scene without an image
+      if (!targetIdx || !scenes.some(s => (s.scene_index || 1) === targetIdx)) {
+        const emptyScene = scenes.find(s => !state.cloudinarySceneImages[s.scene_index || 1]);
+        if (emptyScene) {
+          targetIdx = emptyScene.scene_index || 1;
+        } else if (scenes.length > 0) {
+          targetIdx = scenes[0].scene_index || 1;
+        }
+      }
+
+      if (targetIdx && scenes.length > 0) {
+        uploadSceneImageBlob(targetIdx, blob, `clipboard_scene_${targetIdx}.png`);
+        showToast(`📋 Đã dán ảnh từ Clipboard vào Cảnh #${targetIdx}!`, 'success');
+      } else {
+        const thumbDrop = $('wbThumbnailDropzone');
+        if (thumbDrop && thumbDrop.style.display !== 'none') {
+          uploadThumbnailBlob(blob, 'clipboard_thumbnail.png');
+          showToast('📋 Đã dán ảnh từ Clipboard vào Thumbnail Poster!', 'success');
+        }
+      }
+    });
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
