@@ -1555,6 +1555,24 @@ def build_annotation_json(
     return out_json
 
 
+def generate_speech_google_tts(text: str, out_p: Path) -> bool:
+    """Fallback TTS bằng Google Translate Audio khi Edge-TTS bị Microsoft ngắt kết nối."""
+    try:
+        clean_text = re.sub(r'[\r\n\t]+', ' ', text).strip()
+        if not clean_text:
+            return False
+        url = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + urllib.parse.quote(clean_text) + '&tl=vi&client=tw-ob'
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = resp.read()
+            if len(data) > 500:
+                out_p.write_bytes(data)
+                return True
+    except Exception as e:
+        print(f"[Google-TTS] Fallback thất bại: {e}")
+    return False
+
+
 # ──────────────────────────────────────────────────────────────
 # BƯỚC 3: TTS & DÒNG THỜI GIAN ĐỘNG (CONTINUOUS NARRATION ENGINE)
 # ──────────────────────────────────────────────────────────────
@@ -1593,8 +1611,14 @@ async def generate_speech_edge(text: str, voice: str, out_p: Path):
             print(f"[Edge-TTS] Giọng phụ lần {attempt+1} thất bại: {e}")
             await asyncio.sleep(1.0 * (attempt + 1))
 
-    # Sau các lần thử nếu vẫn thất bại, ném lỗi rõ ràng thay vì chèn âm thanh tĩnh anullsrc (khoảng lặng chết)
-    raise RuntimeError(f"❌ Không thể tạo giọng đọc cho câu: \"{clean_text[:50]}\". Dịch vụ Edge-TTS không phản hồi âm thanh.")
+    # Nếu Edge-TTS vẫn bị lỗi, kích hoạt Google Translate TTS dự phòng không bao giờ chết
+    print(f"[TTS-Fallback] 🌐 Kích hoạt Google Translate TTS dự phòng cho câu: '{clean_text[:40]}'...")
+    if generate_speech_google_tts(clean_text, out_p):
+        print(f"[TTS-Fallback] ✅ Google Translate TTS đã tạo giọng đọc thành công cho '{clean_text[:30]}'!")
+        return
+
+    # Sau các lần thử nếu vẫn thất bại, ném lỗi rõ ràng
+    raise RuntimeError(f"❌ Không thể tạo giọng đọc cho câu: \"{clean_text[:50]}\". Dịch vụ Edge-TTS và Google TTS đều không phản hồi.")
 
 
 ELEVENLABS_VOICES = {
