@@ -2550,50 +2550,156 @@
       line-height: 1.55;
     }
 
-    /* Toast Notifications */
+    /* Toast Notifications (Redesigned with UI/UX Pro Max & Taste) */
     .toast-container {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 2000;
+      bottom: 28px;
+      right: 28px;
+      z-index: 3000;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       pointer-events: none;
+      max-width: 440px;
+      width: calc(100vw - 40px);
     }
 
+    .toast-card,
     .toast-bubble {
       pointer-events: auto;
-      background: rgba(12, 10, 9, 0.94);
-      color: #ffffff;
-      padding: 12px 20px;
-      border-radius: var(--rounded-pill);
-      font-size: 0.85rem;
-      font-weight: 500;
+      background: var(--surface-card);
+      border: 1px solid var(--hairline-strong);
+      border-radius: var(--rounded-lg);
+      padding: 14px 16px;
       display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      align-items: flex-start;
+      gap: 12px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
     }
 
-    .toast-icon-circle {
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
+    [data-theme="dark"] .toast-card,
+    [data-theme="dark"] .toast-bubble {
+      background: rgba(18, 18, 20, 0.94);
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .toast-card:hover,
+    .toast-bubble:hover {
+      transform: translateY(-2px);
+    }
+
+    .toast-icon-box {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
       flex-shrink: 0;
+      margin-top: 1px;
     }
 
-    .toast-icon-circle.success { background: #16a34a; color: #fff; }
-    .toast-icon-circle.error { background: #dc2626; color: #fff; }
-    .toast-icon-circle.info { background: #3b82f6; color: #fff; }
+    .toast-icon-box.success {
+      background: rgba(34, 197, 94, 0.14);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.28);
+    }
+
+    .toast-icon-box.error {
+      background: rgba(239, 68, 68, 0.14);
+      color: #ef4444;
+      border: 1px solid rgba(239, 68, 68, 0.28);
+    }
+
+    .toast-icon-box.warning {
+      background: rgba(245, 158, 11, 0.14);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.28);
+    }
+
+    .toast-icon-box.info {
+      background: rgba(14, 165, 233, 0.14);
+      color: #0ea5e9;
+      border: 1px solid rgba(14, 165, 233, 0.28);
+    }
+
+    .toast-content {
+      flex: 1;
+      min-width: 0;
+      padding-right: 6px;
+    }
+
+    .toast-title {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+      margin-bottom: 3px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toast-body {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+
+    .toast-body::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .toast-body::-webkit-scrollbar-thumb {
+      background: var(--hairline-strong);
+      border-radius: 4px;
+    }
+
+    .toast-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+      transition: all 0.15s ease;
+      font-size: 0.8rem;
+    }
+
+    .toast-close-btn:hover {
+      color: var(--ink);
+      background: var(--canvas-soft);
+    }
+
+    .toast-progress-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 2.5px;
+      background: var(--primary);
+      width: 100%;
+      transform-origin: left;
+    }
+
+    .toast-progress-bar.error { background: #ef4444; }
+    .toast-progress-bar.success { background: #22c55e; }
+    .toast-progress-bar.warning { background: #f59e0b; }
+    .toast-progress-bar.info { background: #0ea5e9; }
 
     /* Button Loading Shimmer */
     .btn-action-loading {
@@ -3378,6 +3484,88 @@
   </main>
 
   <!-- ==========================================================================
+       MODAL 0: TỪ CHỐI CHỦ ĐỀ SỬ LIỆU / NGOÀI PHẠM VI (HISTORICAL SCOPE REJECTION)
+       ========================================================================== -->
+  <div class="modal-overlay" id="modalTopicRejected">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header-bar" style="border-bottom: 1px solid rgba(239, 68, 68, 0.18); background: rgba(239, 68, 68, 0.04);">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.28);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <div>
+            <div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#ef4444; margin-bottom:2px;">
+              Kiểm Định Sử Liệu Đại Việt
+            </div>
+            <h3 style="font-size:1.05rem; font-weight:700; color:var(--ink); margin:0;">Chủ Đề Chưa Phù Hợp Chính Sử</h3>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalTopicRejected')" aria-label="Đóng">✕</button>
+      </div>
+
+      <div class="modal-body-content" style="padding: 20px 24px; display: flex; flex-direction: column; gap: 16px;">
+        <!-- Card 1: Đề tài creator đã nhập -->
+        <div style="background: var(--canvas-soft); border: 1px solid var(--hairline-strong); border-radius: var(--rounded-md); padding: 12px 16px;">
+          <div style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display:flex; align-items:center; gap:6px;">
+            <span>📜 Nội dung bạn đã nhập:</span>
+          </div>
+          <div id="topicRejectedPrompt" style="font-size: 0.84rem; color: var(--ink); line-height: 1.5; font-style: italic; max-height: 90px; overflow-y: auto;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Card 2: Chi tiết sai lệch sử liệu -->
+        <div style="background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.22); border-radius: var(--rounded-md); padding: 14px 16px;">
+          <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: #ef4444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️ Điểm sai lệch được phát hiện:</span>
+          </div>
+          <div id="topicRejectedReason" style="font-size: 0.86rem; color: var(--ink); line-height: 1.55; font-weight: 500;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Card 3: Phạm vi kho sử liệu Lý - Trần -->
+        <div style="background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--rounded-md); padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start;">
+          <div style="color: #0284c7; flex-shrink: 0; margin-top: 2px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--muted); line-height: 1.5;">
+            <span style="font-weight: 600; color: var(--ink);">Phạm vi hệ thống hỗ trợ:</span> Kho sách sử của Studio hiện được giới hạn chuyên biệt cho các sự kiện &amp; nhân vật thuộc <b>Thời kỳ Nhà Lý (1009 – 1225)</b> và <b>Thời kỳ Nhà Trần (1225 – 1400)</b> theo <i>Đại Việt Sử Ký Toàn Thư</i>.
+          </div>
+        </div>
+
+        <!-- Gợi ý đề tài mẫu thay thế -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 0.72rem; font-weight: 600; text-transform: uppercase; color: var(--muted);">
+            💡 Gợi ý kịch bản chuẩn sử bạn có thể thử ngay:
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="applySampleHistoricalTopic(1)" style="font-size: 0.76rem; border: 1px solid var(--hairline-strong); padding: 5px 12px; border-radius: var(--rounded-pill);">
+              🛡️ Lý Thường Kiệt &amp; Phòng Tuyến Như Nguyệt (1077)
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="applySampleHistoricalTopic(2)" style="font-size: 0.76rem; border: 1px solid var(--hairline-strong); padding: 5px 12px; border-radius: var(--rounded-pill);">
+              ⚔️ Trần Hưng Đạo &amp; Chiến Thắng Bạch Đằng (1288)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer-bar" style="background: var(--canvas-soft); padding: 14px 24px;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modalTopicRejected')">
+          <span>Đóng</span>
+        </button>
+        <button type="button" class="btn btn-primary" onclick="focusAndEditScriptInput()">
+          <span>✏️ Chỉnh Sửa Kịch Bản Ngay</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        MODAL 1: RÀO CHẮN MỀM KIỂM TRA SỬ LIỆU (STAGE 3 SOFT VERIFICATION)
        ========================================================================== -->
   <div class="modal-overlay" id="modalVerifyWarning">
@@ -3878,39 +4066,189 @@
       }
     }
 
-    // --- TOAST NOTIFICATIONS (GSAP ANIMATED WITH HIGH TASTE) ---
-    function showToast(msg, type = 'info') {
+    // --- TOPIC REJECTION / HISTORICAL VALIDATION MODAL ---
+    function openTopicRejectionModal(rawMessage, userPrompt) {
+      const modal = $('modalTopicRejected');
+      if (!modal) {
+        showToast(rawMessage, 'error', 'Chủ đề bị từ chối');
+        return;
+      }
+
+      const input = userPrompt || $('scriptInputBox')?.value?.trim() || '';
+      const promptEl = $('topicRejectedPrompt');
+      if (promptEl) promptEl.textContent = input || 'Không có nội dung kịch bản';
+
+      // Parse the reason from rawMessage
+      let reason = 'Đề tài không phù hợp với phạm vi lịch sử thời kỳ Nhà Lý - Trần hoặc chứa chi tiết mâu thuẫn chính sử.';
+      if (rawMessage) {
+        const match = rawMessage.match(/Lý do:\s*([^]+?)(?=\s*Hệ thống hiện được giới hạn|$)/i);
+        if (match && match[1]) {
+          reason = match[1].trim();
+        } else {
+          reason = rawMessage.replace(/^[⚠️\s]*CHỦ ĐỀ BỊ TỪ CHỐI[^\n:]*[:\n]*/i, '').trim();
+        }
+      }
+      const reasonEl = $('topicRejectedReason');
+      if (reasonEl) reasonEl.textContent = reason;
+
+      openModal('modalTopicRejected');
+    }
+
+    function focusAndEditScriptInput() {
+      closeModal('modalTopicRejected');
+      const box = $('scriptInputBox');
+      if (box) {
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => box.focus(), 300);
+      }
+    }
+
+    function applySampleHistoricalTopic(type) {
+      closeModal('modalTopicRejected');
+      const box = $('scriptInputBox');
+      if (!box) return;
+
+      if (type === 1) {
+        box.value = `Thời Lý: Lý Thường Kiệt và phòng tuyến sông Như Nguyệt
+
+Năm 1077, trước nguy cơ xâm lăng của đại quân nhà Tống, thái úy Lý Thường Kiệt đã chủ động lập phòng tuyến kiên cố bên bờ nam sông Như Nguyệt.
+
+Giữa đêm thanh vắng, bài thơ thần "Nam quốc sơn hà" vang vọng từ đền thờ hai vị thần Trương Hống, Trương Hát, thổi bùng ý chí quyết chiến và niềm tin tất thắng của toàn quân Đại Việt.
+
+Bằng tài thao lược xuất chúng cùng chiến thuật bất ngờ tập kích, quân đội nhà Lý đã đập tan mộng bành trướng của quân Tống, bảo vệ vững chắc nền độc lập, tự chủ của non sông.`;
+      } else {
+        box.value = `Thời Trần: Hào khí Đông A và đại thắng Bạch Đằng
+
+Năm 1288, quân và dân Đại Việt bước vào cuộc kháng chiến lần thứ ba chống giặc Mông - Nguyên dưới sự thống lĩnh tối cao của Quốc công Tiết chế Hưng Đạo Đại vương Trần Quốc Tuấn.
+
+Tại hội nghị Diên Hồng, muôn người như một đồng thanh hô vang "Đánh!", kết tinh sức mạnh đoàn kết vĩ đại của tinh thần phụ tử chi binh và hào khí Đông A bất diệt.
+
+Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm được bố trí tài tình kết hợp thủy triều rút đã nhấn chìm toàn bộ chiến thuyền thủy quân Ô Mã Nhi, ghi dấu son chói lọi trong lịch sử vệ quốc của dân tộc.`;
+      }
+
+      autoResizeTextarea(box);
+      box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('Đã nạp mẫu kịch bản lịch sử chuẩn xác. Bạn có thể nhấn "Tạo Kịch Bản & Phân Cảnh AI"!', 'success', 'Đã nạp mẫu chuẩn');
+    }
+
+    // --- TOAST NOTIFICATIONS (ELEVATED ELEVENLABS & GSAP DESIGN) ---
+    function showToast(msg, type = 'info', customTitle = null, duration = null) {
+      if (!msg) return;
+
+      // Intercept historical out-of-scope or fact discrepancy rejection to open dedicated modal
+      if (typeof msg === 'string' && (msg.includes('CHỦ ĐỀ BỊ TỪ CHỐI') || msg.includes('CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN'))) {
+        openTopicRejectionModal(msg, $('scriptInputBox')?.value?.trim());
+        return;
+      }
+
       const container = $('toastContainer');
       if (!container) return;
 
       const toast = document.createElement('div');
-      toast.className = 'toast-bubble';
-      const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '✦';
-      const iconClass = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+      toast.className = 'toast-card';
+
+      // Parse title and body
+      let title = customTitle;
+      let bodyText = String(msg || '').trim();
+
+      if (!title) {
+        if (bodyText.startsWith('Lỗi:') || type === 'error') {
+          title = 'Đã xảy ra lỗi';
+          bodyText = bodyText.replace(/^Lỗi:\s*/i, '');
+        } else if (type === 'success') {
+          title = 'Thành công';
+        } else if (type === 'warning') {
+          title = 'Cảnh báo sử liệu';
+        } else {
+          title = 'Thông báo';
+        }
+      }
+
+      // Semantic SVG icons
+      let iconSvg = '';
+      if (type === 'success') {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+      } else if (type === 'error') {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      } else if (type === 'warning') {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+      } else {
+        iconSvg = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+      }
+
       toast.innerHTML = `
-        <span class="toast-icon-circle ${iconClass}">${icon}</span>
-        <span>${escapeHtml(msg)}</span>
+        <div class="toast-icon-box ${type}">
+          ${iconSvg}
+        </div>
+        <div class="toast-content">
+          <div class="toast-title">${escapeHtml(title)}</div>
+          <div class="toast-body">${escapeHtml(bodyText)}</div>
+        </div>
+        <button type="button" class="toast-close-btn" aria-label="Đóng thông báo">✕</button>
+        <div class="toast-progress-bar ${type}"></div>
       `;
+
       container.appendChild(toast);
 
+      // Dismiss logic with hover pause
+      const closeBtn = toast.querySelector('.toast-close-btn');
+      const progressBar = toast.querySelector('.toast-progress-bar');
+      const timeoutMs = duration || (type === 'error' ? 6500 : 3800);
+      let dismissTimer = null;
+      let isPaused = false;
+
+      function removeThisToast() {
+        if (toast.dataset.removing) return;
+        toast.dataset.removing = 'true';
+        if (window.gsap) {
+          gsap.to(toast, {
+            opacity: 0,
+            y: 12,
+            scale: 0.94,
+            duration: 0.22,
+            ease: 'power2.in',
+            onComplete: () => toast.remove()
+          });
+        } else {
+          toast.remove();
+        }
+      }
+
+      if (closeBtn) {
+        closeBtn.onclick = (e) => {
+          e.stopPropagation();
+          clearTimeout(dismissTimer);
+          removeThisToast();
+        };
+      }
+
+      // Animate Progress Bar & Entrance
       if (window.gsap) {
         gsap.fromTo(toast, 
-          { opacity: 0, y: 24, scale: 0.9 }, 
-          { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.6)', clearProps: 'transform' }
+          { opacity: 0, y: 20, scale: 0.92 }, 
+          { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.5)', clearProps: 'transform' }
         );
-        setTimeout(() => {
-          gsap.to(toast, { 
-            opacity: 0, 
-            scale: 0.9, 
-            y: -12, 
-            duration: 0.25, 
-            ease: 'power2.in', 
-            onComplete: () => toast.remove() 
-          });
-        }, 3400);
-      } else {
-        setTimeout(() => toast.remove(), 3400);
+
+        const tweenProgress = gsap.fromTo(progressBar,
+          { scaleX: 1 },
+          { scaleX: 0, duration: timeoutMs / 1000, ease: 'linear' }
+        );
+
+        toast.addEventListener('mouseenter', () => {
+          isPaused = true;
+          tweenProgress.pause();
+          clearTimeout(dismissTimer);
+        });
+
+        toast.addEventListener('mouseleave', () => {
+          if (!isPaused) return;
+          isPaused = false;
+          tweenProgress.resume();
+          dismissTimer = setTimeout(removeThisToast, 2000);
+        });
       }
+
+      dismissTimer = setTimeout(removeThisToast, timeoutMs);
     }
 
     // --- BUTTON MICRO-INTERACTION (GSAP TACTILE BOUNCE) ---
@@ -4422,7 +4760,12 @@
         }
       } catch (err) {
         stopStreamerProgress();
-        showToast('Lỗi: ' + err.message, 'error');
+        const errMsg = err.message || 'Lỗi khi tạo kịch bản từ máy chủ';
+        if (errMsg.includes('CHỦ ĐỀ BỊ TỪ CHỐI') || errMsg.includes('CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN')) {
+          openTopicRejectionModal(errMsg, input);
+        } else {
+          showToast(errMsg, 'error', 'Lỗi tạo kịch bản');
+        }
       } finally {
         if (btn) {
           btn.classList.remove('btn-action-loading');
