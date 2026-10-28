@@ -70,6 +70,7 @@ class StoryboardRequest(BaseModel):
     duration_sec: int = 60
     gemini_api_key: Optional[str] = None
     use_rag: bool = True
+    keep_original_script: Optional[bool] = False
 
 
 class VerifyScriptRequest(BaseModel):
@@ -276,7 +277,13 @@ async def generate_storyboard_endpoint(req: StoryboardRequest):
         )
     # RAG là bắt buộc 100% cho mọi kịch bản
     try:
-        sb = call_gemini_storyboard(topic, user_key, duration_sec=dur, use_rag=True)
+        sb = call_gemini_storyboard(
+            topic,
+            user_key,
+            duration_sec=dur,
+            use_rag=True,
+            keep_original_script=bool(req.keep_original_script)
+        )
         return sb
     except OutOfScopeHistoryError as ose:
         raise HTTPException(status_code=400, detail=str(ose))
@@ -1037,15 +1044,28 @@ Trả về JSON thuần túy (không bọc trong markdown):
         return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần"}
 
 
-def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: int = 60, use_rag: bool = True) -> dict:
+def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: int = 60, use_rag: bool = True, keep_original_script: bool = False) -> dict:
     api_key = sanitize_gemini_key(raw_api_key)
     if not api_key:
         raise ValueError("⚠️ Chưa có Google Gemini API Key của người dùng. Vui lòng mở Cài đặt (⚙️) và nhập API Key cá nhân.")
 
-    num_scenes = max(1, min(10, int(round(duration_sec / 30.0)) or 1))
-    target_scene_time = duration_sec / num_scenes
     raw_input = topic.strip()
-    is_long_text = len(raw_input) > 100 or "\n" in raw_input or raw_input.count(".") >= 3
+    words = re.findall(r'\S+', raw_input)
+    word_count = len(words)
+    # Tự động nhận diện chế độ kịch bản tự soạn
+    is_verbatim_mode = keep_original_script or word_count >= 15 or "\n" in raw_input or raw_input.count(".") >= 2
+
+    if is_verbatim_mode:
+        # 1 cảnh whiteboard (~30s) đọc vừa vặn từ 40 đến 65 từ tiếng Việt (~120 từ/phút)
+        est_scenes = max(1, min(10, int(round(word_count / 60.0)) or 1))
+        requested_scenes = int(round(duration_sec / 30.0)) or 1
+        num_scenes = max(1, min(requested_scenes, est_scenes))
+        actual_duration = num_scenes * 30
+    else:
+        num_scenes = max(1, min(10, int(round(duration_sec / 30.0)) or 1))
+        actual_duration = duration_sec
+
+    target_scene_time = actual_duration / num_scenes
 
     # ── BƯỚC 1: BỘ GÁC CỔNG PHẠM VI SỬ LIỆU THỜI KỲ LÝ - TRẦN ──
     # Chỉ cho phép các sự kiện, nhân vật thời Lý (1009-1225) và thời Trần (1225-1400)
@@ -1092,14 +1112,28 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
     rag_context_section = "\n\nTƯ LIỆU SỬ HỌC BẮT BUỘC ĐỐI CHIẾU TỪ KHO SÁCH doc/ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):\n"
     for i, c in enumerate(chunks, 1):
         rag_context_section += f"[{i}] ({c['book_title']} - Trang {c['page']}): {c['text']}\n\n"
-    if is_long_text:
-        prompt_instruction = f"""Người dùng cung cấp một BÀI VIẾT / KỊCH BẢN / DÀN Ý CÓ SẴN dưới đây:
-\"{raw_input}\"
+
+    if is_verbatim_mode:
+        prompt_instruction = f"""ĐÂY LÀ BÀI VIẾT / KỊCH BẢN TỰ SOẠN CỦA TÁC GIẢ (CHẾ ĐỘ GIỮ NGUYÊN TÁC 100% - VERBATIM):
+\"\"\"
+{raw_input}
+\"\"\"
 {rag_context_section}
-HÃY PHÂN TÍCH VÀ BIÊN TẬP THÀNH KỊCH BẢN VIDEO HOẠT HỌA BẢNG TRẮNG:
-- BÁM SÁT DỮ LIỆU ĐƯỢC CUNG CẤP: Kiểm tra kỹ lưỡng các mốc năm, sự kiện, địa danh và nhân vật so với tư liệu sử học. Sửa chữa ngay mọi chi tiết sai lệch hoặc hiểu nhầm.
-- Giữ trọn vẹn thông điệp cốt lõi của người dùng, phân bổ hợp lý vào đúng {num_scenes} CẢNH (tổng thời lượng video mục tiêu: đúng {duration_sec} giây, ~{target_scene_time:.0f} giây mỗi cảnh).
-- VĂN PHONG TỰ NHIÊN, KHÔNG DÙNG TỪ NỐI RẬP KHUÔN: Tuyệt đối KHÔNG mở đầu câu bằng các từ nối máy móc như 'Thế nhưng,', 'Chính vì vậy,', 'Không dừng lại ở đó,', 'Và kết quả là,'. Dẫn dắt câu chuyện tự nhiên bằng thời gian, bối cảnh và hành động cụ thể."""
+QUY TẮC BẮT BUỘC TUYỆT ĐỐI CHO LỜI THUYẾT MINH (SUBTITLE):
+1. GIỮ NGUYÊN 100% TỪNG CÂU TỪ CỦA TÁC GIẢ (VERBATIM PRESERVATION):
+   - TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT LẠI, KHÔNG DIỄN GIẢI LẠI, KHÔNG PARAPHRASE, KHÔNG THAY ĐỔI DÙ CHỈ MỘT TỪ trong văn bản của tác giả.
+   - Ví dụ: Tác giả viết 'Năm 1010, vua Lý Thái Tổ quyết định dời đô từ Hoa Lư về Đại La, đổi tên thành Thăng Long', TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT THÀNH 'Năm một nghìn không trăm mười, vua Lý Thái Tổ quyết định dời đô từ Hoa Lư về thành Đại La...'. Phải giữ y nguyên từng từ ngữ tác giả viết!
+   - TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT THÊM SỰ KIỆN HOẶC PHÂN CẢNH MỚI (Ví dụ: tác giả chỉ viết về vua Lý Thái Tổ dời đô từ Hoa Lư về Đại La, tuyệt đối KHÔNG tự sáng tác thêm Hội nghị Diên Hồng, Bạch Đằng, hay bất kỳ sự kiện nào khác không có trong văn bản trên).
+   - Hãy trích xuất và phân chia các câu/mệnh đề tự nhiên từ bài viết của tác giả vào {num_scenes} cảnh, mỗi cảnh đúng 3 khối chủ thể (elements) từ Trái qua Phải.
+   - Từng khối "subtitle" PHẢI LÀ NGUYÊN VĂN các câu/mệnh đề của tác giả. BỎ QUA HOÀN TOÀN QUY ĐỊNH 25-35 TỪ, giữ nguyên đúng câu từ của tác giả!
+2. BỐ CỤC {num_scenes} CẢNH:
+   - Phân chia hợp lý vào đúng {num_scenes} CẢNH (Scene 1 đến Scene {num_scenes}).
+   - scene_title: Tên cảnh ngắn gọn, phản ánh đúng nội dung đoạn trích.
+   - label: Nhãn tên chủ thể ngắn gọn (2-4 từ tiếng Việt, ví dụ: 'Thời Lý Rực Rỡ', 'Chiếu Dời Đô 1010', 'Kinh Đô Thăng Long').
+   - narrativeRole: Vai trò dẫn chuyện ngắn gọn.
+   - visual_desc & image_prompt: Soạn prompt mỹ thuật Notion Doodle sketch 16:9 mô tả trực quan và chính xác nội dung câu thuyết minh của tác giả.
+3. ĐỐI CHIẾU SỬ LIỆU & ĐIỂM SỐ:
+   - Đối chiếu sử liệu để kiểm chứng độ chính xác lịch sử và tính điểm overall_score (95-100 nếu chuẩn xác). Nếu không có nhân vật hư cấu ngoại lai, mảng "discrepancies" là mảng rỗng []."""
     else:
         # Đề tài thuộc kho sử liệu Việt Nam
         history_specific_note = ""
@@ -1142,15 +1176,20 @@ QUY CHUẨN NỘI DUNG VÀ VĂN PHONG PHIM TÀI LIỆU LỊCH SỬ CHÍNH THỐN
      + Đề tài chuẩn xác 100%: 95 - 100.
      + Đề tài có chi tiết sai lệch/ngoại lai đã được lọc bỏ: cho điểm từ 65 đến 85 tùy mức độ sai lệch của đề tài ban đầu."""
 
+    if is_verbatim_mode:
+        subtitle_req = "  + subtitle: NGUYÊN VĂN câu thuyết minh trích xuất từ văn bản của tác giả. TUYỆT ĐỐI GIỮ NGUYÊN 100% TỪNG CHỮ CỦA TÁC GIẢ, KHÔNG thêm bớt từ ngữ, KHÔNG diễn giải lại."
+    else:
+        subtitle_req = f"  + subtitle: 1-2 câu thuyết minh tiếng Việt CHUẨN XÁC THEO SỬ LIỆU, ĐĨNH ĐẠC, GIÀU CHI TIẾT LỊCH SỬ, có độ dài từ 28 đến 35 từ (được căn chỉnh vừa vặn đọc truyền cảm trong 8.5 đến 10.0 giây, nhằm đảm bảo thời lượng mỗi cảnh đạt đúng ~30 giây và tổng video đạt đúng {duration_sec} giây). TUYỆT ĐỐI KHÔNG VIẾT NGẮN CỤT LỦN dưới 25 từ vì sẽ làm video bị hụt thời lượng."
+
     prompt = f"""{prompt_instruction}
 
 YÊU CẦU ĐỊNH DẠNG:
-- Tổng cộng đúng {num_scenes} Cảnh (từ Scene 1 đến Scene {num_scenes}). Tổng thời lượng video mục tiêu: đúng {duration_sec} giây (~{target_scene_time:.0f} giây mỗi cảnh).
+- Tổng cộng đúng {num_scenes} Cảnh (từ Scene 1 đến Scene {num_scenes}). Tổng thời lượng video mục tiêu: đúng {actual_duration} giây (~{target_scene_time:.0f} giây mỗi cảnh).
 - Mỗi cảnh gồm đúng 3 khối chủ thể xuất hiện từ Trái qua Phải.
 - Mỗi khối chủ thể có:
   + label: Nhãn tên chủ thể ngắn gọn, đắt giá (2-4 từ tiếng Việt, ví dụ: 'Cố Đô Hoa Lư', 'Chiếu Dời Đô 1010', 'Rồng Vàng Thăng Long').
   + narrativeRole: Vai trò dẫn dắt câu chuyện (tiếng Việt).
-  + subtitle: 1-2 câu thuyết minh tiếng Việt CHUẨN XÁC THEO SỬ LIỆU, ĐĨNH ĐẠC, GIÀU CHI TIẾT LỊCH SỬ, có độ dài từ 28 đến 35 từ (được căn chỉnh vừa vặn đọc truyền cảm trong 8.5 đến 10.0 giây, nhằm đảm bảo thời lượng mỗi cảnh đạt đúng ~30 giây và tổng video đạt đúng {duration_sec} giây). TUYỆT ĐỐI KHÔNG VIẾT NGẮN CỤT LỦN dưới 25 từ vì sẽ làm video bị hụt thời lượng.
+{subtitle_req}
   + visual_desc: Mô tả hình vẽ phác thảo tối giản kiểu doodle/sketch bằng tiếng Anh cho AI tạo ảnh.
 - image_prompt: 1 prompt tổng thể tiếng Anh (16:9) theo chuẩn Notion Doodle để người dùng copy tạo ảnh:
   "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
@@ -1213,25 +1252,39 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                         print(f"[Gemini] ✅ Thành công với {ver}/{model} (attempt {attempt+1})")
                         parsed = json.loads(text_out)
 
-                        # Bộ lọc khử câu chào / đối thoại meta của AI nếu vô tình lọt vào kịch bản
-                        META_AI_PATTERNS = [
-                            r"tôi đã sẵn sàng",
-                            r"hãy gửi nội dung",
-                            r"sẵn sàng nhận",
-                            r"chào bạn",
-                            r"tôi là (?:trợ lý|ai|mô hình)",
-                            r"rất sẵn lòng"
-                        ]
-                        for sc in parsed.get("scenes", []):
-                            for el in sc.get("elements", []):
-                                sub = el.get("subtitle", "").strip()
-                                for pat in META_AI_PATTERNS:
-                                    if re.search(pat, sub, re.IGNORECASE):
-                                        print(f"[Sanitize] ⚠️ Phát hiện câu meta AI: '{sub}', đang tự động sửa thành nội dung lịch sử chuẩn.")
-                                        if any(k in raw_input.lower() for k in ["hoa lư", "lý thái tổ", "dời đô", "thăng long"]):
-                                            el["subtitle"] = "Thành Hoa Lư hiểm trở hợp phòng thủ thời loạn, nhưng đóng đô lâu dài khiến thế đại không bền, trăm họ hao tổn."
-                                            el["label"] = "Cố Đô Hoa Lư"
-                                        break
+                        # Trích xuất tiêu đề nếu kịch bản tự soạn có dòng tiêu đề mở đầu
+                        lines = [l.strip() for l in raw_input.split("\n") if l.strip()]
+                        if lines and (lines[0].startswith("**") or lines[0].startswith("#")):
+                            clean_t = lines[0].replace("**", "").replace("#", "").strip()
+                            if clean_t and len(clean_t) <= 80:
+                                parsed["title"] = clean_t
+
+                        if is_verbatim_mode:
+                            # Đảm bảo số cảnh không vượt quá num_scenes đã tính toán
+                            if len(parsed.get("scenes", [])) > num_scenes:
+                                print(f"[Verbatim] ✂️ Giới hạn số cảnh từ {len(parsed['scenes'])} về {num_scenes} cảnh để bám sát độ dài kịch bản gốc.")
+                                parsed["scenes"] = parsed["scenes"][:num_scenes]
+
+                        # Bộ lọc khử câu chào / đối thoại meta của AI nếu vô tình lọt vào kịch bản (chế độ sáng tác)
+                        if not is_verbatim_mode:
+                            META_AI_PATTERNS = [
+                                r"tôi đã sẵn sàng",
+                                r"hãy gửi nội dung",
+                                r"sẵn sàng nhận",
+                                r"chào bạn",
+                                r"tôi là (?:trợ lý|ai|mô hình)",
+                                r"rất sẵn lòng"
+                            ]
+                            for sc in parsed.get("scenes", []):
+                                for el in sc.get("elements", []):
+                                    sub = el.get("subtitle", "").strip()
+                                    for pat in META_AI_PATTERNS:
+                                        if re.search(pat, sub, re.IGNORECASE):
+                                            print(f"[Sanitize] ⚠️ Phát hiện câu meta AI: '{sub}', đang tự động sửa thành nội dung lịch sử chuẩn.")
+                                            if any(k in raw_input.lower() for k in ["hoa lư", "lý thái tổ", "dời đô", "thăng long"]):
+                                                el["subtitle"] = "Thành Hoa Lư hiểm trở hợp phòng thủ thời loạn, nhưng đóng đô lâu dài khiến thế đại không bền, trăm họ hao tổn."
+                                                el["label"] = "Cố Đô Hoa Lư"
+                                            break
 
                         if not parsed.get("thumbnail_prompt"):
                             clean_topic = re.sub(r'[\r\n\t"]+', ' ', raw_input[:100]).strip()

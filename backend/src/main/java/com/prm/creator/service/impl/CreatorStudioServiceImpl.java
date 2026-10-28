@@ -277,6 +277,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         toolPayload.put("duration_sec", request.getDurationSec() != null ? request.getDurationSec() : 60);
         toolPayload.put("gemini_api_key", geminiKey.trim());
         toolPayload.put("use_rag", true);
+        if (request.getKeepOriginalScript() != null) {
+            toolPayload.put("keep_original_script", request.getKeepOriginalScript());
+        }
 
         log.info("Calling Python Tool for storyboard generation (topic='{}', duration={}s)...",
                 request.getTopic(), request.getDurationSec());
