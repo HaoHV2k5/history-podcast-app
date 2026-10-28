@@ -2043,26 +2043,34 @@
     .metrics-pills-row {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
+      gap: 14px;
       margin-bottom: 24px;
     }
 
     .metric-box {
       background: var(--surface-card);
-      border: 1px solid var(--hairline);
+      border: 1px solid var(--hairline-strong);
       border-radius: var(--rounded-xl);
-      padding: 16px 18px;
-      box-shadow: var(--shadow-subtle);
+      padding: 16px 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
       display: flex;
       flex-direction: column;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .metric-box:hover {
+      transform: translateY(-2px);
+      border-color: var(--ink);
+      box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.08);
     }
 
     .metric-value {
-      font-family: var(--font-display);
-      font-size: 1.6rem;
-      font-weight: 400;
+      font-family: var(--font-mono);
+      font-size: 1.7rem;
+      font-weight: 700;
       color: var(--ink);
       line-height: 1.1;
+      letter-spacing: -0.02em;
     }
 
     .metric-name {
@@ -2071,61 +2079,69 @@
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: var(--muted);
-      margin-top: 4px;
+      margin-top: 6px;
     }
 
     .filter-actions-bar {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 22px;
       flex-wrap: wrap;
     }
 
     .search-input-pill {
       flex: 1;
       min-width: 260px;
-      height: 40px;
+      height: 42px;
       border-radius: var(--rounded-pill);
       padding: 0 18px;
       border: 1px solid var(--hairline-strong);
       background: var(--surface-card);
       color: var(--ink);
       font-family: var(--font-body);
-      font-size: 0.86rem;
+      font-size: 0.88rem;
       outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     .search-input-pill:focus {
       border-color: var(--ink);
+      box-shadow: 0 0 0 1px var(--ink);
     }
 
-    /* Video Item in Manager */
+    /* Video Item in Manager (High Taste & Solid Opacity) */
     .video-item-card {
       background: var(--surface-card);
-      border: 1px solid var(--hairline);
-      border-radius: var(--rounded-xl);
-      padding: 18px;
-      margin-bottom: 14px;
+      border: 1px solid var(--hairline-strong);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 16px;
       display: grid;
-      grid-template-columns: 240px 1fr;
-      gap: 20px;
-      box-shadow: var(--shadow-subtle);
-      transition: all 0.2s ease;
+      grid-template-columns: 260px 1fr;
+      gap: 22px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease;
+      opacity: 1 !important;
+      position: relative;
     }
 
     .video-item-card:hover {
-      box-shadow: var(--shadow-card);
-      border-color: var(--hairline-strong);
+      box-shadow: 0 10px 28px -8px rgba(0, 0, 0, 0.09);
+      border-color: var(--ink);
+      transform: translateY(-2px);
     }
 
     .video-item-thumb {
       aspect-ratio: 16 / 9;
-      border-radius: var(--rounded-md);
+      border-radius: 12px;
       overflow: hidden;
-      background: #000;
+      background: #0c0a09;
       border: 1px solid var(--hairline);
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .video-item-thumb video, .video-item-thumb img {
@@ -2135,77 +2151,321 @@
       display: block;
     }
 
-    .badge-status {
+    .video-thumb-duration {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: rgba(0, 0, 0, 0.75);
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 6px;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+    }
+
+    .video-thumb-id {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #e5e5e5;
+      font-family: var(--font-mono);
       font-size: 0.68rem;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 4px;
+      pointer-events: none;
+    }
+
+    /* Badges & Pills */
+    .badge-status {
+      font-size: 0.72rem;
       font-family: var(--font-body);
       font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 3px 10px;
+      letter-spacing: 0.03em;
+      padding: 4px 10px;
       border-radius: var(--rounded-pill);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      line-height: 1;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
     }
 
     .badge-status.published {
-      background: rgba(22, 163, 74, 0.1);
-      color: var(--semantic-success);
+      background: rgba(22, 163, 74, 0.12);
+      color: #16a34a;
+      border: 1px solid rgba(22, 163, 74, 0.25);
+    }
+    .badge-status.published .status-dot {
+      background: #16a34a;
+      box-shadow: 0 0 6px #16a34a;
+    }
+
+    .badge-status.pending {
+      background: rgba(217, 119, 6, 0.12);
+      color: #d97706;
+      border: 1px solid rgba(217, 119, 6, 0.25);
+    }
+    .badge-status.pending .status-dot {
+      background: #d97706;
+      animation: pulseDot 1.4s infinite;
     }
 
     .badge-status.hidden {
       background: var(--surface-strong);
       color: var(--muted);
+      border: 1px solid var(--hairline-strong);
     }
-
-    .badge-status.pending {
-      background: rgba(217, 119, 6, 0.1);
-      color: var(--semantic-warning);
+    .badge-status.hidden .status-dot {
+      background: var(--muted);
     }
 
     .badge-status.draft {
       background: var(--surface-strong);
       color: var(--body);
+      border: 1px solid var(--hairline);
+    }
+    .badge-status.draft .status-dot {
+      background: var(--body);
+    }
+
+    .badge-status.failed {
+      background: rgba(225, 29, 72, 0.12);
+      color: #e11d48;
+      border: 1px solid rgba(225, 29, 72, 0.25);
+    }
+    .badge-status.failed .status-dot {
+      background: #e11d48;
+    }
+
+    .badge-status.processing {
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+    .badge-status.processing .status-dot {
+      background: #2563eb;
+      animation: pulseDot 1s infinite;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.35; transform: scale(0.7); }
+    }
+
+    .badge-shield {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--rounded-pill);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      line-height: 1;
+    }
+
+    .badge-shield.shield-good {
+      background: rgba(22, 163, 74, 0.08);
+      color: #16a34a;
+      border: 1px solid rgba(22, 163, 74, 0.2);
+    }
+
+    .badge-shield.shield-warning {
+      background: rgba(217, 119, 6, 0.08);
+      color: #d97706;
+      border: 1px solid rgba(217, 119, 6, 0.2);
+    }
+
+    /* Video Details in Card */
+    .video-item-content {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-width: 0;
+    }
+
+    .video-item-title {
+      font-family: var(--font-body);
+      font-size: 1.08rem;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+      margin: 0;
+    }
+
+    .video-item-desc {
+      font-size: 0.86rem;
+      color: var(--body);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin: 8px 0 0 0;
+      line-height: 1.5;
+    }
+
+    .video-item-stats {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      align-items: center;
+    }
+
+    .video-item-stats span {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .video-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      align-items: center;
     }
 
     /* ==========================================================================
-       MODALS & DIALOGS (ELEVENLABS MINIMALIST)
+       MODALS & DIALOGS (ELEVATED ELEVENLABS & GSAP DESIGN)
        ========================================================================== */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(12, 10, 9, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       z-index: 1000;
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 24px;
+      opacity: 0;
+    }
+
+    [data-theme="dark"] .modal-overlay {
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
 
     .modal-dialog {
       background: var(--surface-card);
-      border: 1px solid var(--hairline);
-      border-radius: var(--rounded-xxl);
+      border: 1px solid var(--hairline-strong);
+      border-radius: 22px;
       width: 100%;
       max-width: 580px;
-      box-shadow: var(--shadow-modal);
+      box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.06);
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      position: relative;
+      transform-origin: center center;
+    }
+
+    [data-theme="dark"] .modal-dialog {
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 30px 80px -15px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
     }
 
     .modal-header-bar {
       padding: 20px 24px;
-      border-bottom: 1px solid var(--hairline-soft);
+      border-bottom: 1px solid var(--hairline);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: var(--surface-card);
+      gap: 16px;
+    }
+
+    .modal-title-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .modal-icon-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .modal-icon-badge.warning {
+      background: rgba(217, 119, 6, 0.12);
+      color: var(--semantic-warning);
+      border: 1px solid rgba(217, 119, 6, 0.25);
+    }
+
+    .modal-icon-badge.info {
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .modal-icon-badge.success {
+      background: rgba(22, 163, 74, 0.12);
+      color: var(--semantic-success);
+      border: 1px solid rgba(22, 163, 74, 0.25);
+    }
+
+    .modal-icon-badge.neutral {
+      background: var(--canvas-soft);
+      color: var(--ink);
+      border: 1px solid var(--hairline-strong);
     }
 
     .modal-header-bar h3 {
-      font-family: var(--font-display);
-      font-size: 1.25rem;
-      font-weight: 400;
+      font-family: var(--font-body);
+      font-size: 1.15rem;
+      font-weight: 600;
       color: var(--ink);
+      letter-spacing: -0.015em;
+      margin: 0;
+    }
+
+    .modal-subtitle {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin: 2px 0 0 0;
+    }
+
+    .modal-close-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--hairline);
+      background: var(--canvas-soft);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      flex-shrink: 0;
+    }
+
+    .modal-close-btn:hover {
+      background: var(--surface-strong);
+      color: var(--ink);
+      border-color: var(--hairline-strong);
+      transform: scale(1.08) rotate(90deg);
     }
 
     .modal-body-content {
@@ -2213,16 +2473,17 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      max-height: 70vh;
+      max-height: 72vh;
       overflow-y: auto;
     }
 
     .modal-footer-bar {
       padding: 16px 24px;
-      border-top: 1px solid var(--hairline-soft);
+      border-top: 1px solid var(--hairline);
       background: var(--canvas-soft);
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       gap: 10px;
     }
 
@@ -2244,22 +2505,61 @@
       z-index: 2000;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
       pointer-events: none;
     }
 
     .toast-bubble {
       pointer-events: auto;
-      background: var(--ink);
-      color: var(--on-primary);
-      padding: 10px 18px;
+      background: rgba(12, 10, 9, 0.94);
+      color: #ffffff;
+      padding: 12px 20px;
       border-radius: var(--rounded-pill);
-      font-size: 0.82rem;
+      font-size: 0.85rem;
       font-weight: 500;
       display: flex;
       align-items: center;
       gap: 10px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .toast-icon-circle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .toast-icon-circle.success { background: #16a34a; color: #fff; }
+    .toast-icon-circle.error { background: #dc2626; color: #fff; }
+    .toast-icon-circle.info { background: #3b82f6; color: #fff; }
+
+    /* Button Loading Shimmer */
+    .btn-action-loading {
+      position: relative;
+      overflow: hidden;
+      cursor: wait !important;
+    }
+
+    .btn-action-loading::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+      transform: translateX(-100%);
+      animation: btnShimmer 1.4s infinite;
+    }
+
+    @keyframes btnShimmer {
+      100% { transform: translateX(100%); }
     }
 
     /* Responsive */
@@ -3015,10 +3315,16 @@
   <div class="modal-overlay" id="modalVerifyWarning">
     <div class="modal-dialog">
       <div class="modal-header-bar">
-        <h3 style="color:var(--semantic-warning); display:flex; align-items:center; gap:8px;">
-          <span>Xác Nhận Đối Chiếu Sử Liệu</span>
-        </h3>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalVerifyWarning')">✕</button>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge warning">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <h3>Xác Nhận Đối Chiếu Sử Liệu</h3>
+            <p class="modal-subtitle">Hệ thống RAG phát hiện điểm sai lệch so với chính sử</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalVerifyWarning')" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-body-content">
         <p style="font-size:0.88rem; color:var(--body);">
@@ -3034,10 +3340,10 @@
         </div>
       </div>
       <div class="modal-footer-bar">
-        <button type="button" class="btn btn-outline" onclick="continueRenderWithCreatorScript()">
+        <button type="button" class="btn btn-outline" onclick="animateButtonAction(this, () => continueRenderWithCreatorScript())">
           <span>Bảo Lưu Kịch Bản</span>
         </button>
-        <button type="button" class="btn btn-primary" onclick="applyAiCorrectionAndRender()">
+        <button type="button" class="btn btn-primary" onclick="animateButtonAction(this, () => applyAiCorrectionAndRender())">
           <span>Áp Dụng Gợi Ý &amp; Tiếp Tục</span>
         </button>
       </div>
@@ -3050,11 +3356,16 @@
   <div class="modal-overlay" id="modalMissingImages">
     <div class="modal-dialog" style="max-width:520px;">
       <div class="modal-header-bar">
-        <h3 style="color:var(--ink); display:flex; align-items:center; gap:8px;">
-          <span style="font-size:1.2rem;">🖼️</span>
-          <span>Chưa Nạp Đủ Ảnh Phân Cảnh</span>
-        </h3>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalMissingImages')">✕</button>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge info">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          </div>
+          <div>
+            <h3>Chưa Nạp Đủ Ảnh Phân Cảnh</h3>
+            <p class="modal-subtitle">Mỗi phân cảnh cần một hình ảnh minh họa bảng trắng</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalMissingImages')" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-body-content">
         <p style="font-size:0.88rem; color:var(--body); line-height:1.5;">
@@ -3071,10 +3382,10 @@
         </div>
       </div>
       <div class="modal-footer-bar">
-        <button type="button" class="btn btn-outline" onclick="goToUploadMissingImages()">
+        <button type="button" class="btn btn-outline" onclick="animateButtonAction(this, () => goToUploadMissingImages())">
           <span>Tự tải ảnh tiếp</span>
         </button>
-        <button type="button" class="btn btn-primary" onclick="autoFillSampleImagesAndRender()">
+        <button type="button" class="btn btn-primary" onclick="animateButtonAction(this, () => autoFillSampleImagesAndRender())">
           <span>⚡ Dùng ảnh mẫu &amp; Bắt đầu render</span>
         </button>
       </div>
@@ -3087,13 +3398,16 @@
   <div class="modal-overlay" id="modalSmartPatch">
     <div class="modal-dialog" style="max-width:680px;">
       <div class="modal-header-bar">
-        <div>
-          <h3>Vá Kịch Bản Podcast</h3>
-          <p style="font-size:0.75rem; color:var(--muted); margin-top:2px;">
-            Chỉ thu âm lại câu được sửa và ghép video tức thì.
-          </p>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge success">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <div>
+            <h3>Vá Kịch Bản Podcast Siêu Tốc</h3>
+            <p class="modal-subtitle">Chỉ thu âm lại câu được sửa và ghép video tức thì</p>
+          </div>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalSmartPatch')">✕</button>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalSmartPatch')" aria-label="Đóng">✕</button>
       </div>
 
       <div class="modal-body-content">
@@ -3122,8 +3436,16 @@
   <div class="modal-overlay" id="modalChangeThumbnail">
     <div class="modal-dialog" style="max-width:500px;">
       <div class="modal-header-bar">
-        <h3>Đổi Ảnh Thumbnail</h3>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalChangeThumbnail')">✕</button>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge neutral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div>
+            <h3>Đổi Ảnh Thumbnail Video</h3>
+            <p class="modal-subtitle">Tải ảnh tỷ lệ 16:9 làm ảnh bìa đại diện cho video</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalChangeThumbnail')" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-body-content">
         <p style="font-size:0.85rem; color:var(--body);">
@@ -3154,8 +3476,16 @@
   <div class="modal-overlay" id="modalComments">
     <div class="modal-dialog" style="max-width:580px;">
       <div class="modal-header-bar">
-        <h3 id="commentsModalTitle">Bình Luận Của Khán Giả</h3>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalComments')">✕</button>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge neutral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div>
+            <h3 id="commentsModalTitle">Bình Luận Của Khán GiẢ</h3>
+            <p class="modal-subtitle">Ý kiến đóng góp từ người xem trên nền tảng</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalComments')" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-body-content">
         <div id="commentsListBody" style="display:flex; flex-direction:column; gap:12px; max-height:420px; overflow-y:auto;"></div>
@@ -3172,8 +3502,16 @@
   <div class="modal-overlay" id="modalSettings">
     <div class="modal-dialog" style="max-width:580px;">
       <div class="modal-header-bar">
-        <h3>Cấu Hình API Key &amp; Giọng Đọc</h3>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalSettings')">✕</button>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge neutral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          <div>
+            <h3>Cài Đặt Hệ Thống &amp; API Keys</h3>
+            <p class="modal-subtitle">Tùy chỉnh API Gemini, ElevenLabs và TTS mặc định</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalSettings')" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-body-content">
         <div>
@@ -3218,8 +3556,16 @@
   <div class="modal-overlay" id="modalAuth">
     <div class="modal-dialog" style="max-width:440px;">
       <div class="modal-header-bar">
-        <h3>Đăng Nhập Creator</h3>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal('modalAuth')">✕</button>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge neutral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div>
+            <h3>Đăng Nhập Creator</h3>
+            <p class="modal-subtitle">Quản lý kho video và sáng tạo nội dung lịch sử</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalAuth')" aria-label="Đóng">✕</button>
       </div>
       <div class="modal-body-content">
         <div style="background:var(--canvas-soft); border:1px solid var(--hairline); padding:10px 14px; border-radius:var(--rounded-md); font-size:0.8rem; color:var(--body); display:flex; justify-content:space-between; align-items:center;">
@@ -3257,16 +3603,16 @@
   <div class="modal-overlay" id="modalVoiceLibrary">
     <div class="modal-dialog" style="max-width:920px; width:95vw;">
       <div class="modal-header-bar">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:36px; height:36px; border-radius:var(--rounded-pill); background:var(--canvas-soft); display:flex; align-items:center; justify-content:center; color:var(--ink); border:1px solid var(--hairline-strong);">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        <div class="modal-title-group">
+          <div class="modal-icon-badge neutral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
           </div>
           <div>
             <h3 style="margin:0; font-size:1.15rem; color:var(--ink);">Thư Viện Giọng Đọc AI</h3>
-            <p style="margin:2px 0 0; font-size:0.78rem; color:var(--muted);">19 giọng đọc tiếng Việt: 17 giọng điện ảnh ElevenLabs và 2 giọng chuẩn Edge-TTS</p>
+            <p class="modal-subtitle">19 giọng đọc tiếng Việt: 17 giọng điện ảnh ElevenLabs và 2 giọng chuẩn Edge-TTS</p>
           </div>
         </div>
-        <button type="button" class="btn btn-ghost btn-sm" onclick="closeVoiceLibraryModal()">✕</button>
+        <button type="button" class="modal-close-btn" onclick="closeVoiceLibraryModal()" aria-label="Đóng">✕</button>
       </div>
 
       <!-- Modal Navigation Tabs -->
@@ -3462,7 +3808,7 @@
       }
     }
 
-    // --- TOAST NOTIFICATIONS (GSAP ANIMATED) ---
+    // --- TOAST NOTIFICATIONS (GSAP ANIMATED WITH HIGH TASTE) ---
     function showToast(msg, type = 'info') {
       const container = $('toastContainer');
       if (!container) return;
@@ -3470,28 +3816,92 @@
       const toast = document.createElement('div');
       toast.className = 'toast-bubble';
       const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '✦';
-      toast.innerHTML = `<span style="font-weight:700;">${icon}</span> <span>${escapeHtml(msg)}</span>`;
+      const iconClass = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+      toast.innerHTML = `
+        <span class="toast-icon-circle ${iconClass}">${icon}</span>
+        <span>${escapeHtml(msg)}</span>
+      `;
       container.appendChild(toast);
 
       if (window.gsap) {
-        gsap.fromTo(toast, { opacity: 0, y: 15, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.25, ease: 'power2.out' });
+        gsap.fromTo(toast, 
+          { opacity: 0, y: 24, scale: 0.9 }, 
+          { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.6)', clearProps: 'transform' }
+        );
         setTimeout(() => {
-          gsap.to(toast, { opacity: 0, y: -10, duration: 0.2, ease: 'power2.in', onComplete: () => toast.remove() });
-        }, 3200);
+          gsap.to(toast, { 
+            opacity: 0, 
+            scale: 0.9, 
+            y: -12, 
+            duration: 0.25, 
+            ease: 'power2.in', 
+            onComplete: () => toast.remove() 
+          });
+        }, 3400);
       } else {
-        setTimeout(() => toast.remove(), 3200);
+        setTimeout(() => toast.remove(), 3400);
       }
     }
 
-    // --- MODAL HELPERS (GSAP ANIMATED) ---
+    // --- BUTTON MICRO-INTERACTION (GSAP TACTILE BOUNCE) ---
+    function animateButtonAction(btn, callback) {
+      if (!btn || !window.gsap) {
+        if (callback) callback();
+        return;
+      }
+      gsap.timeline({
+        onComplete: () => {
+          if (callback) callback();
+        }
+      })
+      .to(btn, { scale: 0.92, duration: 0.08, ease: 'power2.in' })
+      .to(btn, { scale: 1.05, duration: 0.14, ease: 'back.out(2.2)' })
+      .to(btn, { scale: 1.0, duration: 0.1, ease: 'power2.out', clearProps: 'transform' });
+    }
+
+    // --- MODAL HELPERS (GSAP ANIMATED WITH HIGH TASTE) ---
     function openModal(modalId) {
       const modal = $(modalId);
       if (!modal) return;
-      modal.style.display = 'flex';
       const dialog = modal.querySelector('.modal-dialog');
-      if (window.gsap && dialog) {
-        gsap.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.2 });
-        gsap.fromTo(dialog, { scale: 0.94, y: 15 }, { scale: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+
+      if (window.gsap) {
+        gsap.killTweensOf([modal, dialog]);
+        modal.style.display = 'flex';
+        
+        // Backdrop overlay fade & blur
+        gsap.fromTo(modal, 
+          { opacity: 0 }, 
+          { opacity: 1, duration: 0.25, ease: 'power2.out' }
+        );
+
+        // Dialog spring bounce & 3D entrance
+        if (dialog) {
+          gsap.fromTo(dialog, 
+            { scale: 0.88, y: 28, opacity: 0, rotateX: 5 }, 
+            { 
+              scale: 1, 
+              y: 0, 
+              opacity: 1, 
+              rotateX: 0, 
+              duration: 0.4, 
+              ease: 'back.out(1.5)', 
+              clearProps: 'transform' 
+            }
+          );
+
+          // Subtle stagger for modal interior elements
+          const animElements = dialog.querySelectorAll('.modal-header-bar, .modal-body-content > *, .modal-footer-bar');
+          if (animElements.length > 0) {
+            gsap.fromTo(animElements, 
+              { opacity: 0, y: 8 }, 
+              { opacity: 1, y: 0, stagger: 0.03, duration: 0.3, ease: 'power2.out', delay: 0.08, clearProps: 'opacity,transform' }
+            );
+          }
+        }
+      } else {
+        modal.style.display = 'flex';
+        modal.style.opacity = '1';
       }
     }
 
@@ -3499,13 +3909,47 @@
       const modal = $(modalId);
       if (!modal) return;
       const dialog = modal.querySelector('.modal-dialog');
+
       if (window.gsap && dialog) {
-        gsap.to(dialog, { scale: 0.96, y: 10, duration: 0.15, ease: 'power2.in' });
-        gsap.to(modal, { opacity: 0, duration: 0.18, onComplete: () => { modal.style.display = 'none'; } });
+        gsap.killTweensOf([modal, dialog]);
+
+        gsap.to(dialog, { 
+          scale: 0.92, 
+          y: 14, 
+          opacity: 0, 
+          duration: 0.18, 
+          ease: 'power2.in' 
+        });
+
+        gsap.to(modal, { 
+          opacity: 0, 
+          duration: 0.22, 
+          ease: 'power2.in', 
+          onComplete: () => {
+            modal.style.display = 'none';
+            gsap.set([modal, dialog], { clearProps: 'all' });
+          } 
+        });
       } else {
         modal.style.display = 'none';
       }
     }
+
+    // Backdrop click & Escape key dismiss
+    document.addEventListener('click', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
+        closeModal(e.target.id);
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay').forEach(m => {
+          if (m.style.display === 'flex' || window.getComputedStyle(m).display === 'flex') {
+            closeModal(m.id);
+          }
+        });
+      }
+    });
 
     // --- AUTHENTICATION HELPERS ---
     function getAuthToken() {
@@ -3650,7 +4094,10 @@
         videosSec.style.display = 'none';
         studioBtn.className = 'nav-pill-btn active';
         videosBtn.className = 'nav-pill-btn';
-        if (window.gsap) gsap.fromTo(studioSec, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' });
+        if (window.gsap) {
+          gsap.killTweensOf([studioSec, videosSec]);
+          gsap.fromTo(studioSec, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out', clearProps: 'opacity,transform' });
+        }
       } else {
         if (!isLoggedIn()) {
           openLoginModal();
@@ -3661,7 +4108,10 @@
         videosSec.style.display = 'block';
         videosBtn.className = 'nav-pill-btn active';
         studioBtn.className = 'nav-pill-btn';
-        if (window.gsap) gsap.fromTo(videosSec, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out' });
+        if (window.gsap) {
+          gsap.killTweensOf([studioSec, videosSec]);
+          gsap.fromTo(videosSec, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.28, ease: 'power2.out', clearProps: 'opacity,transform' });
+        }
         loadCreatorVideos();
       }
     }
@@ -3809,6 +4259,10 @@
 
       const btn = $('btnGenerateStoryboard');
       const oldHtml = btn.innerHTML;
+      if (btn) {
+        animateButtonAction(btn);
+        btn.classList.add('btn-action-loading');
+      }
       btn.disabled = true;
       btn.innerHTML = `
         <svg class="spin-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite; margin-right:6px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -3865,8 +4319,11 @@
         stopStreamerProgress();
         showToast('Lỗi: ' + err.message, 'error');
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = oldHtml;
+        if (btn) {
+          btn.classList.remove('btn-action-loading');
+          btn.disabled = false;
+          btn.innerHTML = oldHtml;
+        }
       }
     }
 
@@ -4381,6 +4838,9 @@
 
     // --- STAGE 3: UNIFIED RENDER FLOW & SOFT VERIFICATION ---
     async function startUnifiedRenderFlow(mode) {
+      const triggerBtn = $(mode === 'whiteboard' ? 'btnRenderWhiteboard' : 'btnRenderPodcast');
+      if (triggerBtn) animateButtonAction(triggerBtn);
+
       if (!state.currentStoryboard) {
         showToast('Vui lòng tạo kịch bản trước!', 'error');
         return;
@@ -4548,6 +5008,7 @@
       const btn = $(btnId);
       if (btn) {
         btn.disabled = true;
+        btn.classList.add('btn-action-loading');
         btn.innerHTML = `
           <svg class="spin-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:spin 1s linear infinite; margin-right:6px;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
           <span>Đang gửi tác vụ render...</span>
@@ -4723,10 +5184,18 @@
           stopJobTimer();
           logToTerminal('renderTerminalBox', `✕ Quá trình render thất bại: ${job.error || 'Lỗi không xác định'}`, 'log-err');
           showToast('Render thất bại: ' + (job.error || 'Vui lòng thử lại'), 'error');
-          $('btnRenderWhiteboard').disabled = false;
-          $('btnRenderWhiteboard').innerHTML = '<span>Bắt Đầu Tạo Video</span>';
-          $('btnRenderPodcast').disabled = false;
-          $('btnRenderPodcast').innerHTML = '<span>Bắt Đầu Tạo Video Podcast</span>';
+          const wbFailBtn = $('btnRenderWhiteboard');
+          const podFailBtn = $('btnRenderPodcast');
+          if (wbFailBtn) {
+            wbFailBtn.disabled = false;
+            wbFailBtn.classList.remove('btn-action-loading');
+            wbFailBtn.innerHTML = '<span>Bắt Đầu Tạo Video</span>';
+          }
+          if (podFailBtn) {
+            podFailBtn.disabled = false;
+            podFailBtn.classList.remove('btn-action-loading');
+            podFailBtn.innerHTML = '<span>Bắt Đầu Tạo Video Podcast</span>';
+          }
         }
       } catch (err) {
         console.warn('Lỗi polling status:', err);
@@ -4736,8 +5205,18 @@
     // --- STAGE 4: HANDLE RENDER SUCCESS & RESULT CARD ---
     function handleRenderSuccess(job) {
       updateStepperUI(4);
-      $('btnRenderWhiteboard').disabled = false;
-      $('btnRenderPodcast').disabled = false;
+      const wbSuccessBtn = $('btnRenderWhiteboard');
+      const podSuccessBtn = $('btnRenderPodcast');
+      if (wbSuccessBtn) {
+        wbSuccessBtn.disabled = false;
+        wbSuccessBtn.classList.remove('btn-action-loading');
+        wbSuccessBtn.innerHTML = '<span>Bắt Đầu Tạo Video</span>';
+      }
+      if (podSuccessBtn) {
+        podSuccessBtn.disabled = false;
+        podSuccessBtn.classList.remove('btn-action-loading');
+        podSuccessBtn.innerHTML = '<span>Bắt Đầu Tạo Video Podcast</span>';
+      }
 
       const card = $('renderResultCard');
       card.style.display = 'block';
@@ -5058,69 +5537,117 @@
         container.innerHTML = state.cachedVideos.map(v => {
           const isPub = v.status === 'PUBLISHED';
           const isHid = v.status === 'HIDDEN';
-          const statusClass = isPub ? 'published' : isHid ? 'hidden' : (v.status === 'PENDING_REVIEW' ? 'pending' : 'draft');
-          const statusLabel = isPub ? 'CÔNG KHAI' : isHid ? 'ĐANG ẨN' : (v.status === 'PENDING_REVIEW' ? 'CHỜ DUYỆT' : escapeHtml(v.status));
+          const isPending = v.status === 'PENDING_REVIEW';
+          const isFailed = v.status === 'FAILED';
+          const isProcessing = v.status === 'PROCESSING';
+
+          const statusClass = isPub ? 'published' : isHid ? 'hidden' : (isPending ? 'pending' : (isFailed ? 'failed' : (isProcessing ? 'processing' : 'draft')));
+          const statusLabel = isPub ? 'Công Khai' : isHid ? 'Đang Ẩn' : (isPending ? 'Chờ Duyệt' : (isFailed ? 'Thất Bại' : (isProcessing ? 'Đang Xử Lý' : escapeHtml(v.status))));
 
           const videoUrl = v.fileUrl || '';
           const thumbUrl = v.thumbnailUrl || '';
-          const shieldBadge = v.aiShieldScore != null ? `<span style="font-size:0.75rem; color:var(--ink); font-weight:600;">Shield: ${v.aiShieldScore}/100</span>` : '';
+          const durationFormatted = v.durationSeconds ? formatTime(v.durationSeconds) : '';
+
+          let shieldBadge = '';
+          if (v.aiShieldScore != null) {
+            const isGood = v.aiShieldScore >= 80;
+            const shieldClass = isGood ? 'shield-good' : 'shield-warning';
+            shieldBadge = `
+              <span class="badge-shield ${shieldClass}">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                <span>Shield: ${v.aiShieldScore}/100</span>
+              </span>
+            `;
+          }
 
           return `
             <div class="video-item-card">
               <div class="video-item-thumb">
+                <span class="video-thumb-id">#${v.contentId}</span>
                 ${videoUrl ? `
                   <video src="${videoUrl}" controls playsinline preload="metadata" poster="${thumbUrl}"></video>
-                ` : (thumbUrl ? `<img src="${thumbUrl}" alt="Thumbnail">` : '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:0.8rem;">Chưa có video</div>')}
+                ` : (thumbUrl ? `<img src="${thumbUrl}" alt="Thumbnail">` : `
+                  <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--muted); font-size:0.75rem;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                    <span>Chưa có video</span>
+                  </div>
+                `)}
+                ${durationFormatted ? `<span class="video-thumb-duration">${durationFormatted}</span>` : ''}
               </div>
 
-              <div>
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-                  <h3 style="font-family:var(--font-body); font-size:1.05rem; font-weight:600; color:var(--ink);">${escapeHtml(v.title || 'Chưa đặt tiêu đề')}</h3>
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    ${shieldBadge}
-                    <span class="badge-status ${statusClass}">${statusLabel}</span>
+              <div class="video-item-content">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+                    <h3 class="video-item-title">${escapeHtml(v.title || 'Chưa đặt tiêu đề')}</h3>
+                    <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
+                      ${shieldBadge}
+                      <span class="badge-status ${statusClass}">
+                        <span class="status-dot"></span>
+                        <span>${statusLabel}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <p class="video-item-desc">
+                    ${escapeHtml(v.description || 'Không có mô tả kịch bản.')}
+                  </p>
+
+                  <div class="video-item-stats">
+                    <span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                      <b>${v.likeCount || 0}</b> thích
+                    </span>
+                    <span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      <b>${v.commentCount || 0}</b> bình luận
+                    </span>
+                    ${durationFormatted ? `
+                      <span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        ${durationFormatted}
+                      </span>
+                    ` : ''}
+                    ${v.isExclusive ? '<span style="color:var(--ink); font-weight:600; background:var(--canvas-soft); padding:2px 8px; border-radius:10px; border:1px solid var(--hairline-strong);">Độc Quyền</span>' : ''}
                   </div>
                 </div>
 
-                <p style="font-size:0.84rem; color:var(--body); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin-top:6px;">
-                  ${escapeHtml(v.description || 'Không có mô tả kịch bản.')}
-                </p>
-
-                <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; font-size:0.78rem; color:var(--muted);">
-                  <span><b>${v.likeCount || 0}</b> Thích</span>
-                  <span><b>${v.dislikeCount || 0}</b> Không thích</span>
-                  <span><b>${v.commentCount || 0}</b> Bình luận</span>
-                  <span>${v.durationSeconds ? formatTime(v.durationSeconds) : 'N/A'}</span>
-                  ${v.isExclusive ? '<span style="color:var(--ink); font-weight:600;">Độc Quyền</span>' : ''}
-                  <span style="font-family:var(--font-mono);">#${v.contentId}</span>
-                </div>
-
-                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;">
-                  <button type="button" class="btn btn-outline btn-sm" onclick="openChangeThumbnailModal(${v.contentId})">
-                    Đổi Thumbnail
+                <div class="video-card-actions">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => openChangeThumbnailModal(${v.contentId}))">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span>Đổi Thumbnail</span>
                   </button>
 
-                  <button type="button" class="btn btn-outline btn-sm" onclick="toggleVideoVisibility(${v.contentId}, ${isPub})">
-                    ${isPub ? 'Ẩn Video' : 'Công Khai'}
+                  <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => toggleVideoVisibility(${v.contentId}, ${isPub}))">
+                    ${isPub ? `
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                      <span>Ẩn Video</span>
+                    ` : `
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      <span>Công Khai</span>
+                    `}
                   </button>
 
-                  <button type="button" class="btn btn-outline btn-sm" onclick="openCommentsModal(${v.contentId})">
-                    Bình luận (${v.commentCount || 0})
+                  <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => openCommentsModal(${v.contentId}))">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    <span>Bình luận (${v.commentCount || 0})</span>
                   </button>
 
-                  <button type="button" class="btn btn-outline btn-sm" onclick="openSmartPatchModal(${v.contentId})">
-                    Vá Câu
+                  <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => openSmartPatchModal(${v.contentId}))">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <span>Vá Câu</span>
                   </button>
 
                   ${v.status !== 'PUBLISHED' && v.status !== 'PENDING_REVIEW' ? `
-                    <button type="button" class="btn btn-primary btn-sm" onclick="submitVideoForPublish(${v.contentId})">
-                      Gửi Duyệt
+                    <button type="button" class="btn btn-primary btn-sm" onclick="animateButtonAction(this, () => submitVideoForPublish(${v.contentId}))">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                      <span>Gửi Duyệt</span>
                     </button>
                   ` : ''}
 
                   ${videoUrl ? `
                     <a href="${videoUrl}" target="_blank" class="btn btn-ghost btn-sm">
-                      Link CDN
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                      <span>Link CDN</span>
                     </a>
                   ` : ''}
                 </div>
@@ -5130,7 +5657,18 @@
         }).join('');
 
         if (window.gsap) {
-          gsap.from('.video-item-card', { opacity: 0, y: 12, stagger: 0.05, duration: 0.28, ease: 'power2.out' });
+          gsap.killTweensOf('.video-item-card');
+          gsap.fromTo('.video-item-card', 
+            { opacity: 0, y: 18 }, 
+            { 
+              opacity: 1, 
+              y: 0, 
+              stagger: 0.05, 
+              duration: 0.35, 
+              ease: 'power2.out', 
+              clearProps: 'opacity,transform' 
+            }
+          );
         }
       } catch (err) {
         container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--semantic-error);">✕ ${err.message}</div>`;
