@@ -993,24 +993,28 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
 
 
 def check_history_scope_llm(topic: str, api_key: str) -> dict:
-    """Xác định nhanh bằng AI xem đề tài có thuộc phạm vi triều đại nhà Lý và nhà Trần hay không."""
-    prompt = f"""Bạn là Người Gác Cổng Sử Học chuyên trách THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) trong lịch sử Việt Nam.
-Nhiệm vụ: Xác định xem đề tài sau có thuộc phạm vi lịch sử triều đại nhà Lý hoặc nhà Trần hay không?
+    """Xác định nhanh bằng AI xem đề tài và TOÀN BỘ NỘI DUNG có thuần khiết thuộc triều đại nhà Lý và nhà Trần hay không."""
+    prompt = f"""Bạn là Chuyên Gia Kiểm Định Sử Học Tối Cao chuyên trách THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) của Đại Việt.
+Nhiệm vụ: Thẩm định TOÀN BỘ nội dung/kịch bản dưới đây xem có hợp lệ và thuần khiết theo chính sử Lý - Trần hay không.
 
-Đề tài: "{topic}"
+Nội dung thẩm định:
+\"\"\"
+{topic}
+\"\"\"
 
-Quy tắc phân định NGHIÊM NGẶT:
+QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRONOLOGY AUDIT):
 1. ĐƯỢC CHẤP NHẬN (in_scope = true):
-   - Đề tài thuộc triều đại nhà Lý (1009 - 1225): Vua Lý Thái Tổ (Lý Công Uẩn), Chiếu dời đô 1010, định đô Thăng Long, Lý Thái Tông, Lý Thánh Tông, Lý Nhân Tông, Lý Chiêu Hoàng; danh nhân Lý Thường Kiệt, Tô Hiến Thành; sự kiện phạt Tống, phòng tuyến sông Như Nguyệt, chùa Một Cột, văn miếu Quốc Tử Giám...
-   - Đề tài thuộc triều đại nhà Trần (1225 - 1400): Vua Trần Thái Tông, Trần Thánh Tông, Trần Nhân Tông, Trần Anh Tông...; tướng lĩnh Trần Hưng Đạo (Trần Quốc Tuấn), Trần Thủ Độ, Trần Quang Khải, Trần Nhật Duật, Trần Khánh Dư, Yết Kiêu, Dã Tượng, Phạm Ngũ Lão, Chu Văn An, Tuệ Tĩnh; 3 lần kháng chiến chống quân Nguyên Mông (1258, 1285, 1288), Đông Bộ Đầu, Chương Dương, Hàm Tử, Vạn Kiếp, Bạch Đằng 1288, Hịch tướng sĩ, Hội nghị Bình Than, Hội nghị Diên Hồng, Thiền phái Trúc Lâm Yên Tử...
-   - Đề tài giai đoạn chuyển giao tiền đề (như bối cảnh Hoa Lư thời Đinh - Tiền Lê dẫn tới việc Lý Thái Tổ dời đô).
+   - TOÀN BỘ nhân vật, sự kiện, địa danh và niên đại trong văn bản đều thuần khiết thuộc triều đại Nhà Lý (1009 - 1225) hoặc Nhà Trần (1225 - 1400) của Đại Việt.
+   - Không chứa bất kỳ nhân vật ngoại lai, sai niên đại hoặc chi tiết râu ông nọ cắm cằm bà kia nào.
 
-2. BỊ TỪ CHỐI (in_scope = false):
-   - BẤT KỲ thời kỳ nào khác ngoài Lý - Trần (ví dụ: thời Hồng Bàng, Hai Bà Trưng, Ngô Quyền, Đinh Bộ Lĩnh thời độc lập, nhà Hồ, Lê Sơ, Lê Lợi, Nguyễn Trãi, Lê Thánh Tông, thời Trịnh - Nguyễn, phong trào Tây Sơn, vua Quang Trung, triều Nguyễn, thời Pháp thuộc, thời hiện đại).
-   - BẤT KỲ đề tài nào ngoài lịch sử Việt Nam (quốc tế, công nghệ, thể thao, kinh tế hiện đại, thời sự 2024-2025).
+2. BẮT BUỘC TỪ CHỐI (in_scope = false):
+   - Chứa BẤT KỲ nhân vật/địa danh ngoài lịch sử Việt Nam hoặc hư cấu (ví dụ nhân vật thời Tam Quốc Trung Quốc: Trương Liêu, Lưu Bị, Quan Vũ, Tào Tháo, Tôn Quyền, Gia Cát Lượng, Lữ Bố...; nhân vật kiếm hiệp, tiểu thuyết...).
+   - Chứa nhân vật hoặc sự kiện thuộc CÁC THỜI KỲ KHÁC của lịch sử Việt Nam bị gán ghép sai vào thời Lý - Trần (ví dụ: Đinh Bộ Lĩnh, Ngô Quyền, Hai Bà Trưng, Lê Lợi, Nguyễn Trãi, Quang Trung, thời Nguyễn...).
+   - Râu ông nọ cắm cằm bà kia hoặc mâu thuẫn sử học nghiêm trọng (ví dụ: Lý Thường Kiệt đánh giặc Mông - Nguyên thời Trần, Lý Thái Tổ đánh trận Bạch Đằng 1288, v.v.).
+   - QUY TẮC BẮT BUỘC: Dù bài viết có 90-99% nội dung đúng về nhà Lý hoặc nhà Trần, nhưng NẾU CÓ DÙ CHỈ MỘT CÂU/CỤM TỪ cố ý hoặc vô tình chèn nhân vật sai trái/ngoại lai/lạc thời kỳ (như 'Trương Liêu', 'Lưu Bị', 'Đinh Bộ Lĩnh') -> BẮT BUỘC PHẢI TỪ CHỐI (in_scope = false) và vạch rõ tên các nhân vật sai phạm trong lý do!
 
 Trả về JSON thuần túy (không bọc trong markdown):
-{{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng"}}"""
+{{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng, chỉ đích danh nhân vật hoặc chi tiết sai phạm nếu có"}}"""
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -1035,12 +1039,13 @@ Trả về JSON thuần túy (không bọc trong markdown):
     except Exception as e:
         print(f"⚠️ Scope check error: {e}")
         other_dynasties_keywords = [
-            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền",
+            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền", "đinh bộ lĩnh",
             "lê lợi", "nguyễn trãi", "lê sơ", "lê thánh tông", "quang trung", "tây sơn",
-            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025"
+            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025",
+            "trương liêu", "lưu bị", "tào tháo", "quan vũ", "tôn quyền", "gia cát lượng", "lữ bố", "triệu vân"
         ]
         if any(k in topic.lower() for k in other_dynasties_keywords):
-            return {"in_scope": False, "reason": "Đề tài thuộc thời kỳ lịch sử ngoài triều đại Lý - Trần."}
+            return {"in_scope": False, "reason": "Văn bản chứa nhân vật hoặc sự kiện ngoại lai/ngoài phạm vi triều đại Lý - Trần."}
         return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần"}
 
 
