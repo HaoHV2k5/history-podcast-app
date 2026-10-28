@@ -1,6 +1,6 @@
 # 🎬 HƯỚNG DẪN TOÀN DIỆN: QUY TRÌNH TẠO VIDEO LỊCH SỬ DÀNH CHO CREATOR
 
-> **Phiên bản:** 3.0 (Tối ưu hóa diễn giải logic, trực quan và dễ hiểu nhất)  
+> **Phiên bản:** 3.2 (Bổ sung Gatekeeper Thẩm định thực thể Lý - Trần, Dán ảnh Clipboard siêu tốc & Fallback TTS đa tầng)  
 > **Áp dụng cho:** Nền tảng Kể chuyện & Podcast Lịch sử Việt Nam (PRM History Podcast).
 
 ---
@@ -11,9 +11,9 @@
    - [So sánh Video Vẽ Tay (Whiteboard) vs Audio Podcast](#a-video-vẽ-tay-whiteboard-vs-video-audio-podcast)
    - [So sánh Ảnh Bìa Podcast (Cover) vs Ảnh Thumbnail Video](#b-ảnh-bìa-podcast-coverimage-vs-ảnh-thumbnail-video-thumbnailurl)
 3. [Chi Tiết 4 Giai Đoạn Từ Ý Tưởng Đến Khi Xuất Bản](#3-chi-tiết-4-giai-đoạn-từ-ý-tưởng-đến-khi-xuất-bản)
-   - [Giai đoạn 1: Nhập ý tưởng -> AI viết kịch bản & Gợi ý sẵn Prompt tạo ảnh](#giai-đoạn-1-nhập-ý-tưởng---ai-viết-kịch-bản--gợi-ý-sẵn-prompt-tạo-ảnh)
-   - [Giai đoạn 2: Tạo ảnh bên ngoài & Tải lên hệ thống](#giai-đoạn-2-tạo-ảnh-bên-ngoài--tải-ảnh-lên-hệ-thống)
-   - [Giai đoạn 3: Bấm duy nhất nút "Tạo Video" (Hệ thống tự động làm ngầm)](#giai-đoạn-3-bấm-duy-nhất-nút-tạo-video-hệ-thống-tự-động-làm-ngầm)
+   - [Giai đoạn 1: Nhập ý tưởng -> Bộ Gác Cổng Sử Liệu (ScopeGate) & AI viết kịch bản](#giai-đoạn-1-nhập-ý-tưởng---bộ-gác-cổng-sử-liệu-scopegate--ai-viết-kịch-bản)
+   - [Giai đoạn 2: Tạo ảnh bên ngoài & Dán trực tiếp từ Clipboard / Upload lên hệ thống](#giai-đoạn-2-tạo-ảnh-bên-ngoài--dán-trực-tiếp-từ-clipboard--upload-lên-hệ-thống)
+   - [Giai đoạn 3: Bấm duy nhất nút "Tạo Video" (Fallback TTS & Render ngầm)](#giai-đoạn-3-bấm-duy-nhất-nút-tạo-video-fallback-tts--render-ngầm)
    - [Giai đoạn 4: Xem trước, Vá kịch bản theo câu (nếu cần) & Gửi Admin duyệt](#giai-đoạn-4-xem-trước-vá-kịch-bản-theo-câu-nếu-cần--gửi-admin-duyệt)
 4. [Sơ Đồ Kỹ Thuật Tuần Tự (Sequence Diagram)](#4-sơ-đồ-kỹ-thuật-tuần-tự-sequence-diagram)
 5. [Danh Mục 16 API Endpoints Dành Cho Lập Trình Viên](#5-danh-mục-16-api-endpoints-dành-cho-lập-trình-viên)
@@ -75,7 +75,7 @@ Hai loại ảnh này phục vụ mục đích khác nhau:
 
 ## 3. Chi Tiết 4 Giai Đoạn Từ Ý Tưởng Đến Khi Xuất Bản
 
-### Giai đoạn 1: Chọn định dạng, Nhập ý tưởng -> AI viết kịch bản & Gợi ý Prompt tạo ảnh
+### Giai đoạn 1: Chọn định dạng, Nhập ý tưởng -> Bộ Gác Cổng Sử Liệu (ScopeGate) & AI viết kịch bản
 
 #### 1. Creator làm gì?
 Khi mở Creator Studio, Creator thực hiện 3 thao tác đầu tiên:
@@ -94,7 +94,7 @@ Sau khi chọn định dạng, Creator nhập nội dung vào ô văn bản:
 
 | Cách nhập | Ví dụ đầu vào | Ý nghĩa thực tế |
 |---|---|---|
-| **🟢 Cách 1: Chỉ nhập Tiêu đề ngắn** (< 100 ký tự) | *"Trận Như Nguyệt 1077"* hoặc *"Hai Bà Trưng"* | Creator **chưa có kịch bản**, muốn AI tự động nghiên cứu sử liệu và viết trọn vẹn kịch bản từ A đến Z. |
+| **🟢 Cách 1: Chỉ nhập Tiêu đề ngắn** (< 100 ký tự) | *"Trận Như Nguyệt 1077"* hoặc *"Hào khí Đông A"* | Creator **chưa có kịch bản**, muốn AI tự động nghiên cứu sử liệu và viết trọn vẹn kịch bản từ A đến Z. |
 | **🔵 Cách 2: Dán Kịch bản có sẵn** (Đoạn văn dài $\ge$ 100 ký tự) | Đoạn văn bản kịch bản hoàn chỉnh do Creator tự chuẩn bị | Creator **đã có kịch bản của riêng mình**, chỉ muốn hệ thống chia cảnh, đọc lồng tiếng và dựng video chứ **tuyệt đối không được sửa đổi câu chữ**. |
 
 ##### 🔘 Thao tác 3: Chọn Giọng đọc AI & Thời lượng
@@ -102,7 +102,30 @@ Sau khi chọn định dạng, Creator nhập nội dung vào ô văn bản:
 - Chọn thời lượng mong muốn (30s, 60s, 90s, 180s...).
 - Bấm nút **"Tạo Phân Cảnh & Kịch Bản"** (`POST /storyboard`).
 
-#### 2. AI & Hệ thống xử lý khác nhau như thế nào giữa 2 cách nhập?
+---
+
+#### 2. Bộ Gác Cổng Sử Liệu (ScopeGate) & Thẩm Định Thực Thể (Strict Entity Audit)
+Ngay khi bấm tạo kịch bản, hệ thống **không vội gửi ngay cho AI sinh chữ**, mà kích hoạt lớp bảo vệ chính sử:
+
+1. **Phạm vi sử liệu chuyên biệt**:
+   Hệ thống được thiết kế chuyên sâu cho các sự kiện, danh nhân và tư liệu thuộc:
+   - **Triều đại Nhà Lý (1009 – 1225)**: *Lý Thái Tổ, Chiếu dời đô 1010, Lý Thường Kiệt, phòng tuyến sông Như Nguyệt 1077...*
+   - **Triều đại Nhà Trần (1225 – 1400)**: *Trần Hưng Đạo, 3 lần kháng chiến chống quân Nguyên Mông (1258, 1285, 1288), Hịch tướng sĩ, Hội nghị Diên Hồng, đại thắng Bạch Đằng 1288...*
+2. **Quy tắc kiểm định thực thể từng câu chữ (Strict Entity Audit)**:
+   - **Cấm nhân vật ngoại lai**: Chặn đứng việc chèn nhân vật ngoài lịch sử Việt Nam (như thời Tam Quốc: *Trương Liêu, Lưu Bị, Tào Tháo, Quan Vũ, Gia Cát Lượng...*, kiếm hiệp, tiểu thuyết hư cấu).
+   - **Cấm xáo trộn triều đại**: Chặn đứng việc đưa nhân vật thời kỳ khác (*Đinh Bộ Lĩnh, Ngô Quyền, Lê Lợi, Quang Trung...*) vào bối cảnh thời Lý - Trần.
+   - **Cấm râu ông nọ cắm cằm bà kia**: Chặn đứng các mâu thuẫn thời gian nghiêm trọng (như gộp Lý Thường Kiệt thời Lý tham gia trận Bạch Đằng 1288 thời Trần, hoặc gán Lý Thái Tổ đánh giặc Mông Nguyên).
+   - **Quy tắc tuyệt đối**: Dù bài viết có **99% nội dung đúng về nhà Trần**, nhưng nếu có **bất kỳ một nhân vật ngoại lai/sai thời kỳ** bị chèn vào, Gatekeeper lập tức **TỪ CHỐI NGAY LẬP TỨC** (`in_scope = false`).
+3. **Giao diện phản hồi chuẩn `/ui-ux-pro-max` & `/taste`**:
+   - Khi bị từ chối, hệ thống mở **Modal Kiểm Định Sử Liệu Đại Việt** (`#modalTopicRejected`) với đầy đủ:
+     - 📜 Trích yếu kịch bản người dùng đã nhập.
+     - ⚠️ Chỉ rõ đích danh nhân vật hoặc chi tiết sai phạm (kèm lý do lịch sử).
+     - 💡 Cung cấp 2 mẫu kịch bản chuẩn sử 1-click: *Lý Thường Kiệt & Phòng Tuyến Như Nguyệt (1077)* và *Trần Hưng Đạo & Chiến Thắng Bạch Đằng (1288)*.
+     - ✏️ Nút bấm quay lại tự động cuộn và focus vào ô kịch bản để sửa lại tức thì.
+
+---
+
+#### 3. AI & Hệ thống xử lý kịch bản sau khi đã qua cửa Gác Cổng
 
 - **Nếu Creator chọn Cách 1 (Chỉ nhập Tiêu đề ngắn)**:
   1. **AI đóng vai Biên kịch lịch sử**: Dùng công nghệ **RAG** truy vấn kho tài liệu sử gốc (*Đại Việt Sử Ký Toàn Thư*, *Khâm Định Việt Sử Thông Giám Cương Mục*) để lấy chính xác mốc năm, nhân vật và sự kiện có thật.
@@ -115,35 +138,43 @@ Sau khi chọn định dạng, Creator nhập nội dung vào ô văn bản:
 - **Nếu Creator chọn Cách 2 (Dán Kịch bản có sẵn)**:
   1. **TÔN TRỌNG NGUYÊN TÁC 100%**: Hệ thống **TUYỆT ĐỐI KHÔNG dùng AI viết lại, không tự ý sửa đổi hay bịa thêm nội dung** vào câu chữ của Creator.
   2. **Chỉ làm nhiệm vụ biên tập & chia thời lượng**: Cắt đoạn văn bản gốc của Creator thành các câu/cảnh vừa vặn với thời lượng (để khi chuyển thành giọng đọc AI thì tốc độ đọc tự nhiên, không bị quá vội hoặc quá chậm).
-  3. **Tự động sinh Prompt ảnh**: Đọc hiểu nội dung từng đoạn của Creator để gợi ý prompt vẽ tranh minh họa tương ứng.
+  3. **Tự động sinh Prompt ảnh**: Đọc hiểu nội dung từng đoạn của Creator để gợi ý prompt vẽ tranh minh họa tương ứng (chuẩn 1 hàng ngang doodle duy nhất).
 
-#### 3. Bộ Prompt ảnh AI trả về theo định dạng video:
+#### 4. Bộ Prompt ảnh AI trả về theo định dạng video:
 - **Nếu chọn Audio Podcast (`audio_podcast`)**: AI trả về `thumbnail_prompt` — prompt tạo **Ảnh Bìa Podcast** nghệ thuật (tỷ lệ 1:1 hoặc 16:9). Creator chỉ cần tạo duy nhất 1 bức ảnh này.
 - **Nếu chọn Video Bảng Trắng (`whiteboard`)**: AI trả về đầy đủ:
   - `image_prompt`: Prompt vẽ tranh phác thảo doodle 16:9 cho từng cảnh (Cảnh 1, Cảnh 2, Cảnh 3...).
   - `thumbnail_prompt`: Prompt tạo **Ảnh Thumbnail Poster** 16:9 điện ảnh hoành tráng để làm ảnh bìa ngoài trang chủ.
 
-#### 4. Màn hình hiển thị gì?
+#### 5. Màn hình hiển thị gì?
 - Kịch bản chi tiết hiển thị trực quan để Creator tự do đọc duyệt và chỉnh sửa từng từ ngữ theo ý muốn.
 - Có sẵn nút **"Copy Prompt"** tiện lợi để Creator sao chép mang sang Midjourney / DALL-E tạo ảnh.
 
 ---
 
-### Giai đoạn 2: Tạo ảnh bên ngoài & Tải ảnh lên hệ thống
+### Giai đoạn 2: Tạo ảnh bên ngoài & Dán trực tiếp từ Clipboard / Tải ảnh lên hệ thống
 
 1. **Creator làm gì?**
    - Creator bấm nút copy prompt từ Bước 1 sang các công cụ AI tạo ảnh (Midjourney, DALL-E 3, Bing Image Creator, Leonardo AI, Canva,...).
-   - Lưu ảnh về máy tính.
-   - Chuyển sang màn hình Tải ảnh:
-     - **Với Video Vẽ Tay (`whiteboard`)**: Tải ảnh vào ô **Cảnh 1, Cảnh 2, Cảnh 3...** (bắt buộc). Đồng thời có thêm ô **"Ảnh Thumbnail đại diện (Tùy chọn)"** để tải tấm poster đẹp nhất lên.
-     - **Với Video Audio Podcast (`audio_podcast`)**: Tải 1 ảnh duy nhất vào ô **"Ảnh Bìa Podcast"**.
+   - **Tải ảnh lên siêu tốc với 2 cơ chế linh hoạt**:
+     - **🟢 Cơ chế 1: Dán trực tiếp từ Clipboard (`Ctrl + V` / `Cmd + V`) - Khuyên dùng**:
+       + Sau khi sinh ảnh trên web AI hoặc copy ảnh bất kỳ, Creator chỉ cần bấm nút `[📋 Dán ảnh]` hoặc `[📋 Dán đè]` ngay trên từng ô phân cảnh, hoặc click chọn ô phân cảnh rồi nhấn phím tắt `Ctrl + V` (Windows) / `Cmd + V` (Mac).
+       + Hệ thống tự động đọc dữ liệu nhị phân từ Clipboard và tải trực tiếp lên Cloudinary CDN mà Creator **không cần phải tốn công tải file về máy tính rồi mở hộp thoại duyệt tệp**.
+     - **📁 Cơ chế 2: Tải tệp từ máy tính truyền thống**:
+       + Bấm nút `[📁 Chọn tệp]` để duyệt ảnh từ thư mục máy tính như thông thường.
+   - **Phân bổ ảnh theo định dạng video**:
+     - **Với Video Vẽ Tay (`whiteboard`)**: Dán/Tải ảnh vào các ô **Cảnh 1, Cảnh 2, Cảnh 3...** (bắt buộc). Đồng thời có thêm ô **"Ảnh Thumbnail đại diện (Tùy chọn)"** để dán tấm poster đẹp nhất làm ảnh bìa video.
+     - **Với Video Audio Podcast (`audio_podcast`)**: Dán/Tải 1 ảnh duy nhất vào ô **"Ảnh Bìa Podcast"**.
+   - **Giao diện quản lý ảnh thông minh**:
+     - Mỗi ô phân cảnh hỗ trợ xem trước ảnh rõ nét, kèm 2 nút thao tác nhanh: `[Đổi ảnh]` (hoặc `[📋 Dán đè]`) và `[Xóa]` để Creator thoải mái tinh chỉnh.
+
 2. **Hệ thống làm gì?**
-   - Mỗi khi Creator chọn tệp ảnh tải lên, hệ thống tự động gửi ảnh lên Cloudinary CDN (`POST /upload-image`) và nhận về đường link ảnh an toàn (`https://res.cloudinary.com/...`).
-   - Link ảnh Thumbnail được lưu sẵn vào bộ nhớ để chuẩn bị gửi sang Bước 3.
+   - Khi nhận tệp ảnh tải lên hoặc blob dán từ Clipboard, hệ thống tự động gọi API `POST /upload-image` gửi ảnh lên Cloudinary CDN và nhận về URL an toàn (`https://res.cloudinary.com/...`).
+   - Link ảnh từng cảnh và link Thumbnail được gán tự động vào phân cảnh tương ứng và lưu trữ sẵn sàng chuẩn bị cho Bước 3.
 
 ---
 
-### Giai đoạn 3: Bấm duy nhất nút "Tạo Video" (Hệ thống tự động làm ngầm)
+### Giai đoạn 3: Bấm duy nhất nút "Tạo Video" (Multi-Tier Fallback TTS & Render ngầm)
 
 1. **Creator làm gì?**
    - Creator kiểm tra lại lần cuối và bấm **duy nhất 1 nút "Bắt Đầu Tạo Video"**.
@@ -152,11 +183,11 @@ Sau khi chọn định dạng, Creator nhập nội dung vào ô văn bản:
      - Màn hình tạm hiển thị: *"🔍 Đang đối chiếu sử liệu..."* trong 1-2 giây.
      - Hệ thống đối chiếu kịch bản với kho chunks dữ liệu sử liệu.
      - **Nếu kịch bản chuẩn xác**: Hệ thống **tự động chạy thẳng sang Nhịp 2** trong tích tắc mà không làm phiền người dùng.
-     - **Nếu kịch bản có nghi vấn sử liệu**: Hệ thống bật một popup cảnh báo mềm, trích dẫn rõ sách sử nói gì và đề xuất câu sửa. Creator có 2 lựa chọn:
+     - **Nếu kịch bản có nghi vấn sử liệu**: Hệ thống bật một popup cảnh báo mềm chuẩn `/ui-ux-pro-max`, trích dẫn rõ sách sử nói gì và đề xuất câu sửa. Creator có 2 lựa chọn:
        + Bấm *"Áp dụng câu sửa của AI"* $\rightarrow$ Kịch bản cập nhật chuẩn ngay.
        + Bấm *"Bảo lưu quan điểm, Vẫn tạo video"* $\rightarrow$ Hệ thống hoàn toàn tôn trọng ý kiến Creator và tiếp tục sản xuất.
    - **Nhịp 2 - Kích hoạt sản xuất video (`POST /render`)**:
-     - Web gửi toàn bộ thông tin sang Backend: tiêu đề, kịch bản, ảnh các cảnh, giọng đọc, và **trường `thumbnailUrl` (ảnh thumbnail mà Creator đã tải lên ở Giai đoạn 2)**.
+     - Web gửi toàn bộ thông tin sang Backend: tiêu đề, kịch bản, ảnh các cảnh, giọng đọc, và **trường `thumbnailUrl` (ảnh thumbnail mà Creator đã tải hoặc dán ở Giai đoạn 2)**.
      - **Backend lưu ngay hồ sơ vào Database (~0.05 giây)**:
        + Lưu Video ở trạng thái `DRAFT` (Bản nháp).
        + Lưu tệp video trạng thái `PROCESSING` (Đang render) với `version = 1`.
@@ -166,8 +197,10 @@ Sau khi chọn định dạng, Creator nhập nội dung vào ô văn bản:
    - Web nhận được `jobId` liền bật ngay **Thanh tiến trình (Progress Bar)** hiển thị 6 bước trực quan:
      1. Khởi tạo tác vụ & nạp dữ liệu phân cảnh.
      2. Tải ảnh phân cảnh từ CDN về máy chủ render.
-     3. Thu âm lồng tiếng AI (TTS Edge / ElevenLabs).
-     4. Tạo phụ đề SRT đồng bộ chính xác từng phần trăm giây.
+     3. **Thu âm lồng tiếng AI TTS với Cơ chế Fallback đa tầng (Multi-tier TTS Resilience)**:
+        - *Tầng 1 (Chính)*: Sử dụng Microsoft Edge-TTS (`vi-VN-NamMinhNeural` / `vi-VN-HoaiMyNeural`) mang lại giọng đọc truyền cảm, hào hùng và tự nhiên.
+        - *Tầng 2 (Dự phòng tự động)*: Nếu Edge-TTS gặp sự cố kết nối, quá tải hoặc phản hồi `NoAudioReceived`, hệ thống **lập tức chuyển đổi trong suốt sang Google Translate TTS Engine (`client=tw-ob`)** để đọc tiếp câu thoại. Video không bao giờ bị gián đoạn hay báo lỗi render giữa chừng.
+     4. Tạo phụ đề SRT đồng bộ chính xác từng phần trăm giây theo thời lượng âm thanh thực tế.
      5. Biên dịch khung hình nét vẽ tay / Ghép hiệu ứng video MP4.
      6. Đẩy video thành phẩm lên Cloudinary CDN $\rightarrow$ Hoàn tất 100%!
 
@@ -277,10 +310,10 @@ sequenceDiagram
 | **1** | `GET` | `/api/v1/creator/studio/settings` | Xem cấu hình API Key (Gemini, ElevenLabs) và giọng đọc mặc định. |
 | **2** | `PUT` | `/api/v1/creator/studio/settings` | Cập nhật cấu hình API Key cá nhân của Creator. |
 | **3** | `POST` | `/api/v1/creator/studio/voices/preview` | Tạo file âm thanh nghe thử giọng đọc AI trực tiếp trên web. |
-| **4** | `POST` | `/api/v1/creator/studio/storyboard` | Sinh phân cảnh kịch bản, **gợi ý prompt vẽ từng cảnh và prompt ảnh Thumbnail**. |
+| **4** | `POST` | `/api/v1/creator/studio/storyboard` | Tích hợp **Bộ Gác Cổng Sử Liệu (ScopeGate) & Thẩm Định Thực Thể (Strict Entity Audit)** (chỉ hỗ trợ Nhà Lý 1009–1225 & Nhà Trần 1225–1400, chặn nhân vật ngoại lai/lệch thời kỳ), sinh phân cảnh kịch bản, **gợi ý prompt vẽ từng cảnh và prompt ảnh Thumbnail**. |
 | **5** | `POST` | `/api/v1/creator/studio/verify-script` | Kiểm tra độ chuẩn xác sử liệu với kho chunks ChromaDB (Rào chắn mềm). |
-| **6** | `POST` | `/api/v1/creator/studio/upload-image` | Tải tệp ảnh minh họa phân cảnh / ảnh bìa / thumbnail lên Cloudinary CDN. |
-| **7** | `POST` | `/api/v1/creator/studio/render` | Bắt đầu sản xuất video: Lưu DB (DRAFT) + Giao việc ngầm cho Python (nhận `thumbnailUrl`, `coverImage`). |
+| **6** | `POST` | `/api/v1/creator/studio/upload-image` | Tải tệp ảnh minh họa phân cảnh / ảnh bìa / thumbnail lên Cloudinary CDN (hỗ trợ cả **chọn file từ máy tính** lẫn **Dán trực tiếp từ Clipboard `Ctrl + V`**). |
+| **7** | `POST` | `/api/v1/creator/studio/render` | Bắt đầu sản xuất video với **Cơ chế Fallback TTS Đa Tầng (Edge-TTS + Google Translate TTS)** chống rớt mạng: Lưu DB (DRAFT) + Giao việc ngầm cho Python (nhận `thumbnailUrl`, `coverImage`). |
 | **8** | `GET` | `/api/v1/creator/studio/jobs/{jobId}` | Thăm dò tiến độ render video (Web gọi tự động mỗi 2 giây). |
 | **9** | `GET` | `/api/v1/creator/studio/videos` | Lấy danh sách toàn bộ video kèm ảnh `thumbnailUrl` trong Thư viện của Creator. |
 | **10** | `GET` | `/api/v1/creator/studio/videos/{contentId}` | Xem thông tin chi tiết video, số lượt xem/thích và ảnh `thumbnailUrl`. |
