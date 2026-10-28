@@ -1122,9 +1122,14 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
 QUY TẮC BẮT BUỘC TUYỆT ĐỐI CHO LỜI THUYẾT MINH (SUBTITLE):
 1. GIỮ NGUYÊN 100% TỪNG CÂU TỪ CỦA TÁC GIẢ (VERBATIM PRESERVATION):
    - TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT LẠI, KHÔNG DIỄN GIẢI LẠI, KHÔNG PARAPHRASE, KHÔNG THAY ĐỔI DÙ CHỈ MỘT TỪ trong văn bản của tác giả.
-   - Ví dụ: Tác giả viết 'Năm 1010, vua Lý Thái Tổ quyết định dời đô từ Hoa Lư về Đại La, đổi tên thành Thăng Long', TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT THÀNH 'Năm một nghìn không trăm mười, vua Lý Thái Tổ quyết định dời đô từ Hoa Lư về thành Đại La...'. Phải giữ y nguyên từng từ ngữ tác giả viết!
-   - TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT THÊM SỰ KIỆN HOẶC PHÂN CẢNH MỚI (Ví dụ: tác giả chỉ viết về vua Lý Thái Tổ dời đô từ Hoa Lư về Đại La, tuyệt đối KHÔNG tự sáng tác thêm Hội nghị Diên Hồng, Bạch Đằng, hay bất kỳ sự kiện nào khác không có trong văn bản trên).
-   - Hãy trích xuất và phân chia các câu/mệnh đề tự nhiên từ bài viết của tác giả vào {num_scenes} cảnh, mỗi cảnh đúng 3 khối chủ thể (elements) từ Trái qua Phải.
+   - TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT THÊM SỰ KIỆN HOẶC PHÂN CẢNH MỚI không có trong văn bản trên.
+   - TUYỆT ĐỐI KHÔNG ĐƯỢC LẶP LẠI (DUPLICATE) CÙNG MỘT CÂU TRONG NHIỀU KHỐI SUBTITLE CỦA CÙNG MỘT CẢNH HOẶC GIỮA CÁC CẢNH. Mỗi câu chỉ được xuất hiện ĐÚNG 1 LẦN.
+   - PHÂN CHIA MỆNH ĐỀ VÀO CÁC KHỐI: Nếu một cảnh chỉ có 1 câu dài (hoặc ít câu hơn 3 khối), BẮT BUỘC ngắt câu theo dấu phẩy hoặc mệnh đề tự nhiên để chia vào 3 khối từ Trái qua Phải.
+     Ví dụ câu: "Thời Lý – Trần đã lùi xa, nhưng hào khí Đông A vẫn còn sống mãi, nhắc nhở mỗi người Việt Nam về một thời đại vàng son của lịch sử dân tộc."
+     -> Khối 1 (label: "Dấu Ấn Lý – Trần"): "Thời Lý – Trần đã lùi xa,"
+     -> Khối 2 (label: "Hào Khí Đông A"): "nhưng hào khí Đông A vẫn còn sống mãi,"
+     -> Khối 3 (label: "Thời Đại Vàng Son"): "nhắc nhở mỗi người Việt Nam về một thời đại vàng son của lịch sử dân tộc."
+     Cả 3 khối này khi đọc liên tục sẽ ghép thành đúng câu văn hoàn chỉnh của tác giả!
    - Từng khối "subtitle" PHẢI LÀ NGUYÊN VĂN các câu/mệnh đề của tác giả. BỎ QUA HOÀN TOÀN QUY ĐỊNH 25-35 TỪ, giữ nguyên đúng câu từ của tác giả!
 2. BỐ CỤC {num_scenes} CẢNH:
    - Phân chia hợp lý vào đúng {num_scenes} CẢNH (Scene 1 đến Scene {num_scenes}).
@@ -1264,6 +1269,43 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                             if len(parsed.get("scenes", [])) > num_scenes:
                                 print(f"[Verbatim] ✂️ Giới hạn số cảnh từ {len(parsed['scenes'])} về {num_scenes} cảnh để bám sát độ dài kịch bản gốc.")
                                 parsed["scenes"] = parsed["scenes"][:num_scenes]
+
+                            # Khử trùng lặp subtitle trong cùng cảnh (nếu AI copy-paste cùng 1 câu vào 3 khối)
+                            for sc in parsed.get("scenes", []):
+                                elems = sc.get("elements", [])
+                                if len(elems) == 3:
+                                    s0 = elems[0].get("subtitle", "").strip()
+                                    s1 = elems[1].get("subtitle", "").strip()
+                                    s2 = elems[2].get("subtitle", "").strip()
+                                    if s0 and (s0 == s1 or s1 == s2 or s0 == s2):
+                                        dup_text = s0 if (s0 == s1 or s0 == s2) else s1
+                                        print(f"[Verbatim] ⚠️ Phát hiện subtitle bị lặp trong Cảnh {sc.get('scene_index')}: '{dup_text[:40]}...'. Tự động tách thành 3 mệnh đề tự nhiên!")
+                                        parts = [p.strip() for p in re.split(r'[,;]\s*', dup_text) if p.strip()]
+                                        if len(parts) >= 3:
+                                            elems[0]["subtitle"] = parts[0] + ","
+                                            elems[1]["subtitle"] = parts[1] + ","
+                                            elems[2]["subtitle"] = " ".join(parts[2:])
+                                            if not elems[2]["subtitle"].endswith("."):
+                                                elems[2]["subtitle"] += "."
+                                        elif len(parts) == 2:
+                                            elems[0]["subtitle"] = parts[0] + ","
+                                            sub_parts = re.split(r'\s+(?=nhưng\s+|đồng thời\s+|nhắc nhở\s+|đặt\s+|tạo\s+)', parts[1])
+                                            if len(sub_parts) >= 2:
+                                                elems[1]["subtitle"] = sub_parts[0] + ","
+                                                elems[2]["subtitle"] = " ".join(sub_parts[1:])
+                                            else:
+                                                words_p1 = parts[1].split()
+                                                mid = max(1, len(words_p1) // 2)
+                                                elems[1]["subtitle"] = " ".join(words_p1[:mid]) + ","
+                                                elems[2]["subtitle"] = " ".join(words_p1[mid:])
+                                        else:
+                                            words_all = dup_text.split()
+                                            n = len(words_all)
+                                            c1 = max(1, n // 3)
+                                            c2 = max(c1 + 1, (2 * n) // 3)
+                                            elems[0]["subtitle"] = " ".join(words_all[:c1])
+                                            elems[1]["subtitle"] = " ".join(words_all[c1:c2])
+                                            elems[2]["subtitle"] = " ".join(words_all[c2:])
 
                         # Bộ lọc khử câu chào / đối thoại meta của AI nếu vô tình lọt vào kịch bản (chế độ sáng tác)
                         if not is_verbatim_mode:
@@ -1518,36 +1560,41 @@ def build_annotation_json(
 # ──────────────────────────────────────────────────────────────
 async def generate_speech_edge(text: str, voice: str, out_p: Path):
     import edge_tts
-    # Thử gọi 3 lần với khoảng nghỉ nhỏ chống nghẽn websocket
-    for attempt in range(3):
+    # Chuẩn hóa văn bản: làm sạch unicode dash, quote, markdown để tránh Edge-TTS trả về rỗng
+    clean_text = re.sub(r'[\r\n\t]+', ' ', text).strip()
+    clean_text = clean_text.replace('–', '-').replace('—', '-').replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
+    clean_text = re.sub(r'[\*#_`~]+', '', clean_text).strip()
+    if not clean_text:
+        clean_text = "..."
+
+    # Thử giọng chính với retry & backoff
+    for attempt in range(4):
         try:
-            comm = edge_tts.Communicate(text, voice)
+            out_p.unlink(missing_ok=True)
+            comm = edge_tts.Communicate(clean_text, voice)
             await comm.save(str(out_p))
             if out_p.exists() and out_p.stat().st_size > 500:
                 return
         except Exception as e:
-            print(f"Edge-TTS attempt {attempt+1} failed: {e}")
-            await asyncio.sleep(0.8)
-            continue
+            print(f"[Edge-TTS] Lần {attempt+1} giọng {voice} thất bại cho '{clean_text[:30]}...': {e}")
+            await asyncio.sleep(0.8 * (attempt + 1))
 
     # Nếu vẫn lỗi, thử đổi sang giọng dự phòng
     alt_voice = "vi-VN-HoaiMyNeural" if "Nam" in voice else "vi-VN-NamMinhNeural"
-    try:
-        print(f"Thử lại với giọng phụ: {alt_voice}")
-        comm = edge_tts.Communicate(text, alt_voice)
-        await comm.save(str(out_p))
-        if out_p.exists() and out_p.stat().st_size > 500:
-            return
-    except Exception as e:
-        print(f"Edge-TTS alt voice failed: {e}")
+    for attempt in range(3):
+        try:
+            print(f"[Edge-TTS] Thử lại với giọng phụ ({alt_voice}): {clean_text[:30]}...")
+            out_p.unlink(missing_ok=True)
+            comm = edge_tts.Communicate(clean_text, alt_voice)
+            await comm.save(str(out_p))
+            if out_p.exists() and out_p.stat().st_size > 500:
+                return
+        except Exception as e:
+            print(f"[Edge-TTS] Giọng phụ lần {attempt+1} thất bại: {e}")
+            await asyncio.sleep(1.0 * (attempt + 1))
 
-    # Fallback an toàn: Tạo file âm thanh giả lập (tránh sập luồng)
-    subprocess.run([
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
-        "-t", "5.0", "-q:a", "9", "-acodec", "libmp3lame",
-        str(out_p)
-    ], check=True)
+    # Sau các lần thử nếu vẫn thất bại, ném lỗi rõ ràng thay vì chèn âm thanh tĩnh anullsrc (khoảng lặng chết)
+    raise RuntimeError(f"❌ Không thể tạo giọng đọc cho câu: \"{clean_text[:50]}\". Dịch vụ Edge-TTS không phản hồi âm thanh.")
 
 
 ELEVENLABS_VOICES = {
@@ -2061,6 +2108,7 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
             wav_p = audio_dir / f"clip_{clip_idx}.wav"
             log(job_id, f"   Đang đọc câu {clip_idx}/{len(sentences)}: {sentence[:35]}...")
             dur = generate_single_audio_clip(sentence, mp3_p, wav_p, req.tts_engine, req.voice_name, req.elevenlabs_api_key)
+            time.sleep(0.35)
             start_s = current_time
             end_s = start_s + dur
             clip_paths_and_starts.append((wav_p, start_s))
@@ -2291,6 +2339,7 @@ def run_pipeline(job_id: str, req: VideoRequest):
                 sub_text = el.get("subtitle", "")
                 dur = generate_single_audio_clip(sub_text, mp3_p, wav_p, req.tts_engine, req.voice_name, req.elevenlabs_api_key)
                 audio_durations.append(dur)
+                time.sleep(0.35)  # Tránh nghẽn websocket Edge-TTS khi gọi dồn dập
 
             # Tính toán dòng thời gian liền mạch (nghỉ 0.35s giữa các câu, đợi 1.5s chuyển cảnh)
             timeline = compute_scene_continuous_timeline(audio_durations)
