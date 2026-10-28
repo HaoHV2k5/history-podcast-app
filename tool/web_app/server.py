@@ -1560,10 +1560,39 @@ def build_annotation_json(
     return out_json
 
 
+def normalize_tts_phonemes(text: str) -> str:
+    """
+    Chuẩn hóa văn bản trước khi đưa vào Edge-TTS:
+    1. Làm sạch unicode dash, quote, markdown asterisks, thừa khoảng trắng.
+    2. Khắc phục lỗi tokenizer của Microsoft Azure TTS đối với các từ có chữ 'kỷ'/'kỳ' (thay bằng 'kỉ'/'kì'
+       để giữ nguyên 100% ngữ âm tiếng Việt nhưng không kích hoạt lỗi NoAudioReceived ngắt kết nối WebSocket).
+    3. Đảm bảo câu luôn kết thúc bằng dấu chấm/hỏi/than để âm điệu dứt khoát, tự nhiên.
+    """
+    clean = re.sub(r'[\r\n\t]+', ' ', text).strip()
+    clean = clean.replace('–', '-').replace('—', '-').replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
+    clean = re.sub(r'[\*#_`~]+', '', clean).strip()
+
+    # Chuẩn hóa các âm tiết gây lỗi Microsoft Edge-TTS tokenizer (phát âm giữ nguyên 100%)
+    clean = re.sub(r'\bthế kỷ\b', 'thế kỉ', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bThế kỷ\b', 'Thế kỉ', clean)
+    clean = re.sub(r'\bthời kỳ\b', 'thời kì', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bThời kỳ\b', 'Thời kì', clean)
+    clean = re.sub(r'\bkỷ\b', 'kỉ', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bkỳ\b', 'kì', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bmỹ\b', 'mĩ', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\blý\b', 'lí', clean, flags=re.IGNORECASE)
+
+    if not clean:
+        clean = "..."
+    elif not clean.endswith((".", "!", "?", "…")):
+        clean += "."
+    return clean
+
+
 def generate_speech_google_tts(text: str, out_p: Path) -> bool:
     """Fallback TTS bằng Google Translate Audio khi Edge-TTS bị Microsoft ngắt kết nối."""
     try:
-        clean_text = re.sub(r'[\r\n\t]+', ' ', text).strip()
+        clean_text = normalize_tts_phonemes(text)
         if not clean_text:
             return False
         url = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + urllib.parse.quote(clean_text) + '&tl=vi&client=tw-ob'
@@ -1582,41 +1611,30 @@ def generate_speech_google_tts(text: str, out_p: Path) -> bool:
 # BƯỚC 3: TTS & DÒNG THỜI GIAN ĐỘNG (CONTINUOUS NARRATION ENGINE)
 # ──────────────────────────────────────────────────────────────
 async def generate_speech_edge(text: str, voice: str, out_p: Path):
+    """
+    Sinh giọng đọc Edge-TTS với nguyên tắc BẢO TOÀN 100% TÍNH ĐỒNG NHẤT CỦA GIỌNG ĐỌC:
+    - Tuyệt đối không tự ý tráo đổi giữa giọng Nam và giọng Nữ (NamMinh <-> HoaiMy) giữa các câu trong cùng một video.
+    - Sử dụng retry backoff trên chính giọng được chỉ định kết hợp bộ chuẩn hóa ngữ âm normalize_tts_phonemes.
+    """
     import edge_tts
-    # Chuẩn hóa văn bản: làm sạch unicode dash, quote, markdown để tránh Edge-TTS trả về rỗng
-    clean_text = re.sub(r'[\r\n\t]+', ' ', text).strip()
-    clean_text = clean_text.replace('–', '-').replace('—', '-').replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
-    clean_text = re.sub(r'[\*#_`~]+', '', clean_text).strip()
-    if not clean_text:
-        clean_text = "..."
+    clean_text = normalize_tts_phonemes(text)
+    vname = voice.strip() if voice in ["vi-VN-NamMinhNeural", "vi-VN-HoaiMyNeural"] else "vi-VN-NamMinhNeural"
 
-    # Thử giọng chính với retry & backoff
-    for attempt in range(4):
+    # Thử giọng chính với retry & backoff lũy tiến
+    delays = [0.8, 1.5, 2.5, 3.5, 5.0]
+    for attempt, delay in enumerate(delays):
         try:
             out_p.unlink(missing_ok=True)
-            comm = edge_tts.Communicate(clean_text, voice)
+            comm = edge_tts.Communicate(clean_text, vname)
             await comm.save(str(out_p))
             if out_p.exists() and out_p.stat().st_size > 500:
                 return
         except Exception as e:
-            print(f"[Edge-TTS] Lần {attempt+1} giọng {voice} thất bại cho '{clean_text[:30]}...': {e}")
-            await asyncio.sleep(0.8 * (attempt + 1))
+            print(f"[Edge-TTS] Lần {attempt+1}/{len(delays)} giọng {vname} gặp sự cố cho '{clean_text[:35]}...': {e}")
+            await asyncio.sleep(delay)
 
-    # Nếu vẫn lỗi, thử đổi sang giọng dự phòng
-    alt_voice = "vi-VN-HoaiMyNeural" if "Nam" in voice else "vi-VN-NamMinhNeural"
-    for attempt in range(3):
-        try:
-            print(f"[Edge-TTS] Thử lại với giọng phụ ({alt_voice}): {clean_text[:30]}...")
-            out_p.unlink(missing_ok=True)
-            comm = edge_tts.Communicate(clean_text, alt_voice)
-            await comm.save(str(out_p))
-            if out_p.exists() and out_p.stat().st_size > 500:
-                return
-        except Exception as e:
-            print(f"[Edge-TTS] Giọng phụ lần {attempt+1} thất bại: {e}")
-            await asyncio.sleep(1.0 * (attempt + 1))
-
-    # Nếu Edge-TTS vẫn bị lỗi, kích hoạt Google Translate TTS dự phòng không bao giờ chết
+    # Nếu sau 5 lần thử với đúng giọng yêu cầu vẫn bị từ chối kết nối từ Microsoft,
+    # kích hoạt Google Translate TTS dự phòng để cứu video không bị gián đoạn
     print(f"[TTS-Fallback] 🌐 Kích hoạt Google Translate TTS dự phòng cho câu: '{clean_text[:40]}'...")
     if generate_speech_google_tts(clean_text, out_p):
         print(f"[TTS-Fallback] ✅ Google Translate TTS đã tạo giọng đọc thành công cho '{clean_text[:30]}'!")
