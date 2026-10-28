@@ -342,8 +342,9 @@ export const CreatorStudioPage: React.FC = () => {
   // Upload Handlers
   const handleUploadSceneImage = async (sceneIndex: string, file: File) => {
     setUploadingSceneIndex(sceneIndex);
+    const activeFolder = 'whiteboard/scenes' as const;
     try {
-      const res = await creatorStudioApi.uploadSceneImage(file);
+      const res = await creatorStudioApi.uploadSceneImage(file, activeFolder);
       const url = res.data?.imageUrl || '';
       if (url) {
         setSceneImages((prev) => ({ ...prev, [sceneIndex]: url }));
@@ -363,8 +364,9 @@ export const CreatorStudioPage: React.FC = () => {
 
   const handleUploadCoverImage = async (file: File) => {
     setUploadingCover(true);
+    const activeFolder = 'podcasts/covers' as const;
     try {
-      const res = await creatorStudioApi.uploadSceneImage(file);
+      const res = await creatorStudioApi.uploadSceneImage(file, activeFolder);
       const url = res.data?.imageUrl || '';
       if (url) {
         setCoverImageUrl(url);
@@ -376,8 +378,9 @@ export const CreatorStudioPage: React.FC = () => {
 
   const handleUploadThumbnail = async (file: File) => {
     setUploadingThumbnail(true);
+    const activeFolder = 'whiteboard/thumbnails' as const;
     try {
-      const res = await creatorStudioApi.uploadSceneImage(file);
+      const res = await creatorStudioApi.uploadSceneImage(file, activeFolder);
       const url = res.data?.imageUrl || '';
       if (url) {
         setThumbnailUrl(url);
