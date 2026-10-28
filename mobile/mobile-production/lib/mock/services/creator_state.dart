@@ -63,6 +63,15 @@ class KycProfile {
     this.idNumber = '',
     this.dob = '',
     this.phone = '',
+    this.contactEmail = '',
+    this.userEmail = '',
+    this.verificationMethod = 'EMAIL',
+    this.otpVerifiedAt = '',
+    this.portfolioUrl = '',
+    this.bio = '',
+    this.bankName = '',
+    this.bankAccountNumber = '',
+    this.bankAccountHolder = '',
     this.idFrontUploaded = false,
     this.idBackUploaded = false,
     this.selfiePassed = false,
@@ -74,6 +83,15 @@ class KycProfile {
   final String idNumber;
   final String dob;
   final String phone;
+  final String contactEmail;
+  final String userEmail;
+  final String verificationMethod;
+  final String otpVerifiedAt;
+  final String portfolioUrl;
+  final String bio;
+  final String bankName;
+  final String bankAccountNumber;
+  final String bankAccountHolder;
   final bool idFrontUploaded;
   final bool idBackUploaded;
   final bool selfiePassed;
@@ -87,6 +105,15 @@ class KycProfile {
     idNumber: '001099012345',
     dob: '15/08/1995',
     phone: '0901234567',
+    contactEmail: 'creator@suky.vn',
+    userEmail: 'creator@suky.vn',
+    verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+    otpVerifiedAt: '16:23 27/10/2026',
+    portfolioUrl: 'https://porfolio.eraidev.id.vn',
+    bio: 'Kênh podcast lịch sử Việt Nam chính thống.',
+    bankName: 'Vietcombank',
+    bankAccountNumber: '001099012345',
+    bankAccountHolder: 'NGUYEN VAN SU',
     idFrontUploaded: true,
     idBackUploaded: true,
     selfiePassed: true,
@@ -98,6 +125,15 @@ class KycProfile {
     'idNumber': idNumber,
     'dob': dob,
     'phone': phone,
+    'contactEmail': contactEmail,
+    'userEmail': userEmail,
+    'verificationMethod': verificationMethod,
+    'otpVerifiedAt': otpVerifiedAt,
+    'portfolioUrl': portfolioUrl,
+    'bio': bio,
+    'bankName': bankName,
+    'bankAccountNumber': bankAccountNumber,
+    'bankAccountHolder': bankAccountHolder,
     'idFrontUploaded': idFrontUploaded,
     'idBackUploaded': idBackUploaded,
     'selfiePassed': selfiePassed,
@@ -110,6 +146,15 @@ class KycProfile {
     idNumber: j['idNumber'] as String? ?? '',
     dob: j['dob'] as String? ?? '',
     phone: j['phone'] as String? ?? '',
+    contactEmail: j['contactEmail'] as String? ?? '',
+    userEmail: j['userEmail'] as String? ?? '',
+    verificationMethod: j['verificationMethod'] as String? ?? 'EMAIL',
+    otpVerifiedAt: j['otpVerifiedAt'] as String? ?? '',
+    portfolioUrl: j['portfolioUrl'] as String? ?? '',
+    bio: j['bio'] as String? ?? '',
+    bankName: j['bankName'] as String? ?? '',
+    bankAccountNumber: j['bankAccountNumber'] as String? ?? '',
+    bankAccountHolder: j['bankAccountHolder'] as String? ?? '',
     idFrontUploaded: j['idFrontUploaded'] as bool? ?? false,
     idBackUploaded: j['idBackUploaded'] as bool? ?? false,
     selfiePassed: j['selfiePassed'] as bool? ?? false,
@@ -441,18 +486,29 @@ class CreatorState extends ChangeNotifier {
 
   Future<void> submitKyc({
     required String fullName,
-    required String idNumber,
-    required String dob,
     required String phone,
-    String otp = '',
-    required bool idFront,
-    required bool idBack,
-    required bool selfie,
+    String? idNumber,
+    String? dob,
+    String? contactEmail,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountHolder,
+    String? portfolioUrl,
+    String? bio,
+    String? otp,
+    bool idFront = true,
+    bool idBack = true,
+    bool selfie = true,
   }) async {
     if (fullName.trim().isEmpty) {
       throw StateError('Vui lòng nhập họ và tên thật.');
     }
-    if (!RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
+    final effectiveId = (idNumber != null && idNumber.trim().isNotEmpty)
+        ? idNumber.trim()
+        : (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty
+            ? bankAccountNumber.trim()
+            : '001099012345');
+    if (idNumber != null && idNumber.trim().isNotEmpty && !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
       throw StateError('Số CCCD phải đủ 12 chữ số.');
     }
     if (!idFront || !idBack) {
@@ -462,20 +518,42 @@ class CreatorState extends ChangeNotifier {
       throw StateError('Cần xác thực khuôn mặt (liveness check).');
     }
 
-    final birthError = validateKycBirthDate(dob);
-    if (birthError != null) throw StateError(birthError);
+    if (dob != null && dob.trim().isNotEmpty) {
+      final birthError = validateKycBirthDate(dob);
+      if (birthError != null) throw StateError(birthError);
+    }
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp.trim().length < 4) {
+    if (_otpPhone != phone.trim() || otp == null || otp.trim() != '889900') {
       throw StateError('Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.');
     }
 
+    final effectiveEmail = (contactEmail != null && contactEmail.trim().isNotEmpty)
+        ? contactEmail.trim()
+        : (preferences.getString('userEmail') ?? 'creator@suky.vn');
+    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty) ? bankName.trim() : 'Vietcombank';
+    final effectiveBankAcc = (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
+        ? bankAccountNumber.trim()
+        : effectiveId;
+    final effectiveBankHolder = (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
+        ? bankAccountHolder.trim().toUpperCase()
+        : fullName.trim().toUpperCase();
+
     final newKyc = KycProfile(
       fullName: fullName.trim(),
-      idNumber: idNumber.trim(),
-      dob: dob.trim(),
+      idNumber: effectiveId,
+      dob: dob?.trim() ?? '15/08/1995',
       phone: phone.trim(),
+      contactEmail: effectiveEmail,
+      userEmail: preferences.getString('userEmail') ?? effectiveEmail,
+      verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+      otpVerifiedAt: _auditTime(),
+      portfolioUrl: portfolioUrl?.trim() ?? '',
+      bio: bio?.trim() ?? '',
+      bankName: effectiveBankName,
+      bankAccountNumber: effectiveBankAcc,
+      bankAccountHolder: effectiveBankHolder,
       idFrontUploaded: idFront,
       idBackUploaded: idBack,
       selfiePassed: selfie,
@@ -486,10 +564,10 @@ class CreatorState extends ChangeNotifier {
         await kycRepository!.submitKyc(
           fullName: fullName.trim(),
           phone: phone.trim(),
-          contactEmail: preferences.getString('userEmail') ?? 'creator@suky.vn',
-          bankName: 'Vietcombank',
-          bankAccountNumber: idNumber.trim(),
-          bankAccountHolder: fullName.trim().toUpperCase(),
+          contactEmail: effectiveEmail,
+          bankName: effectiveBankName,
+          bankAccountNumber: effectiveBankAcc,
+          bankAccountHolder: effectiveBankHolder,
         );
       } catch (_) {}
     }
@@ -952,11 +1030,40 @@ class CreatorState extends ChangeNotifier {
     return lastVerification!;
   }
 
+  Future<Map<String, dynamic>> previewAiVoice({
+    required String voiceId,
+    required String text,
+    String? engine,
+  }) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.previewVoice(
+        voiceId: voiceId,
+        text: text,
+        engine: engine,
+      );
+    }
+    return {
+      'voiceId': voiceId,
+      'audioUrl': 'https://commondatastorage.googleapis.com/codeskulptor-demos/DDR_assets/Kangaroo_MusiQue_-_The_Neverwritten_Role_Playing_Game.mp3',
+      'engine': engine ?? 'edge-tts',
+      'durationSec': 5,
+    };
+  }
+
+  Future<String> uploadStudioSceneImage(List<int> fileBytes, String filename) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.uploadSceneImage(fileBytes, filename);
+    }
+    return 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80';
+  }
+
   Future<Map<String, dynamic>> startAiRender({
     required String title,
     required String scriptText,
     String renderMode = 'whiteboard',
     String? voiceName,
+    String? ttsEngine,
+    Map<String, String>? sceneImages,
     int durationSec = 60,
     int? seriesId,
   }) async {
@@ -966,9 +1073,11 @@ class CreatorState extends ChangeNotifier {
         'durationSec': durationSec,
         'renderMode': renderMode,
         'scriptText': scriptText.trim(),
-        'voiceName': ?voiceName,
+        if (voiceName != null) 'voiceName': voiceName,
+        if (ttsEngine != null) 'ttsEngine': ttsEngine,
+        if (sceneImages != null && sceneImages.isNotEmpty) 'sceneImages': sceneImages,
         if (channelModel != null) 'channelId': channelModel!.id,
-        'seriesId': ?seriesId,
+        if (seriesId != null) 'seriesId': seriesId,
         if (lastStoryboard != null) 'storyboard': lastStoryboard,
       });
       activeRenderJob = res;
@@ -1028,6 +1137,108 @@ class CreatorState extends ChangeNotifier {
     };
     notifyListeners();
     return activeRenderJob!;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchStudioVideos({
+    String? keyword,
+    String? status,
+    bool? isExclusive,
+    String? sortBy,
+    String? sortDir,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final raw = await creatorStudioRepository!.getVideos(
+        keyword: keyword,
+        status: status,
+        isExclusive: isExclusive,
+        sortBy: sortBy,
+        sortDir: sortDir,
+      );
+      studioVideos = raw.whereType<Map<String, dynamic>>().toList();
+      notifyListeners();
+      return studioVideos;
+    }
+    return studioVideos;
+  }
+
+  Future<Map<String, dynamic>> getStudioVideoDetail(int contentId) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.getVideoDetail(contentId);
+    }
+    return studioVideos.firstWhere(
+      (v) => v['contentId'] == contentId,
+      orElse: () => {'contentId': contentId, 'title': 'Tập video', 'status': 'PUBLISHED'},
+    );
+  }
+
+  Future<Map<String, dynamic>> updateStudioVideo(
+    int contentId, {
+    required String title,
+    String? description,
+    bool? isExclusive,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.updateVideo(contentId, {
+        'title': title.trim(),
+        if (description != null) 'description': description.trim(),
+        if (isExclusive != null) 'isExclusive': isExclusive,
+      });
+      studioVideos = studioVideos
+          .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
+          .toList();
+      notifyListeners();
+      return res;
+    }
+    final updated = {
+      'contentId': contentId,
+      'title': title,
+      if (description != null) 'description': description,
+      if (isExclusive != null) 'isExclusive': isExclusive,
+    };
+    studioVideos = studioVideos
+        .map((v) => v['contentId'] == contentId ? {...v, ...updated} : v)
+        .toList();
+    notifyListeners();
+    return updated;
+  }
+
+  Future<Map<String, dynamic>> updateStudioVideoVisibility(
+    int contentId,
+    bool hidden,
+  ) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.updateVisibility(contentId, hidden);
+      studioVideos = studioVideos
+          .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
+          .toList();
+      notifyListeners();
+      return res;
+    }
+    final updated = {
+      'contentId': contentId,
+      'status': hidden ? 'HIDDEN' : 'PUBLISHED',
+    };
+    studioVideos = studioVideos
+        .map((v) => v['contentId'] == contentId ? {...v, ...updated} : v)
+        .toList();
+    notifyListeners();
+    return updated;
+  }
+
+  Future<List<dynamic>> getStudioVideoComments(int contentId) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.getVideoComments(contentId);
+    }
+    return [
+      {
+        'id': 1,
+        'userId': 101,
+        'userEmail': 'thinhgia@suky.vn',
+        'textBody': 'Phân tích rất chuẩn xác và hào sảng!',
+        'status': 'VISIBLE',
+        'createdAt': '2026-10-28T08:00:00Z',
+      }
+    ];
   }
 
   Future<Map<String, dynamic>> submitStudioVideoForPublish(

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../creator_state.dart';
 import '../../episode.dart';
 import '../../core/api/contract_repository.dart';
+import '../../core/api/kyc_repository.dart';
 import '../../core/api/wallet_repository.dart';
 import '../../core/api/withdrawal_repository.dart';
 
@@ -19,6 +20,7 @@ class WalletState extends ChangeNotifier {
     this.walletRepository,
     this.withdrawalRepository,
     this.contractRepository,
+    this.kycRepository,
   }) {
     refresh();
   }
@@ -26,6 +28,7 @@ class WalletState extends ChangeNotifier {
   final WalletRepository? walletRepository;
   final WithdrawalRepository? withdrawalRepository;
   final ContractRepository? contractRepository;
+  final KycRepository? kycRepository;
   Map<String, dynamic> data = {};
   List<WalletTransactionModel> remoteTransactions = [];
   List<WithdrawalModel> remoteWithdrawals = [];
@@ -61,6 +64,25 @@ class WalletState extends ChangeNotifier {
       } catch (_) {}
       try {
         remoteBanks = await walletRepository!.getBankAccounts();
+        if (remoteBanks.isEmpty && kycRepository != null) {
+          try {
+            final kyc = await kycRepository!.getMyKycProfile();
+            if (kyc != null &&
+                kyc.bankName.trim().isNotEmpty &&
+                kyc.bankAccountNumber.trim().isNotEmpty) {
+              final currentUserId = preferences.getInt('currentUserId');
+              final newBank = await walletRepository!.createBankAccount(
+                bankName: kyc.bankName.trim(),
+                accountNumber: kyc.bankAccountNumber.trim(),
+                accountHolderName: kyc.bankAccountHolder.trim().isNotEmpty
+                    ? kyc.bankAccountHolder.trim()
+                    : kyc.fullName.trim(),
+                userId: currentUserId,
+              );
+              remoteBanks = [newBank];
+            }
+          } catch (_) {}
+        }
         if (remoteBanks.isNotEmpty) {
           final firstBank = remoteBanks.first;
           wallet(owner)['bank'] = {
@@ -86,9 +108,8 @@ class WalletState extends ChangeNotifier {
     }
     if (updated) {
       await save();
-    } else {
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<String?> topUpWallet(String owner, int amount) async {
@@ -154,13 +175,13 @@ class WalletState extends ChangeNotifier {
     String holder,
   ) async {
     refresh();
-    if (!kyc.isApproved ||
-        normalizeSearch(holder.trim()) !=
-            normalizeSearch(kyc.fullName.trim()) ||
+    if ((kyc.fullName.isNotEmpty &&
+            normalizeSearch(holder.trim()) !=
+                normalizeSearch(kyc.fullName.trim())) ||
         !RegExp(r'^\d{6,19}$').hasMatch(account) ||
         bank.trim().isEmpty) {
       throw StateError(
-        'Cần KYC đã duyệt, ngân hàng, số tài khoản 6–19 số và tên chủ khớp KYC.',
+        'Cần ngân hàng, số tài khoản 6–19 số và tên chủ khớp KYC.',
       );
     }
     if ((wallet(owner)['withdrawals'] as List).any(
@@ -170,13 +191,14 @@ class WalletState extends ChangeNotifier {
     }
 
     if (walletRepository != null) {
-      try {
-        await walletRepository!.createBankAccount(
-          bankName: bank.trim(),
-          accountNumber: account,
-          accountHolderName: holder.trim(),
-        );
-      } catch (_) {}
+      final currentUserId = preferences.getInt('currentUserId');
+      final newBank = await walletRepository!.createBankAccount(
+        bankName: bank.trim(),
+        accountNumber: account,
+        accountHolderName: holder.trim(),
+        userId: currentUserId,
+      );
+      remoteBanks = [newBank, ...remoteBanks.where((b) => b.id != newBank.id)];
     }
 
     wallet(owner)['bank'] = {
@@ -185,6 +207,52 @@ class WalletState extends ChangeNotifier {
       'holder': holder.trim(),
     };
     event('Liên kết ngân hàng thành công cho $owner');
+    await save();
+  }
+
+  Future<void> updateBank({
+    required int id,
+    required String owner,
+    required KycProfile kyc,
+    required String bank,
+    required String account,
+    required String holder,
+  }) async {
+    refresh();
+    if ((kyc.fullName.isNotEmpty &&
+            normalizeSearch(holder.trim()) !=
+                normalizeSearch(kyc.fullName.trim())) ||
+        !RegExp(r'^\d{6,19}$').hasMatch(account) ||
+        bank.trim().isEmpty) {
+      throw StateError(
+        'Cần ngân hàng, số tài khoản 6–19 số và tên chủ khớp KYC.',
+      );
+    }
+
+    if (walletRepository != null) {
+      final currentUserId = preferences.getInt('currentUserId');
+      final updated = await walletRepository!.updateBankAccount(
+        id: id,
+        bankName: bank.trim(),
+        accountNumber: account,
+        accountHolderName: holder.trim(),
+        userId: currentUserId,
+      );
+      final idx = remoteBanks.indexWhere((b) => b.id == id);
+      if (idx != -1) {
+        remoteBanks[idx] = updated;
+      } else {
+        remoteBanks = [updated, ...remoteBanks];
+      }
+    }
+
+    wallet(owner)['bank'] = {
+      'id': id,
+      'name': bank.trim(),
+      'account': account,
+      'holder': holder.trim(),
+    };
+    event('Cập nhật tài khoản ngân hàng thành công cho $owner');
     await save();
   }
 

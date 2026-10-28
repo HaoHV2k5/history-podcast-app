@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'core/api/wallet_repository.dart';
 import 'creator_state.dart';
 import 'design.dart';
 import 'episode.dart';
@@ -30,11 +31,13 @@ class WalletFormDialog extends StatefulWidget {
     required this.owner,
     required this.kyc,
     required this.linkBank,
+    this.existingBank,
   });
   final WalletState ledger;
   final String owner;
   final KycProfile kyc;
   final bool linkBank;
+  final BankAccountData? existingBank;
 
   @override
   State<WalletFormDialog> createState() => _WalletFormDialogState();
@@ -42,12 +45,35 @@ class WalletFormDialog extends StatefulWidget {
 
 class _WalletFormDialogState extends State<WalletFormDialog> {
   final form = GlobalKey<FormState>();
-  final bank = TextEditingController(text: 'Ngân hàng mẫu');
-  final account = TextEditingController();
-  late final holder = TextEditingController(text: widget.kyc.fullName);
+  late final TextEditingController bank;
+  late final TextEditingController account;
+  late final TextEditingController holder;
   final amount = TextEditingController();
   bool reviewing = false, busy = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingBank != null) {
+      bank = TextEditingController(text: widget.existingBank!.bankName);
+      account = TextEditingController(text: widget.existingBank!.accountNumber);
+      holder = TextEditingController(text: widget.existingBank!.accountHolderName);
+    } else {
+      final defaultBank = widget.ledger.isLiveBackend
+          ? (widget.kyc.bankName.isNotEmpty ? widget.kyc.bankName : '')
+          : 'Ngân hàng mẫu';
+      final defaultAccount = widget.kyc.bankAccountNumber.isNotEmpty
+          ? widget.kyc.bankAccountNumber
+          : '';
+      final defaultHolder = widget.kyc.bankAccountHolder.isNotEmpty
+          ? widget.kyc.bankAccountHolder
+          : widget.kyc.fullName;
+      bank = TextEditingController(text: defaultBank);
+      account = TextEditingController(text: defaultAccount);
+      holder = TextEditingController(text: defaultHolder);
+    }
+  }
 
   @override
   void dispose() {
@@ -72,13 +98,24 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
     });
     try {
       if (widget.linkBank) {
-        await widget.ledger.linkBank(
-          widget.owner,
-          widget.kyc,
-          bank.text,
-          account.text.trim(),
-          holder.text,
-        );
+        if (widget.existingBank != null) {
+          await widget.ledger.updateBank(
+            id: widget.existingBank!.id,
+            owner: widget.owner,
+            kyc: widget.kyc,
+            bank: bank.text.trim(),
+            account: account.text.trim(),
+            holder: holder.text.trim(),
+          );
+        } else {
+          await widget.ledger.linkBank(
+            widget.owner,
+            widget.kyc,
+            bank.text.trim(),
+            account.text.trim(),
+            holder.text.trim(),
+          );
+        }
       } else {
         await widget.ledger.withdraw(
           widget.owner,
@@ -94,7 +131,7 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
           busy = false;
           error = e is StateError
               ? e.message
-              : 'Chưa lưu được. Dữ liệu nhập vẫn được giữ để thử lại.';
+              : e.toString().replaceAll('Exception: ', '');
         });
       }
     }
@@ -111,9 +148,11 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
         surfaceTintColor: Colors.transparent,
         title: Text(
           widget.linkBank
-              ? (widget.ledger.isLiveBackend
-                    ? 'Liên kết ngân hàng'
-                    : 'Liên kết ngân hàng mẫu')
+              ? (widget.existingBank != null
+                    ? 'Cập nhật tài khoản ngân hàng'
+                    : (widget.ledger.isLiveBackend
+                          ? 'Liên kết ngân hàng'
+                          : 'Liên kết ngân hàng mẫu'))
               : reviewing
               ? 'Kiểm tra yêu cầu'
               : (widget.ledger.isLiveBackend
@@ -138,9 +177,28 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
                     key: const Key('bank-name'),
                     controller: bank,
                     enabled: !busy,
-                    decoration: const InputDecoration(labelText: 'Ngân hàng'),
+                    decoration: const InputDecoration(
+                      labelText: 'Tên ngân hàng',
+                      hintText: 'VD: Vietcombank, MB Bank, Techcombank...',
+                    ),
                     validator: (v) =>
-                        (v ?? '').trim().isEmpty ? 'Nhập ngân hàng.' : null,
+                        (v ?? '').trim().isEmpty ? 'Nhập tên ngân hàng.' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      'Vietcombank',
+                      'MB Bank',
+                      'Techcombank',
+                      'BIDV',
+                      'VPBank',
+                      'ACB',
+                    ].map((bName) => ActionChip(
+                      label: Text(bName, style: const TextStyle(fontSize: 11)),
+                      onPressed: busy ? null : () => setState(() => bank.text = bName),
+                    )).toList(),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -149,7 +207,8 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
                     enabled: !busy,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: 'Số tài khoản mẫu',
+                      labelText: 'Số tài khoản ngân hàng',
+                      hintText: 'VD: 001099008899',
                     ),
                     validator: (v) =>
                         RegExp(r'^\d{6,19}$').hasMatch((v ?? '').trim())
@@ -162,13 +221,18 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
                     controller: holder,
                     enabled: !busy,
                     decoration: const InputDecoration(
-                      labelText: 'Tên chủ tài khoản',
+                      labelText: 'Tên chủ tài khoản (In hoa không dấu)',
+                      hintText: 'VD: NGUYEN VAN A',
                     ),
-                    validator: (v) =>
-                        normalizeSearch((v ?? '').trim()) ==
-                            normalizeSearch(widget.kyc.fullName.trim())
-                        ? null
-                        : 'Tên phải khớp ${widget.kyc.fullName}.',
+                    validator: (v) {
+                      final val = (v ?? '').trim();
+                      if (val.isEmpty) return 'Nhập tên chủ tài khoản.';
+                      if (widget.kyc.fullName.isNotEmpty &&
+                          normalizeSearch(val) != normalizeSearch(widget.kyc.fullName.trim())) {
+                        return 'Tên phải khớp ${widget.kyc.fullName}.';
+                      }
+                      return null;
+                    },
                   ),
                 ] else if (!reviewing) ...[
                   Text('Khả dụng ${money(available)}'),

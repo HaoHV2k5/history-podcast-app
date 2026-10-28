@@ -17,13 +17,19 @@ class DelayedKyc extends CreatorState {
   @override
   Future<void> submitKyc({
     required String fullName,
-    required String idNumber,
-    required String dob,
     required String phone,
-    String otp = '',
-    required bool idFront,
-    required bool idBack,
-    required bool selfie,
+    String? idNumber,
+    String? dob,
+    String? contactEmail,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountHolder,
+    String? portfolioUrl,
+    String? bio,
+    String? otp,
+    bool idFront = true,
+    bool idBack = true,
+    bool selfie = true,
   }) {
     calls++;
     return request.future;

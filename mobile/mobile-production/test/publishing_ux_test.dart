@@ -71,6 +71,7 @@ void main() {
         'open-publish',
         'open-wallet',
       ]) {
+        await tester.scrollUntilVisible(find.byKey(Key(key)), 200);
         expect(find.byKey(Key(key)), findsOneWidget);
       }
       await tester.pageBack();

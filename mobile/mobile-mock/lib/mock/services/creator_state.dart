@@ -46,6 +46,15 @@ class KycProfile {
     this.idNumber = '',
     this.dob = '',
     this.phone = '',
+    this.contactEmail = '',
+    this.userEmail = '',
+    this.verificationMethod = 'EMAIL',
+    this.otpVerifiedAt = '',
+    this.portfolioUrl = '',
+    this.bio = '',
+    this.bankName = '',
+    this.bankAccountNumber = '',
+    this.bankAccountHolder = '',
     this.idFrontUploaded = false,
     this.idBackUploaded = false,
     this.selfiePassed = false,
@@ -57,6 +66,15 @@ class KycProfile {
   final String idNumber;
   final String dob;
   final String phone;
+  final String contactEmail;
+  final String userEmail;
+  final String verificationMethod;
+  final String otpVerifiedAt;
+  final String portfolioUrl;
+  final String bio;
+  final String bankName;
+  final String bankAccountNumber;
+  final String bankAccountHolder;
   final bool idFrontUploaded;
   final bool idBackUploaded;
   final bool selfiePassed;
@@ -70,6 +88,15 @@ class KycProfile {
     idNumber: '001099012345',
     dob: '15/08/1995',
     phone: '0901234567',
+    contactEmail: 'creator@suky.vn',
+    userEmail: 'creator@suky.vn',
+    verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+    otpVerifiedAt: '16:23 27/10/2026',
+    portfolioUrl: 'https://porfolio.eraidev.id.vn',
+    bio: 'Kênh podcast lịch sử Việt Nam chính thống.',
+    bankName: 'Vietcombank',
+    bankAccountNumber: '001099012345',
+    bankAccountHolder: 'NGUYEN VAN SU',
     idFrontUploaded: true,
     idBackUploaded: true,
     selfiePassed: true,
@@ -81,6 +108,15 @@ class KycProfile {
     'idNumber': idNumber,
     'dob': dob,
     'phone': phone,
+    'contactEmail': contactEmail,
+    'userEmail': userEmail,
+    'verificationMethod': verificationMethod,
+    'otpVerifiedAt': otpVerifiedAt,
+    'portfolioUrl': portfolioUrl,
+    'bio': bio,
+    'bankName': bankName,
+    'bankAccountNumber': bankAccountNumber,
+    'bankAccountHolder': bankAccountHolder,
     'idFrontUploaded': idFrontUploaded,
     'idBackUploaded': idBackUploaded,
     'selfiePassed': selfiePassed,
@@ -93,6 +129,15 @@ class KycProfile {
     idNumber: j['idNumber'] as String? ?? '',
     dob: j['dob'] as String? ?? '',
     phone: j['phone'] as String? ?? '',
+    contactEmail: j['contactEmail'] as String? ?? '',
+    userEmail: j['userEmail'] as String? ?? '',
+    verificationMethod: j['verificationMethod'] as String? ?? 'EMAIL',
+    otpVerifiedAt: j['otpVerifiedAt'] as String? ?? '',
+    portfolioUrl: j['portfolioUrl'] as String? ?? '',
+    bio: j['bio'] as String? ?? '',
+    bankName: j['bankName'] as String? ?? '',
+    bankAccountNumber: j['bankAccountNumber'] as String? ?? '',
+    bankAccountHolder: j['bankAccountHolder'] as String? ?? '',
     idFrontUploaded: j['idFrontUploaded'] as bool? ?? false,
     idBackUploaded: j['idBackUploaded'] as bool? ?? false,
     selfiePassed: j['selfiePassed'] as bool? ?? false,
@@ -285,18 +330,29 @@ class CreatorState extends ChangeNotifier {
 
   Future<void> submitKyc({
     required String fullName,
-    required String idNumber,
-    required String dob,
     required String phone,
-    String otp = '',
-    required bool idFront,
-    required bool idBack,
-    required bool selfie,
+    String? idNumber,
+    String? dob,
+    String? contactEmail,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountHolder,
+    String? portfolioUrl,
+    String? bio,
+    String? otp,
+    bool idFront = true,
+    bool idBack = true,
+    bool selfie = true,
   }) async {
     if (fullName.trim().isEmpty) {
       throw StateError('Vui lòng nhập họ và tên thật.');
     }
-    if (!RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
+    final effectiveId = (idNumber != null && idNumber.trim().isNotEmpty)
+        ? idNumber.trim()
+        : (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty
+            ? bankAccountNumber.trim()
+            : '001099012345');
+    if (idNumber != null && idNumber.trim().isNotEmpty && !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
       throw StateError('Số CCCD phải đủ 12 chữ số.');
     }
     if (!idFront || !idBack) {
@@ -306,20 +362,42 @@ class CreatorState extends ChangeNotifier {
       throw StateError('Cần xác thực khuôn mặt (liveness check).');
     }
 
-    final birthError = validateKycBirthDate(dob);
-    if (birthError != null) throw StateError(birthError);
+    if (dob != null && dob.trim().isNotEmpty) {
+      final birthError = validateKycBirthDate(dob);
+      if (birthError != null) throw StateError(birthError);
+    }
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp.trim() != '889900') {
+    if (_otpPhone != null && (_otpPhone != phone.trim() || (otp != null && otp.trim() != '889900'))) {
       throw StateError('Gửi và nhập mã OTP thử nghiệm cho số điện thoại này.');
     }
 
+    final effectiveEmail = (contactEmail != null && contactEmail.trim().isNotEmpty)
+        ? contactEmail.trim()
+        : (preferences.getString('userEmail') ?? 'creator@suky.vn');
+    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty) ? bankName.trim() : 'Vietcombank';
+    final effectiveBankAcc = (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
+        ? bankAccountNumber.trim()
+        : effectiveId;
+    final effectiveBankHolder = (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
+        ? bankAccountHolder.trim().toUpperCase()
+        : fullName.trim().toUpperCase();
+
     final newKyc = KycProfile(
       fullName: fullName.trim(),
-      idNumber: idNumber.trim(),
-      dob: dob.trim(),
+      idNumber: effectiveId,
+      dob: dob?.trim() ?? '15/08/1995',
       phone: phone.trim(),
+      contactEmail: effectiveEmail,
+      userEmail: preferences.getString('userEmail') ?? effectiveEmail,
+      verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+      otpVerifiedAt: _auditTime(),
+      portfolioUrl: portfolioUrl?.trim() ?? '',
+      bio: bio?.trim() ?? '',
+      bankName: effectiveBankName,
+      bankAccountNumber: effectiveBankAcc,
+      bankAccountHolder: effectiveBankHolder,
       idFrontUploaded: idFront,
       idBackUploaded: idBack,
       selfiePassed: selfie,

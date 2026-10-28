@@ -42,6 +42,7 @@ import '../../core/api/transcript_repository.dart';
 import '../../core/api/user_repository.dart';
 import '../../core/api/wallet_transaction_repository.dart';
 import '../../core/api/withdrawal_repository.dart';
+import 'creator_state.dart';
 
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
@@ -102,8 +103,12 @@ class AppState extends ChangeNotifier {
     );
     displayName = preferences.getString('displayName') ?? 'Người nghe';
     isLoggedIn = preferences.getBool('isLoggedIn') ?? false;
+    currentUserId = preferences.getInt('currentUserId');
     userEmail = preferences.getString('userEmail');
     userPhone = preferences.getString('userPhone');
+    userRoles = preferences.getStringList('userRoles') ?? ['VIEWER'];
+    isCreator = preferences.getBool('isCreator') ?? false;
+    kycStatus = preferences.getString('kycStatus');
 
     recentSearches.addAll(
       (preferences.getStringList('recentSearches') ?? [])
@@ -205,11 +210,91 @@ class AppState extends ChangeNotifier {
       membershipRepository != null ||
       livestreamRepository != null;
 
+  CreatorState get creatorState => _creatorState ??= CreatorState(
+        preferences,
+        channelRepository: channelRepository,
+        kycRepository: kycRepository,
+        creatorStudioRepository: creatorStudioRepository,
+        creatorSeriesRepository: creatorSeriesRepository,
+        walletRepository: walletRepository,
+        withdrawalRepository: withdrawalRepository,
+        contractRepository: contractRepository,
+        hireRequestRepository: hireRequestRepository,
+        milestoneRepository: milestoneRepository,
+        deliverableRepository: deliverableRepository,
+        disputeRepository: disputeRepository,
+        chatRepository: chatRepository,
+        narratorProfileRepository: narratorProfileRepository,
+        narratorDemoRepository: narratorDemoRepository,
+        freelancerRepository: freelancerRepository,
+        postRepository: postRepository,
+      );
+  CreatorState? _creatorState;
+
   bool isLoadingCatalog = false;
   String? catalogError;
   int? currentUserId;
   int walletAvailableBalance = 0;
   int walletPendingBalance = 0;
+  List<String> userRoles = ['VIEWER'];
+  bool isCreator = false;
+  String? kycStatus;
+
+  Future<void> refreshProfile() async {
+    if (!isLoggedIn) return;
+    if (userRepository != null) {
+      try {
+        final profile = await userRepository!.getMyProfile();
+        currentUserId = profile.id;
+        await preferences.setInt('currentUserId', profile.id);
+        if (profile.fullName.trim().isNotEmpty) {
+          displayName = profile.fullName.trim();
+          await preferences.setString('displayName', displayName);
+        }
+        if (profile.email.isNotEmpty) {
+          userEmail = profile.email;
+          await preferences.setString('userEmail', userEmail!);
+        }
+        if (profile.phone != null && profile.phone!.isNotEmpty) {
+          userPhone = profile.phone;
+          await preferences.setString('userPhone', userPhone!);
+        }
+        final rolesSet = <String>{...profile.roles};
+        if (profile.roleName != null && profile.roleName!.isNotEmpty) {
+          rolesSet.add(profile.roleName!);
+        }
+        if (profile.isCreator) {
+          rolesSet.add('CREATOR');
+        }
+        if (rolesSet.isEmpty) {
+          rolesSet.add('VIEWER');
+        }
+        userRoles = rolesSet.toList();
+        isCreator = profile.isCreator || userRoles.contains('CREATOR');
+        await preferences.setStringList('userRoles', userRoles);
+        await preferences.setBool('isCreator', isCreator);
+      } catch (_) {}
+    }
+
+    if (kycRepository != null) {
+      try {
+        final kyc = await kycRepository!.getMyKycProfile();
+        if (kyc != null) {
+          kycStatus = kyc.status.toUpperCase();
+          await preferences.setString('kycStatus', kycStatus!);
+          if (kycStatus == 'APPROVED') {
+            if (!userRoles.contains('CREATOR')) {
+              userRoles.add('CREATOR');
+              await preferences.setStringList('userRoles', userRoles);
+            }
+            isCreator = true;
+            await preferences.setBool('isCreator', true);
+          }
+        }
+      } catch (_) {}
+    }
+    notifyListeners();
+  }
 
   Future<void> refreshWalletBalance() async {
     if (walletRepository == null) return;
@@ -237,9 +322,17 @@ class AppState extends ChangeNotifier {
   MembershipPlanModel? getChannelPlan(String channelName) =>
       channelPlans[channelName];
 
+  Future<void> updateApiBaseUrl(String newUrl) async {
+    if (apiClient != null) {
+      apiClient!.updateBaseUrl(newUrl);
+      await preferences.setString('custom_api_base_url', apiClient!.baseUrl);
+      await refreshCatalog();
+    }
+  }
+
   Future<void> refreshCatalog() => initRealBackend();
 
-  Future<void> initRealBackend() async {
+  Future<void> initRealBackend({bool allowAutoFallback = true}) async {
     isLoadingCatalog = true;
     catalogError = null;
     notifyListeners();
@@ -315,15 +408,8 @@ class AppState extends ChangeNotifier {
       }
     }
 
-    if (isLoggedIn && userRepository != null) {
-      try {
-        final profile = await userRepository!.getMyProfile();
-        currentUserId = profile.id;
-        if (profile.fullName.trim().isNotEmpty) {
-          displayName = profile.fullName.trim();
-          await preferences.setString('displayName', displayName);
-        }
-      } catch (_) {}
+    if (isLoggedIn) {
+      await refreshProfile();
     }
 
     if (walletRepository != null) {
@@ -440,9 +526,26 @@ class AppState extends ChangeNotifier {
       } catch (_) {}
     }
 
+    // Tự động thử fallback địa chỉ IP LAN nếu địa chỉ mặc định bị lỗi mạng
+    if (hadNetworkFailure && allowAutoFallback && apiClient != null && !kIsWeb) {
+      final currentBase = apiClient!.baseUrl;
+      String? fallbackUrl;
+      if (currentBase.contains('10.0.2.2')) {
+        fallbackUrl = 'http://192.168.1.72:8080';
+      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206')) {
+        fallbackUrl = 'http://10.0.2.2:8080';
+      }
+      if (fallbackUrl != null) {
+        apiClient!.updateBaseUrl(fallbackUrl);
+        return initRealBackend(allowAutoFallback: false);
+      }
+    }
+
     if (hadNetworkFailure && remoteEpisodes.isEmpty && remoteChannels.isEmpty) {
       catalogError =
           'Chưa kết nối được máy chủ Sử Ký. Đang hiển thị kho tư liệu lưu sẵn.';
+    } else {
+      catalogError = null;
     }
 
     isLoadingCatalog = false;
@@ -680,6 +783,25 @@ class AppState extends ChangeNotifier {
         );
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<LivestreamSessionModel?> fetchLivestreamSession(int id) async {
+    if (livestreamRepository == null) return null;
+    try {
+      final session = await livestreamRepository!.getSession(id);
+      final idx = activeLivestreams.indexWhere((s) => s.id == id);
+      if (idx >= 0) {
+        activeLivestreams[idx] = session.channelName.isNotEmpty
+            ? session
+            : session.copyWith(
+                channelName: activeLivestreams[idx].channelName,
+              );
+        notifyListeners();
+      }
+      return session;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<LivestreamTokenModel> joinLivestream(
@@ -1072,10 +1194,19 @@ class AppState extends ChangeNotifier {
       userEmail = res.email;
       userPhone = res.phone;
       displayName = res.email.split('@').first;
+      final initialRoles = <String>{...res.roles};
+      if (res.role.isNotEmpty) initialRoles.add(res.role);
+      if (initialRoles.isEmpty) initialRoles.add('VIEWER');
+      userRoles = initialRoles.toList();
+      isCreator = userRoles.contains('CREATOR');
+      await preferences.setStringList('userRoles', userRoles);
+      await preferences.setBool('isCreator', isCreator);
 
       if (userRepository != null) {
         try {
           final profile = await userRepository!.getMyProfile();
+          currentUserId = profile.id;
+          await preferences.setInt('currentUserId', profile.id);
           if (profile.fullName.trim().isNotEmpty) {
             displayName = profile.fullName.trim();
           }
@@ -1238,8 +1369,16 @@ class AppState extends ChangeNotifier {
       await authRepository?.logout();
     } catch (_) {}
     isLoggedIn = false;
+    currentUserId = null;
     userEmail = null;
     userPhone = null;
+    userRoles = ['VIEWER'];
+    isCreator = false;
+    kycStatus = null;
+    await preferences.remove('currentUserId');
+    await preferences.remove('userRoles');
+    await preferences.remove('isCreator');
+    await preferences.remove('kycStatus');
     await preferences.setBool('manual_logout', true);
     displayName = 'Người nghe';
     memberships.clear();
@@ -1386,10 +1525,12 @@ class AppState extends ChangeNotifier {
         for (final list in _comments.values)
           for (final item in list) item.toJson(),
       ];
-      await (writeComments ?? preferences.setStringList)(
+      if (!await (writeComments ?? preferences.setStringList)(
         'userComments',
         next,
-      );
+      )) {
+        throw StateError('Chưa lưu được bình luận.');
+      }
       _comments.putIfAbsent(episodeId, () => []).insert(0, comment);
       notifyListeners();
       return null;

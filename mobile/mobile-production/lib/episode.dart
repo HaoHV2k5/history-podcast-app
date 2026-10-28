@@ -129,8 +129,11 @@ class Channel {
   final String coverImage;
   final double? monthlyPrice;
   final bool hasBackendPlan;
-  List<Episode> get content =>
-      allEpisodes.where((e) => e.channel == name).toList();
+  List<Episode> get content => allEpisodes
+      .where((e) =>
+          e.channel.trim().toLowerCase() == name.trim().toLowerCase() ||
+          (e.channelId != null && id != null && e.channelId == id))
+      .toList();
   bool get hasMembership =>
       hasBackendPlan ||
       (monthlyPrice != null && monthlyPrice! > 0) ||
@@ -178,7 +181,7 @@ List<Channel> get channels {
 }
 
 Channel channelByName(String name) => channels.firstWhere(
-  (c) => c.name == name,
+  (c) => c.name.trim().toLowerCase() == name.trim().toLowerCase(),
   orElse: () => Channel(
     name,
     name.isNotEmpty ? name.substring(0, 1) : 'S',

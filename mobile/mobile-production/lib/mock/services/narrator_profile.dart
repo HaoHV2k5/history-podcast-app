@@ -47,6 +47,22 @@ class NarratorProfileState extends ChangeNotifier {
       reason = j['reason'] as String? ?? '';
       review = NarratorReview.values.byName(j['review'] as String? ?? 'draft');
     }
+    final rawFreelancer = preferences.getString('narratorFreelancerProfileV1');
+    if (rawFreelancer != null) {
+      try {
+        final jf = jsonDecode(rawFreelancer) as Map<String, dynamic>;
+        headline = jf['headline'] as String? ?? '';
+        skills = jf['skills'] as String? ?? '';
+        serviceTypes = jf['serviceTypes'] as String? ?? 'VOICEOVER';
+        voiceDemoUrl = jf['voiceDemoUrl'] as String? ?? '';
+        referencePrice = (jf['referencePrice'] as num?)?.toDouble();
+        portfolioUrl = jf['portfolioUrl'] as String? ?? '';
+        status = jf['status'] as String? ?? 'ACTIVE';
+        if (headline.isNotEmpty && name.isEmpty) {
+          name = headline;
+        }
+      } catch (_) {}
+    }
   }
   final SharedPreferences preferences;
   final NarratorProfileRepository? narratorProfileRepository;
@@ -64,6 +80,13 @@ class NarratorProfileState extends ChangeNotifier {
       transcript = '',
       sample = '',
       reason = '';
+  String headline = '';
+  String skills = '';
+  String serviceTypes = 'VOICEOVER';
+  String voiceDemoUrl = '';
+  double? referencePrice;
+  String portfolioUrl = '';
+  String status = 'INACTIVE';
   NarratorReview review = NarratorReview.draft;
   bool get isLiveBackend =>
       narratorProfileRepository != null ||
@@ -71,8 +94,13 @@ class NarratorProfileState extends ChangeNotifier {
       freelancerRepository != null ||
       kycRepository != null;
   bool get canReceiveJobs =>
-      verification.kyc.isApproved && review == NarratorReview.approved;
+      (remoteFreelancerProfile != null &&
+          remoteFreelancerProfile!.status == 'ACTIVE') ||
+      (status == 'ACTIVE' &&
+          preferences.getBool('isFreelancerActiveV1') == true) ||
+      (verification.kyc.isApproved && review == NarratorReview.approved);
   bool get editable =>
+      freelancerRepository != null ||
       [NarratorReview.draft, NarratorReview.rejected].contains(review);
 
   Future<void> syncFromBackend() async {
@@ -81,20 +109,25 @@ class NarratorProfileState extends ChangeNotifier {
       try {
         final f = await freelancerRepository!.getMyProfile();
         remoteFreelancerProfile = f;
+        headline = f.headline;
+        if ((f.bio ?? '').isNotEmpty) bio = f.bio!;
+        skills = f.skills ?? '';
+        serviceTypes = f.serviceTypes ?? 'VOICEOVER';
+        voiceDemoUrl = f.voiceDemoUrl ?? '';
+        referencePrice = f.referencePrice;
+        portfolioUrl = f.portfolioUrl ?? '';
+        status = f.status;
         if (name.isEmpty && (f.userFullName ?? '').isNotEmpty) {
           name = f.userFullName!;
+        } else if (name.isEmpty && headline.isNotEmpty) {
+          name = headline;
         }
-        if (bio.isEmpty && (f.bio ?? '').isNotEmpty) {
-          bio = f.bio!;
+        review = NarratorReview.approved;
+        if (transcript.isEmpty && bio.isNotEmpty) {
+          transcript = bio;
         }
-        if ((f.bio ?? '').isNotEmpty && verification.kyc.isApproved) {
-          review = NarratorReview.approved;
-          if (transcript.isEmpty) {
-            transcript = f.bio!;
-          }
-          if (sample.isEmpty) {
-            sample = 'demo-tu-su.wav';
-          }
+        if (sample.isEmpty && voiceDemoUrl.isNotEmpty) {
+          sample = voiceDemoUrl;
         }
       } catch (_) {}
     }
@@ -204,6 +237,85 @@ class NarratorProfileState extends ChangeNotifier {
       'region': region,
       'transcript': transcript.trim(),
       'sample': sample,
+    });
+  }
+
+  Future<void> saveFreelancerProfile({
+    required String headline,
+    String? bio,
+    String? skills,
+    String? serviceTypes,
+    String? voiceDemoUrl,
+    double? referencePrice,
+    String? portfolioUrl,
+  }) async {
+    if (headline.trim().isEmpty) {
+      throw StateError('Tiêu đề chuyên môn không được để trống.');
+    }
+
+    if (freelancerRepository != null) {
+      if (remoteFreelancerProfile != null) {
+        remoteFreelancerProfile = await freelancerRepository!.updateMyProfile(
+          headline: headline.trim(),
+          bio: bio?.trim(),
+          skills: skills?.trim(),
+          serviceTypes: serviceTypes?.trim().isNotEmpty == true
+              ? serviceTypes!.trim()
+              : 'VOICEOVER',
+          voiceDemoUrl: voiceDemoUrl?.trim(),
+          referencePrice: referencePrice,
+          portfolioUrl: portfolioUrl?.trim(),
+        );
+      } else {
+        remoteFreelancerProfile = await freelancerRepository!.becomeFreelancer(
+          headline: headline.trim(),
+          bio: bio?.trim(),
+          skills: skills?.trim(),
+          serviceTypes: serviceTypes?.trim().isNotEmpty == true
+              ? serviceTypes!.trim()
+              : 'VOICEOVER',
+          voiceDemoUrl: voiceDemoUrl?.trim(),
+          referencePrice: referencePrice,
+          portfolioUrl: portfolioUrl?.trim(),
+        );
+      }
+      status = remoteFreelancerProfile!.status;
+      review = NarratorReview.approved;
+      await preferences.setBool('isFreelancerActiveV1', true);
+    }
+
+    this.headline = headline.trim();
+    if (bio != null) this.bio = bio.trim();
+    this.skills = skills?.trim() ?? '';
+    this.serviceTypes = serviceTypes?.trim().isNotEmpty == true
+        ? serviceTypes!.trim()
+        : 'VOICEOVER';
+    this.voiceDemoUrl = voiceDemoUrl?.trim() ?? '';
+    this.referencePrice = referencePrice;
+    this.portfolioUrl = portfolioUrl?.trim() ?? '';
+    if (this.name.isEmpty) {
+      this.name = headline.trim();
+    }
+
+    await preferences.setString(
+      'narratorFreelancerProfileV1',
+      jsonEncode({
+        'headline': this.headline,
+        'bio': this.bio,
+        'skills': this.skills,
+        'serviceTypes': this.serviceTypes,
+        'voiceDemoUrl': this.voiceDemoUrl,
+        'referencePrice': this.referencePrice,
+        'portfolioUrl': this.portfolioUrl,
+        'status': this.status,
+      }),
+    );
+    await _save({
+      ...json,
+      'name': this.name,
+      'bio': this.bio,
+      'transcript': this.bio.isNotEmpty ? this.bio : transcript,
+      'sample': this.voiceDemoUrl.isNotEmpty ? this.voiceDemoUrl : sample,
     });
   }
 

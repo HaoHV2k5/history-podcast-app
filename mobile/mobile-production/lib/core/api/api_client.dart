@@ -16,11 +16,22 @@ class ApiClient {
     _preferences = preferences;
   }
 
-  final String _baseUrl;
+  String _baseUrl;
   final http.Client _http;
   SharedPreferences? _preferences;
 
   String get baseUrl => _baseUrl;
+
+  void updateBaseUrl(String newUrl) {
+    var trimmed = newUrl.trim();
+    if (trimmed.endsWith('/')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    if (trimmed.isNotEmpty) {
+      _baseUrl = trimmed;
+      _preferences?.setString('custom_api_base_url', trimmed);
+    }
+  }
 
   void setPreferences(SharedPreferences preferences) {
     _preferences = preferences;
@@ -59,48 +70,60 @@ class ApiClient {
     return headers;
   }
 
+  static const Duration defaultTimeout = Duration(seconds: 15);
+
   Future<Map<String, dynamic>> get(String path, {Map<String, String>? queryParams}) async {
     var uri = Uri.parse('$_baseUrl$path');
     if (queryParams != null && queryParams.isNotEmpty) {
       uri = uri.replace(queryParameters: queryParams);
     }
-    final response = await _http.get(uri, headers: _buildHeaders());
+    final response = await _http
+        .get(uri, headers: _buildHeaders())
+        .timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> post(String path, {Object? body}) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await _http.post(
-      uri,
-      headers: _buildHeaders(),
-      body: body != null ? jsonEncode(body) : null,
-    );
+    final response = await _http
+        .post(
+          uri,
+          headers: _buildHeaders(),
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> put(String path, {Object? body}) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await _http.put(
-      uri,
-      headers: _buildHeaders(),
-      body: body != null ? jsonEncode(body) : null,
-    );
+    final response = await _http
+        .put(
+          uri,
+          headers: _buildHeaders(),
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> patch(String path, {Object? body}) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await _http.patch(
-      uri,
-      headers: _buildHeaders(),
-      body: body != null ? jsonEncode(body) : null,
-    );
+    final response = await _http
+        .patch(
+          uri,
+          headers: _buildHeaders(),
+          body: body != null ? jsonEncode(body) : null,
+        )
+        .timeout(defaultTimeout);
     return _handleResponse(response);
   }
 
   Future<Map<String, dynamic>> delete(String path) async {
     final uri = Uri.parse('$_baseUrl$path');
-    final response = await _http.delete(uri, headers: _buildHeaders());
+    final response = await _http
+        .delete(uri, headers: _buildHeaders())
+        .timeout(defaultTimeout);
     return _handleResponse(response);
   }
 

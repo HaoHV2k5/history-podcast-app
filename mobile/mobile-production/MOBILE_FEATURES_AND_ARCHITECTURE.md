@@ -42,8 +42,8 @@ Tài liệu này mô tả toàn diện hiện trạng ứng dụng **Sử Ký Mo
 ---
 
 ### Phân hệ 2: Phòng Phát Sóng Trực Tiếp (Livestream & Live Chat)
-- **Kệ Đang Phát Trực Tiếp (`LivestreamShelfCard`)**:
-  - Tự động hiển thị trên trang Khám phá và trang Kênh khi có phiên đang `LIVE` (`GET /api/v1/livestreams?status=LIVE`).
+- **Khám Phá Phòng Trực Tiếp (`LivestreamExploreView`, `LivestreamShelfCard`)**:
+  - Tập trung chuyên biệt tại Tab **Trực tiếp** (không hiển thị lẫn vào mục Khám phá) và trên trang chi tiết Kênh khi có phiên đang `LIVE` (`GET /api/v1/livestreams?status=LIVE`).
 - **Phòng Nghe Trực Tiếp (`LivestreamRoomPage`)**:
   - Kiểm tra cổng **Hội viên VIP** nếu phiên phát sóng đặt `isExclusive = true`.
   - Tự động cập nhật bộ đếm người xem thực tế (`POST /api/v1/livestreams/{id}/join` & `/leave`).

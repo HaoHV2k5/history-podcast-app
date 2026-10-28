@@ -155,7 +155,7 @@ class PostRepository {
     required String title,
     required String description,
     required double referencePrice,
-    String? expiresAt,
+    int? expiresInDays,
   }) async {
     final payload = <String, dynamic>{
       'type': type,
@@ -163,7 +163,7 @@ class PostRepository {
       'title': title,
       'description': description,
       'referencePrice': referencePrice,
-      if (expiresAt != null) 'expiresAt': expiresAt,
+      if (expiresInDays != null) 'expiresInDays': expiresInDays,
     };
     final res = await client.post('/api/v1/posts', body: payload);
     final data = res['data'] as Map<String, dynamic>;
@@ -180,18 +180,16 @@ class PostRepository {
   /// 4. PUT /api/v1/posts/{id} (Cập nhật bài đăng)
   Future<PostModel> updatePost(
     int id, {
-    String? serviceType,
     String? title,
     String? description,
     double? referencePrice,
-    String? expiresAt,
+    String? status,
   }) async {
     final payload = <String, dynamic>{
-      if (serviceType != null) 'serviceType': serviceType,
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (referencePrice != null) 'referencePrice': referencePrice,
-      if (expiresAt != null) 'expiresAt': expiresAt,
+      if (status != null) 'status': status,
     };
     final res = await client.put('/api/v1/posts/$id', body: payload);
     final data = res['data'] as Map<String, dynamic>;

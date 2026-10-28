@@ -5,20 +5,36 @@ class CreatorAiSettingModel {
   final String? elevenLabsApiKey;
   final String? preferredVoiceId;
   final String? voiceProvider;
+  final String? ttsEngine;
+  final String? voiceName;
+  final bool hasGeminiKey;
+  final bool hasElevenlabsKey;
 
   CreatorAiSettingModel({
     this.geminiApiKey,
     this.elevenLabsApiKey,
     this.preferredVoiceId,
     this.voiceProvider,
+    this.ttsEngine,
+    this.voiceName,
+    this.hasGeminiKey = false,
+    this.hasElevenlabsKey = false,
   });
 
   factory CreatorAiSettingModel.fromJson(Map<String, dynamic> json) {
+    final gKey = json['geminiApiKey']?.toString();
+    final eKey = (json['elevenlabsApiKey'] ?? json['elevenLabsApiKey'])?.toString();
+    final vName = (json['voiceName'] ?? json['preferredVoiceId'])?.toString();
+    final engine = (json['ttsEngine'] ?? json['voiceProvider'])?.toString();
     return CreatorAiSettingModel(
-      geminiApiKey: json['geminiApiKey']?.toString(),
-      elevenLabsApiKey: json['elevenLabsApiKey']?.toString(),
-      preferredVoiceId: json['preferredVoiceId']?.toString(),
-      voiceProvider: json['voiceProvider']?.toString(),
+      geminiApiKey: gKey,
+      elevenLabsApiKey: eKey,
+      preferredVoiceId: vName,
+      voiceProvider: engine,
+      ttsEngine: engine ?? 'edge-tts',
+      voiceName: vName ?? 'vi-VN-NamMinhNeural',
+      hasGeminiKey: json['hasGeminiKey'] == true || (gKey != null && gKey.isNotEmpty),
+      hasElevenlabsKey: json['hasElevenlabsKey'] == true || (eKey != null && eKey.isNotEmpty),
     );
   }
 }
@@ -27,24 +43,43 @@ class CreatorVoiceModel {
   final String voiceId;
   final String name;
   final String? provider;
+  final String? engine;
+  final String? gender;
+  final String? accent;
   final String? previewAudioUrl;
   final String? description;
+  final String? sampleText;
+  final bool recommended;
 
   CreatorVoiceModel({
     required this.voiceId,
     required this.name,
     this.provider,
+    this.engine,
+    this.gender,
+    this.accent,
     this.previewAudioUrl,
     this.description,
+    this.sampleText,
+    this.recommended = false,
   });
 
   factory CreatorVoiceModel.fromJson(Map<String, dynamic> json) {
+    final id = (json['id'] ?? json['voiceId'] ?? '').toString();
+    final name = (json['name'] ?? id).toString();
+    final engine = (json['engine'] ?? json['provider'] ?? 'edge-tts').toString();
+    final prev = (json['previewUrl'] ?? json['previewAudioUrl'])?.toString();
     return CreatorVoiceModel(
-      voiceId: (json['voiceId'] ?? '').toString(),
-      name: (json['name'] ?? '').toString(),
-      provider: json['provider']?.toString(),
-      previewAudioUrl: json['previewAudioUrl']?.toString(),
-      description: json['description']?.toString(),
+      voiceId: id,
+      name: name,
+      provider: engine,
+      engine: engine,
+      gender: json['gender']?.toString(),
+      accent: json['accent']?.toString(),
+      previewAudioUrl: prev,
+      description: (json['recommendedFor'] ?? json['description'])?.toString(),
+      sampleText: json['sampleText']?.toString(),
+      recommended: json['recommended'] == true,
     );
   }
 }
@@ -65,18 +100,36 @@ class CreatorStudioRepository {
   Future<CreatorAiSettingModel> saveSettings({
     String? geminiApiKey,
     String? elevenLabsApiKey,
+    String? elevenlabsApiKey,
     String? preferredVoiceId,
     String? voiceProvider,
+    String? ttsEngine,
+    String? voiceName,
   }) async {
+    final effectiveElevenKey = elevenlabsApiKey ?? elevenLabsApiKey;
+    final effectiveVoice = voiceName ?? preferredVoiceId;
+    final effectiveEngine = ttsEngine ?? voiceProvider;
     final payload = {
       if (geminiApiKey != null) 'geminiApiKey': geminiApiKey,
-      if (elevenLabsApiKey != null) 'elevenLabsApiKey': elevenLabsApiKey,
-      if (preferredVoiceId != null) 'preferredVoiceId': preferredVoiceId,
-      if (voiceProvider != null) 'voiceProvider': voiceProvider,
+      if (effectiveElevenKey != null) 'elevenlabsApiKey': effectiveElevenKey,
+      if (effectiveVoice != null) 'voiceName': effectiveVoice,
+      if (effectiveEngine != null) 'ttsEngine': effectiveEngine,
     };
     final res = await client.put('/api/v1/creator/studio/settings', body: payload);
     final data = res['data'] as Map<String, dynamic>;
     return CreatorAiSettingModel.fromJson(data);
+  }
+
+  /// Tải ảnh minh họa cảnh lên Cloudinary (POST /api/v1/creator/studio/upload-image)
+  Future<String> uploadSceneImage(List<int> fileBytes, String filename) async {
+    final res = await client.multipartPost(
+      '/api/v1/creator/studio/upload-image',
+      fileField: 'file',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
+    final data = res['data'] as Map<String, dynamic>?;
+    return data?['imageUrl']?.toString() ?? '';
   }
 
   /// 3. Thẩm định kịch bản sử liệu & Gợi ý prompt thumbnail (POST /api/v1/creator/studio/verify-script)
@@ -107,11 +160,19 @@ class CreatorStudioRepository {
   }
 
   /// 7. Danh sách video của Creator (GET /api/v1/creator/studio/videos)
-  Future<List<dynamic>> getVideos({String? keyword, String? status, bool? isExclusive}) async {
+  Future<List<dynamic>> getVideos({
+    String? keyword,
+    String? status,
+    bool? isExclusive,
+    String? sortBy,
+    String? sortDir,
+  }) async {
     final query = <String, String>{
-      if (keyword != null) 'keyword': keyword,
-      if (status != null) 'status': status,
+      if (keyword != null && keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+      if (status != null && status.trim().isNotEmpty && status != 'ALL') 'status': status.trim(),
       if (isExclusive != null) 'isExclusive': isExclusive.toString(),
+      if (sortBy != null && sortBy.trim().isNotEmpty) 'sortBy': sortBy.trim(),
+      if (sortDir != null && sortDir.trim().isNotEmpty) 'sortDir': sortDir.trim(),
     };
     final res = await client.get('/api/v1/creator/studio/videos', queryParams: query.isNotEmpty ? query : null);
     final data = res['data'];
@@ -165,12 +226,13 @@ class CreatorStudioRepository {
   Future<Map<String, dynamic>> previewVoice({
     required String voiceId,
     required String text,
+    String? engine,
     String? provider,
   }) async {
     final payload = {
       'voiceId': voiceId,
       'text': text,
-      if (provider != null) 'provider': provider,
+      'engine': engine ?? provider ?? (voiceId.startsWith('vi-VN') ? 'edge-tts' : 'elevenlabs'),
     };
     final res = await client.post('/api/v1/creator/studio/voices/preview', body: payload);
     return (res['data'] as Map<String, dynamic>?) ?? {};

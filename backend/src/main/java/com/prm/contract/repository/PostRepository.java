@@ -23,7 +23,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "AND (:serviceType IS NULL OR p.serviceType = :serviceType) " +
            "AND (:minPrice IS NULL OR p.referencePrice >= :minPrice) " +
            "AND (:maxPrice IS NULL OR p.referencePrice <= :maxPrice) " +
-           "AND (:keyword IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.description) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
+           "     OR LOWER(p.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+           "     OR LOWER(p.description) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Post> searchPosts(
             @Param("type") PostType type,
             @Param("serviceType") ServiceType serviceType,

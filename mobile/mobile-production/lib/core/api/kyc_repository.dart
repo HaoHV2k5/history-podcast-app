@@ -73,6 +73,7 @@ class KycRepository {
   Future<void> verifyEmailOtp(String email, String otp) async {
     await client.post('/api/v1/kyc-profiles/otps/email/verify', body: {
       'email': email,
+      'otpCode': otp,
       'otp': otp,
     });
   }

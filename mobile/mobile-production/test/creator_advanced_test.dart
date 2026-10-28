@@ -170,27 +170,17 @@ void main() {
     // Verify draft loaded
     expect(find.text('Hồ Gươm sương sớm'), findsOneWidget);
 
-    // Open Video Upload modal
+    // Verify appbar button opens AiWhiteboardPipelinePage
     expect(find.byKey(const Key('appbar-upload-video')), findsOneWidget);
     await tester.tap(find.byKey(const Key('appbar-upload-video')));
     await tester.pumpAndSettle();
 
-    // Modal is open
-    expect(find.text('Tải video & Bóc tách kịch bản'), findsOneWidget);
-    expect(find.text('Bí ẩn kiến trúc Hoàng thành Thăng Long'), findsOneWidget);
-
-    // Tap extract
-    await tester.tap(find.text('Tiến hành bóc tách (Speech-to-Text)'));
-    // Advance timers for simulation
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 500));
+    // Verify Whiteboard AI Studio page is opened
+    expect(find.text('Creator Studio — Xưởng Sáng Tạo Lịch Sử'), findsOneWidget);
+    await tester.pageBack();
     await tester.pumpAndSettle();
 
-    // Script should be updated from video transcript
-    expect(find.textContaining('khu khảo cổ 18 Hoàng Diệu'), findsOneWidget);
-
-    // Scroll and save updated draft
+    // Scroll and save draft
     final scroll = find
         .descendant(
           of: find.byType(DraftEditor),
@@ -207,16 +197,6 @@ void main() {
     ScaffoldMessenger.of(tester.element(find.byType(DraftEditor)))
         .clearSnackBars();
     await tester.pumpAndSettle();
-
-    expect(
-      state.drafts.single.videoFileName,
-      'Hoang_thanh_Thang_Long_1080p.mp4',
-    );
-    expect(state.drafts.single.videoFileSize, '185 MB');
-    final reload = CreatorState(prefs);
-    expect(reload.drafts.single.extractedTranscript, contains('18 Hoàng Diệu'));
-    expect(reload.drafts.single.reviewHistory.last.timestamp, contains('/'));
-    reload.dispose();
 
     // Scroll to and tap AI check button
     await tester.scrollUntilVisible(

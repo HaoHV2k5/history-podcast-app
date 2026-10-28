@@ -25,6 +25,7 @@ import 'core/api/wallet_repository.dart';
 import 'core/api/withdrawal_repository.dart';
 import 'creator_state.dart';
 import 'creator_studio_extensions.dart';
+export 'creator_studio_extensions.dart';
 import 'design.dart';
 import 'artwork_editor.dart';
 import 'artwork_state.dart';
@@ -32,8 +33,6 @@ import 'artwork_image.dart';
 import 'narrator_marketplace.dart';
 import 'local_file.dart';
 import 'workspace_components.dart';
-
-part 'mock/fixtures/studio_videos.dart';
 
 class CreatorStudio extends StatefulWidget {
   const CreatorStudio({
@@ -149,7 +148,16 @@ class _CreatorStudioState extends State<CreatorStudio> {
         case 'narrator':
           openMarketplace();
         case 'video':
-          edit(const CreatorDraft(id: '', title: '', format: 'video'));
+          if (state.isLiveBackend) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AiWhiteboardPipelinePage(state: state),
+              ),
+            );
+          } else {
+            edit(const CreatorDraft(id: '', title: '', format: 'video'));
+          }
       }
     },
     itemBuilder: (_) => [
@@ -164,7 +172,7 @@ class _CreatorStudioState extends State<CreatorStudio> {
       PopupMenuItem(
         key: const Key('upload-video-stt'),
         value: 'video',
-        child: Text(state.isLiveBackend ? 'Nhập video & STT' : 'Nhập video mẫu'),
+        child: Text(state.isLiveBackend ? 'Xưởng Video AI (Whiteboard)' : 'Nhập video mẫu'),
       ),
     ],
   );
@@ -965,9 +973,6 @@ class _DraftEditorState extends State<DraftEditor> {
   bool showHistory = false;
   Timer? previewTimer;
   int previewSeconds = 0;
-  late String videoFileName = widget.draft?.videoFileName ?? '';
-  late String videoFileSize = widget.draft?.videoFileSize ?? '';
-  late String extractedTranscript = widget.draft?.extractedTranscript ?? '';
 
   CreatorDraft? get saved {
     for (final d in widget.state.drafts) {
@@ -976,10 +981,49 @@ class _DraftEditorState extends State<DraftEditor> {
     return null;
   }
 
+  void openVideoUploadModal() {
+    if (widget.state.isLiveBackend) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Palette.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Nhập video mẫu (Mô phỏng)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Đóng nhập video',
+                  icon: const Icon(CupertinoIcons.xmark),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text('Chế độ mô phỏng cho thiết bị chưa kết nối backend.'),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
-    if (widget.draft != null &&
+    if (!widget.state.isLiveBackend &&
+        widget.draft != null &&
         widget.draft!.id.isEmpty &&
         widget.draft!.format == 'video') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1063,9 +1107,6 @@ class _DraftEditorState extends State<DraftEditor> {
           script: script.text,
           sources: sources.text,
           format: format,
-          videoFileName: videoFileName,
-          videoFileSize: videoFileSize,
-          extractedTranscript: extractedTranscript,
         ),
       );
       dirty = false;
@@ -1110,49 +1151,6 @@ class _DraftEditorState extends State<DraftEditor> {
     });
   }
 
-  void openVideoUploadModal() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Palette.paper,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => VideoUploadSttModal(
-        onExtractComplete:
-            (
-              extractedTitle,
-              extractedScript,
-              extractedSources,
-              fileName,
-              fileSize,
-            ) {
-              Navigator.pop(ctx);
-              setState(() {
-                if (title.text.trim().isEmpty) title.text = extractedTitle;
-                script.text = extractedScript;
-                if (!sources.text.contains(extractedSources)) {
-                  sources.text = [
-                    sources.text.trim(),
-                    extractedSources,
-                  ].where((s) => s.isNotEmpty).join('\n');
-                }
-                format = 'video';
-                videoFileName = fileName;
-                videoFileSize = fileSize;
-                extractedTranscript = extractedScript;
-                dirty = true;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Đã nhập kịch bản và thông tin video mẫu.'),
-                ),
-              );
-            },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final d = saved;
@@ -1179,9 +1177,17 @@ class _DraftEditorState extends State<DraftEditor> {
               ),
               IconButton(
                 key: const Key('appbar-upload-video'),
-                icon: const Icon(CupertinoIcons.video_camera, size: 20),
-                tooltip: 'Tải video có sẵn (STT)',
-                onPressed: busy ? null : openVideoUploadModal,
+                icon: const Icon(CupertinoIcons.film, size: 20),
+                tooltip: 'Xưởng Video AI (Whiteboard)',
+                onPressed: busy
+                    ? null
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                AiWhiteboardPipelinePage(state: widget.state),
+                          ),
+                        ),
               ),
             ],
             if (history.isNotEmpty)
@@ -1409,7 +1415,7 @@ class _DraftEditorState extends State<DraftEditor> {
                         d.stage == DraftStage.rejected)) ...[
                   OutlinedButton(
                     onPressed: busy ? null : () => step(DraftStage.checked),
-                    child: const Text('Thẩm định AI: Đạt yêu cầu sử liệu'),
+                    child: const Text('Thử kết quả AI: đạt'),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
@@ -1419,29 +1425,16 @@ class _DraftEditorState extends State<DraftEditor> {
                             DraftStage.rejected,
                             reason: 'Hệ thống AI: Cần bổ sung nguồn tư liệu gốc và phân định niên đại lịch sử chuẩn.',
                           ),
-                    child: const Text('Thẩm định AI: Cần chỉnh sửa bổ sung'),
+                    child: const Text('Thử kết quả AI: cần sửa'),
                   ),
                 ],
 
                 if (ready && d.stage == DraftStage.checked) ...[
                   Text(
-                    videoFileName.isNotEmpty
-                        ? '${widget.state.isLiveBackend ? 'Video đã tải lên' : 'Video mẫu đã nhập'} · $videoFileSize'
-                        : (widget.state.isLiveBackend
-                              ? 'Chọn định dạng tập'
-                              : 'Chọn định dạng tập thử'),
+                    widget.state.isLiveBackend
+                        ? 'Chọn định dạng tập'
+                        : 'Chọn định dạng tập thử',
                   ),
-                  if (videoFileName.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        videoFileName,
-                        style: const TextStyle(
-                          color: Palette.muted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
@@ -1450,19 +1443,64 @@ class _DraftEditorState extends State<DraftEditor> {
                       ChoiceChip(
                         label: const Text('Tập âm thanh'),
                         selected: format == 'audio',
-                        onSelected: busy || videoFileName.isNotEmpty
+                        onSelected: busy
                             ? null
                             : (_) => setState(() => format = 'audio'),
                       ),
                       ChoiceChip(
-                        label: const Text('Video minh họa'),
+                        label: const Text('Video hoạt họa AI'),
                         selected: format == 'video',
-                        onSelected: busy || videoFileName.isNotEmpty
+                        onSelected: busy
                             ? null
                             : (_) => setState(() => format = 'video'),
                       ),
                     ],
                   ),
+                  if (format == 'video') ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Palette.soft,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Palette.line),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(CupertinoIcons.sparkles, size: 16, color: Palette.red),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Sản xuất Video với Xưởng Sử Ký Whiteboard AI',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Video được tự động phân cảnh, minh họa bảng trắng, thuyết minh bằng AI và kiểm duyệt AI Shield.',
+                            style: TextStyle(fontSize: 12, color: Palette.muted),
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    AiWhiteboardPipelinePage(state: widget.state),
+                              ),
+                            ),
+                            icon: const Icon(CupertinoIcons.film, size: 14),
+                            label: const Text('Mở Xưởng Video AI'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // PREVIEW PLAYER (UC-03)
@@ -1548,13 +1586,9 @@ class _DraftEditorState extends State<DraftEditor> {
                   FilledButton(
                     onPressed: busy ? null : () => step(DraftStage.pending),
                     child: Text(
-                      videoFileName.isNotEmpty
-                          ? (widget.state.isLiveBackend
-                                ? 'Gửi video để duyệt'
-                                : 'Gửi video mẫu để duyệt')
-                          : (widget.state.isLiveBackend
-                                ? 'Sản xuất & gửi duyệt'
-                                : 'Giả lập sản xuất & gửi duyệt'),
+                      widget.state.isLiveBackend
+                          ? 'Sản xuất & gửi duyệt'
+                          : 'Giả lập sản xuất & gửi duyệt',
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -1619,234 +1653,6 @@ class _DraftEditorState extends State<DraftEditor> {
                   ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class VideoUploadSttModal extends StatefulWidget {
-  const VideoUploadSttModal({super.key, required this.onExtractComplete});
-  final void Function(
-    String title,
-    String script,
-    String sources,
-    String fileName,
-    String fileSize,
-  )
-  onExtractComplete;
-
-  @override
-  State<VideoUploadSttModal> createState() => _VideoUploadSttModalState();
-}
-
-class _VideoUploadSttModalState extends State<VideoUploadSttModal> {
-  final customTranscript = TextEditingController();
-  String? pickedName, pickedSize, pickError;
-  @override
-  void dispose() {
-    customTranscript.dispose();
-    super.dispose();
-  }
-
-  int selectedVideo = 0;
-  bool processing = false;
-  String currentStep = '';
-
-  final sampleVideos = sampleStudioVideos;
-
-  Future<void> startProcess() async {
-    if (pickedName != null) {
-      if (customTranscript.text.trim().length < 20) {
-        setState(
-          () => pickError = 'Nhập transcript từ 20 ký tự; chưa chạy STT thật.',
-        );
-        return;
-      }
-      widget.onExtractComplete(
-        'Video từ $pickedName',
-        customTranscript.text.trim(),
-        'Nguồn do người dùng bổ sung trước khi gửi duyệt.',
-        pickedName!,
-        pickedSize!,
-      );
-      return;
-    }
-    setState(() {
-      processing = true;
-      currentStep = 'Đang tải file video lên máy chủ (Mô phỏng)...';
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-    setState(() {
-      currentStep = 'Đang trích xuất audio stream (128 kbps stereo)...';
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-    setState(() {
-      currentStep = 'Chạy Speech-to-Text nhận dạng giọng nói tiếng Việt...';
-    });
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!mounted) return;
-    final item = sampleVideos[selectedVideo];
-    widget.onExtractComplete(
-      item['title']!,
-      item['transcript']!,
-      item['sources']!,
-      item['fileName']!,
-      item['size']!,
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Tải video & Bóc tách kịch bản',
-                      style: editorial(19),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Đóng nhập video',
-                    icon: const Icon(CupertinoIcons.xmark, size: 18),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Chọn video mẫu để thử luồng nhập kịch bản. Chưa tải file hoặc chạy nhận dạng giọng nói thật.',
-                style: TextStyle(fontSize: 12, color: Palette.muted),
-              ),
-              const SizedBox(height: 16),
-              ...List.generate(sampleVideos.length, (i) {
-                final v = sampleVideos[i];
-                final sel = selectedVideo == i;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Material(
-                    color: sel ? Palette.soft : Palette.paper,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      side: BorderSide(color: sel ? Palette.ink : Palette.line),
-                    ),
-                    child: ListTile(
-                      title: Text(
-                        v['title']!,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${v['fileName']} · ${v['size']} · ${v['duration']}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Palette.muted,
-                        ),
-                      ),
-                      trailing: sel
-                          ? const Icon(
-                              CupertinoIcons.checkmark_circle_fill,
-                              color: Palette.red,
-                              size: 20,
-                            )
-                          : null,
-                      onTap: processing
-                          ? null
-                          : () => setState(() {
-                              selectedVideo = i;
-                              pickedName = null;
-                            }),
-                    ),
-                  ),
-                );
-              }),
-              if (processing) ...[
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        currentStep,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Palette.red,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              OutlinedButton(
-                onPressed: processing
-                    ? null
-                    : () async {
-                        try {
-                          final picked = await pickLocalMetadata(video: true);
-                          if (picked != null && mounted) {
-                            setState(() {
-                              pickedName = picked.name;
-                              pickedSize =
-                                  '${(picked.size / 1024 / 1024).toStringAsFixed(2)} MB';
-                              pickError = null;
-                            });
-                          }
-                        } on StateError catch (e) {
-                          if (mounted) setState(() => pickError = e.message);
-                        } catch (_) {
-                          if (mounted) {
-                            setState(() => pickError = 'Chưa chọn được file.');
-                          }
-                        }
-                      },
-                child: const Text('Chọn video trên thiết bị (metadata)'),
-              ),
-              if (pickedName != null) ...[
-                Text(
-                  '$pickedName · $pickedSize · Chưa upload hoặc phát file này',
-                ),
-                TextField(
-                  controller: customTranscript,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: 'Transcript nhập tay cho bản thử',
-                    helperText: 'STT thật cần backend',
-                  ),
-                ),
-              ],
-              if (pickError != null)
-                Text(pickError!, style: const TextStyle(color: Palette.red)),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: processing ? null : startProcess,
-                child: Text(
-                  processing
-                      ? 'Đang xử lý bóc tách…'
-                      : (pickedName != null
-                            ? 'Lưu metadata và transcript nhập tay'
-                            : 'Tiến hành bóc tách (Speech-to-Text)'),
-                ),
-              ),
-            ],
           ),
         ),
       ),

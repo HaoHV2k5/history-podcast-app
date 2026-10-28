@@ -63,8 +63,14 @@ void main() {
       expect(find.byKey(const Key('open-publish')), findsNothing);
       expect(find.byKey(const Key('open-demo-data')), findsNothing);
       expect(find.byKey(const Key('open-tx-history')), findsOneWidget);
-      await press(tester, find.byKey(const Key('open-workspace')));
-      expect(find.byType(CreativeWorkspacePage), findsOneWidget);
+      expect(find.byKey(const Key('open-workspace')), findsNothing);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(),
+          home: CreativeWorkspacePage(state: app),
+        ),
+      );
+      await tester.pumpAndSettle();
       for (final key in [
         'open-studio',
         'open-narrator',
@@ -73,9 +79,23 @@ void main() {
       ]) {
         expect(find.byKey(Key(key)), findsOneWidget);
       }
-      await tester.pageBack();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(),
+          home: Scaffold(
+            body: ProfileContent(state: app, onChannel: (_) {}),
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
-      await press(tester, find.byKey(const Key('open-settings')));
+      expect(find.byKey(const Key('open-settings')), findsNothing);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(),
+          home: PersonalSettingsPage(state: app),
+        ),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('open-demo-data')));
       await tester.pump();
       await tester.runAsync(

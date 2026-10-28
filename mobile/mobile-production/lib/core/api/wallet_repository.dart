@@ -96,6 +96,44 @@ class WalletRepository {
     );
   }
 
+  Future<BankAccountData> getBankAccountById(int id) async {
+    final response = await apiClient.get('/api/v1/bank-accounts/$id');
+    final data = response['data'] as Map<String, dynamic>;
+    return BankAccountData(
+      id: (data['id'] as num?)?.toInt() ?? id,
+      userId: (data['userId'] as num?)?.toInt() ?? 0,
+      bankName: data['bankName'] as String? ?? '',
+      accountNumber: data['accountNumber'] as String? ?? '',
+      accountHolderName: data['accountHolderName'] as String? ?? '',
+      verified: data['verified'] as bool? ?? false,
+    );
+  }
+
+  Future<BankAccountData> updateBankAccount({
+    required int id,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    int? userId,
+  }) async {
+    final response = await apiClient.put('/api/v1/bank-accounts/$id', body: {
+      'userId': userId,
+      'bankName': bankName.trim(),
+      'accountNumber': accountNumber.trim(),
+      'accountHolderName': accountHolderName.trim().toUpperCase(),
+      'verified': true,
+    });
+    final data = response['data'] as Map<String, dynamic>;
+    return BankAccountData(
+      id: (data['id'] as num?)?.toInt() ?? id,
+      userId: (data['userId'] as num?)?.toInt() ?? 0,
+      bankName: data['bankName'] as String? ?? bankName,
+      accountNumber: data['accountNumber'] as String? ?? accountNumber,
+      accountHolderName: data['accountHolderName'] as String? ?? accountHolderName,
+      verified: data['verified'] as bool? ?? true,
+    );
+  }
+
   Future<void> deleteBankAccount(int id) async {
     await apiClient.delete('/api/v1/bank-accounts/$id');
   }

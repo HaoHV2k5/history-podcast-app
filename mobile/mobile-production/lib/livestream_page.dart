@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'audience_pages.dart';
 import 'components.dart';
+import 'core/api/channel_repository.dart';
 import 'core/api/livestream_repository.dart';
 import 'design.dart';
 import 'episode.dart';
@@ -360,6 +361,15 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
         _lastChatTimestamp = maxTs;
       }
     }
+    // Đồng bộ chi tiết phiên phát sóng từ backend GET /api/v1/livestreams/{id}
+    try {
+      final latest = await widget.state.fetchLivestreamSession(widget.session.id);
+      if (latest != null && latest.status.toUpperCase() == 'ENDED' && mounted && !widget.isHost) {
+        setState(() {
+          _joinError = 'Phiên phát sóng đã kết thúc bởi người kể chuyện.';
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _sendMessage() async {
@@ -877,6 +887,7 @@ class _CreatorLivestreamStudioPageState
   bool _isExclusive = false;
   bool _busy = false;
   String? _error;
+  ChannelModel? _myChannel;
 
   @override
   void initState() {
@@ -886,6 +897,21 @@ class _CreatorLivestreamStudioPageState
             widget.initialChannelName!.trim().isNotEmpty)
         ? widget.initialChannelName!.trim()
         : (channels.isNotEmpty ? channels.first.name : 'Dấu Ấn Lịch Sử');
+    _loadMyChannel();
+  }
+
+  Future<void> _loadMyChannel() async {
+    if (widget.state.channelRepository != null) {
+      try {
+        final myChan = await widget.state.channelRepository!.getMyChannel();
+        if (mounted && myChan.name.isNotEmpty) {
+          setState(() {
+            _myChannel = myChan;
+            _selectedChannelName = myChan.name;
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   @override
@@ -902,11 +928,28 @@ class _CreatorLivestreamStudioPageState
       _error = null;
     });
     try {
-      final ch = channelByName(_selectedChannelName);
-      final channelId = ch.id ?? 1;
+      int channelId;
+      String channelName;
+      if (_myChannel != null && _selectedChannelName == _myChannel!.name) {
+        channelId = _myChannel!.id;
+        channelName = _myChannel!.name;
+      } else {
+        final remoteMatch = remoteChannels.where(
+          (c) => c.name.toLowerCase() == _selectedChannelName.toLowerCase(),
+        );
+        if (remoteMatch.isNotEmpty && remoteMatch.first.id != null) {
+          channelId = remoteMatch.first.id!;
+          channelName = remoteMatch.first.name;
+        } else {
+          final ch = channelByName(_selectedChannelName);
+          channelId = ch.id ?? 1;
+          channelName = ch.name;
+        }
+      }
+
       final created = await widget.state.createLivestreamSession(
         channelId: channelId,
-        channelName: ch.name,
+        channelName: channelName,
         title: _titleCtrl.text,
         description: _descCtrl.text,
         isExclusive: _isExclusive,
@@ -1032,23 +1075,37 @@ class _CreatorLivestreamStudioPageState
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: channels
-                          .map(
-                            (c) => ChoiceChip(
-                              label: Text(
-                                c.name,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              selected: _selectedChannelName == c.name,
-                              onSelected: (_) => setState(
-                                () => _selectedChannelName = c.name,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                    Builder(
+                      builder: (context) {
+                        final available = <String>[];
+                        if (_myChannel != null && _myChannel!.name.isNotEmpty) {
+                          available.add(_myChannel!.name);
+                        }
+                        for (final c in remoteChannels) {
+                          if (!available.contains(c.name)) available.add(c.name);
+                        }
+                        for (final c in channels) {
+                          if (!available.contains(c.name)) available.add(c.name);
+                        }
+                        return Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: available
+                              .map(
+                                (name) => ChoiceChip(
+                                  label: Text(
+                                    name,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  selected: _selectedChannelName == name,
+                                  onSelected: (_) => setState(
+                                    () => _selectedChannelName = name,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        );
+                      },
                     ),
                     const SizedBox(height: 18),
                     TextFormField(
@@ -1129,3 +1186,195 @@ class _CreatorLivestreamStudioPageState
     );
   }
 }
+
+class LivestreamExploreView extends StatefulWidget {
+  const LivestreamExploreView({super.key, required this.state});
+  final AppState state;
+
+  @override
+  State<LivestreamExploreView> createState() => _LivestreamExploreViewState();
+}
+
+class _LivestreamExploreViewState extends State<LivestreamExploreView> {
+  String _selectedFilter = 'Tất cả';
+
+  @override
+  void initState() {
+    super.initState();
+    widget.state.refreshLivestreams();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: widget.state,
+      builder: (context, _) {
+        final allSessions = widget.state.activeLivestreams;
+        final filteredSessions = allSessions.where((s) {
+          if (_selectedFilter == 'Đang trực tiếp') {
+            return s.status.toUpperCase() == 'LIVE';
+          }
+          if (_selectedFilter == 'Hội viên (VIP)') {
+            return s.isExclusive;
+          }
+          return true;
+        }).toList();
+
+        return RefreshIndicator(
+          color: Palette.red,
+          backgroundColor: Palette.paper,
+          onRefresh: widget.state.refreshLivestreams,
+          child: ListView(
+            key: const PageStorageKey('livestream-scroll'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              12,
+              24,
+              widget.state.current == null ? 28 : 118,
+            ),
+            children: [
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 10,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Trực tiếp', style: editorial(31)),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Kể chuyện & giao lưu thời gian thực',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Palette.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  FilledButton.icon(
+                    key: const Key('open-live-studio-btn'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.red,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => CreatorLivestreamStudioPage(
+                          state: widget.state,
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(
+                      CupertinoIcons.dot_radiowaves_left_right,
+                      size: 14,
+                    ),
+                    label: const Text(
+                      'Mở phòng live',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final filter in [
+                      'Tất cả',
+                      'Đang trực tiếp',
+                      'Hội viên (VIP)',
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(
+                            filter,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          selected: _selectedFilter == filter,
+                          onSelected: (_) =>
+                              setState(() => _selectedFilter = filter),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (filteredSessions.isNotEmpty) ...[
+                for (final session in filteredSessions)
+                  LivestreamShelfCard(session: session, state: widget.state),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 36,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Palette.soft,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Palette.line),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: Palette.red.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.dot_radiowaves_left_right,
+                          color: Palette.red,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text('Chưa có phòng live nào', style: editorial(19)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Hiện chưa có kênh nào đang phát sóng trực tiếp. Hãy quay lại sau hoặc tự mở một phiên phát sóng để giao lưu cùng thính giả!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Palette.muted,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Palette.red,
+                        ),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => CreatorLivestreamStudioPage(
+                              state: widget.state,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(CupertinoIcons.plus_circle, size: 16),
+                        label: const Text('Bắt đầu buổi phát sóng của bạn'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+

@@ -67,7 +67,7 @@ public interface MilestoneRepository extends JpaRepository<Milestone, Long> {
                    "   (m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED AND m.releasedAt >= :startDate AND m.releasedAt <= :endDate) OR " +
                    "   (m.escrowStatus != com.prm.contract.constant.EscrowStatus.RELEASED AND m.fundedAt >= :startDate AND m.fundedAt <= :endDate)" +
                    ") " +
-                   "AND (:search IS NULL OR :search = '' OR (" +
+                   "AND (CAST(:search AS string) IS NULL OR CAST(:search AS string) = '' OR (" +
                    "   LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
                    "   LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
                    "   LOWER(cr.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
@@ -86,7 +86,7 @@ public interface MilestoneRepository extends JpaRepository<Milestone, Long> {
                         "   (m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED AND m.releasedAt >= :startDate AND m.releasedAt <= :endDate) OR " +
                         "   (m.escrowStatus != com.prm.contract.constant.EscrowStatus.RELEASED AND m.fundedAt >= :startDate AND m.fundedAt <= :endDate)" +
                         ") " +
-                        "AND (:search IS NULL OR :search = '' OR (" +
+                        "AND (CAST(:search AS string) IS NULL OR CAST(:search AS string) = '' OR (" +
                         "   LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
                         "   LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
                         "   LOWER(cr.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +

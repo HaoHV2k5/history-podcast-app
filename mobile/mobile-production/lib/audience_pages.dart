@@ -20,6 +20,7 @@ import 'wallet_page.dart';
 import 'publication_page.dart';
 import 'notification_page.dart';
 import 'password_recovery.dart';
+import 'kyc_form.dart';
 
 String _formatVndPrice(double amount) {
   final intVal = amount.round();
@@ -1408,26 +1409,14 @@ class CreativeWorkspacePage extends StatelessWidget {
         ),
         _PersonalLink(
           key: const Key('open-publish'),
-          icon: CupertinoIcons.paperplane,
-          title: 'Phát hành nội dung',
-          subtitle: 'Tập đã duyệt và tập đã phát hành',
+          icon: CupertinoIcons.square_stack_3d_up,
+          title: 'Thư viện nội dung',
+          subtitle: 'Quản lý toàn bộ podcast, video & kiểm duyệt kênh',
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute<void>(
               builder: (_) =>
                   PublicationPage(preferences: state.preferences, app: state),
-            ),
-          ),
-        ),
-        _PersonalLink(
-          key: const Key('open-livestream-studio'),
-          icon: CupertinoIcons.dot_radiowaves_left_right,
-          title: 'Phòng phát sóng trực tiếp',
-          subtitle: 'Mở phiên kể chuyện trực tiếp & giao lưu cùng thính giả',
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => CreatorLivestreamStudioPage(state: state),
             ),
           ),
         ),

@@ -14,6 +14,8 @@ import 'episode.dart';
 import 'motion.dart';
 import 'home_navigation.dart';
 import 'livestream_page.dart';
+import 'creator_studio_extensions.dart';
+import 'narrator_marketplace.dart';
 import 'paper_surface.dart';
 import 'listening_widgets.dart';
 import 'video_surface.dart';
@@ -66,16 +68,8 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
   String libraryFilter = 'Đã lưu';
-  String query = '', category = 'Tất cả';
-  final search = TextEditingController();
-  @override
-  void dispose() {
-    search.dispose();
-    super.dispose();
-  }
 
   void detail(Episode e) {
-    if (index == 1) widget.state.rememberSearch(query);
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => EpisodePage(episode: e, state: widget.state),
@@ -87,6 +81,77 @@ class _HomeShellState extends State<HomeShell> {
     if (value == index) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => index = value);
+  }
+
+  void _showServerConfigDialog() {
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://172.18.1.206:8080';
+    final controller = TextEditingController(text: currentUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Palette.paper,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cấu hình máy chủ API', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Nhập địa chỉ máy chủ backend Sử Ký:',
+              style: TextStyle(fontSize: 13, color: Palette.muted),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Palette.soft,
+                hintText: 'http://172.18.1.206:8080',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Gợi ý kết nối nhanh:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('Máy tính Wi-Fi', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://172.18.1.206:8080',
+                ),
+                ActionChip(
+                  label: const Text('Giả lập Android', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://10.0.2.2:8080',
+                ),
+                ActionChip(
+                  label: const Text('Localhost (Web)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://localhost:8080',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Palette.red),
+            onPressed: () {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                widget.state.updateApiBaseUrl(newUrl);
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('Lưu & Kết nối'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -108,8 +173,9 @@ class _HomeShellState extends State<HomeShell> {
               key: ValueKey(index),
               child: switch (index) {
                 0 => discover(),
-                1 => searchPage(),
-                2 => library(),
+                1 => LivestreamExploreView(state: widget.state),
+                2 => AiWhiteboardPipelinePage(state: widget.state.creatorState),
+                3 => RecruitmentMarketplaceView(state: widget.state),
                 _ => ProfileContent(
                   state: widget.state,
                   onChannel: (c) => openChannel(context, c, widget.state),
@@ -162,7 +228,11 @@ class _HomeShellState extends State<HomeShell> {
             CircleAction(
               icon: CupertinoIcons.search,
               label: 'Tìm câu chuyện',
-              onTap: () => selectTab(1),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SearchPage(state: widget.state),
+                ),
+              ),
             ),
           ],
         ),
@@ -204,6 +274,11 @@ class _HomeShellState extends State<HomeShell> {
                   onPressed: widget.state.refreshCatalog,
                   child: const Text('Thử lại'),
                 ),
+                IconButton(
+                  tooltip: 'Cài đặt IP máy chủ',
+                  icon: const Icon(CupertinoIcons.gear, size: 16),
+                  onPressed: _showServerConfigDialog,
+                ),
               ],
             ),
           ),
@@ -218,26 +293,6 @@ class _HomeShellState extends State<HomeShell> {
             }
           },
         ),
-        if (widget.state.activeLivestreams.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          SectionTitle(
-            title: 'Đang phát trực tiếp',
-            trailing: Text(
-              '${widget.state.activeLivestreams.length} phòng',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Palette.red,
-                fontWeight: FontWeight.w600,
-                fontFeatures: [ui.FontFeature.tabularFigures()],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          ...widget.state.activeLivestreams.map(
-            (s) => LivestreamShelfCard(session: s, state: widget.state),
-          ),
-          const SizedBox(height: 10),
-        ],
         DiscoveryCarousel(
           onCollection: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
@@ -276,13 +331,13 @@ class _HomeShellState extends State<HomeShell> {
         Builder(
           builder: (context) {
             final featuredPool =
-                widget.state.isLiveBackend && remoteEpisodes.isNotEmpty
+                remoteEpisodes.isNotEmpty
                 ? remoteEpisodes
                 : episodes;
             final featured = featuredPool.first;
             final subFeatured = featuredPool.skip(1).take(2).toList();
             final videoPool =
-                widget.state.isLiveBackend && remoteEpisodes.isNotEmpty
+                remoteEpisodes.isNotEmpty
                 ? remoteEpisodes.where((e) => e.isVideo).toList()
                 : videoEpisodes;
             return Column(
@@ -374,152 +429,6 @@ class _HomeShellState extends State<HomeShell> {
       ],
     ),
   );
-
-  Widget searchPage() {
-    final result = allEpisodes
-        .where(
-          (e) =>
-              (category == 'Tất cả' || e.category == category) &&
-              normalizeSearch('${e.title} ${e.channel}')
-                  .contains(normalizeSearch(query)),
-        )
-        .toList();
-    final matchingChannels = channels
-        .where(
-          (c) =>
-              normalizeSearch('${c.name} ${c.description}')
-                  .contains(normalizeSearch(query)),
-        )
-        .toList();
-    return ListView(
-      key: const PageStorageKey('search-scroll'),
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.fromLTRB(
-        24,
-        4,
-        24,
-        widget.state.current == null ? 28 : 118,
-      ),
-      children: [
-        Text('Tìm kiếm', style: editorial(31)),
-        const SizedBox(height: 24),
-        TextField(
-          key: const Key('search-input'),
-          controller: search,
-          onChanged: (v) => setState(() => query = v),
-          textInputAction: TextInputAction.search,
-          onSubmitted: (v) {
-            widget.state.rememberSearch(v);
-            FocusManager.instance.primaryFocus?.unfocus();
-          },
-          decoration: InputDecoration(
-            labelText: 'Tên tập hoặc kênh',
-            hintText: 'Thăng Long, phố Hội…',
-            prefixIcon: const Icon(CupertinoIcons.search, size: 20),
-            suffixIcon: query.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'Xóa tìm kiếm',
-                    onPressed: () {
-                      search.clear();
-                      setState(() => query = '');
-                    },
-                    icon: const Icon(CupertinoIcons.xmark, size: 18),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (query.trim().isNotEmpty || category != 'Tất cả')
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: ['Tất cả', 'Việt Nam', 'Văn hóa', 'Con người']
-                .map(
-                  (c) => ChoiceChip(
-                    label: Text(c),
-                    selected: category == c,
-                    showCheckmark: false,
-                    selectedColor: Palette.soft,
-                    backgroundColor: Palette.paper,
-                    onSelected: (_) => setState(() => category = c),
-                    side: BorderSide(
-                      color: category == c ? Palette.ink : Palette.line,
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        const SizedBox(height: 24),
-        if (query.trim().isEmpty && category == 'Tất cả') ...[
-          if (widget.state.recentSearches.isNotEmpty) ...[
-            SectionTitle(
-              title: 'Tìm gần đây',
-              trailing: TextButton(
-                onPressed: widget.state.clearRecentSearches,
-                child: const Text('Xóa'),
-              ),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: widget.state.recentSearches
-                  .map(
-                    (q) => ActionChip(
-                      label: Text(q),
-                      onPressed: () {
-                        search.text = q;
-                        setState(() => query = q);
-                        FocusManager.instance.primaryFocus?.unfocus();
-                      },
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 26),
-          ],
-          const SectionTitle(title: 'Duyệt theo chủ đề'),
-          const SizedBox(height: 14),
-          SearchTopics(onSelect: (c) => setState(() => category = c)),
-        ] else ...[
-          if (query.trim().isNotEmpty && matchingChannels.isNotEmpty) ...[
-            const SectionTitle(title: 'Kênh kể chuyện'),
-            const SizedBox(height: 8),
-            ...matchingChannels.map(
-              (c) => ChannelListItem(
-                channel: c,
-                subtitle: '${c.content.length} câu chuyện',
-                onTap: () {
-                  widget.state.rememberSearch(query);
-                  openChannel(context, c, widget.state);
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          Text(
-            '${result.length} tập phù hợp',
-            style: const TextStyle(color: Palette.muted, fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          if (result.isEmpty &&
-              (query.trim().isEmpty || matchingChannels.isEmpty))
-            EmptyMessage(
-              title: 'Chưa tìm thấy câu chuyện',
-              message: 'Thử từ khóa khác hoặc bỏ bộ lọc chủ đề.',
-              action: 'Xóa bộ lọc',
-              onAction: () {
-                search.clear();
-                setState(() {
-                  query = '';
-                  category = 'Tất cả';
-                });
-              },
-            ),
-          ...result.map((e) => EpisodeRow(episode: e, onTap: () => detail(e))),
-        ],
-      ],
-    );
-  }
 
   Widget library() {
     final items =
@@ -616,7 +525,11 @@ class _HomeShellState extends State<HomeShell> {
               message:
                   'Theo dõi những người kể bạn yêu thích để tìm lại ở đây.',
               action: 'Tìm kênh kể chuyện',
-              onAction: () => selectTab(1),
+              onAction: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SearchPage(state: widget.state),
+                ),
+              ),
             ),
           ...followed.map(
             (c) => ChannelListItem(
@@ -653,6 +566,191 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ],
+    );
+  }
+}
+
+class SearchPage extends StatefulWidget {
+  const SearchPage({super.key, required this.state});
+  final AppState state;
+
+  @override
+  State<SearchPage> createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  String query = '', category = 'Tất cả';
+  final search = TextEditingController();
+
+  @override
+  void dispose() {
+    search.dispose();
+    super.dispose();
+  }
+
+  void detail(Episode e) {
+    widget.state.rememberSearch(query);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EpisodePage(episode: e, state: widget.state),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final result = allEpisodes
+        .where(
+          (e) =>
+              (category == 'Tất cả' || e.category == category) &&
+              normalizeSearch('${e.title} ${e.channel}')
+                  .contains(normalizeSearch(query)),
+        )
+        .toList();
+    final matchingChannels = channels
+        .where(
+          (c) =>
+              normalizeSearch('${c.name} ${c.description}')
+                  .contains(normalizeSearch(query)),
+        )
+        .toList();
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Tìm kiếm', style: TextStyle(fontSize: 16)),
+        ),
+        body: ListView(
+          key: const PageStorageKey('search-scroll'),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            24,
+            12,
+            24,
+            widget.state.current == null ? 28 : 118,
+          ),
+          children: [
+            TextField(
+              key: const Key('search-input'),
+              controller: search,
+              autofocus: true,
+              onChanged: (v) => setState(() => query = v),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (v) {
+                widget.state.rememberSearch(v);
+                FocusManager.instance.primaryFocus?.unfocus();
+              },
+              decoration: InputDecoration(
+                labelText: 'Tên tập hoặc kênh',
+                hintText: 'Thăng Long, phố Hội…',
+                prefixIcon: const Icon(CupertinoIcons.search, size: 20),
+                suffixIcon: query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Xóa tìm kiếm',
+                        onPressed: () {
+                          search.clear();
+                          setState(() => query = '');
+                        },
+                        icon: const Icon(CupertinoIcons.xmark, size: 18),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (query.trim().isNotEmpty || category != 'Tất cả')
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: ['Tất cả', 'Việt Nam', 'Văn hóa', 'Con người']
+                    .map(
+                      (c) => ChoiceChip(
+                        label: Text(c),
+                        selected: category == c,
+                        showCheckmark: false,
+                        selectedColor: Palette.soft,
+                        backgroundColor: Palette.paper,
+                        onSelected: (_) => setState(() => category = c),
+                        side: BorderSide(
+                          color: category == c ? Palette.ink : Palette.line,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            const SizedBox(height: 24),
+            if (query.trim().isEmpty && category == 'Tất cả') ...[
+              if (widget.state.recentSearches.isNotEmpty) ...[
+                SectionTitle(
+                  title: 'Tìm gần đây',
+                  trailing: TextButton(
+                    onPressed: widget.state.clearRecentSearches,
+                    child: const Text('Xóa'),
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: widget.state.recentSearches
+                      .map(
+                        (q) => ActionChip(
+                          label: Text(q),
+                          onPressed: () {
+                            search.text = q;
+                            setState(() => query = q);
+                            FocusManager.instance.primaryFocus?.unfocus();
+                          },
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 26),
+              ],
+              const SectionTitle(title: 'Duyệt theo chủ đề'),
+              const SizedBox(height: 14),
+              SearchTopics(onSelect: (c) => setState(() => category = c)),
+            ] else ...[
+              if (query.trim().isNotEmpty && matchingChannels.isNotEmpty) ...[
+                const SectionTitle(title: 'Kênh kể chuyện'),
+                const SizedBox(height: 8),
+                ...matchingChannels.map(
+                  (c) => ChannelListItem(
+                    channel: c,
+                    subtitle: '${c.content.length} câu chuyện',
+                    onTap: () {
+                      widget.state.rememberSearch(query);
+                      openChannel(context, c, widget.state);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              Text(
+                '${result.length} tập phù hợp',
+                style: const TextStyle(color: Palette.muted, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              if (result.isEmpty &&
+                  (query.trim().isEmpty || matchingChannels.isEmpty))
+                EmptyMessage(
+                  title: 'Chưa tìm thấy câu chuyện',
+                  message: 'Thử từ khóa khác hoặc bỏ bộ lọc chủ đề.',
+                  action: 'Xóa bộ lọc',
+                  onAction: () {
+                    search.clear();
+                    setState(() {
+                      query = '';
+                      category = 'Tất cả';
+                    });
+                  },
+                ),
+              ...result.map((e) => EpisodeRow(episode: e, onTap: () => detail(e))),
+            ],
+          ],
+        ),
+        bottomNavigationBar: widget.state.current != null
+            ? MiniPlayer(state: widget.state)
+            : null,
+      ),
     );
   }
 }
@@ -1354,9 +1452,15 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
   }
 }
 
-class PlayerPage extends StatelessWidget {
+class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key, required this.state});
   final AppState state;
+
+  @override
+  State<PlayerPage> createState() => _PlayerPageState();
+}
+
+class _PlayerPageState extends State<PlayerPage> {
   void speedSheet(BuildContext context) => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -1372,12 +1476,12 @@ class PlayerPage extends StatelessWidget {
             ListTile(
               key: ValueKey('speed-$rate'),
               title: Text(rate == 1 ? '1× · Bình thường' : '$rate×'),
-              trailing: state.speed == rate
+              trailing: widget.state.speed == rate
                   ? const Icon(CupertinoIcons.check_mark, color: Palette.red)
                   : null,
-              selected: state.speed == rate,
+              selected: widget.state.speed == rate,
               onTap: () {
-                state.setSpeed(rate);
+                widget.state.setSpeed(rate);
                 Navigator.pop(context);
               },
             ),
@@ -1385,6 +1489,7 @@ class PlayerPage extends StatelessWidget {
       ),
     ),
   );
+
   void sleepSheet(BuildContext context) => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -1400,14 +1505,14 @@ class PlayerPage extends StatelessWidget {
             ListTile(
               title: Text('$minutes phút'),
               onTap: () {
-                state.setSleep(minutes);
+                widget.state.setSleep(minutes);
                 Navigator.pop(context);
               },
             ),
           ListTile(
             title: const Text('Tắt hẹn giờ'),
             onTap: () {
-              state.setSleep(null);
+              widget.state.setSleep(null);
               Navigator.pop(context);
             },
           ),
@@ -1415,8 +1520,177 @@ class PlayerPage extends StatelessWidget {
       ),
     ),
   );
+
+  void transcriptSheet(BuildContext context, Episode e, Chapter chapter) {
+    final transcript = widget.state.getTranscript(e.id);
+    final hasTranscript = transcript.trim().isNotEmpty;
+    final displayContent = hasTranscript
+        ? transcript
+        : (e.description.isNotEmpty
+            ? e.description
+            : chapter.title);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Palette.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.82,
+        minChildSize: 0.45,
+        maxChildSize: 0.96,
+        expand: false,
+        builder: (ctx, scrollController) => SafeArea(
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 36),
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Palette.red.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'BẢN THẢO & NỘI DUNG SỬ LIỆU',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.0,
+                        color: Palette.red,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${e.channel} · ${e.duration}',
+                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(e.title, style: editorial(22)),
+              const SizedBox(height: 6),
+              Text(
+                'Chương: ${chapter.title}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Palette.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Divider(color: Palette.line),
+              const SizedBox(height: 14),
+              SelectableText(
+                displayContent,
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.68,
+                  color: Palette.ink,
+                  fontFamily: 'BeVietnam',
+                ),
+              ),
+              if (e.description.isNotEmpty && hasTranscript) ...[
+                const SizedBox(height: 20),
+                const Divider(color: Palette.line),
+                const SizedBox(height: 12),
+                Text('Tóm tắt & Giới thiệu tập', style: editorial(17)),
+                const SizedBox(height: 6),
+                SelectableText(
+                  e.description,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    height: 1.6,
+                    color: Palette.muted,
+                  ),
+                ),
+              ],
+              if (e.chapters.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Divider(color: Palette.line),
+                const SizedBox(height: 12),
+                Text('Các mốc thời gian trong tập', style: editorial(17)),
+                const SizedBox(height: 8),
+                for (final c in e.chapters)
+                  InkWell(
+                    onTap: () {
+                      widget.state.seek(c.seconds);
+                      Navigator.pop(ctx);
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            CupertinoIcons.play_circle,
+                            size: 16,
+                            color: Palette.red,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              c.title,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Palette.ink,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            clockLabel(c.seconds),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Palette.muted,
+                              fontFeatures: [ui.FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+              if (e.sources.trim().isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Divider(color: Palette.line),
+                const SizedBox(height: 12),
+                Text('Nguồn sử liệu & Thư tịch tham khảo', style: editorial(17)),
+                const SizedBox(height: 6),
+                SelectableText(
+                  e.sources,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.5,
+                    color: Palette.muted,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    return ListenableBuilder(
     listenable: Listenable.merge([state, state.playbackTick]),
     builder: (context, _) {
       final e = state.current;
@@ -1683,27 +1957,47 @@ class PlayerPage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Palette.soft,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(CupertinoIcons.text_alignleft, size: 20),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Text(
-                        state.getTranscript(e.id).isNotEmpty
-                            ? state.getTranscript(e.id)
-                            : chapter.title,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, height: 1.5),
-                      ),
+              InkWell(
+                key: const Key('player-transcript-card'),
+                onTap: () => transcriptSheet(context, e, chapter),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Palette.soft,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Palette.line.withValues(alpha: 0.6),
                     ),
-                  ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      IconButton(
+                        key: const Key('player-transcript-icon-btn'),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Xem toàn bộ thông tin & lời thoại',
+                        icon: const Icon(
+                          CupertinoIcons.text_alignleft,
+                          size: 20,
+                          color: Palette.red,
+                        ),
+                        onPressed: () => transcriptSheet(context, e, chapter),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Text(
+                          state.getTranscript(e.id).isNotEmpty
+                              ? state.getTranscript(e.id)
+                              : chapter.title,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, height: 1.5),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1742,6 +2036,7 @@ class PlayerPage extends StatelessWidget {
       );
     },
   );
+  }
 }
 
 class MiniPlayer extends StatelessWidget {

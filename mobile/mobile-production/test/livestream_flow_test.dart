@@ -260,8 +260,13 @@ void main() {
       await tester.pumpWidget(SuKyApp(state: state));
       await tester.pumpAndSettle();
 
-      // 1. Kệ "Đang phát trực tiếp" hiển thị trên màn hình Khám phá
-      expect(find.text('Đang phát trực tiếp'), findsOneWidget);
+      // 1. Kệ "Đang phát trực tiếp" không còn hiển thị trên màn hình Khám phá
+      expect(find.text('Đang phát trực tiếp'), findsNothing);
+
+      // Chuyển sang Tab "Trực tiếp" để kiểm tra phòng livestream
+      await tester.tap(find.text('Trực tiếp'));
+      await tester.pumpAndSettle();
+
       expect(
         find.text('Bàn tròn lịch sử: Hải chiến Bạch Đằng 938'),
         findsOneWidget,
@@ -342,15 +347,17 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // 6. Luồng Creator mở phiên phát sóng mới và kết thúc phát sóng
+      // 6. Luồng Creator mở phiên phát sóng mới và kết thúc phát sóng từ trang Livestream
       await tester.pumpWidget(
         MaterialApp(
-          home: CreativeWorkspacePage(state: state),
+          home: Scaffold(
+            body: LivestreamExploreView(state: state),
+          ),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byKey(const Key('open-livestream-studio')));
+      await tester.tap(find.byKey(const Key('open-live-studio-btn')));
       await tester.pumpAndSettle();
 
       final studioScrollable = find

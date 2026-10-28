@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +28,7 @@ void main() {
     tester,
   ) async {
     final state = await setupApp(tester);
-    await tester.tap(find.text('Tìm kiếm'));
+    await tester.tap(find.byIcon(CupertinoIcons.search));
     await tester.pumpAndSettle();
 
     final input = find.byType(TextField);
