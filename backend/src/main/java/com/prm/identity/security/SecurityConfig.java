@@ -40,6 +40,7 @@ public class SecurityConfig {
             "/test-phone.html",
             "/test-forgot-password.html",
             "/test-livestream.html",
+            "/test-video-flow.html",
             "/outputs/**",
             "/audio/**"
     };

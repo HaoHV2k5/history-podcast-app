@@ -18,6 +18,9 @@ import {
   serializeUnresolvedSnapshot,
   safeParseDecisions,
   serializeDecisions,
+  safeParseReadIds,
+  serializeReadIds,
+  READ_NOTIFICATIONS_KEY_PREFIX,
   MAX_RESOLUTION_RETRIES,
 } from './moderationTrackerLogic.ts';
 import type {
@@ -403,4 +406,32 @@ test('Scenario 10: Duplicate events are suppressed and storage limits enforced',
   const serialized = serializeDecisions(decisions);
   const parsed = safeParseDecisions(serialized);
   assert.equal(parsed.length, 20);
+});
+
+test('Scenario 11: Read notifications tracking, persistence, and state isolation', () => {
+  // Test safeParseReadIds with null / empty / corrupted inputs
+  assert.equal(safeParseReadIds(null).size, 0);
+  assert.equal(safeParseReadIds('').size, 0);
+  assert.equal(safeParseReadIds('not-valid-json').size, 0);
+  assert.equal(safeParseReadIds('{"key": "value"}').size, 0);
+  assert.equal(safeParseReadIds('[123, null, "valid-id"]').size, 1);
+  assert.ok(safeParseReadIds('[123, null, "valid-id"]').has('valid-id'));
+
+  // Test set creation, serialization, and round-trip parsing
+  const initialSet = new Set<string>(['pending-101', 'pending-102', 'decision-201-APPROVED']);
+  const serialized = serializeReadIds(initialSet);
+  assert.ok(typeof serialized === 'string');
+
+  const parsedSet = safeParseReadIds(serialized);
+  assert.equal(parsedSet.size, 3);
+  assert.ok(parsedSet.has('pending-101'));
+  assert.ok(parsedSet.has('pending-102'));
+  assert.ok(parsedSet.has('decision-201-APPROVED'));
+  assert.ok(!parsedSet.has('pending-999'));
+
+  // Test storage key prefix isolation per user
+  assert.equal(READ_NOTIFICATIONS_KEY_PREFIX, 'creator_moderation_read_ids_');
+  const userAKey = `${READ_NOTIFICATIONS_KEY_PREFIX}creator_a`;
+  const userBKey = `${READ_NOTIFICATIONS_KEY_PREFIX}creator_b`;
+  assert.notEqual(userAKey, userBKey, 'User storage keys must be isolated');
 });

@@ -27,8 +27,15 @@ import {
   Download,
   Film,
   X,
+  Volume2,
+  Pause,
+  UploadCloud,
+  Wrench,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { creatorStudioApi, BusinessApiError } from '@/services/api/creatorStudio';
+import { CreatorSentencePatchItem } from '@/types/creatorStudio';
+import { SceneImageUploadDropzone } from '../studio/components/SceneImageUploadDropzone';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +51,7 @@ import {
 } from '@/components/ui/dialog';
 import { AiShieldBadge } from '@/features/moderation/components/AiShieldBadge';
 import { formatDateTime, formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
+import { resolveVideoThumbnail } from '../studio/creatorStudioUtils';
 
 export const CreatorContentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +79,19 @@ export const CreatorContentDetailPage: React.FC = () => {
 
   // Media playback fallback
   const [mediaError, setMediaError] = useState(false);
+
+  // Thumbnail Upload Modal State
+  const [thumbnailOpen, setThumbnailOpen] = useState(false);
+  const [selectedThumbFile, setSelectedThumbFile] = useState<File | null>(null);
+  const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
+
+  // Smart Script Patching Modal State
+  const [patchModalOpen, setPatchModalOpen] = useState(false);
+  const [editedSentences, setEditedSentences] = useState<Record<number, string>>({});
+  const [patchCoverFile, setPatchCoverFile] = useState<File | null>(null);
+  const [patchCoverPreview, setPatchCoverPreview] = useState<string | null>(null);
+  const [playingSentenceIdx, setPlayingSentenceIdx] = useState<number | null>(null);
+  const sentenceAudioRef = React.useRef<HTMLAudioElement | null>(null);
 
   // Query Video Detail from backend
   const {
@@ -186,6 +207,132 @@ export const CreatorContentDetailPage: React.FC = () => {
       setFeedback({ type: 'error', message: msg });
     },
   });
+
+  // Query Podcast Sentences (active when Smart Patching modal is opened)
+  const {
+    data: sentencesResponse,
+    isLoading: isLoadingSentences,
+    refetch: refetchSentences,
+  } = useQuery({
+    queryKey: ['creator', 'podcast-sentences', contentId],
+    queryFn: () => creatorStudioApi.getPodcastSentences(contentId),
+    enabled: patchModalOpen && !isNaN(contentId) && contentId > 0,
+  });
+
+  const podcastSentences = sentencesResponse?.data?.sentences || [];
+
+  // Mutation: Upload custom Thumbnail poster
+  const uploadThumbnailMutation = useMutation({
+    mutationFn: (file: File) => creatorStudioApi.uploadVideoThumbnail(contentId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['creator', 'studio-video', contentId] });
+      queryClient.invalidateQueries({ queryKey: ['creator', 'studio-videos'] });
+      setThumbnailOpen(false);
+      setSelectedThumbFile(null);
+      setThumbPreviewUrl(null);
+      setFeedback({
+        type: 'success',
+        message: 'Cập nhật ảnh Thumbnail Poster thành công!',
+      });
+    },
+    onError: (err: unknown) => {
+      let msg = 'Không thể tải ảnh Thumbnail lên máy chủ.';
+      if (err instanceof BusinessApiError) {
+        msg = err.message;
+      } else if (axios.isAxiosError(err)) {
+        msg = err.response?.data?.message || err.message;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setFeedback({ type: 'error', message: msg });
+    },
+  });
+
+  // Mutation: Smart Patch Podcast (< 10s)
+  const patchPodcastMutation = useMutation({
+    mutationFn: async () => {
+      // Build patch items
+      const patches: CreatorSentencePatchItem[] = [];
+      Object.entries(editedSentences).forEach(([idxStr, text]) => {
+        const idx = parseInt(idxStr, 10);
+        if (text && text.trim().length > 0) {
+          patches.push({
+            index: idx,
+            text: text.trim(),
+            reRecord: true,
+          });
+        }
+      });
+
+      let coverUrl: string | undefined = undefined;
+      if (patchCoverFile) {
+        const upRes = await creatorStudioApi.uploadSceneImage(patchCoverFile);
+        coverUrl = upRes.data?.imageUrl;
+      }
+
+      return creatorStudioApi.patchPodcast(contentId, {
+        patches,
+        coverImage: coverUrl,
+      });
+    },
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ['creator', 'studio-video', contentId] });
+      queryClient.invalidateQueries({ queryKey: ['creator', 'studio-videos'] });
+      setPatchModalOpen(false);
+      setEditedSentences({});
+      setPatchCoverFile(null);
+      setPatchCoverPreview(null);
+      if (sentenceAudioRef.current) {
+        sentenceAudioRef.current.pause();
+      }
+      setPlayingSentenceIdx(null);
+      setFeedback({
+        type: 'success',
+        message: `Đã vá kịch bản và xuất bản phiên bản mới (v${res.data?.version || 2}) thành công trong < 10 giây! Bản v1 cũ đang chiếu vẫn tiếp tục phát sóng bình thường.`,
+      });
+    },
+    onError: (err: unknown) => {
+      let msg = 'Không thể vá video podcast.';
+      if (err instanceof BusinessApiError) {
+        msg = err.message;
+      } else if (axios.isAxiosError(err)) {
+        msg = err.response?.data?.message || err.message;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      setFeedback({ type: 'error', message: msg });
+    },
+  });
+
+  const handlePlaySentenceAudio = (audioUrl: string | null | undefined, index: number) => {
+    if (!audioUrl) return;
+    if (playingSentenceIdx === index) {
+      if (sentenceAudioRef.current) {
+        sentenceAudioRef.current.pause();
+      }
+      setPlayingSentenceIdx(null);
+      return;
+    }
+
+    if (sentenceAudioRef.current) {
+      sentenceAudioRef.current.pause();
+    }
+
+    const fullUrl = resolveMediaUrl(audioUrl);
+    const audio = new Audio(fullUrl);
+    sentenceAudioRef.current = audio;
+    setPlayingSentenceIdx(index);
+    audio.play().catch((err) => {
+      console.warn('Audio sentence play failed:', err);
+      setPlayingSentenceIdx(null);
+    });
+    audio.onended = () => {
+      setPlayingSentenceIdx(null);
+    };
+    audio.onerror = () => {
+      setPlayingSentenceIdx(null);
+    };
+  };
 
   // Open Edit Dialog & seed initial values
   const handleOpenEdit = () => {
@@ -393,6 +540,11 @@ export const CreatorContentDetailPage: React.FC = () => {
           <Badge variant="outline" className="font-mono text-xs">
             Mã nội dung: #{detail.contentId}
           </Badge>
+          {detail.version && detail.version > 1 && (
+            <Badge variant="accent" className="font-mono text-xs">
+              Phiên bản: v{detail.version}
+            </Badge>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -509,6 +661,35 @@ export const CreatorContentDetailPage: React.FC = () => {
                 <Edit3 className="h-3.5 w-3.5" />
                 <span>Chỉnh sửa thông tin</span>
               </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedThumbFile(null);
+                  setThumbPreviewUrl(null);
+                  setThumbnailOpen(true);
+                }}
+                className="text-xs gap-1.5"
+              >
+                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <span>Đổi Thumbnail Poster</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditedSentences({});
+                  setPatchCoverFile(null);
+                  setPatchCoverPreview(null);
+                  setPatchModalOpen(true);
+                }}
+                className="text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                <span>Vá Kịch Bản Siêu Tốc (&lt; 10s)</span>
+              </Button>
             </div>
           </div>
         )}
@@ -612,6 +793,35 @@ export const CreatorContentDetailPage: React.FC = () => {
               </Button>
 
               <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedThumbFile(null);
+                  setThumbPreviewUrl(null);
+                  setThumbnailOpen(true);
+                }}
+                className="text-xs gap-1.5"
+              >
+                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <span>Đổi Thumbnail Poster</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditedSentences({});
+                  setPatchCoverFile(null);
+                  setPatchCoverPreview(null);
+                  setPatchModalOpen(true);
+                }}
+                className="text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                <span>Vá Kịch Bản Siêu Tốc (&lt; 10s)</span>
+              </Button>
+
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate('/creator/studio')}
@@ -662,6 +872,35 @@ export const CreatorContentDetailPage: React.FC = () => {
               >
                 <Edit3 className="h-3.5 w-3.5" />
                 <span>Chỉnh sửa thông tin</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedThumbFile(null);
+                  setThumbPreviewUrl(null);
+                  setThumbnailOpen(true);
+                }}
+                className="text-xs gap-1.5"
+              >
+                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <span>Đổi Thumbnail Poster</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditedSentences({});
+                  setPatchCoverFile(null);
+                  setPatchCoverPreview(null);
+                  setPatchModalOpen(true);
+                }}
+                className="text-xs gap-1.5 border-accent/40 text-accent hover:bg-accent/10"
+              >
+                <Wrench className="h-3.5 w-3.5" />
+                <span>Vá Kịch Bản Siêu Tốc (&lt; 10s)</span>
               </Button>
             </div>
           </div>
@@ -756,71 +995,126 @@ export const CreatorContentDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* 4. Media Player Preview */}
-      <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-border flex items-center justify-between bg-surface-subtle/50">
-          <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
-            <Play className="h-3.5 w-3.5 text-accent" />
-            <span>Bản Xem Trước Phương Tiện (Media Preview)</span>
-          </span>
-          <span className="text-[11px] text-muted font-mono">
-            {mediaUrl ? (isVideoFile ? 'Tệp Video MP4 Sẵn Sàng' : 'Tệp Audio Sẵn Sàng') : 'Chưa có tệp Media'}
-          </span>
-        </div>
+      {/* 4. Media Player & Thumbnail Poster Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Video / Audio Player (2 cols on lg) */}
+        <div className="lg:col-span-2 rounded-xl border border-border bg-surface overflow-hidden shadow-xs flex flex-col justify-between">
+          <div className="p-4 border-b border-border flex items-center justify-between bg-surface-subtle/50">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <Play className="h-3.5 w-3.5 text-accent" />
+              <span>Bản Xem Trước Phương Tiện (Media Preview)</span>
+            </span>
+            <span className="text-[11px] text-muted font-mono">
+              {mediaUrl ? (isVideoFile ? 'Tệp Video MP4 Sẵn Sàng' : 'Tệp Audio Sẵn Sàng') : 'Chưa có tệp Media'}
+            </span>
+          </div>
 
-        <div className="p-4 bg-black/95 flex items-center justify-center min-h-[220px]">
-          {mediaUrl && !mediaError ? (
-            isVideoFile ? (
-              <video
-                controls
-                crossOrigin="anonymous"
-                className="w-full max-h-[420px] rounded-lg shadow-sm"
-                src={mediaUrl}
-                onError={() => setMediaError(true)}
-              >
-                Trình duyệt không hỗ trợ phát thẻ video HTML5.
-              </video>
-            ) : (
-              <div className="w-full max-w-lg py-6 space-y-3 text-center">
-                <div className="h-12 w-12 rounded-full bg-accent/20 text-accent mx-auto flex items-center justify-center">
-                  <Play className="h-6 w-6 fill-current ml-0.5" />
-                </div>
-                <audio
+          <div className="p-4 bg-black/95 flex-1 flex items-center justify-center min-h-[240px]">
+            {mediaUrl && !mediaError ? (
+              isVideoFile ? (
+                <video
                   controls
-                  className="w-full"
+                  crossOrigin="anonymous"
+                  className="w-full max-h-[420px] rounded-lg shadow-sm"
                   src={mediaUrl}
                   onError={() => setMediaError(true)}
                 >
-                  Trình duyệt không hỗ trợ phát thẻ audio HTML5.
-                </audio>
-              </div>
-            )
-          ) : (
-            <div className="text-center py-10 space-y-3 text-muted">
-              <Video className="h-10 w-10 mx-auto opacity-50" />
-              <div className="space-y-1">
-                <p className="text-xs text-stone-400">
-                  {mediaError
-                    ? 'Không thể phát luồng trực tiếp (Tệp cục bộ hoặc URL đã hết hạn).'
-                    : 'Tác phẩm chưa có tệp truyền thông (đang chờ kết xuất hoặc chưa tải lên).'}
-                </p>
-                {mediaUrl && (
-                  <div className="pt-2">
-                    <a
-                      href={mediaUrl}
-                      download
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-700 bg-stone-900 text-stone-200 text-xs hover:bg-stone-800 transition-colors"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Tải trực tiếp tệp Media ({mediaUrl.split('/').pop() || 'media'})</span>
-                    </a>
+                  Trình duyệt không hỗ trợ phát thẻ video HTML5.
+                </video>
+              ) : (
+                <div className="w-full max-w-lg py-6 space-y-3 text-center">
+                  <div className="h-12 w-12 rounded-full bg-accent/20 text-accent mx-auto flex items-center justify-center">
+                    <Play className="h-6 w-6 fill-current ml-0.5" />
                   </div>
-                )}
+                  <audio
+                    controls
+                    className="w-full"
+                    src={mediaUrl}
+                    onError={() => setMediaError(true)}
+                  >
+                    Trình duyệt không hỗ trợ phát thẻ audio HTML5.
+                  </audio>
+                </div>
+              )
+            ) : (
+              <div className="text-center py-10 space-y-3 text-muted">
+                <Video className="h-10 w-10 mx-auto opacity-50" />
+                <div className="space-y-1">
+                  <p className="text-xs text-stone-400">
+                    {mediaError
+                      ? 'Không thể phát luồng trực tiếp (Tệp cục bộ hoặc URL đã hết hạn).'
+                      : 'Tác phẩm chưa có tệp truyền thông (đang chờ kết xuất hoặc chưa tải lên).'}
+                  </p>
+                  {mediaUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={mediaUrl}
+                        download
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-700 bg-stone-900 text-stone-200 text-xs hover:bg-stone-800 transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Tải trực tiếp tệp Media ({mediaUrl.split('/').pop() || 'media'})</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right: Thumbnail Poster Card (1 col on lg) */}
+        <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs flex flex-col justify-between">
+          <div className="p-4 border-b border-border flex items-center justify-between bg-surface-subtle/50">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-2">
+              <ImageIcon className="h-3.5 w-3.5 text-accent" />
+              <span>Ảnh Thumbnail Poster</span>
+            </span>
+            {detail.version && detail.version > 1 && (
+              <Badge variant="accent" className="font-mono text-[10px]">
+                v{detail.version}
+              </Badge>
+            )}
+          </div>
+
+          <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+            <div className="relative aspect-video rounded-lg border border-border overflow-hidden bg-surface-subtle flex items-center justify-center">
+              {resolveVideoThumbnail(detail.thumbnailUrl, detail.fileUrl) ? (
+                <img
+                  src={resolveVideoThumbnail(detail.thumbnailUrl, detail.fileUrl)}
+                  alt="Ảnh Thumbnail Poster"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center p-4 space-y-1.5 text-muted">
+                  <ImageIcon className="h-8 w-8 mx-auto opacity-40" />
+                  <p className="text-[11px] text-muted">Chưa có ảnh Thumbnail riêng</p>
+                  <p className="text-[10px] text-muted/70">Hệ thống đang hiển thị ảnh mặc định từ Cảnh 1.</p>
+                </div>
+              )}
             </div>
-          )}
+
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] text-muted leading-relaxed">
+                Poster tĩnh hiển thị ngoài Trang chủ &amp; Danh sách phát khi thính giả duyệt tìm tác phẩm.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedThumbFile(null);
+                  setThumbPreviewUrl(null);
+                  setThumbnailOpen(true);
+                }}
+                className="w-full text-xs gap-1.5"
+              >
+                <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                <span>Đổi ảnh Thumbnail Poster</span>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1301,6 +1595,340 @@ export const CreatorContentDetailPage: React.FC = () => {
               ) : null}
               <span>{targetHidden ? 'Xác nhận ẩn' : 'Xác nhận công khai'}</span>
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* DIALOG 4: Upload Video Thumbnail Poster (16:9)                            */}
+      {/* ========================================================================= */}
+      <Dialog open={thumbnailOpen} onOpenChange={setThumbnailOpen}>
+        <DialogContent maxWidth="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-accent" />
+              <span>Cập Nhật Ảnh Bìa Thumbnail (Poster)</span>
+            </DialogTitle>
+            <DialogDescription>
+              Tải lên hình ảnh đại diện tỷ lệ 16:9 để hiển thị nổi bật trên trang chủ và danh sách phát của kênh.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3 text-xs">
+            {/* Dropzone / File Picker */}
+            <div className="space-y-2">
+              <label className="font-semibold text-ink block">
+                Chọn ảnh Poster mới (JPG, PNG, WebP)
+              </label>
+              <SceneImageUploadDropzone
+                label="Tải lên ảnh Thumbnail Poster"
+                sublabel="Khung hình 16:9 ngoài trang chủ (PNG, JPG, WebP)"
+                imageUrl={thumbPreviewUrl || (detail.thumbnailUrl ? resolveMediaUrl(detail.thumbnailUrl) : undefined)}
+                aspectRatio="16:9"
+                onFileSelect={(file: File) => {
+                  setSelectedThumbFile(file);
+                  const objectUrl = URL.createObjectURL(file);
+                  setThumbPreviewUrl(objectUrl);
+                }}
+                onRemoveImage={() => {
+                  setSelectedThumbFile(null);
+                  setThumbPreviewUrl(null);
+                }}
+              />
+              {detail.thumbnailUrl && !selectedThumbFile && (
+                <div className="mt-2 text-muted text-[11px] flex items-center gap-1.5">
+                  <span>Ảnh thumbnail hiện tại đang dùng:</span>
+                  <a
+                    href={resolveMediaUrl(detail.thumbnailUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent underline font-mono truncate max-w-[220px]"
+                  >
+                    Xem ảnh gốc
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setThumbnailOpen(false);
+                setSelectedThumbFile(null);
+                setThumbPreviewUrl(null);
+              }}
+              disabled={uploadThumbnailMutation.isPending}
+              className="text-xs"
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => {
+                if (selectedThumbFile) {
+                  uploadThumbnailMutation.mutate(selectedThumbFile);
+                }
+              }}
+              disabled={!selectedThumbFile || uploadThumbnailMutation.isPending}
+              className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+            >
+              {uploadThumbnailMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Đang tải lên CDN...</span>
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="h-3.5 w-3.5" />
+                  <span>Lưu Ảnh Thumbnail</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* DIALOG 5: Smart Script Patching (< 10s)                                   */}
+      {/* ========================================================================= */}
+      <Dialog open={patchModalOpen} onOpenChange={setPatchModalOpen}>
+        <DialogContent maxWidth="max-w-2xl">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-accent" />
+                <span>Vá Kịch Bản Siêu Tốc (Smart Script Patching)</span>
+              </DialogTitle>
+              <Badge variant="accent" className="font-mono text-[10px]">
+                &lt; 10s · Tiết kiệm 90% chi phí
+              </Badge>
+            </div>
+            <DialogDescription>
+              Chỉ thu âm lại đúng các câu bạn chỉnh sửa và ghép lại video trong chưa đầy 10 giây. Bản video cũ vẫn tiếp tục phát sóng cho khán giả xem bình thường mà không bị gián đoạn.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs max-h-[60vh] overflow-y-auto pr-1">
+            {/* Optional Cover Image Replacement */}
+            <div className="p-3.5 rounded-xl border border-border bg-surface-subtle space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-ink flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                  <span>Thay đổi ảnh bìa Podcast (Tùy chọn)</span>
+                </span>
+                {patchCoverFile && (
+                  <Badge variant="accent" size="sm" className="text-[10px]">
+                    Đã chọn ảnh mới
+                  </Badge>
+                )}
+              </div>
+              <p className="text-[11px] text-muted">
+                Nếu bạn muốn cập nhật ảnh bìa mới cho video cùng lúc với việc sửa câu kịch bản.
+              </p>
+              <div className="pt-1">
+                <SceneImageUploadDropzone
+                  label="Tải lên ảnh bìa Podcast mới"
+                  sublabel="Khung hình vuông 1:1 hoặc 16:9 (PNG, JPG, WebP)"
+                  imageUrl={patchCoverPreview || undefined}
+                  aspectRatio="1:1"
+                  onFileSelect={(file: File) => {
+                    setPatchCoverFile(file);
+                    const objUrl = URL.createObjectURL(file);
+                    setPatchCoverPreview(objUrl);
+                  }}
+                  onRemoveImage={() => {
+                    setPatchCoverFile(null);
+                    setPatchCoverPreview(null);
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Sentences List */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-ink">
+                  Danh sách câu thoại trong kịch bản ({podcastSentences.length} câu)
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => refetchSentences()}
+                  disabled={isLoadingSentences}
+                  className="text-xs h-7 px-2 text-muted hover:text-ink gap-1"
+                >
+                  <RotateCcw className={`h-3 w-3 ${isLoadingSentences ? 'animate-spin' : ''}`} />
+                  <span>Tải lại câu</span>
+                </Button>
+              </div>
+
+              {isLoadingSentences ? (
+                <div className="py-12 text-center space-y-2 text-muted">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-accent" />
+                  <p className="text-xs">Đang nạp danh sách câu từ máy chủ...</p>
+                </div>
+              ) : podcastSentences.length === 0 ? (
+                <div className="p-6 text-center border border-dashed border-border rounded-xl text-muted space-y-1">
+                  <AlertCircle className="h-5 w-5 mx-auto text-muted" />
+                  <p className="font-medium text-ink">Chưa có phân tách câu cho video này</p>
+                  <p className="text-[11px]">
+                    Tính năng vá kịch bản siêu tốc chỉ hỗ trợ tác phẩm có dữ liệu câu kịch bản từ bản kết xuất gần nhất.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {podcastSentences.map((sentence, idx) => {
+                    const isModified = editedSentences[idx] !== undefined && editedSentences[idx] !== sentence.text;
+                    const currentVal = editedSentences[idx] !== undefined ? editedSentences[idx] : sentence.text;
+                    const isPlaying = playingSentenceIdx === idx;
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border transition-all ${
+                          isModified
+                            ? 'border-accent bg-accent-soft/20 shadow-xs'
+                            : 'border-border bg-surface'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between pb-2">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={isModified ? 'accent' : 'outline'}
+                              className="font-mono text-[10px]"
+                            >
+                              Câu #{idx + 1}
+                            </Badge>
+                            {isModified && (
+                              <span className="text-[10px] font-semibold text-accent animate-pulse">
+                                ● Sẽ thu âm lại
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Audio preview button for this sentence */}
+                          {sentence.audioUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePlaySentenceAudio(sentence.audioUrl, idx)}
+                              className={`h-6 px-2 text-[11px] gap-1 rounded-md ${
+                                isPlaying ? 'bg-accent text-white' : 'text-muted hover:text-ink'
+                              }`}
+                              title="Nghe thử câu này"
+                            >
+                              {isPlaying ? (
+                                <>
+                                  <Pause className="h-3 w-3" />
+                                  <span>Dừng</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="h-3 w-3" />
+                                  <span>Nghe thử</span>
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+
+                        <Textarea
+                          value={currentVal}
+                          onChange={(e) => {
+                            const nextText = e.target.value;
+                            setEditedSentences((prev) => ({
+                              ...prev,
+                              [idx]: nextText,
+                            }));
+                          }}
+                          rows={2}
+                          className="text-xs bg-canvas resize-none"
+                          placeholder="Nhập nội dung chỉnh sửa cho câu này..."
+                        />
+
+                        {isModified && (
+                          <div className="pt-1.5 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditedSentences((prev) => {
+                                  const copy = { ...prev };
+                                  delete copy[idx];
+                                  return copy;
+                                });
+                              }}
+                              className="text-[10px] text-muted hover:text-ink underline"
+                            >
+                              Khôi phục câu gốc
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="border-t border-border pt-3">
+            <div className="flex items-center justify-between w-full">
+              <div className="text-[11px] text-muted">
+                {Object.keys(editedSentences).length > 0 || patchCoverFile ? (
+                  <span className="text-accent font-semibold">
+                    Đã chọn sửa {Object.keys(editedSentences).length} câu {patchCoverFile ? '+ 1 ảnh bìa mới' : ''}
+                  </span>
+                ) : (
+                  <span>Chưa có thay đổi nào được chọn.</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setPatchModalOpen(false);
+                    if (sentenceAudioRef.current) {
+                      sentenceAudioRef.current.pause();
+                    }
+                    setPlayingSentenceIdx(null);
+                  }}
+                  disabled={patchPodcastMutation.isPending}
+                  className="text-xs"
+                >
+                  Hủy bỏ
+                </Button>
+
+                <Button
+                  size="sm"
+                  onClick={() => patchPodcastMutation.mutate()}
+                  disabled={
+                    patchPodcastMutation.isPending ||
+                    (Object.keys(editedSentences).length === 0 && !patchCoverFile)
+                  }
+                  className="gap-2 text-xs bg-accent text-white hover:bg-accent/90"
+                >
+                  {patchPodcastMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Đang vá video (&lt; 10s)...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Wrench className="h-3.5 w-3.5" />
+                      <span>Vá Video Ngay (&lt; 10s)</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

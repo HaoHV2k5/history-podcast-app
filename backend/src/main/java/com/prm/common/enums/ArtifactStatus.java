@@ -6,12 +6,18 @@ package com.prm.common.enums;
 public enum ArtifactStatus {
     /** Đang xử lý / chờ upload */
     PROCESSING,
-    /** Upload và xử lý thành công, sẵn sàng để publish */
+    /** Upload và xử lý thành công, sẵn sàng để publish hoặc kiểm duyệt */
     COMPLETED,
-    /** Đã publish cùng Content tương ứng */
+    /** Đang trong hàng đợi chờ Admin kiểm duyệt */
+    PENDING_REVIEW,
+    /** Đã publish cùng Content tương ứng hoặc thay thế phiên bản trước */
     PUBLISHED,
+    /** Bị từ chối kiểm duyệt bởi Admin */
+    REJECTED,
     /** Bị ẩn */
     HIDDEN,
+    /** Phiên bản cũ đã được lưu trữ sau khi bản mới được phê duyệt thay thế */
+    ARCHIVED,
     /** Xử lý thất bại */
     FAILED;
 

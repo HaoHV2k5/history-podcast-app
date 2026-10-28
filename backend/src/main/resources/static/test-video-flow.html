@@ -1,0 +1,4588 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suku Video Studio Lab — E2E Testing Console</title>
+  <meta name="description" content="Trang kiểm thử toàn diện luồng tạo video Whiteboard AI 16:9, Audio Podcast 1:1, Smart Patch v2+ và AI Shield Moderation.">
+
+  <!-- Google Fonts: Inter & Fira Code (ui-ux-pro-max recommended) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- GSAP 3.12.5 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM TOKENS (ui-ux-pro-max: Studio Console & Exaggerated Minimalism)
+       ========================================================================== */
+    :root {
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      /* Spacing Scale */
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+
+      /* Concentric Border Radius */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-xl: 18px;
+      --radius-pill: 9999px;
+
+      /* Z-index scale */
+      --z-base: 1;
+      --z-header: 100;
+      --z-drawer: 200;
+      --z-modal: 300;
+      --z-toast: 400;
+    }
+
+    /* Dark Theme (Default) */
+    html[data-theme="dark"] {
+      --color-bg: #0b0f19;
+      --color-bg-elevated: #111827;
+      --color-surface: #182234;
+      --color-surface-hover: #1f2d44;
+      --color-surface-active: #24344d;
+      --color-border: rgba(255, 255, 255, 0.08);
+      --color-border-strong: rgba(255, 255, 255, 0.16);
+      --color-border-glow: rgba(236, 72, 153, 0.4);
+
+      --color-fg: #f8fafc;
+      --color-fg-secondary: #94a3b8;
+      --color-fg-muted: #64748b;
+
+      --color-primary: #ec4899;
+      --color-primary-hover: #db2777;
+      --color-on-primary: #ffffff;
+      --color-accent: #3b82f6;
+      --color-accent-hover: #2563eb;
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-danger: #ef4444;
+
+      --color-header-bg: rgba(11, 15, 25, 0.85);
+      --color-input-bg: #0d131f;
+      --color-scrim: rgba(0, 0, 0, 0.7);
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.4);
+      --shadow-glow-pink: 0 0 20px rgba(236, 72, 153, 0.25);
+      --shadow-glow-blue: 0 0 20px rgba(59, 130, 246, 0.25);
+    }
+
+    /* Light Theme */
+    html[data-theme="light"] {
+      --color-bg: #f8fafc;
+      --color-bg-elevated: #ffffff;
+      --color-surface: #f1f5f9;
+      --color-surface-hover: #e2e8f0;
+      --color-surface-active: #cbd5e1;
+      --color-border: rgba(0, 0, 0, 0.08);
+      --color-border-strong: rgba(0, 0, 0, 0.16);
+      --color-border-glow: rgba(236, 72, 153, 0.4);
+
+      --color-fg: #0f172a;
+      --color-fg-secondary: #475569;
+      --color-fg-muted: #94a3b8;
+
+      --color-primary: #db2777;
+      --color-primary-hover: #be185d;
+      --color-on-primary: #ffffff;
+      --color-accent: #2563eb;
+      --color-accent-hover: #1d4ed8;
+      --color-success: #059669;
+      --color-warning: #d97706;
+      --color-danger: #dc2626;
+
+      --color-header-bg: rgba(248, 250, 252, 0.85);
+      --color-input-bg: #ffffff;
+      --color-scrim: rgba(15, 23, 42, 0.5);
+
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+      --shadow-glow-pink: 0 0 20px rgba(219, 39, 119, 0.15);
+      --shadow-glow-blue: 0 0 20px rgba(37, 99, 235, 0.15);
+    }
+
+    /* CSS Reset & Basics */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--color-bg);
+      color: var(--color-fg);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* SVG Icon Helpers */
+    .icon {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
+    }
+    .icon-sm { width: 14px; height: 14px; }
+    .icon-lg { width: 22px; height: 22px; }
+
+    /* Focus Rings */
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+
+    /* ==========================================================================
+       HEADER & NAVIGATION (COMPACT & PURPOSEFUL)
+       ========================================================================== */
+    .top-header {
+      position: sticky;
+      top: 0;
+      z-index: var(--z-header);
+      background: var(--color-header-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--color-border);
+      padding: 0 var(--space-6);
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      text-decoration: none;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge-lab {
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      background: rgba(236, 72, 153, 0.15);
+      color: var(--color-primary);
+      border: 1px solid rgba(236, 72, 153, 0.3);
+      font-weight: 600;
+    }
+
+    /* Mode Segmented Controls */
+    .nav-segmented {
+      display: flex;
+      align-items: center;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-pill);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .nav-segment-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: var(--radius-pill);
+      border: none;
+      background: transparent;
+      color: var(--color-fg-secondary);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .nav-segment-btn:hover {
+      color: var(--color-fg);
+    }
+
+    .nav-segment-btn.active {
+      background: var(--color-bg-elevated);
+      color: var(--color-primary);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* Header Actions */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      flex-shrink: 0;
+    }
+
+    .auth-status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 12px;
+      height: 32px;
+      border-radius: var(--radius-pill);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      font-size: 0.76rem;
+      font-family: var(--font-mono);
+      color: var(--color-fg-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .auth-status-pill:hover {
+      border-color: var(--color-border-strong);
+      color: var(--color-fg);
+    }
+    .auth-status-pill.logged-in {
+      border-color: rgba(16, 185, 129, 0.4);
+      color: var(--color-success);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .auth-status-pill .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--color-fg-muted);
+    }
+    .auth-status-pill.logged-in .status-dot {
+      background: var(--color-success);
+      box-shadow: 0 0 6px var(--color-success);
+    }
+
+    /* Quick Notification / Setup Banner */
+    .setup-banner {
+      background: linear-gradient(90deg, rgba(236, 72, 153, 0.1), rgba(59, 130, 246, 0.1));
+      border-bottom: 1px solid var(--color-border);
+      padding: 8px var(--space-6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+      font-size: 0.8rem;
+    }
+    .setup-banner-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-fg);
+    }
+    .setup-banner-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       BUTTONS & INPUT CONTROLS
+       ========================================================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.84rem;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-sm {
+      padding: 5px 11px;
+      font-size: 0.78rem;
+      border-radius: var(--radius-sm);
+    }
+
+    .btn-lg {
+      padding: 12px 22px;
+      font-size: 0.94rem;
+      font-weight: 600;
+      border-radius: var(--radius-lg);
+    }
+
+    .btn-primary {
+      background: var(--color-primary);
+      color: var(--color-on-primary);
+      box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+    }
+    .btn-primary:hover {
+      background: var(--color-primary-hover);
+      box-shadow: 0 4px 14px rgba(236, 72, 153, 0.45);
+    }
+
+    .btn-secondary {
+      background: var(--color-surface);
+      color: var(--color-fg);
+      border-color: var(--color-border-strong);
+    }
+    .btn-secondary:hover {
+      background: var(--color-surface-hover);
+      border-color: var(--color-border-strong);
+    }
+
+    .btn-accent {
+      background: var(--color-accent);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+    .btn-accent:hover {
+      background: var(--color-accent-hover);
+      box-shadow: 0 4px 14px rgba(59, 130, 246, 0.45);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--color-fg-secondary);
+      border-color: transparent;
+    }
+    .btn-ghost:hover {
+      background: var(--color-surface);
+      color: var(--color-fg);
+    }
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-danger);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+    }
+
+    /* Form Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: var(--space-3);
+    }
+
+    .field-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--color-fg-secondary);
+      letter-spacing: 0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .field-hint {
+      font-size: 0.72rem;
+      color: var(--color-fg-muted);
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      background: var(--color-input-bg);
+      border: 1px solid var(--color-border-strong);
+      color: var(--color-fg);
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2);
+    }
+    .form-control.mono {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 76px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-3);
+    }
+
+    /* Preset Chips */
+    .chip-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+      margin-bottom: var(--space-3);
+    }
+
+    .preset-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      color: var(--color-fg-secondary);
+      font-size: 0.73rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .preset-chip:hover {
+      background: var(--color-surface-hover);
+      color: var(--color-fg);
+      border-color: var(--color-primary);
+    }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 0.7rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status-badge.running, .status-badge.processing {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--color-accent);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .status-badge.success, .status-badge.completed, .status-badge.published {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .status-badge.failed, .status-badge.rejected {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .status-badge.pending, .status-badge.pending_review {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--color-warning);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    /* ==========================================================================
+       MAIN STUDIO WORKBENCH (SIDE-BY-SIDE 2-COLUMN LAYOUT)
+       ========================================================================== */
+    .studio-container {
+      max-width: 1560px;
+      width: 100%;
+      margin: 0 auto;
+      padding: var(--space-5) var(--space-6);
+      flex: 1;
+    }
+
+    .studio-view {
+      display: none;
+      opacity: 0;
+    }
+    .studio-view.active {
+      display: block;
+      opacity: 1;
+    }
+
+    /* Studio 2-Column Grid */
+    .workbench-grid {
+      display: grid;
+      grid-template-columns: 48% 52%;
+      gap: var(--space-5);
+      align-items: start;
+    }
+
+    /* Cards */
+    .panel-card {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4) var(--space-5);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: var(--space-4);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding-bottom: var(--space-3);
+      margin-bottom: var(--space-3);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .panel-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-icon-box {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-surface);
+      color: var(--color-fg-secondary);
+      flex-shrink: 0;
+    }
+    .panel-icon-box.pink {
+      background: rgba(236, 72, 153, 0.15);
+      color: var(--color-primary);
+    }
+    .panel-icon-box.blue {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--color-accent);
+    }
+    .panel-icon-box.green {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--color-fg);
+      letter-spacing: -0.01em;
+    }
+
+    .panel-desc {
+      font-size: 0.75rem;
+      color: var(--color-fg-muted);
+    }
+
+    /* Storyboard Scene Card List */
+    .scene-card-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .scene-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: var(--space-3);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      transition: border-color 0.2s ease;
+    }
+    .scene-card:hover {
+      border-color: var(--color-border-strong);
+    }
+
+    .scene-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .scene-tag {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--color-primary);
+      background: rgba(236, 72, 153, 0.12);
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+    }
+
+    .scene-title-text {
+      font-weight: 600;
+      font-size: 0.82rem;
+      color: var(--color-fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .scene-status-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+    .scene-status-pill.waiting {
+      background: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.25);
+    }
+    .scene-status-pill.loaded {
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--color-success);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    /* 2-Column Bento Layout Inside Scene Card */
+    .scene-bento-grid {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: var(--space-3);
+      align-items: stretch;
+    }
+    @media (max-width: 960px) {
+      .scene-bento-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .scene-left-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .scene-prompt-card {
+      background: var(--color-input-bg);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .scene-prompt-card:hover {
+      border-color: rgba(124, 58, 237, 0.4);
+    }
+    .scene-prompt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .scene-prompt-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .scene-prompt-text {
+      font-size: 0.72rem;
+      color: var(--color-fg-secondary);
+      line-height: 1.45;
+      word-break: break-word;
+      max-height: 68px;
+      overflow-y: auto;
+      user-select: all;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .scene-right-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    /* Interactive Drag-and-Drop 16:9 Image Zone */
+    .drop-zone-16-9 {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border: 2px dashed var(--color-border-strong);
+      border-radius: var(--radius-md);
+      background: var(--color-input-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      outline: none;
+      user-select: none;
+    }
+    .drop-zone-16-9:focus-visible {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.25);
+    }
+    .drop-zone-16-9:hover {
+      border-color: var(--color-primary);
+      background: rgba(124, 58, 237, 0.04);
+    }
+    .drop-zone-16-9.is-dragover {
+      border-color: var(--color-accent) !important;
+      border-style: solid !important;
+      background: rgba(236, 72, 153, 0.12) !important;
+      box-shadow: 0 0 16px rgba(236, 72, 153, 0.35) !important;
+    }
+    .drop-zone-16-9.has-image {
+      border-style: solid;
+      border-color: var(--color-border);
+      background: #000;
+    }
+
+    .drop-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+      gap: 3px;
+      pointer-events: none;
+    }
+    .drop-icon-pulse {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(124, 58, 237, 0.12);
+      color: var(--color-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2px;
+    }
+    .drop-main-text {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--color-fg);
+    }
+    .drop-sub-text {
+      font-size: 0.64rem;
+      color: var(--color-fg-muted);
+    }
+
+    .drop-hover-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(236, 72, 153, 0.88);
+      color: #fff;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      z-index: 10;
+      pointer-events: none;
+      backdrop-filter: blur(2px);
+    }
+    .drop-zone-16-9.is-dragover .drop-hover-overlay,
+    .drop-zone-square.is-dragover .drop-hover-overlay {
+      display: flex;
+    }
+
+    .drop-image-wrap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .drop-image-preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+    .drop-zone-16-9:hover .drop-image-preview,
+    .drop-zone-square:hover .drop-image-preview {
+      transform: scale(1.02);
+    }
+    .drop-image-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, transparent 40%, rgba(0,0,0,0.75) 100%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 6px 8px;
+    }
+    .drop-zone-16-9:hover .drop-image-overlay,
+    .drop-zone-square:hover .drop-image-overlay {
+      opacity: 1;
+    }
+    .drop-badge-success {
+      align-self: flex-start;
+      font-size: 0.64rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      background: rgba(16, 185, 129, 0.9);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .drop-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .drop-quick-bar {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .drop-url-input-wrap {
+      flex: 1;
+      min-width: 0;
+    }
+    .form-control-xs {
+      padding: 2px 6px !important;
+      font-size: 0.68rem !important;
+      height: 24px !important;
+    }
+    .btn-xs {
+      padding: 2px 7px !important;
+      font-size: 0.68rem !important;
+      height: 24px !important;
+      line-height: 1 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 4px !important;
+    }
+
+    /* Batch Drag & Drop Banner */
+    .batch-drop-banner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 14px;
+      background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(236, 72, 153, 0.08) 100%);
+      border: 1.5px dashed rgba(124, 58, 237, 0.35);
+      border-radius: var(--radius-md);
+      margin-bottom: var(--space-3);
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .batch-drop-banner:hover {
+      border-color: var(--color-primary);
+      background: rgba(124, 58, 237, 0.12);
+    }
+    .batch-drop-banner.is-dragover {
+      border-color: var(--color-accent) !important;
+      background: rgba(236, 72, 153, 0.18) !important;
+      box-shadow: 0 0 16px rgba(236, 72, 153, 0.3) !important;
+      transform: scale(1.01);
+    }
+    .batch-drop-content {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.74rem;
+      color: var(--color-fg-secondary);
+    }
+
+    /* Square Drag & Drop for Podcast Cover */
+    .drop-zone-square {
+      position: relative;
+      width: 130px;
+      height: 130px;
+      aspect-ratio: 1 / 1;
+      border: 2px dashed var(--color-border-strong);
+      border-radius: var(--radius-md);
+      background: var(--color-input-bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      overflow: hidden;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+      outline: none;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .drop-zone-square:hover {
+      border-color: var(--color-primary);
+      background: rgba(124, 58, 237, 0.05);
+    }
+    .drop-zone-square.is-dragover {
+      border-color: var(--color-accent) !important;
+      background: rgba(236, 72, 153, 0.15) !important;
+    }
+    .drop-zone-square.has-image {
+      border-style: solid;
+      border-color: var(--color-border);
+      background: #000;
+    }
+
+    /* Right Column: Live Production & Video Monitor */
+    .monitor-panel {
+      position: sticky;
+      top: 80px;
+    }
+
+    /* Step Grid */
+    .render-step-tracker {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+      margin-bottom: var(--space-4);
+    }
+
+    .step-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      font-size: 0.68rem;
+      font-family: var(--font-mono);
+      color: var(--color-fg-muted);
+      transition: all 0.2s ease;
+    }
+    .step-node.active {
+      border-color: var(--color-accent);
+      color: var(--color-accent);
+      background: rgba(59, 130, 246, 0.12);
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+      font-weight: 700;
+    }
+    .step-node.done {
+      border-color: var(--color-success);
+      color: var(--color-success);
+      background: rgba(16, 185, 129, 0.12);
+    }
+
+    /* Console Terminal */
+    .terminal-box {
+      background: #060911;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      line-height: 1.5;
+      color: #94a3b8;
+      height: 120px;
+      overflow-y: auto;
+      margin-bottom: var(--space-4);
+    }
+    .terminal-line {
+      display: flex;
+      gap: 6px;
+    }
+    .terminal-line.success { color: #34d399; }
+    .terminal-line.error { color: #f87171; }
+    .terminal-line.info { color: #60a5fa; }
+    .terminal-line.warn { color: #fbbf24; }
+
+    /* Video Player Viewport */
+    .video-viewport {
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: #000;
+      border: 1px solid var(--color-border);
+      margin-bottom: var(--space-4);
+      position: relative;
+    }
+    .video-viewport video {
+      width: 100%;
+      display: block;
+      max-height: 380px;
+    }
+
+    /* Smart Patch Sentence List */
+    .patch-sentence-table {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 320px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin-bottom: var(--space-3);
+    }
+
+    .patch-sentence-row {
+      display: grid;
+      grid-template-columns: 28px 1fr 60px;
+      gap: 8px;
+      align-items: center;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      transition: border-color 0.15s ease;
+    }
+    .patch-sentence-row.modified {
+      border-color: var(--color-warning);
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .patch-idx {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      color: var(--color-fg-muted);
+      font-weight: 700;
+    }
+
+    /* Video Library Card Grid */
+    .video-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .lib-video-card {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.2s ease;
+    }
+    .lib-video-card:hover {
+      border-color: var(--color-border-strong);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card);
+    }
+
+    .lib-video-poster {
+      width: 100%;
+      height: 158px;
+      background: #000;
+      object-fit: cover;
+      display: block;
+    }
+
+    .lib-video-content {
+      padding: var(--space-3) var(--space-4);
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: 8px;
+    }
+
+    .lib-video-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .lib-video-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 0.74rem;
+      color: var(--color-fg-muted);
+      font-family: var(--font-mono);
+    }
+
+    .lib-video-actions {
+      border-top: 1px solid var(--color-border);
+      padding: 8px var(--space-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      background: var(--color-surface);
+    }
+
+    /* ==========================================================================
+       SLIDE-OVER DRAWERS & MODALS
+       ========================================================================== */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--color-scrim);
+      z-index: var(--z-drawer);
+      display: none;
+      opacity: 0;
+    }
+
+    .drawer-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(520px, 92vw);
+      background: var(--color-bg-elevated);
+      border-left: 1px solid var(--color-border-strong);
+      z-index: calc(var(--z-drawer) + 1);
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      box-shadow: -8px 0 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .drawer-head {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+    }
+
+    .drawer-body {
+      padding: var(--space-5);
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--color-scrim);
+      z-index: var(--z-modal);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+      opacity: 0;
+    }
+
+    .modal-box {
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-strong);
+      border-radius: var(--radius-xl);
+      width: min(640px, 96vw);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      transform: scale(0.95);
+    }
+
+    .modal-head {
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      padding: var(--space-5);
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* API Inspector Bottom Drawer */
+    .inspector-drawer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 280px;
+      background: #090e17;
+      border-top: 1px solid var(--color-border-strong);
+      z-index: var(--z-drawer);
+      display: flex;
+      flex-direction: column;
+      transform: translateY(100%);
+      box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .inspector-head {
+      padding: 8px var(--space-6);
+      background: #0d131f;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .inspector-table-wrap {
+      flex: 1;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+    }
+
+    .inspector-row {
+      display: grid;
+      grid-template-columns: 80px 70px 1fr 80px;
+      gap: 8px;
+      padding: 6px var(--space-6);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+    }
+    .inspector-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Toast Stack */
+    .toast-stack {
+      position: fixed;
+      bottom: var(--space-5);
+      right: var(--space-5);
+      z-index: var(--z-toast);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+      pointer-events: none;
+    }
+    .toast-item {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      background: var(--color-bg-elevated);
+      border: 1px solid var(--color-border-strong);
+      color: var(--color-fg);
+      box-shadow: var(--shadow-card);
+      font-size: 0.82rem;
+      transform: translateY(20px);
+      opacity: 0;
+    }
+    .toast-item.success { border-left: 4px solid var(--color-success); }
+    .toast-item.error { border-left: 4px solid var(--color-danger); }
+    .toast-item.info { border-left: 4px solid var(--color-accent); }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .workbench-grid {
+        grid-template-columns: 1fr;
+      }
+      .monitor-panel {
+        position: static;
+      }
+      .top-header {
+        padding: 0 var(--space-4);
+      }
+      .studio-container {
+        padding: var(--space-4);
+      }
+      .nav-segmented {
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SVG Sprite Definitions (Pure SVGs, 0 Emojis) -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none;" aria-hidden="true">
+    <symbol id="ic-film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.5"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></symbol>
+    <symbol id="ic-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></symbol>
+    <symbol id="ic-layers" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+    <symbol id="ic-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></symbol>
+    <symbol id="ic-play" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></symbol>
+    <symbol id="ic-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></symbol>
+    <symbol id="ic-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></symbol>
+    <symbol id="ic-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
+    <symbol id="ic-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+    <symbol id="ic-terminal" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></symbol>
+    <symbol id="ic-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="ic-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="ic-close" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="ic-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="ic-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="ic-edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></symbol>
+    <symbol id="ic-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="ic-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="ic-volume" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+  </svg>
+
+  <!-- ==========================================================================
+       TOP APP HEADER
+       ========================================================================== -->
+  <header class="top-header">
+    <div class="brand-section">
+      <div class="brand-mark">
+        <svg class="icon"><use href="#ic-film"></use></svg>
+      </div>
+      <div>
+        <div class="brand-title">
+          <span>Suku Video Studio</span>
+          <span class="badge-lab">E2E Flow Lab</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode Tabs Switcher (Segmented Control) -->
+    <nav class="nav-segmented" aria-label="Lựa chọn luồng tạo video">
+      <button type="button" class="nav-segment-btn active" id="tabBtnWhiteboard" onclick="switchView('whiteboard')">
+        <svg class="icon icon-sm"><use href="#ic-sparkles"></use></svg>
+        <span>Whiteboard AI (16:9)</span>
+      </button>
+      <button type="button" class="nav-segment-btn" id="tabBtnPodcast" onclick="switchView('podcast')">
+        <svg class="icon icon-sm"><use href="#ic-mic"></use></svg>
+        <span>Audio Podcast (1:1 &amp; Vá Câu)</span>
+      </button>
+      <button type="button" class="nav-segment-btn" id="tabBtnLibrary" onclick="switchView('library')">
+        <svg class="icon icon-sm"><use href="#ic-layers"></use></svg>
+        <span>Kho Video &amp; Kiểm Duyệt</span>
+      </button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <!-- Auth Status Pill -->
+      <button type="button" class="auth-status-pill" id="pillAuthUser" onclick="openSettingsDrawer('auth')">
+        <span class="status-dot"></span>
+        <span id="lblAuthText">Chưa đăng nhập</span>
+      </button>
+
+      <!-- Settings Drawer Trigger -->
+      <button type="button" class="btn btn-secondary btn-sm" onclick="openSettingsDrawer()" title="Cài đặt Auth, Kênh &amp; Khóa AI">
+        <svg class="icon icon-sm"><use href="#ic-settings"></use></svg>
+        <span>Cài đặt</span>
+      </button>
+
+      <!-- API Inspector Trigger -->
+      <button type="button" class="btn btn-secondary btn-sm" onclick="toggleInspectorDrawer()" title="Xem lịch sử gọi API">
+        <svg class="icon icon-sm"><use href="#ic-terminal"></use></svg>
+        <span>Logs (<span id="lblApiLogCount">0</span>)</span>
+      </button>
+
+      <!-- Theme Toggle -->
+      <button type="button" class="btn btn-ghost btn-sm" id="btnToggleTheme" onclick="toggleTheme()" title="Đổi sáng / tối" aria-label="Đổi giao diện">
+        <svg class="icon icon-sm" id="themeIcon"><use href="#ic-sun"></use></svg>
+      </button>
+
+      <!-- Link to Creator Studio V3.0 -->
+      <a href="/creator-studio.html" class="btn btn-primary btn-sm" style="text-decoration:none;" title="Mở giao diện Creator Studio hoàn chỉnh">
+        <span>🎬 Creator Studio Pro</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Quick Setup & Demo Login Alert Banner -->
+  <aside class="setup-banner" id="bannerGuestAlert">
+    <div class="setup-banner-text">
+      <svg class="icon icon-sm" style="color:var(--color-primary);"><use href="#ic-zap"></use></svg>
+      <span>Bạn chưa đăng nhập. Nhấn nút bên cạnh để tự động đăng nhập tài khoản Creator mẫu và bắt đầu test ngay!</span>
+    </div>
+    <div class="setup-banner-actions">
+      <button type="button" class="btn btn-primary btn-sm" onclick="quickLoginCreatorDemo()">
+        <svg class="icon icon-sm"><use href="#ic-zap"></use></svg>
+        <span>Đăng nhập Creator Mẫu (1-Click)</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ==========================================================================
+       MAIN STUDIO WORKBENCH
+       ========================================================================== -->
+  <main class="studio-container">
+
+    <!-- ========================================================================
+         VIEW 1: WHITEBOARD AI STUDIO (16:9)
+         ======================================================================== -->
+    <section class="studio-view active" id="viewWhiteboard">
+      <div class="workbench-grid">
+
+        <!-- LEFT COLUMN: CREATION & SCENE EDITOR -->
+        <div>
+          <!-- Card 1: Topic & Settings -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box pink"><svg class="icon"><use href="#ic-sparkles"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">1. Chủ Đề &amp; Kịch Bản Video (16:9)</h2>
+                  <p class="panel-desc">Chọn chủ đề để AI tự động soạn kịch bản hoặc dùng kịch bản mẫu có sẵn</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="wbTopicInput">Nội dung / Chủ đề lịch sử (Chuyên sâu triều Lý - Trần)</label>
+              <textarea id="wbTopicInput" class="form-control" rows="2" placeholder="Ví dụ: Phòng tuyến sông Như Nguyệt năm 1077 của Lý Thường Kiệt...">Phòng tuyến sông Như Nguyệt năm 1077 của Lý Thường Kiệt</textarea>
+            </div>
+
+            <div class="chip-row">
+              <span style="font-size:0.72rem; color:var(--color-fg-muted); margin-right:4px;">Chủ đề mẫu:</span>
+              <button type="button" class="preset-chip" onclick="setWbTopic('Phòng tuyến sông Như Nguyệt năm 1077 của Lý Thường Kiệt')">Như Nguyệt 1077 (Lý)</button>
+              <button type="button" class="preset-chip" onclick="setWbTopic('Đại thắng Bạch Đằng năm 1288 của Trần Hưng Đạo')">Bạch Đằng 1288 (Trần)</button>
+              <button type="button" class="preset-chip" onclick="setWbTopic('Hào khí Đông A và Hội nghị Diên Hồng năm 1285')">Diên Hồng 1285 (Trần)</button>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="field-label" for="wbDurationSelect">Thời lượng video</label>
+                <select id="wbDurationSelect" class="form-control">
+                  <option value="30">30 giây (1 cảnh)</option>
+                  <option value="60" selected>60 giây (2 cảnh chuẩn)</option>
+                  <option value="90">90 giây (3 cảnh)</option>
+                  <option value="120">120 giây (4 cảnh)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="field-label" for="wbSeriesSelect">Gán Series</label>
+                <select id="wbSeriesSelect" class="form-control">
+                  <option value="">-- Không gán Series --</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:var(--space-2); margin-top:var(--space-2);">
+              <button type="button" class="btn btn-primary" id="btnGenWbStoryboard" onclick="generateWhiteboardStoryboard()" style="flex:1;" title="Dùng AI tra cứu sử liệu và tự động tạo kịch bản chia theo từng cảnh">
+                <svg class="icon"><use href="#ic-sparkles"></use></svg>
+                <span>✨ Bước 1: AI Tạo Kịch Bản &amp; Phân Cảnh</span>
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="loadSampleWhiteboardStoryboard()" title="Nạp nhanh 2 phân cảnh mẫu có sẵn để thử nghiệm ngay lập tức">
+                <svg class="icon icon-sm"><use href="#ic-zap"></use></svg>
+                <span>⚡ Dùng Kịch Bản Mẫu (Test Nhanh)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 2: Scene Editor -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box"><svg class="icon"><use href="#ic-image"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">2. Phân Cảnh, Gợi Ý Prompt &amp; Kéo Thả Ảnh (16:9)</h2>
+                  <p class="panel-desc" id="wbSceneCountText">Copy Prompt sang AI để tạo ảnh, rồi Kéo &amp; Thả ảnh (hoặc Ctrl+V) vào từng cảnh</p>
+                </div>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="autoFillCanvasSceneImages()" title="Tự động vẽ tranh mẫu tỷ lệ 16:9 để test nhanh nếu không muốn tạo ảnh ngoài">
+                  <svg class="icon icon-sm"><use href="#ic-zap"></use></svg>
+                  <span>⚡ Nạp Ảnh Mẫu Mọi Cảnh (Test Nhanh)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Thumbnail Prompt Box (nếu có từ AI) -->
+            <div id="wbThumbPromptBox" style="display:none; background:rgba(236,72,153,0.08); border:1px solid rgba(236,72,153,0.25); border-radius:var(--radius-md); padding:10px 14px; margin-bottom:var(--space-3);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; gap:8px;">
+                <span style="font-size:0.76rem; font-weight:700; color:var(--color-primary); display:flex; align-items:center; gap:5px;">
+                  <svg class="icon icon-sm"><use href="#ic-sparkles"></use></svg>
+                  <span>Gợi ý Prompt vẽ Thumbnail / Ảnh bìa Video:</span>
+                </span>
+                <button type="button" class="btn btn-primary btn-sm" onclick="copyPromptText('wbThumbPromptText', this)" style="padding:2px 8px; font-size:0.7rem;">
+                  <svg class="icon icon-sm"><use href="#ic-copy"></use></svg>
+                  <span>Sao chép Prompt</span>
+                </button>
+              </div>
+              <div id="wbThumbPromptText" class="mono" style="font-size:0.73rem; color:var(--color-fg-secondary); line-height:1.4; word-break:break-word; max-height:70px; overflow-y:auto; user-select:all;"></div>
+            </div>
+
+            <!-- Batch Drag & Drop Banner: Kéo thả nhanh nhiều file cùng lúc -->
+            <div class="batch-drop-banner" id="wbBatchDropBanner" 
+                 ondragover="handleBatchDragOver(event)" 
+                 ondragleave="handleBatchDragLeave(event)" 
+                 ondrop="handleBatchDrop(event)"
+                 onclick="triggerBatchFileInput()"
+                 title="Kéo thả một hoặc nhiều file ảnh vào đây (hoặc click để chọn nhiều file)">
+              <input type="file" id="batchFileInput" accept="image/*" multiple style="display:none;" onchange="handleBatchFileInputChange(this)">
+              <div class="batch-drop-content">
+                <div class="drop-icon-pulse" style="width:34px; height:34px; flex-shrink:0;">
+                  <svg class="icon icon-sm"><use href="#ic-upload"></use></svg>
+                </div>
+                <div>
+                  <strong style="color:var(--color-fg); font-size:0.76rem;">Kéo &amp; Thả nhiều ảnh cùng lúc vào đây:</strong>
+                  <div style="font-size:0.68rem; color:var(--color-fg-muted);">Ảnh 1 sẽ nạp vào Cảnh 1, ảnh 2 vào Cảnh 2... Hoặc bạn kéo thả trực tiếp vào từng khung cảnh bên dưới! (Hỗ trợ Ctrl+V dán ảnh)</div>
+                </div>
+              </div>
+              <span class="btn btn-secondary btn-xs" style="flex-shrink:0; pointer-events:none;">
+                <svg class="icon icon-xs"><use href="#ic-upload"></use></svg> Chọn tệp
+              </span>
+            </div>
+
+            <!-- Empty State -->
+            <div id="wbScenesEmpty" style="padding:var(--space-6); text-align:center; color:var(--color-fg-muted); border:1px dashed var(--color-border); border-radius:var(--radius-md);">
+              Chưa có phân cảnh nào. Nhấn <strong>"✨ Bước 1: AI Tạo Kịch Bản &amp; Phân Cảnh"</strong> hoặc <strong>"⚡ Dùng Kịch Bản Mẫu (Test Nhanh)"</strong> ở trên để AI tạo kịch bản và gợi ý prompt vẽ tranh!
+            </div>
+
+            <!-- Scene Cards List -->
+            <div class="scene-card-list" id="wbScenesContainer" style="max-height: 560px;"></div>
+
+            <!-- Scene Actions Toolbar (Thêm cảnh, nạp ảnh mẫu, xóa ảnh) -->
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:var(--space-3); gap:var(--space-2); flex-wrap:wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="addNewWbScene()" title="Thêm một phân cảnh mới">
+                <svg class="icon icon-sm"><use href="#ic-plus"></use></svg>
+                <span>Thêm Phân Cảnh Mới (+)</span>
+              </button>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="autoFillCanvasSceneImages()" title="Nạp nhanh ảnh vẽ tay cho toàn bộ các cảnh">
+                  <svg class="icon icon-sm"><use href="#ic-zap"></use></svg>
+                  <span>Nạp Ảnh Mẫu Nhanh</span>
+                </button>
+                <button type="button" class="btn btn-ghost btn-sm text-danger" onclick="clearAllSceneImages()" title="Xóa ảnh tất cả các cảnh">
+                  <svg class="icon icon-sm"><use href="#ic-trash"></use></svg>
+                  <span>Xóa ảnh</span>
+                </button>
+              </div>
+            </div>
+
+            <div style="margin-top:var(--space-4); border-top:1px solid var(--color-border); padding-top:var(--space-4);">
+              <button type="button" class="btn btn-primary btn-lg" id="btnRenderWhiteboard" onclick="submitWhiteboardRender()" style="width:100%;" title="Ghép giọng đọc AI, hiệu ứng vẽ bảng trắng và xuất ra video hoàn chỉnh">
+                <svg class="icon"><use href="#ic-play"></use></svg>
+                <span>🚀 Bước 3: Ghép &amp; Xuất Video MP4 Hoàn Chỉnh (16:9)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: LIVE MONITOR & VIDEO RESULT -->
+        <div class="monitor-panel">
+          <!-- Card: Live Progress Tracker -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box blue"><svg class="icon"><use href="#ic-film"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">Tiến Trình Xử Lý &amp; Video Kết Quả</h2>
+                  <p class="panel-desc">Mã tiến trình (Job ID): <strong id="lblActiveJobIdWb" style="font-family:var(--font-mono); color:var(--color-fg);">--</strong></p>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="status-badge" id="badgeWbJobStatus">CHỜ LỆNH</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="promptLookupJobId()" title="Tra cứu mã Job ID">
+                  <svg class="icon icon-sm"><use href="#ic-search"></use></svg>
+                  <span>Mã Job</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="pollRenderJobOnce()" title="Kiểm tra trạng thái thủ công">
+                  <svg class="icon icon-sm"><use href="#ic-refresh"></use></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- 6 Visual Steps Tracker -->
+            <div class="render-step-tracker" id="wbStepGrid">
+              <div class="step-node" data-step="1">1. Khởi tạo</div>
+              <div class="step-node" data-step="2">2. Kịch bản</div>
+              <div class="step-node" data-step="3">3. Thu âm AI</div>
+              <div class="step-node" data-step="4">4. Vẽ hoạt họa</div>
+              <div class="step-node" data-step="5">5. Xuất MP4</div>
+              <div class="step-node" data-step="6">6. Lưu CDN</div>
+            </div>
+
+            <!-- Live Terminal Log -->
+            <div class="terminal-box" id="wbTerminalBox">
+              <div class="terminal-line info">[Sẵn sàng] Hãy hoàn thành Bước 1 và Bước 2, sau đó nhấn "Bước 3: Ghép &amp; Xuất Video MP4".</div>
+            </div>
+
+            <!-- Video Player Output -->
+            <div id="wbResultContainer" style="display:none; margin-top:var(--space-3);">
+              <div class="video-viewport">
+                <video id="wbVideoPlayer" controls playsinline></video>
+              </div>
+
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-2); flex-wrap:wrap;">
+                <div style="font-size:0.8rem; color:var(--color-fg-muted);">
+                  Content ID: <strong id="lblWbContentId" style="font-family:var(--font-mono); color:var(--color-fg);">--</strong>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <a id="btnWbDownloadMp4" href="#" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                    <svg class="icon icon-sm"><use href="#ic-download"></use></svg>
+                    <span>Tải MP4</span>
+                  </a>
+                  <a id="btnWbOpenNewTab" href="#" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                    <svg class="icon icon-sm"><use href="#ic-play"></use></svg>
+                    <span>Mở Tab Mới</span>
+                  </a>
+                  <button type="button" class="btn btn-primary btn-sm" onclick="submitVideoAiShieldFromActive()">
+                    <svg class="icon icon-sm"><use href="#ic-shield"></use></svg>
+                    <span>Gửi Duyệt AI Shield</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================
+         VIEW 2: AUDIO PODCAST (1:1) & SMART SCRIPT PATCH
+         ======================================================================== -->
+    <section class="studio-view" id="viewPodcast">
+      <div class="workbench-grid">
+
+        <!-- LEFT COLUMN: PODCAST SCRIPT & 1:1 COVER -->
+        <div>
+          <!-- Card 1: Podcast Script -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box pink"><svg class="icon"><use href="#ic-mic"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">1. Kịch Bản Audio Podcast</h2>
+                  <p class="panel-desc">Nhập văn bản thuyết minh và thẩm định độ chính xác sử liệu RAG</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="podTitleInput">Tiêu đề tập Podcast</label>
+              <input type="text" id="podTitleInput" class="form-control" value="Lý Thường Kiệt và phòng tuyến sông Như Nguyệt 1077">
+            </div>
+
+            <div class="chip-row">
+              <span style="font-size:0.72rem; color:var(--color-fg-muted); margin-right:4px;">Kịch bản mẫu:</span>
+              <button type="button" class="preset-chip" onclick="loadSamplePodcastScript(1)">Sông Như Nguyệt</button>
+              <button type="button" class="preset-chip" onclick="loadSamplePodcastScript(2)">Quang Trung Đại Phá Quân Thanh</button>
+              <button type="button" class="preset-chip" onclick="loadSamplePodcastScript(3)">Điện Biên Phủ</button>
+            </div>
+
+            <div class="form-group">
+              <label class="field-label" for="podScriptInput">Nội dung thuyết minh (scriptText)</label>
+              <textarea id="podScriptInput" class="form-control" rows="5" oninput="updatePodcastScriptStats()">Mùa xuân năm 1077, đại quân nhà Tống do Quách Quỳ chỉ huy tiến sát bờ bắc sông Như Nguyệt. Thái úy Lý Thường Kiệt đã chủ động dựng phòng tuyến kiên cố suốt dọc bờ nam nhằm chặn đứng thế giặc. Đêm khuya thanh vắng, bài thơ thần Nam quốc sơn hà vang vọng từ đền Trương Hống, Trương Hát làm rúng động tinh thần quân xâm lược, mở màn cho trận phản công quyết định bảo vệ nền độc lập Đại Việt.</textarea>
+              <div class="field-hint" id="podScriptStats">Ước tính: 3 câu thuyết minh.</div>
+            </div>
+
+            <div style="display:flex; gap:var(--space-2); margin-bottom:var(--space-3);">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnVerifyScript" onclick="handleVerifyPodcastScript()" title="Dùng AI đối chiếu các mốc thời gian và nhân vật lịch sử">
+                <svg class="icon icon-sm"><use href="#ic-shield"></use></svg>
+                <span>🛡️ Kiểm Tra Độ Xác Thực Sử Liệu</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generateAiPodcastScript()" title="AI tự động soạn đoạn văn thuyết minh hoàn chỉnh">
+                <svg class="icon icon-sm"><use href="#ic-sparkles"></use></svg>
+                <span>✨ AI Tự Viết Kịch Bản Từ Tiêu Đề</span>
+              </button>
+            </div>
+
+            <!-- RAG Verification Box -->
+            <div id="podVerifyBox" style="display:none; padding:var(--space-3); border-radius:var(--radius-md); background:var(--color-surface); border:1px solid var(--color-border);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                <span style="font-size:0.8rem; font-weight:600;">Độ chính xác sử liệu</span>
+                <span class="status-badge success" id="podVerifyScore">Score: 0.95</span>
+              </div>
+              <p id="podVerifySummary" style="font-size:0.76rem; color:var(--color-fg-secondary); margin-bottom:6px;"></p>
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:6px; background:var(--color-input-bg); padding:6px 10px; border-radius:var(--radius-md); border:1px solid var(--color-border);">
+                <div style="font-size:0.72rem; color:var(--color-fg-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                  <strong style="color:var(--color-primary);">Prompt ảnh bìa gợi ý:</strong> <span id="podSuggestedPrompt" style="color:var(--color-fg); font-family:var(--font-mono);"></span>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm" onclick="copyPromptText('podSuggestedPrompt')" style="padding:2px 8px; font-size:0.7rem; flex-shrink:0;">
+                  <svg class="icon icon-sm"><use href="#ic-copy"></use></svg>
+                  <span>Copy Prompt</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Square Cover Artwork & Render -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box"><svg class="icon"><use href="#ic-image"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">2. Ảnh Bìa Vuông (1:1) &amp; Render</h2>
+                  <p class="panel-desc">Tải ảnh bìa 1:1 hoặc tạo tức thì bìa cổ điển mẫu</p>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:var(--space-4); align-items:flex-start; margin-bottom:var(--space-3);">
+              <!-- Drag and drop square zone -->
+              <div class="drop-zone-square" id="podCoverDropZone"
+                   ondragover="handlePodCoverDragOver(event)"
+                   ondragleave="handlePodCoverDragLeave(event)"
+                   ondrop="handlePodCoverDrop(event)"
+                   onclick="triggerPodCoverFileInput()"
+                   title="Kéo thả ảnh bìa 1:1 vào đây hoặc click để duyệt file">
+                <input type="file" id="podCoverFileInput" accept="image/*" style="display:none;" onchange="handlePodcastCoverFile(this)">
+                
+                <div class="drop-empty-state" id="podCoverEmptyState">
+                  <div class="drop-icon-pulse" style="width:34px; height:34px;">
+                    <svg class="icon icon-md"><use href="#ic-upload"></use></svg>
+                  </div>
+                  <div class="drop-main-text" style="font-size:0.72rem;">Kéo thả ảnh 1:1</div>
+                  <div class="drop-sub-text" style="font-size:0.62rem;">hoặc click duyệt</div>
+                </div>
+
+                <div class="drop-hover-overlay">
+                  <svg class="icon icon-md"><use href="#ic-sparkles"></use></svg>
+                  <span style="font-size:0.72rem;">Thả ảnh bìa vào đây!</span>
+                </div>
+
+                <div class="drop-image-wrap" id="podCoverWrap" style="display:none;">
+                  <img id="podCoverPreview" class="drop-image-preview" alt="Ảnh bìa Podcast">
+                  <div class="drop-image-overlay">
+                    <span class="drop-badge-success">✓ Ảnh bìa 1:1</span>
+                    <div class="drop-actions">
+                      <button type="button" class="btn btn-secondary btn-xs" onclick="event.stopPropagation(); triggerPodCoverFileInput();">Đổi</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="flex:1;">
+                <div class="form-group">
+                  <label class="field-label" for="podCoverUrlInput">Ảnh bìa 1:1 (URL hoặc File)</label>
+                  <div style="display:flex; gap:6px;">
+                    <input type="text" id="podCoverUrlInput" class="form-control mono" placeholder="Chưa có ảnh bìa..." oninput="syncPodcastCoverPreview()">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="triggerPodCoverFileInput()" title="Chọn tệp từ máy">
+                      <svg class="icon icon-sm"><use href="#ic-upload"></use></svg>
+                    </button>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="generateCanvasPodcastCover()" style="width:100%;">
+                  <svg class="icon icon-sm"><use href="#ic-sparkles"></use></svg>
+                  <span>1-Click Tạo Ảnh Bìa Cổ Điển Mẫu 1:1</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="field-label" for="podDurationInput">Thời lượng ước tính (giây)</label>
+                <input type="number" id="podDurationInput" class="form-control mono" value="60">
+              </div>
+              <div class="form-group">
+                <label class="field-label" for="podSeriesSelect">Gán Series</label>
+                <select id="podSeriesSelect" class="form-control">
+                  <option value="">-- Không gán Series --</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-primary btn-lg" id="btnRenderPodcast" onclick="submitPodcastRender()" style="width:100%; margin-top:var(--space-2);" title="Ghép giọng đọc AI cùng ảnh bìa 1:1 thành video podcast hoàn chỉnh">
+              <svg class="icon"><use href="#ic-play"></use></svg>
+              <span>🚀 Ghép &amp; Xuất Video Podcast Hoàn Chỉnh (1:1)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN: LIVE MONITOR & SMART SCRIPT PATCHING -->
+        <div class="monitor-panel">
+          <!-- Card 1: Job Monitor -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box blue"><svg class="icon"><use href="#ic-film"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">Tiến Trình &amp; Player Podcast</h2>
+                  <p class="panel-desc">Job ID: <strong id="lblActiveJobIdPod" style="font-family:var(--font-mono); color:var(--color-fg);">--</strong></p>
+                </div>
+              </div>
+              <span class="status-badge" id="badgePodJobStatus">IDLE</span>
+            </div>
+
+            <div class="terminal-box" id="podTerminalBox" style="height:90px;">
+              <div class="terminal-line info">[Sẵn sàng] Bấm Render Podcast để bắt đầu kết xuất.</div>
+            </div>
+
+            <!-- Podcast Video Output -->
+            <div id="podResultContainer" style="display:none; margin-bottom:var(--space-4);">
+              <div class="video-viewport" style="max-width:360px; margin:0 auto var(--space-3);">
+                <video id="podVideoPlayer" controls playsinline style="aspect-ratio:1/1;"></video>
+              </div>
+              <div style="display:flex; justify-content:center; gap:8px;">
+                <a id="btnPodDownloadMp4" href="#" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                  <svg class="icon icon-sm"><use href="#ic-download"></use></svg>
+                  <span>Tải MP4</span>
+                </a>
+                <a id="btnPodOpenNewTab" href="#" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                  <svg class="icon icon-sm"><use href="#ic-play"></use></svg>
+                  <span>Mở Tab Mới</span>
+                </a>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitVideoAiShieldFromActive()">
+                  <svg class="icon icon-sm"><use href="#ic-shield"></use></svg>
+                  <span>Gửi Duyệt AI Shield</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Smart Podcast Script Patching (v2+) -->
+          <div class="panel-card">
+            <div class="panel-head">
+              <div class="panel-title-wrap">
+                <div class="panel-icon-box green"><svg class="icon"><use href="#ic-edit"></use></svg></div>
+                <div>
+                  <h2 class="panel-title">Vá Câu Thông Minh (Smart Patch v2+)</h2>
+                  <p class="panel-desc">Chỉ thu âm lại câu bị chỉnh sửa để tiết kiệm 90% thời gian &amp; chi phí TTS</p>
+                </div>
+              </div>
+              <span class="status-badge pending" id="patchDiffCounter">0 câu sửa</span>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-bottom:var(--space-3);">
+              <input type="number" id="patchContentIdInput" class="form-control mono" placeholder="Nhập Content ID Podcast...">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="loadPodcastSentencesForPatch()">Tải Các Câu</button>
+            </div>
+
+            <div class="patch-sentence-table" id="patchSentencesList">
+              <div style="text-align:center; padding:var(--space-4); color:var(--color-fg-muted); font-size:0.78rem;">
+                Chưa có câu nào được tải. Tạo podcast xong hệ thống sẽ tự nạp danh sách câu ở đây!
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-accent" id="btnSubmitPatchPodcast" onclick="submitPodcastSmartPatch()" style="width:100%;" title="Chỉ thu âm lại các câu vừa sửa và ghép lại thành video mới trong vài giây">
+              <svg class="icon"><use href="#ic-zap"></use></svg>
+              <span>⚡ Tạo Lại Video Chỉ Với Các Câu Đã Sửa (Bản Vá v2+)</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================
+         VIEW 3: KHO VIDEO CREATOR & ADMIN MODERATION
+         ======================================================================== -->
+    <section class="studio-view" id="viewLibrary">
+      <!-- Sub-tabs Navigation -->
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-4); gap:var(--space-3); flex-wrap:wrap;">
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm active" id="subtabBtnCreatorLib" onclick="switchLibrarySubtab('creator')">
+            <svg class="icon icon-sm"><use href="#ic-film"></use></svg>
+            <span>Kho Video Creator Của Tôi</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" id="subtabBtnAdminMod" onclick="switchLibrarySubtab('admin')">
+            <svg class="icon icon-sm"><use href="#ic-shield"></use></svg>
+            <span>Admin Duyệt Video (AI Shield)</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" id="subtabBtnPublicSearch" onclick="switchLibrarySubtab('search')">
+            <svg class="icon icon-sm"><use href="#ic-search"></use></svg>
+            <span>Tìm Kiếm Public (/search)</span>
+          </button>
+        </div>
+
+        <button type="button" class="btn btn-secondary btn-sm" onclick="refreshCurrentLibraryTab()">
+          <svg class="icon icon-sm"><use href="#ic-refresh"></use></svg>
+          <span>Làm Mới</span>
+        </button>
+      </div>
+
+      <!-- Sub-panel 1: Creator Library -->
+      <div id="subpanelCreatorLib">
+        <div style="display:flex; gap:var(--space-3); margin-bottom:var(--space-4); flex-wrap:wrap;">
+          <input type="text" id="libKeyword" class="form-control" placeholder="Tìm theo tiêu đề video..." style="max-width:280px;" oninput="filterCreatorVideosLocal()">
+          <select id="libStatus" class="form-control" style="max-width:180px;" onchange="loadCreatorVideoLibrary()">
+            <option value="">Tất cả trạng thái</option>
+            <option value="PROCESSING">PROCESSING</option>
+            <option value="COMPLETED">COMPLETED</option>
+            <option value="PENDING_REVIEW">PENDING_REVIEW</option>
+            <option value="PUBLISHED">PUBLISHED</option>
+            <option value="REJECTED">REJECTED</option>
+          </select>
+        </div>
+
+        <div class="video-grid" id="creatorVideoGrid">
+          <div style="grid-column:1/-1; padding:var(--space-8); text-align:center; color:var(--color-fg-muted);">
+            Đang tải kho video của Creator...
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-panel 2: Admin Moderation Queue -->
+      <div id="subpanelAdminMod" style="display:none;">
+        <div style="background:var(--color-surface); border:1px solid var(--color-border); border-radius:var(--radius-md); padding:var(--space-4); margin-bottom:var(--space-4); display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); flex-wrap:wrap;">
+          <div>
+            <div style="font-weight:700; font-size:0.9rem;">Hàng Đợi Kiểm Duyệt Quyền Administrator</div>
+            <div style="font-size:0.76rem; color:var(--color-fg-muted);">Cần Token ROLE_ADMIN để xem báo cáo an toàn và ra quyết định APPROVED / REJECTED</div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="quickLoginAdminDemo()">
+            <svg class="icon icon-sm"><use href="#ic-zap"></use></svg>
+            <span>Đăng Nhập Admin Mẫu (1-Click)</span>
+          </button>
+        </div>
+
+        <div id="adminReviewQueueContainer" style="display:flex; flex-direction:column; gap:var(--space-3);">
+          <div style="padding:var(--space-6); text-align:center; color:var(--color-fg-muted);">
+            Chưa có video nào chờ duyệt.
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-panel 3: Public Search -->
+      <div id="subpanelPublicSearch" style="display:none;">
+        <div class="panel-card">
+          <div class="form-group">
+            <label class="field-label" for="pubSearchKeyword">Tìm kiếm công khai (/api/v1/contents/search)</label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" id="pubSearchKeyword" class="form-control" placeholder="Ví dụ: Bạch Đằng, Như Nguyệt, Ngô Quyền...">
+              <button type="button" class="btn btn-primary" onclick="testPublicVideoSearch()">Tìm Kiếm</button>
+            </div>
+          </div>
+          <div class="video-grid" id="pubSearchResultGrid" style="margin-top:var(--space-4);">
+            <div style="grid-column:1/-1; text-align:center; color:var(--color-fg-muted); padding:var(--space-4);">
+              Nhập từ khóa và bấm Tìm Kiếm để kiểm tra video đã xuất bản hiển thị với khán giả.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==========================================================================
+       SETTINGS & CREDENTIALS SLIDE-OVER DRAWER
+       ========================================================================== -->
+  <div class="drawer-overlay" id="settingsDrawerOverlay" onclick="closeSettingsDrawer()"></div>
+  <aside class="drawer-panel" id="settingsDrawer">
+    <div class="drawer-head">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <svg class="icon icon-sm" style="color:var(--color-primary);"><use href="#ic-settings"></use></svg>
+        <span style="font-weight:700; font-size:0.95rem;">Cài Đặt &amp; Khóa AI Studio</span>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeSettingsDrawer()" aria-label="Đóng">
+        <svg class="icon icon-sm"><use href="#ic-close"></use></svg>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+
+      <!-- Section A: Quick Demo Logins -->
+      <div class="panel-card" style="margin-bottom:0;">
+        <div class="field-label" style="margin-bottom:8px;">1-Click Đăng Nhập Tài Khoản Test</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="quickLoginCreatorDemo()" style="flex:1;">
+            <svg class="icon icon-sm"><use href="#ic-zap"></use></svg>
+            <span>Creator (creator@example.com)</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="quickLoginAdminDemo()" style="flex:1;">
+            <svg class="icon icon-sm"><use href="#ic-shield"></use></svg>
+            <span>Admin (admin@historypodcast.com)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Section B: Creator Credentials / JWT -->
+      <div class="panel-card" style="margin-bottom:0;">
+        <div class="field-label" style="margin-bottom:8px;">Đăng Nhập Hoặc Dán Token JWT</div>
+        <div class="form-row">
+          <div class="form-group">
+            <input type="email" id="authEmail" class="form-control" placeholder="Email (creator@example.com)">
+          </div>
+          <div class="form-group">
+            <input type="password" id="authPassword" class="form-control" placeholder="Mật khẩu">
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="handleCreatorLogin()">Đăng Nhập</button>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="handleRefreshToken()">Refresh Token</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="handleLogoutCreator()">Xóa Phiên</button>
+        </div>
+        <div class="form-group">
+          <input type="text" id="jwtManualInput" class="form-control mono" placeholder="Dán JWT Token vào đây...">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="applyManualJwt()" style="margin-top:4px;">Áp Dụng Token</button>
+          <div class="field-hint" id="jwtClaimsSummary" style="margin-top:4px;">Chưa nạp token.</div>
+        </div>
+      </div>
+
+      <!-- Section C: Channel & Series -->
+      <div class="panel-card" style="margin-bottom:0;">
+        <div class="field-label" style="margin-bottom:8px;">Kênh Sáng Tạo &amp; Series Của Tôi</div>
+        <div style="font-size:0.82rem; font-weight:600;" id="myChannelSummary">Chưa nạp thông tin kênh</div>
+        <div style="font-size:0.75rem; color:var(--color-fg-muted); margin-bottom:10px;" id="mySeriesSummary">0 series</div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="newChannelName" class="form-control" placeholder="Tên kênh mới...">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="createQuickChannel()">Tạo Kênh</button>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input type="text" id="newSeriesTitle" class="form-control" placeholder="Tên Series mới...">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="createQuickSeries()">Tạo Series</button>
+        </div>
+      </div>
+
+      <!-- Section D: AI API Keys & TTS Voices -->
+      <div class="panel-card" style="margin-bottom:0;">
+        <div class="field-label" style="margin-bottom:8px;">Khóa AI &amp; Giọng Đọc Thuyết Minh</div>
+        <div class="form-group">
+          <label class="field-label" for="aiGeminiKey">Google Gemini API Key</label>
+          <input type="password" id="aiGeminiKey" class="form-control mono" placeholder="AIzaSy...">
+        </div>
+        <div class="form-group">
+          <label class="field-label" for="aiElevenKey">ElevenLabs API Key</label>
+          <input type="password" id="aiElevenKey" class="form-control mono" placeholder="sk_...">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="field-label" for="aiTtsEngine">Công nghệ TTS</label>
+            <select id="aiTtsEngine" class="form-control" onchange="syncVoiceInputByEngine()">
+              <option value="edge-tts">Microsoft Edge-TTS</option>
+              <option value="elevenlabs">ElevenLabs AI</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="field-label" for="aiVoiceName">Mã giọng đọc</label>
+            <input type="text" id="aiVoiceName" class="form-control mono" value="vi-VN-NamMinhNeural">
+          </div>
+        </div>
+
+        <div class="chip-row">
+          <button type="button" class="preset-chip" onclick="quickPickVoice('edge-tts','vi-VN-NamMinhNeural')">Nam Minh (Edge)</button>
+          <button type="button" class="preset-chip" onclick="quickPickVoice('edge-tts','vi-VN-HoaiMyNeural')">Hoài My (Edge)</button>
+          <button type="button" class="preset-chip" onclick="quickPickVoice('elevenlabs','Brian')">Brian (11Labs)</button>
+          <button type="button" class="preset-chip" onclick="quickPickVoice('elevenlabs','Rachel')">Rachel (11Labs)</button>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="loadAiSettings()">Tải Cấu Hình</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveAiSettings()">Lưu Khóa AI</button>
+        </div>
+
+        <!-- Inline Voice Preview -->
+        <div style="border-top:1px solid var(--color-border); margin-top:12px; padding-top:12px;">
+          <div class="field-label" style="margin-bottom:6px;">Nghe thử giọng thuyết minh</div>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <input type="text" id="voicePreviewText" class="form-control" value="Sông núi nước Nam vua Nam ở, rành rành định phận tại sách trời.">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="previewCustomVoice()">Đọc Thử</button>
+          </div>
+          <audio id="ttsAudioPlayer" controls style="width:100%; height:32px; display:none;"></audio>
+        </div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ==========================================================================
+       API INSPECTOR BOTTOM DRAWER
+       ========================================================================== -->
+  <aside class="inspector-drawer" id="inspectorDrawer">
+    <div class="inspector-head">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <svg class="icon icon-sm" style="color:var(--color-accent);"><use href="#ic-terminal"></use></svg>
+        <span style="font-weight:700;">Lịch Sử Gọi API Backend</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="clearApiLogs()">Xóa Logs</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="toggleInspectorDrawer()">Đóng</button>
+      </div>
+    </div>
+    <div class="inspector-table-wrap" id="inspectorLogsContainer">
+      <div style="padding:var(--space-4); text-align:center; color:var(--color-fg-muted);">
+        Chưa có yêu cầu API nào được gửi.
+      </div>
+    </div>
+  </aside>
+
+  <!-- Modal Details -->
+  <div class="modal-overlay" id="detailModalOverlay" onclick="closeDetailModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div class="modal-head">
+        <h3 id="modalTitle" style="font-size:0.95rem; font-weight:700;">Chi Tiết</h3>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeDetailModal()">
+          <svg class="icon icon-sm"><use href="#ic-close"></use></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast Stack -->
+  <div class="toast-stack" id="toastStack"></div>
+
+  <!-- ==========================================================================
+       JAVASCRIPT APPLICATION LOGIC & GSAP ANIMATIONS
+       ========================================================================== -->
+  <script>
+    'use strict';
+
+    /* App Global State */
+    const state = {
+      currentView: 'whiteboard',
+      creatorToken: localStorage.getItem('suky_lab_creator_jwt') || localStorage.getItem('creator_jwt') || '',
+      refreshToken: localStorage.getItem('suky_lab_refresh_token') || '',
+      adminToken: localStorage.getItem('suky_lab_admin_jwt') || '',
+      myChannelId: null,
+      seriesList: [],
+      storyboard: null,
+      sceneImages: {},
+      loadedSentences: [],
+      cachedVideos: [],
+      activeContentId: localStorage.getItem('suky_lab_last_content_id') || null,
+      activeArtifactId: localStorage.getItem('suky_lab_last_artifact_id') || null,
+      activeJobId: localStorage.getItem('suky_lab_last_job_id') || null,
+      pollTimer: null,
+      elapsedTimer: null,
+      pollStartedAt: 0,
+      apiLogs: []
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(str) {
+      return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function getBaseUrl() {
+      return window.location.origin;
+    }
+
+    function resolveMediaUrl(rawUrl) {
+      if (!rawUrl) return '';
+      let clean = String(rawUrl).replace('/video/upload/f_auto,q_auto/', '/video/upload/');
+      if (clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:')) {
+        return clean;
+      }
+      return getBaseUrl() + (clean.startsWith('/') ? clean : '/' + clean);
+    }
+
+    function decodeJwtPayload(token) {
+      if (!token || typeof token !== 'string' || !token.includes('.')) return null;
+      try {
+        const parts = token.split('.');
+        if (parts.length < 2) return null;
+        let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4 !== 0) base64 += '=';
+        const json = decodeURIComponent(atob(base64).split('').map((c) =>
+          '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)
+        ).join(''));
+        return JSON.parse(json);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    /* ==========================================================================
+       THEME & GSAP SETUP
+       ========================================================================== */
+    function initTheme() {
+      const saved = localStorage.getItem('suky_lab_theme') || 'dark';
+      applyTheme(saved);
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('suky_lab_theme', theme);
+      const icon = $('themeIcon');
+      if (icon) {
+        icon.innerHTML = theme === 'dark' ? '<use href="#ic-sun"></use>' : '<use href="#ic-moon"></use>';
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    }
+
+    /* Switch Views (Whiteboard / Podcast / Library) */
+    function switchView(viewName) {
+      if (state.currentView === viewName) return;
+
+      const views = ['whiteboard', 'podcast', 'library'];
+      views.forEach((v) => {
+        const btn = $('tabBtn' + v.charAt(0).toUpperCase() + v.slice(1));
+        const panel = $('view' + v.charAt(0).toUpperCase() + v.slice(1));
+        if (btn) btn.classList.toggle('active', v === viewName);
+
+        if (panel) {
+          if (v === viewName) {
+            panel.classList.add('active');
+            gsap.fromTo(panel, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+          } else {
+            panel.classList.remove('active');
+          }
+        }
+      });
+
+      state.currentView = viewName;
+      if (viewName === 'library') {
+        loadCreatorVideoLibrary(true);
+      }
+    }
+
+    /* Toasts */
+    function showToast(message, type = 'info') {
+      const stack = $('toastStack');
+      if (!stack) return;
+
+      const item = document.createElement('div');
+      item.className = `toast-item ${type}`;
+      const icon = type === 'success' ? '#ic-check' : (type === 'error' ? '#ic-close' : '#ic-sparkles');
+      item.innerHTML = `<svg class="icon icon-sm"><use href="${icon}"></use></svg><span>${escapeHtml(message)}</span>`;
+      stack.appendChild(item);
+
+      gsap.to(item, {
+        opacity: 1,
+        y: 0,
+        duration: 0.24,
+        ease: 'power2.out'
+      });
+
+      setTimeout(() => {
+        gsap.to(item, {
+          opacity: 0,
+          y: -10,
+          duration: 0.2,
+          onComplete: () => item.remove()
+        });
+      }, 3500);
+    }
+
+    /* ==========================================================================
+       API CLIENT WRAPPER & LOGS
+       ========================================================================== */
+    async function apiCall(path, { method = 'GET', body = null, tokenOverride = undefined, isMultipart = false } = {}) {
+      const url = getBaseUrl() + path;
+      const headers = {};
+
+      // Token resolution with fallback to localStorage
+      let token = tokenOverride !== undefined ? tokenOverride : state.creatorToken;
+      if (!token) {
+        token = localStorage.getItem('suky_lab_creator_jwt') || localStorage.getItem('creator_jwt') || '';
+        if (token) state.creatorToken = token;
+      }
+      if (!token && path.includes('/admin/')) {
+        token = state.adminToken || localStorage.getItem('suky_lab_admin_jwt') || '';
+      }
+
+      if (token) {
+        headers['Authorization'] = 'Bearer ' + token;
+      }
+      if (!isMultipart && body && typeof body === 'object') {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      const fetchOpts = {
+        method,
+        headers,
+        body: isMultipart ? body : (body && typeof body === 'object' ? JSON.stringify(body) : body)
+      };
+
+      const t0 = performance.now();
+      let status = 0;
+      let resJson = null;
+      let rawText = '';
+
+      try {
+        const res = await fetch(url, fetchOpts);
+        status = res.status;
+        rawText = await res.text();
+        try {
+          resJson = JSON.parse(rawText);
+        } catch (_) {
+          resJson = { raw: rawText };
+        }
+
+        const latency = Math.round(performance.now() - t0);
+        recordApiLog({ method, path, status, latency, requestBody: body, responseBody: resJson });
+
+        if (!res.ok) {
+          const msg = (resJson && (resJson.message || resJson.error)) || `HTTP ${status}`;
+          throw new Error(msg);
+        }
+
+        // Auto unpack and merge ApiResponse: { success, message, data }
+        if (resJson && typeof resJson === 'object' && ('data' in resJson || 'success' in resJson)) {
+          if (resJson.data !== null && resJson.data !== undefined && typeof resJson.data === 'object') {
+            if (Array.isArray(resJson.data)) {
+              const arr = [...resJson.data];
+              arr.message = resJson.message;
+              arr.success = resJson.success;
+              arr._raw = resJson;
+              return arr;
+            }
+            return {
+              ...resJson,
+              ...resJson.data,
+              _raw: resJson
+            };
+          }
+        }
+
+        return resJson;
+      } catch (err) {
+        if (status === 0) {
+          recordApiLog({ method, path, status: 0, latency: Math.round(performance.now() - t0), requestBody: body, error: err.message });
+        }
+        throw err;
+      }
+    }
+
+    function recordApiLog(entry) {
+      state.apiLogs.unshift({ ...entry, time: new Date().toLocaleTimeString() });
+      if (state.apiLogs.length > 50) state.apiLogs.pop();
+      $('lblApiLogCount').textContent = state.apiLogs.length;
+      renderInspectorLogs();
+    }
+
+    function renderInspectorLogs() {
+      const box = $('inspectorLogsContainer');
+      if (!box) return;
+      if (state.apiLogs.length === 0) {
+        box.innerHTML = '<div style="padding:16px; text-align:center; color:var(--color-fg-muted);">Chưa có logs API nào.</div>';
+        return;
+      }
+
+      box.innerHTML = state.apiLogs.map((l, i) => {
+        const ok = l.status >= 200 && l.status < 300;
+        const color = ok ? 'var(--color-success)' : 'var(--color-danger)';
+        return `
+          <div class="inspector-row" onclick="inspectApiLogDetail(${i})">
+            <span style="font-weight:700; color:var(--color-primary);">${l.method}</span>
+            <span style="color:${color}; font-weight:600;">${l.status || 'ERR'}</span>
+            <span style="color:var(--color-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(l.path)}</span>
+            <span style="text-align:right; color:var(--color-fg-muted);">${l.latency}ms</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function inspectApiLogDetail(index) {
+      const log = state.apiLogs[index];
+      if (!log) return;
+      openDetailModal(`API Log: ${log.method} ${log.path}`, `
+        <div style="font-family:var(--font-mono); font-size:0.75rem;">
+          <div style="margin-bottom:8px;"><strong>Status:</strong> ${log.status} | <strong>Latency:</strong> ${log.latency}ms | <strong>Time:</strong> ${log.time}</div>
+          <div style="margin-bottom:6px; font-weight:600; color:var(--color-accent);">Request Body:</div>
+          <pre style="background:var(--color-input-bg); padding:10px; border-radius:6px; max-height:160px; overflow-y:auto; margin-bottom:12px;">${escapeHtml(JSON.stringify(log.requestBody, null, 2))}</pre>
+          <div style="margin-bottom:6px; font-weight:600; color:var(--color-success);">Response Body:</div>
+          <pre style="background:var(--color-input-bg); padding:10px; border-radius:6px; max-height:220px; overflow-y:auto;">${escapeHtml(JSON.stringify(log.responseBody, null, 2))}</pre>
+        </div>
+      `);
+    }
+
+    function clearApiLogs() {
+      state.apiLogs = [];
+      $('lblApiLogCount').textContent = '0';
+      renderInspectorLogs();
+      showToast('Đã xóa danh sách API logs.', 'info');
+    }
+
+    /* Inspector & Settings Drawers */
+    function toggleInspectorDrawer() {
+      const drawer = $('inspectorDrawer');
+      const isOpen = drawer.style.transform === 'translateY(0px)';
+      gsap.to(drawer, {
+        y: isOpen ? '100%' : '0%',
+        duration: 0.25,
+        ease: 'power2.out'
+      });
+    }
+
+    function openSettingsDrawer(focusTab = 'auth') {
+      const overlay = $('settingsDrawerOverlay');
+      const panel = $('settingsDrawer');
+      overlay.style.display = 'block';
+      gsap.to(overlay, { opacity: 1, duration: 0.2 });
+      gsap.to(panel, { x: '0%', duration: 0.28, ease: 'power2.out' });
+      if (focusTab === 'auth') {
+        $('authEmail')?.focus();
+      }
+    }
+
+    function closeSettingsDrawer() {
+      const overlay = $('settingsDrawerOverlay');
+      const panel = $('settingsDrawer');
+      gsap.to(overlay, {
+        opacity: 0,
+        duration: 0.2,
+        onComplete: () => overlay.style.display = 'none'
+      });
+      gsap.to(panel, { x: '100%', duration: 0.25, ease: 'power2.in' });
+    }
+
+    /* Detail Modal */
+    function openDetailModal(title, contentHtml) {
+      $('modalTitle').textContent = title;
+      $('modalBody').innerHTML = contentHtml;
+      const overlay = $('detailModalOverlay');
+      overlay.style.display = 'flex';
+      gsap.to(overlay, { opacity: 1, duration: 0.2 });
+      gsap.to('.modal-box', { scale: 1, duration: 0.22, ease: 'back.out(1.4)' });
+    }
+
+    function closeDetailModal() {
+      const overlay = $('detailModalOverlay');
+      gsap.to(overlay, {
+        opacity: 0,
+        duration: 0.18,
+        onComplete: () => overlay.style.display = 'none'
+      });
+      gsap.to('.modal-box', { scale: 0.95, duration: 0.18 });
+    }
+
+    /* ==========================================================================
+       AUTH & SESSION MANAGEMENT
+       ========================================================================== */
+    function updateAuthHeaderUI() {
+      const pill = $('pillAuthUser');
+      const banner = $('bannerGuestAlert');
+      const lbl = $('lblAuthText');
+
+      if (!state.creatorToken) {
+        pill.classList.remove('logged-in');
+        lbl.textContent = 'Chưa đăng nhập';
+        if (banner) banner.style.display = 'flex';
+        $('jwtClaimsSummary').textContent = 'Chưa nạp token.';
+        return;
+      }
+
+      pill.classList.add('logged-in');
+      if (banner) banner.style.display = 'none';
+
+      const payload = decodeJwtPayload(state.creatorToken);
+      const email = (payload && (payload.sub || payload.email)) || 'creator';
+      lbl.textContent = email;
+
+      if (payload) {
+        $('jwtClaimsSummary').innerHTML = `Đã nạp: <strong>${escapeHtml(email)}</strong> (Hết hạn: ${new Date((payload.exp || 0) * 1000).toLocaleTimeString()})`;
+      }
+    }
+
+    function persistCreatorSession(token, refreshToken) {
+      state.creatorToken = token || '';
+      state.refreshToken = refreshToken || '';
+      if (token) {
+        localStorage.setItem('suky_lab_creator_jwt', token);
+        localStorage.setItem('creator_jwt', token);
+      } else {
+        localStorage.removeItem('suky_lab_creator_jwt');
+        localStorage.removeItem('creator_jwt');
+      }
+      if (refreshToken) {
+        localStorage.setItem('suky_lab_refresh_token', refreshToken);
+      } else {
+        localStorage.removeItem('suky_lab_refresh_token');
+      }
+      updateAuthHeaderUI();
+      if (token) {
+        fetchMyChannelAndSeries();
+        loadAiSettings();
+      }
+    }
+
+    /* 1-Click Demo Login Functions */
+    async function quickLoginCreatorDemo() {
+      try {
+        showToast('Đang đăng nhập tài khoản Creator mẫu...', 'info');
+        const res = await apiCall('/api/v1/auth/login', {
+          method: 'POST',
+          body: { email: 'creator@example.com', password: 'Creator@123' }
+        });
+        const token = (res.data && res.data.accessToken) || res.accessToken;
+        const refresh = (res.data && res.data.refreshToken) || res.refreshToken;
+        persistCreatorSession(token, refresh);
+        showToast('Đăng nhập Creator mẫu thành công!', 'success');
+      } catch (err) {
+        showToast('Lỗi đăng nhập: ' + err.message, 'error');
+      }
+    }
+
+    async function quickLoginAdminDemo() {
+      try {
+        showToast('Đang đăng nhập tài khoản Admin mẫu...', 'info');
+        const res = await apiCall('/api/v1/auth/login', {
+          method: 'POST',
+          body: { email: 'admin@historypodcast.com', password: 'Admin@123' }
+        });
+        const token = (res.data && res.data.accessToken) || res.accessToken;
+        state.adminToken = token;
+        localStorage.setItem('suky_lab_admin_jwt', token);
+        showToast('Đăng nhập Admin mẫu thành công!', 'success');
+        if (state.currentView === 'library') {
+          loadAdminModerationQueue();
+        }
+      } catch (err) {
+        showToast('Lỗi đăng nhập Admin: ' + err.message, 'error');
+      }
+    }
+
+    async function handleCreatorLogin() {
+      const email = $('authEmail').value.trim();
+      const password = $('authPassword').value;
+      if (!email || !password) {
+        showToast('Vui lòng nhập email và mật khẩu.', 'error');
+        return;
+      }
+      try {
+        const res = await apiCall('/api/v1/auth/login', {
+          method: 'POST',
+          body: { email, password }
+        });
+        const token = (res.data && res.data.accessToken) || res.accessToken;
+        const refresh = (res.data && res.data.refreshToken) || res.refreshToken;
+        persistCreatorSession(token, refresh);
+        showToast('Đăng nhập thành công!', 'success');
+      } catch (err) {
+        showToast('Đăng nhập thất bại: ' + err.message, 'error');
+      }
+    }
+
+    async function handleRefreshToken() {
+      if (!state.refreshToken) {
+        showToast('Chưa có refresh token.', 'error');
+        return;
+      }
+      try {
+        const res = await apiCall('/api/v1/auth/refresh-token', {
+          method: 'POST',
+          body: { refreshToken: state.refreshToken }
+        });
+        const token = (res.data && res.data.accessToken) || res.accessToken;
+        const refresh = (res.data && res.data.refreshToken) || res.refreshToken || state.refreshToken;
+        persistCreatorSession(token, refresh);
+        showToast('Làm mới JWT token thành công!', 'success');
+      } catch (err) {
+        showToast('Không thể làm mới token: ' + err.message, 'error');
+      }
+    }
+
+    function applyManualJwt() {
+      const token = $('jwtManualInput').value.trim();
+      if (!token) {
+        showToast('Vui lòng nhập chuỗi JWT hợp lệ.', 'error');
+        return;
+      }
+      persistCreatorSession(token, '');
+      showToast('Đã áp dụng token JWT thủ công.', 'success');
+    }
+
+    function handleLogoutCreator() {
+      persistCreatorSession('', '');
+      showToast('Đã xóa phiên đăng nhập.', 'info');
+    }
+
+    /* Channel & Series */
+    async function fetchMyChannelAndSeries() {
+      if (!state.creatorToken) return;
+      try {
+        const channel = await apiCall('/api/v1/channels/me');
+        if (channel && channel.id) {
+          state.myChannelId = channel.id;
+          $('myChannelSummary').textContent = `${channel.name} (#${channel.id})`;
+        } else {
+          $('myChannelSummary').textContent = 'Chưa tạo kênh';
+        }
+
+        const seriesRes = await apiCall('/api/v1/creator/series');
+        const list = Array.isArray(seriesRes) ? seriesRes : (seriesRes?.content || []);
+        state.seriesList = list;
+        $('mySeriesSummary').textContent = `${list.length} Series có sẵn`;
+        populateSeriesDropdowns();
+      } catch (err) {
+        $('myChannelSummary').textContent = 'Chưa tải được kênh (' + err.message + ')';
+      }
+    }
+
+    function populateSeriesDropdowns() {
+      const opts = '<option value="">-- Không gán Series --</option>' +
+        state.seriesList.map((s) => `<option value="${s.id}">${escapeHtml(s.title || s.name)}</option>`).join('');
+      if ($('wbSeriesSelect')) $('wbSeriesSelect').innerHTML = opts;
+      if ($('podSeriesSelect')) $('podSeriesSelect').innerHTML = opts;
+    }
+
+    async function createQuickChannel() {
+      const name = $('newChannelName').value.trim();
+      if (!name) {
+        showToast('Vui lòng nhập tên kênh.', 'error');
+        return;
+      }
+      try {
+        await apiCall('/api/v1/channels', {
+          method: 'POST',
+          body: { name, description: 'Kênh sáng tạo video lịch sử Việt Nam' }
+        });
+        showToast(`Tạo kênh "${name}" thành công!`, 'success');
+        $('newChannelName').value = '';
+        fetchMyChannelAndSeries();
+      } catch (err) {
+        showToast('Lỗi tạo kênh: ' + err.message, 'error');
+      }
+    }
+
+    async function createQuickSeries() {
+      const title = $('newSeriesTitle').value.trim();
+      if (!title) {
+        showToast('Vui lòng nhập tên Series.', 'error');
+        return;
+      }
+      try {
+        await apiCall('/api/v1/creator/series', {
+          method: 'POST',
+          body: { title, description: 'Tuyển tập lịch sử hào hùng' }
+        });
+        showToast(`Tạo Series "${title}" thành công!`, 'success');
+        $('newSeriesTitle').value = '';
+        fetchMyChannelAndSeries();
+      } catch (err) {
+        showToast('Lỗi tạo series: ' + err.message, 'error');
+      }
+    }
+
+    /* AI Studio Settings & Voices */
+    function syncVoiceInputByEngine() {
+      const engine = $('aiTtsEngine').value;
+      const currentVoice = ($('aiVoiceName').value || '').trim();
+      if (engine === 'edge-tts') {
+        if (!currentVoice.startsWith('vi-VN-')) {
+          $('aiVoiceName').value = 'vi-VN-NamMinhNeural';
+        }
+      } else {
+        if (currentVoice.startsWith('vi-VN-') || currentVoice.includes('-')) {
+          $('aiVoiceName').value = 'Brian';
+        }
+      }
+    }
+
+    function quickPickVoice(engine, voiceId) {
+      $('aiTtsEngine').value = engine;
+      $('aiVoiceName').value = voiceId;
+      showToast(`Đã chọn giọng: ${voiceId} (${engine})`, 'info');
+    }
+
+    async function loadAiSettings() {
+      if (!state.creatorToken) return;
+      try {
+        const data = await apiCall('/api/v1/creator/studio/settings');
+        if (data) {
+          if (data.geminiApiKey) $('aiGeminiKey').value = data.geminiApiKey;
+          const elevenKey = data.elevenlabsApiKey || data.elevenLabsApiKey || '';
+          if (elevenKey) $('aiElevenKey').value = elevenKey;
+          if (data.ttsEngine) $('aiTtsEngine').value = data.ttsEngine;
+          const voice = data.voiceName || data.ttsVoice || '';
+          if (voice) {
+            $('aiVoiceName').value = voice;
+          }
+          syncVoiceInputByEngine();
+        }
+      } catch (_) {}
+    }
+
+    async function saveAiSettings() {
+      try {
+        const body = {
+          geminiApiKey: $('aiGeminiKey').value.trim() || null,
+          elevenlabsApiKey: $('aiElevenKey').value.trim() || null,
+          ttsEngine: $('aiTtsEngine').value,
+          voiceName: $('aiVoiceName').value.trim()
+        };
+        await apiCall('/api/v1/creator/studio/settings', {
+          method: 'PUT',
+          body
+        });
+        showToast('Đã lưu cài đặt AI thành công!', 'success');
+      } catch (err) {
+        showToast('Lỗi lưu cài đặt AI: ' + err.message, 'error');
+      }
+    }
+
+    async function previewCustomVoice() {
+      const text = $('voicePreviewText').value.trim();
+      const engine = $('aiTtsEngine').value;
+      const voice = $('aiVoiceName').value.trim();
+      if (!text) {
+        showToast('Vui lòng nhập câu thuyết minh cần đọc thử.', 'error');
+        return;
+      }
+      try {
+        showToast('Đang gọi AI tổng hợp giọng đọc...', 'info');
+        const res = await apiCall('/api/v1/creator/studio/voices/preview', {
+          method: 'POST',
+          body: { text, engine, voice }
+        });
+        if (res && res.audioUrl) {
+          const audio = $('ttsAudioPlayer');
+          audio.src = resolveMediaUrl(res.audioUrl);
+          audio.style.display = 'block';
+          audio.play();
+          showToast('Đang phát câu thuyết minh mẫu!', 'success');
+        }
+      } catch (err) {
+        showToast('Lỗi đọc thử giọng: ' + err.message, 'error');
+      }
+    }
+
+    /* ==========================================================================
+       CANVAS GENERATORS (MOCK IMAGES 16:9 & 1:1)
+       ========================================================================== */
+    function createHistoricalCanvasBlob({ width, height, title, subtitle, paletteIndex = 0 }) {
+      return new Promise((resolve) => {
+        const cvs = document.createElement('canvas');
+        cvs.width = width;
+        cvs.height = height;
+        const ctx = cvs.getContext('2d');
+
+        const palettes = [
+          ['#1a1006', '#4a250a', '#b45309', '#fef3c7'],
+          ['#061a14', '#064e3b', '#059669', '#d1fae5'],
+          ['#180624', '#4c1d95', '#7c3aed', '#ede9fe'],
+          ['#1f130b', '#78350f', '#d97706', '#fffbeb']
+        ];
+        const [bg1, bg2, accent, fg] = palettes[paletteIndex % palettes.length];
+
+        const grad = ctx.createLinearGradient(0, 0, width, height);
+        grad.addColorStop(0, bg1);
+        grad.addColorStop(0.6, bg2);
+        grad.addColorStop(1, bg1);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+
+        // Frame
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(16, 16, width - 32, height - 32);
+
+        // Text
+        ctx.fillStyle = fg;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.round(height * 0.08)}px sans-serif`;
+        ctx.fillText(title || 'LỊCH SỬ VIỆT NAM', width / 2, height / 2 - 16);
+
+        if (subtitle) {
+          ctx.fillStyle = accent;
+          ctx.font = `${Math.round(height * 0.045)}px sans-serif`;
+          ctx.fillText(subtitle, width / 2, height / 2 + 30);
+        }
+
+        cvs.toBlob((blob) => resolve(blob), 'image/jpeg', 0.88);
+      });
+    }
+
+    async function uploadBlobOrDataUrl(blob, filename = 'canvas_image.jpg') {
+      try {
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+        const res = await apiCall('/api/v1/creator/studio/upload-image', {
+          method: 'POST',
+          body: formData,
+          isMultipart: true
+        });
+        if (res && res.imageUrl) return res.imageUrl;
+      } catch (_) {}
+
+      // Fallback base64
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    /* ==========================================================================
+       VIEW 1: WHITEBOARD AI WORKBENCH
+       ========================================================================== */
+    function setWbTopic(txt) {
+      $('wbTopicInput').value = txt;
+    }
+
+    async function generateWhiteboardStoryboard() {
+      const topic = $('wbTopicInput').value.trim();
+      const targetDurationSec = Number($('wbDurationSelect').value) || 60;
+      if (!topic) {
+        showToast('Vui lòng nhập chủ đề cần dựng kịch bản.', 'error');
+        return;
+      }
+      try {
+        showToast('AI RAG đang trích xuất sử liệu và sinh kịch bản phân cảnh...', 'info');
+        $('btnGenWbStoryboard').disabled = true;
+
+        const res = await apiCall('/api/v1/creator/studio/storyboard', {
+          method: 'POST',
+          body: { topic, targetDurationSec }
+        });
+
+        const rawScenes = res.scenes || (res.data && res.data.scenes) || [];
+        const normalizedScenes = rawScenes.map((sc, i) => {
+          const num = sc.scene_index || sc.sceneNumber || (i + 1);
+          let script = sc.scriptText || sc.script || '';
+          if (!script && Array.isArray(sc.elements)) {
+            script = sc.elements.map((e) => e.subtitle || e.narrative || e.text || '').filter(Boolean).join(' ');
+          }
+          return {
+            sceneNumber: num,
+            scriptText: script,
+            suggestedImagePrompt: sc.image_prompt || sc.suggestedImagePrompt || '',
+            durationSeconds: sc.durationSeconds || sc.duration || 15
+          };
+        });
+
+        const thumbPrompt = res.thumbnail_prompt || res.thumbnailPrompt || (res.data && (res.data.thumbnail_prompt || res.data.thumbnailPrompt)) || '';
+        state.storyboard = {
+          title: res.title || topic,
+          thumbnailPrompt: thumbPrompt,
+          scenes: normalizedScenes
+        };
+        renderWhiteboardScenesUI();
+        showToast(`Đã sinh ${normalizedScenes.length} phân cảnh qua AI!`, 'success');
+      } catch (err) {
+        showToast('Lỗi sinh storyboard: ' + err.message, 'error');
+      } finally {
+        $('btnGenWbStoryboard').disabled = false;
+      }
+    }
+
+    function loadSampleWhiteboardStoryboard() {
+      state.storyboard = {
+        title: $('wbTopicInput').value.trim() || 'Phòng tuyến sông Như Nguyệt năm 1077 của Lý Thường Kiệt',
+        thumbnailPrompt: 'Epic cinematic historical documentary poster illustration of General Ly Thuong Kiet standing on warship commanding soldiers at Nhu Nguyet river defense line, glowing torches in night, dramatic lighting, 16:9 widescreen, strictly NO text',
+        scenes: [
+          {
+            sceneNumber: 1,
+            scriptText: 'Mùa xuân năm 1077, đại quân nhà Tống do Quách Quỳ chỉ huy tiến sát bờ bắc sông Như Nguyệt. Thái úy Lý Thường Kiệt đã chủ động dựng phòng tuyến kiên cố suốt dọc bờ nam nhằm chặn đứng thế giặc.',
+            suggestedImagePrompt: 'Historical illustration of Ly Thuong Kiet commanding troops at Nhu Nguyet river defense line in 1077',
+            durationSeconds: 15,
+            elements: [
+              { label: 'Bối cảnh', narrativeRole: 'Dẫn chuyện', subtitle: 'Mùa xuân năm 1077, đại quân nhà Tống do Quách Quỳ chỉ huy tiến sát bờ bắc sông Như Nguyệt.', visual_desc: 'Quân Tống tiến sát bờ sông' },
+              { label: 'Phòng tuyến', narrativeRole: 'Hành động', subtitle: 'Thái úy Lý Thường Kiệt đã chủ động dựng phòng tuyến kiên cố suốt dọc bờ nam nhằm chặn đứng thế giặc.', visual_desc: 'Lý Thường Kiệt dựng phòng tuyến kiên cố' }
+            ]
+          },
+          {
+            sceneNumber: 2,
+            scriptText: 'Đêm khuya thanh vắng, bài thơ thần Nam quốc sơn hà vang vọng từ đền Trương tướng quân làm rúng động tinh thần quân xâm lược, mở màn cho trận phản công quyết định bảo vệ nền độc lập Đại Việt.',
+            suggestedImagePrompt: 'Ancient Vietnamese temple shrine by the river with glowing spirit aura, retreating Song army',
+            durationSeconds: 15,
+            elements: [
+              { label: 'Thơ thần', narrativeRole: 'Kịch tính', subtitle: 'Đêm khuya thanh vắng, bài thơ thần Nam quốc sơn hà vang vọng từ đền Trương tướng quân làm rúng động tinh thần quân xâm lược.', visual_desc: 'Đền Trương tướng quân phát sáng' },
+              { label: 'Đại thắng', narrativeRole: 'Kết luận', subtitle: 'Mở màn cho trận phản công quyết định bảo vệ nền độc lập Đại Việt.', visual_desc: 'Quân dân Đại Việt chiến thắng vẻ vang' }
+            ]
+          }
+        ]
+      };
+      renderWhiteboardScenesUI();
+      showToast('Đã nạp 2 phân cảnh mẫu sẵn sàng tạo video!', 'success');
+    }
+
+    function copyToClipboard(text, successMsg = 'Đã sao chép prompt vào clipboard!') {
+      if (!text) {
+        showToast('Nội dung prompt rỗng.', 'warn');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          showToast(successMsg, 'success');
+        }).catch(() => {
+          fallbackCopy(text, successMsg);
+        });
+      } else {
+        fallbackCopy(text, successMsg);
+      }
+    }
+
+    function fallbackCopy(text, successMsg) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast(successMsg, 'success');
+      } catch (e) {
+        showToast('Không thể tự động sao chép. Hãy chọn văn bản và nhấn Ctrl+C', 'warn');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function copyScenePrompt(index, btnEl) {
+      const sc = state.storyboard?.scenes[index];
+      if (!sc || !sc.suggestedImagePrompt) {
+        showToast('Cảnh này chưa có prompt gợi ý.', 'warn');
+        return;
+      }
+      copyToClipboard(sc.suggestedImagePrompt, `Đã copy Prompt Cảnh ${sc.sceneNumber || index + 1}!`);
+      if (btnEl) animateCopySuccess(btnEl);
+    }
+
+    function copyPromptText(elementId, btnEl) {
+      const el = $(elementId);
+      if (!el || !el.textContent.trim()) {
+        showToast('Nội dung prompt rỗng.', 'warn');
+        return;
+      }
+      copyToClipboard(el.textContent.trim(), 'Đã sao chép prompt vào clipboard!');
+      if (btnEl) animateCopySuccess(btnEl);
+    }
+
+    function animateCopySuccess(btnEl) {
+      if (!btnEl) return;
+      const originalHtml = btnEl.innerHTML;
+      btnEl.disabled = true;
+      gsap.timeline()
+        .to(btnEl, { scale: 0.92, duration: 0.1, ease: 'power2.out' })
+        .to(btnEl, {
+          scale: 1,
+          backgroundColor: '#10b981',
+          borderColor: '#10b981',
+          duration: 0.15,
+          onStart: () => {
+            btnEl.innerHTML = '<svg class="icon icon-sm"><use href="#ic-check"></use></svg><span>Đã Copy!</span>';
+          }
+        })
+        .to(btnEl, {
+          backgroundColor: '',
+          borderColor: '',
+          delay: 1.4,
+          duration: 0.25,
+          onComplete: () => {
+            btnEl.innerHTML = originalHtml;
+            btnEl.disabled = false;
+          }
+        });
+    }
+
+    /* ── DRAG & DROP AND IMAGE HANDLING FOR WHITEBOARD ── */
+    function setSceneImageUrl(sceneNum, url) {
+      url = (url || '').trim();
+      state.sceneImages[`scene_${sceneNum}`] = url;
+      state.sceneImages[`${sceneNum}`] = url;
+
+      const dropZone = $(`dropZone_${sceneNum}`);
+      const emptyState = $(`dropEmptyState_${sceneNum}`);
+      const imgWrap = $(`dropImageWrap_${sceneNum}`);
+      const img = $(`sceneThumb_${sceneNum}`);
+      const urlInp = $(`sceneUrlInput_${sceneNum}`);
+      const statusPill = $(`sceneStatusPill_${sceneNum}`);
+
+      if (urlInp) urlInp.value = url;
+
+      if (url) {
+        if (dropZone) dropZone.classList.add('has-image');
+        if (emptyState) emptyState.style.display = 'none';
+        if (imgWrap) imgWrap.style.display = 'block';
+        if (img) {
+          img.src = resolveMediaUrl(url);
+          gsap.fromTo(img,
+            { scale: 0.94, opacity: 0 },
+            { scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(1.5)' }
+          );
+        }
+        if (statusPill) {
+          statusPill.className = 'scene-status-pill loaded';
+          statusPill.innerHTML = '<svg class="icon icon-xs"><use href="#ic-check"></use></svg><span>Đã có ảnh</span>';
+        }
+      } else {
+        if (dropZone) dropZone.classList.remove('has-image');
+        if (emptyState) emptyState.style.display = 'flex';
+        if (imgWrap) imgWrap.style.display = 'none';
+        if (statusPill) {
+          statusPill.className = 'scene-status-pill waiting';
+          statusPill.innerHTML = '<svg class="icon icon-xs"><use href="#ic-image"></use></svg><span>Chờ ảnh</span>';
+        }
+      }
+    }
+
+    function clearSceneImage(sceneNum) {
+      setSceneImageUrl(sceneNum, '');
+      showToast(`Đã xóa ảnh Cảnh ${sceneNum}`, 'info');
+    }
+
+    function triggerSceneFileInput(sceneNum) {
+      const inp = $(`sceneFileInput_${sceneNum}`);
+      if (inp) inp.click();
+    }
+
+    async function handleSceneFileInputChange(sceneNum, inputEl) {
+      if (inputEl.files && inputEl.files.length > 0) {
+        await processSceneImageFile(sceneNum, inputEl.files[0]);
+        inputEl.value = '';
+      }
+    }
+
+    function handleSceneDragOver(e, sceneNum) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      const el = $(`dropZone_${sceneNum}`);
+      if (el && !el.classList.contains('is-dragover')) {
+        el.classList.add('is-dragover');
+        gsap.to(el, { scale: 1.02, duration: 0.18, ease: 'power2.out' });
+      }
+    }
+
+    function handleSceneDragLeave(e, sceneNum) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = $(`dropZone_${sceneNum}`);
+      if (el) {
+        el.classList.remove('is-dragover');
+        gsap.to(el, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+    }
+
+    async function handleSceneDrop(e, sceneNum) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = $(`dropZone_${sceneNum}`);
+      if (el) {
+        el.classList.remove('is-dragover');
+        gsap.to(el, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (!file.type.startsWith('image/')) {
+          showToast('Tệp kéo vào không phải là ảnh hợp lệ.', 'error');
+          return;
+        }
+        await processSceneImageFile(sceneNum, file);
+      }
+    }
+
+    async function processSceneImageFile(sceneNum, file) {
+      showToast(`Đang tải ảnh lên máy chủ cho Cảnh ${sceneNum}...`, 'info');
+      try {
+        const url = await uploadBlobOrDataUrl(file, `scene_${sceneNum}_${file.name}`);
+        setSceneImageUrl(sceneNum, url);
+        showToast(`Đã nạp ảnh thành công cho Cảnh ${sceneNum}!`, 'success');
+      } catch (err) {
+        showToast(`Lỗi tải ảnh: ${err.message}`, 'error');
+      }
+    }
+
+    /* ── BATCH DRAG & DROP ── */
+    function triggerBatchFileInput() {
+      const inp = $('batchFileInput');
+      if (inp) inp.click();
+    }
+
+    async function handleBatchFileInputChange(inputEl) {
+      if (inputEl.files && inputEl.files.length > 0) {
+        await processBatchImageFiles(Array.from(inputEl.files));
+        inputEl.value = '';
+      }
+    }
+
+    function handleBatchDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      const b = $('wbBatchDropBanner');
+      if (b && !b.classList.contains('is-dragover')) {
+        b.classList.add('is-dragover');
+        gsap.to(b, { scale: 1.01, duration: 0.18, ease: 'power2.out' });
+      }
+    }
+
+    function handleBatchDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const b = $('wbBatchDropBanner');
+      if (b) {
+        b.classList.remove('is-dragover');
+        gsap.to(b, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+    }
+
+    async function handleBatchDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const b = $('wbBatchDropBanner');
+      if (b) {
+        b.classList.remove('is-dragover');
+        gsap.to(b, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+
+      const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
+      if (files.length === 0) {
+        showToast('Không tìm thấy tệp ảnh nào trong dữ liệu kéo thả.', 'warn');
+        return;
+      }
+      await processBatchImageFiles(files);
+    }
+
+    async function processBatchImageFiles(files) {
+      const scenes = state.storyboard?.scenes || [];
+      if (scenes.length === 0) {
+        showToast('Vui lòng tạo kịch bản phân cảnh trước khi kéo thả ảnh.', 'error');
+        return;
+      }
+
+      showToast(`Đang nạp ${files.length} ảnh vào các phân cảnh...`, 'info');
+      for (let i = 0; i < files.length && i < scenes.length; i++) {
+        const num = scenes[i].sceneNumber || (i + 1);
+        await processSceneImageFile(num, files[i]);
+      }
+      showToast(`Đã nạp xong ${Math.min(files.length, scenes.length)} ảnh!`, 'success');
+    }
+
+    function onManualSceneUrlChange(sceneNum, url) {
+      setSceneImageUrl(sceneNum, url);
+    }
+
+    function renderWhiteboardScenesUI() {
+      const container = $('wbScenesContainer');
+      const emptyBox = $('wbScenesEmpty');
+      const countText = $('wbSceneCountText');
+      const thumbBox = $('wbThumbPromptBox');
+      const thumbText = $('wbThumbPromptText');
+      const scenes = state.storyboard?.scenes || [];
+
+      // Thumbnail Prompt
+      if (thumbBox && thumbText) {
+        if (state.storyboard?.thumbnailPrompt) {
+          thumbText.textContent = state.storyboard.thumbnailPrompt;
+          thumbBox.style.display = 'block';
+        } else {
+          thumbBox.style.display = 'none';
+        }
+      }
+
+      if (scenes.length === 0) {
+        emptyBox.style.display = 'block';
+        container.innerHTML = '';
+        countText.textContent = '0 phân cảnh được nạp';
+        return;
+      }
+
+      emptyBox.style.display = 'none';
+      countText.textContent = `${scenes.length} phân cảnh sẵn sàng (Kéo & thả ảnh 16:9 vào khung bên phải)`;
+
+      container.innerHTML = scenes.map((sc, i) => {
+        const num = sc.sceneNumber || (i + 1);
+        const sKey = `scene_${num}`;
+        const currentUrl = state.sceneImages[sKey] || state.sceneImages[`${num}`] || '';
+        const prompt = sc.suggestedImagePrompt || '';
+        const title = sc.sceneTitle || `Phân cảnh ${num}`;
+        const words = (sc.scriptText || '').split(/\s+/).filter(Boolean).length;
+        const estSec = Math.max(1, Math.round(words / 3.2));
+
+        return `
+          <div class="scene-card" id="sceneCard_${num}">
+            <!-- Header Cảnh -->
+            <div class="scene-header">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="scene-tag">CẢNH ${num} (${sc.durationSeconds || 15}s)</span>
+                <span class="scene-title-text" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-xs" onclick="previewSceneVoice(${i}, this)" title="Nghe thử giọng đọc AI cho riêng phân cảnh này">
+                  <svg class="icon icon-xs"><use href="#ic-volume"></use></svg>
+                  <span>Nghe thử AI</span>
+                </button>
+                <span class="scene-status-pill ${currentUrl ? 'loaded' : 'waiting'}" id="sceneStatusPill_${num}">
+                  <svg class="icon icon-xs"><use href="${currentUrl ? '#ic-check' : '#ic-image'}"></use></svg>
+                  <span>${currentUrl ? 'Đã có ảnh' : 'Chờ ảnh'}</span>
+                </span>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="removeWbScene(${i})" title="Xóa phân cảnh này">
+                  <svg class="icon icon-sm"><use href="#ic-trash"></use></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Bento 2 Cột: Trái (Script & Prompt) - Phải (Khung Kéo Thả Ảnh 16:9) -->
+            <div class="scene-bento-grid">
+              <!-- Cột Trái: Lời thuyết minh TTS + Prompt Tạo ảnh AI -->
+              <div class="scene-left-col">
+                <div class="form-group" style="margin-bottom:0;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <label class="field-label" style="font-size:0.73rem; margin:0;">Lời thuyết minh (Giọng đọc AI TTS):</label>
+                    <span style="font-size:0.68rem; color:var(--color-fg-muted);" id="sceneWordCount_${num}">
+                      ${words} từ (~${estSec}s)
+                    </span>
+                  </div>
+                  <textarea class="form-control" rows="2" style="font-size:0.78rem; line-height:1.45; resize:vertical;" placeholder="Nhập lời dẫn chuyện lịch sử cho cảnh này..." oninput="onWbSceneScriptChange(${i}, this.value)">${escapeHtml(sc.scriptText || '')}</textarea>
+                </div>
+
+                <!-- Khung Prompt Gợi Ý Vẽ Tranh AI -->
+                <div class="scene-prompt-card">
+                  <div class="scene-prompt-header">
+                    <span class="scene-prompt-label">
+                      <svg class="icon icon-sm"><use href="#ic-sparkles"></use></svg>
+                      <span>Prompt vẽ tranh (Midjourney / ChatGPT / DALL-E):</span>
+                    </span>
+                    <button type="button" class="btn btn-primary btn-sm btn-copy-prompt" onclick="copyScenePrompt(${i}, this)" style="padding:2px 8px; font-size:0.69rem;">
+                      <svg class="icon icon-sm"><use href="#ic-copy"></use></svg>
+                      <span>Copy Prompt</span>
+                    </button>
+                  </div>
+                  <div id="scenePromptText_${num}" class="scene-prompt-text mono" title="Click đúp hoặc chọn để sao chép">
+                    ${escapeHtml(prompt || 'Chưa có prompt gợi ý')}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cột Phải: Khung Kéo - Thả Ảnh 16:9 Chuyên Dụng -->
+              <div class="scene-right-col">
+                <div class="drop-zone-16-9 ${currentUrl ? 'has-image' : ''}" 
+                     id="dropZone_${num}"
+                     ondragover="handleSceneDragOver(event, ${num})"
+                     ondragleave="handleSceneDragLeave(event, ${num})"
+                     ondrop="handleSceneDrop(event, ${num})"
+                     onclick="triggerSceneFileInput(${num})"
+                     tabindex="0"
+                     title="Kéo &amp; thả ảnh vào đây, hoặc click để chọn tệp (hoặc Ctrl+V dán ảnh)">
+                  
+                  <input type="file" id="sceneFileInput_${num}" accept="image/*" style="display:none;" onchange="handleSceneFileInputChange(${num}, this)">
+
+                  <!-- Empty State: Kéo Thả Prompt -->
+                  <div class="drop-empty-state" id="dropEmptyState_${num}" style="${currentUrl ? 'display:none;' : ''}">
+                    <div class="drop-icon-pulse">
+                      <svg class="icon icon-md"><use href="#ic-upload"></use></svg>
+                    </div>
+                    <div class="drop-main-text">Kéo &amp; Thả ảnh 16:9 vào đây</div>
+                    <div class="drop-sub-text">hoặc click để duyệt • Ctrl+V dán</div>
+                  </div>
+
+                  <!-- Hover Dragover Overlay -->
+                  <div class="drop-hover-overlay">
+                    <svg class="icon icon-md"><use href="#ic-sparkles"></use></svg>
+                    <span>Thả ảnh vào Cảnh ${num}!</span>
+                  </div>
+
+                  <!-- Loaded Image Preview -->
+                  <div class="drop-image-wrap" id="dropImageWrap_${num}" style="${currentUrl ? '' : 'display:none;'}">
+                    <img id="sceneThumb_${num}" class="drop-image-preview" src="${currentUrl ? resolveMediaUrl(currentUrl) : ''}" alt="Cảnh ${num}">
+                    <div class="drop-image-overlay">
+                      <span class="drop-badge-success">
+                        <svg class="icon icon-xs"><use href="#ic-check"></use></svg> Đã nạp ảnh
+                      </span>
+                      <div class="drop-actions">
+                        <button type="button" class="btn btn-secondary btn-xs" onclick="event.stopPropagation(); triggerSceneFileInput(${num});" title="Đổi ảnh khác">
+                          <svg class="icon icon-xs"><use href="#ic-edit"></use></svg> Đổi
+                        </button>
+                        <button type="button" class="btn btn-ghost btn-xs text-danger" onclick="event.stopPropagation(); clearSceneImage(${num});" title="Xóa ảnh này">
+                          <svg class="icon icon-xs"><use href="#ic-trash"></use></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Thanh tác vụ nhanh dưới khung ảnh -->
+                <div class="drop-quick-bar">
+                  <button type="button" class="btn btn-secondary btn-xs" onclick="generateSingleSceneCanvas(${num}, '${escapeHtml(sc.scriptText?.slice(0, 24) || 'Cảnh ' + num)}')" title="Tự động vẽ tranh mẫu nếu không muốn nạp ảnh ngoài">
+                    <svg class="icon icon-xs"><use href="#ic-zap"></use></svg>
+                    <span>Ảnh mẫu</span>
+                  </button>
+                  <div class="drop-url-input-wrap">
+                    <input type="text" id="sceneUrlInput_${num}" class="form-control form-control-xs mono" placeholder="Dán link ảnh (https://...)" value="${escapeHtml(currentUrl)}" onchange="onManualSceneUrlChange(${num}, this.value)" onclick="event.stopPropagation();">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // GSAP Entrance Stagger Animation
+      try {
+        if (typeof gsap !== 'undefined') {
+          gsap.from('#wbScenesContainer .scene-card', {
+            opacity: 0,
+            y: 16,
+            duration: 0.32,
+            stagger: 0.06,
+            ease: 'power2.out'
+          });
+        }
+      } catch (_) {}
+    }
+
+    function onWbSceneScriptChange(index, val) {
+      if (state.storyboard?.scenes[index]) {
+        state.storyboard.scenes[index].scriptText = val;
+        const num = state.storyboard.scenes[index].sceneNumber || (index + 1);
+        const words = (val || '').split(/\s+/).filter(Boolean).length;
+        const estSec = Math.max(1, Math.round(words / 3.2));
+        const wcEl = $(`sceneWordCount_${num}`);
+        if (wcEl) wcEl.textContent = `${words} từ (~${estSec}s)`;
+      }
+    }
+
+    function removeWbScene(index) {
+      if (state.storyboard?.scenes) {
+        state.storyboard.scenes.splice(index, 1);
+        renderWhiteboardScenesUI();
+        showToast('Đã xóa phân cảnh.', 'info');
+      }
+    }
+
+    function addNewWbScene() {
+      if (!state.storyboard) {
+        state.storyboard = {
+          title: $('wbTopic')?.value || 'Phân cảnh lịch sử',
+          scenes: []
+        };
+      }
+      const scenes = state.storyboard.scenes;
+      const nextNum = scenes.length + 1;
+      scenes.push({
+        sceneNumber: nextNum,
+        sceneTitle: `Phân cảnh ${nextNum}`,
+        durationSeconds: 15,
+        scriptText: `Nội dung thuyết minh chi tiết cho phân cảnh ${nextNum}...`,
+        suggestedImagePrompt: `Historical painting depiction of ancient Vietnamese historical event, scene ${nextNum}, dramatic lighting, classical historical art style, 16:9 widescreen aspect ratio`
+      });
+      renderWhiteboardScenesUI();
+      showToast(`Đã thêm Phân cảnh ${nextNum}!`, 'success');
+      setTimeout(() => {
+        const el = $(`sceneCard_${nextNum}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+
+    function clearAllSceneImages() {
+      state.sceneImages = {};
+      renderWhiteboardScenesUI();
+      showToast('Đã xóa toàn bộ ảnh của các cảnh.', 'info');
+    }
+
+    let currentPreviewAudio = null;
+    async function previewSceneVoice(index, btnEl) {
+      const sc = state.storyboard?.scenes[index];
+      if (!sc || !sc.scriptText) {
+        showToast('Chưa có lời thoại để nghe thử.', 'warn');
+        return;
+      }
+
+      if (currentPreviewAudio) {
+        currentPreviewAudio.pause();
+        currentPreviewAudio = null;
+        if (btnEl) btnEl.classList.remove('loading');
+        showToast('Đã dừng phát âm thanh.', 'info');
+        return;
+      }
+
+      const ttsEngine = $('wbTtsEngine')?.value || 'elevenlabs';
+      const voiceName = $('wbVoiceName')?.value || 'Brian';
+
+      try {
+        if (btnEl) btnEl.classList.add('loading');
+        showToast(`Đang tạo giọng đọc nghe thử Cảnh ${index + 1}...`, 'info');
+
+        const res = await apiCall('/api/v1/creator/studio/voices/preview', {
+          method: 'POST',
+          body: {
+            engine: ttsEngine,
+            voiceId: voiceName,
+            text: sc.scriptText.trim().slice(0, 180)
+          }
+        });
+
+        if (res && res.url) {
+          const fullUrl = resolveMediaUrl(res.url);
+          currentPreviewAudio = new Audio(fullUrl);
+          currentPreviewAudio.onended = () => {
+            currentPreviewAudio = null;
+            if (btnEl) btnEl.classList.remove('loading');
+          };
+          currentPreviewAudio.onerror = () => {
+            currentPreviewAudio = null;
+            if (btnEl) btnEl.classList.remove('loading');
+            showToast('Không thể phát tệp âm thanh nghe thử.', 'error');
+          };
+          currentPreviewAudio.play();
+          showToast(`Đang phát giọng đọc Cảnh ${index + 1}!`, 'success');
+        } else {
+          throw new Error(res.message || 'Không nhận được đường dẫn audio');
+        }
+      } catch (err) {
+        if (btnEl) btnEl.classList.remove('loading');
+        showToast('Lỗi nghe thử: ' + err.message, 'error');
+      }
+    }
+
+    async function generateSingleSceneCanvas(sceneNum, label) {
+      const blob = await createHistoricalCanvasBlob({
+        width: 1280,
+        height: 720,
+        title: `PHÂN CẢNH ${sceneNum}`,
+        subtitle: label,
+        paletteIndex: sceneNum
+      });
+      const url = await uploadBlobOrDataUrl(blob, `scene_${sceneNum}.jpg`);
+      setSceneImageUrl(sceneNum, url);
+      showToast(`Đã tạo ảnh mẫu 16:9 cho Cảnh ${sceneNum}!`, 'success');
+    }
+
+    async function autoFillCanvasSceneImages() {
+      const scenes = state.storyboard?.scenes || [];
+      if (scenes.length === 0) {
+        showToast('Vui lòng nạp storyboard trước.', 'error');
+        return;
+      }
+      showToast('Đang tạo ảnh canvas mẫu 16:9 cho toàn bộ phân cảnh...', 'info');
+      for (let i = 0; i < scenes.length; i++) {
+        const num = scenes[i].sceneNumber || (i + 1);
+        await generateSingleSceneCanvas(num, scenes[i].scriptText?.slice(0, 32) || `Cảnh ${num}`);
+      }
+      showToast('Hoàn thành tạo ảnh cho toàn bộ phân cảnh!', 'success');
+    }
+
+    async function submitWhiteboardRender() {
+      if (!state.creatorToken) {
+        showToast('Vui lòng đăng nhập Creator để render.', 'error');
+        openSettingsDrawer('auth');
+        return;
+      }
+      const scenes = state.storyboard?.scenes || [];
+      if (scenes.length === 0) {
+        showToast('Chưa có phân cảnh nào để render.', 'error');
+        return;
+      }
+
+      // Check scene images
+      const mappedScenes = scenes.map((s, idx) => {
+        const num = s.sceneNumber || (idx + 1);
+        const imageUrl = state.sceneImages[`scene_${num}`] || state.sceneImages[`${num}`] || '';
+        return {
+          sceneNumber: num,
+          scriptText: s.scriptText,
+          imageUrl,
+          durationSeconds: s.durationSeconds || 15
+        };
+      });
+
+      const missing = mappedScenes.filter((s) => !s.imageUrl);
+      if (missing.length > 0) {
+        showToast(`Cảnh ${missing[0].sceneNumber} chưa có ảnh minh họa. Nhấn "1-Click Tạo Ảnh Cho Mọi Cảnh".`, 'error');
+        return;
+      }
+
+      const title = state.storyboard?.title || $('wbTopicInput').value.trim() || 'Video Bảng Trắng Sử Việt';
+      const seriesId = $('wbSeriesSelect').value ? Number($('wbSeriesSelect').value) : null;
+      const durationSec = Number($('wbDurationSelect').value) || 60;
+
+      // Construct storyboard object formatted for backend (ensuring elements exist for TTS speech mixing)
+      const storyboardPayload = {
+        title,
+        scenes: mappedScenes.map((s, idx) => {
+          const origElements = (state.storyboard?.scenes[idx]?.elements) || [];
+          let elements = origElements;
+          if (!elements || elements.length === 0) {
+            const rawSents = (s.scriptText || '').split(/(?<=[.?!])\s+/).filter(Boolean);
+            elements = (rawSents.length > 0 ? rawSents : [s.scriptText || `Cảnh ${s.sceneNumber}`]).slice(0, 3).map((st, eIdx) => ({
+              label: `Ý ${eIdx + 1}`,
+              narrativeRole: 'Dẫn chuyện',
+              subtitle: st,
+              visual_desc: st
+            }));
+          }
+          return {
+            sceneNumber: s.sceneNumber,
+            scene_index: s.sceneNumber,
+            scriptText: s.scriptText,
+            imageUrl: s.imageUrl,
+            image_url: s.imageUrl,
+            durationSeconds: s.durationSeconds,
+            elements: elements
+          };
+        })
+      };
+
+      // Construct sceneImages map with both key formats: "1" and "scene_1"
+      const sceneImagesMap = {};
+      mappedScenes.forEach((s) => {
+        sceneImagesMap[`scene_${s.sceneNumber}`] = s.imageUrl;
+        sceneImagesMap[`${s.sceneNumber}`] = s.imageUrl;
+      });
+
+      let ttsEngine = $('aiTtsEngine')?.value || 'edge-tts';
+      let voiceName = ($('aiVoiceName')?.value || '').trim() || 'vi-VN-NamMinhNeural';
+      if (ttsEngine === 'elevenlabs' && (voiceName.startsWith('vi-VN-') || voiceName.includes('-'))) {
+        voiceName = 'Brian';
+        if ($('aiVoiceName')) $('aiVoiceName').value = 'Brian';
+      } else if (ttsEngine === 'edge-tts' && !voiceName.startsWith('vi-VN-')) {
+        voiceName = 'vi-VN-NamMinhNeural';
+        if ($('aiVoiceName')) $('aiVoiceName').value = 'vi-VN-NamMinhNeural';
+      }
+
+      const body = {
+        title,
+        renderMode: 'whiteboard',
+        videoType: 'WHITEBOARD',
+        durationSec,
+        durationSeconds: durationSec,
+        seriesId,
+        storyboard: storyboardPayload,
+        sceneImages: sceneImagesMap,
+        coverImage: mappedScenes[0]?.imageUrl || '',
+        ttsEngine,
+        voiceName,
+        scenes: mappedScenes
+      };
+
+      try {
+        $('btnRenderWhiteboard').disabled = true;
+        showToast('Đang gửi lệnh tạo video bảng trắng lên server...', 'info');
+
+        const res = await apiCall('/api/v1/creator/studio/render', {
+          method: 'POST',
+          body
+        });
+
+        const contentId = (res.data && res.data.contentId) || res.contentId;
+        const artifactId = (res.data && res.data.artifactId) || res.artifactId;
+        const jobId = (res.data && res.data.jobId) || res.jobId;
+
+        state.activeContentId = contentId;
+        state.activeArtifactId = artifactId;
+        state.activeJobId = jobId;
+        if (jobId) localStorage.setItem('suky_lab_last_job_id', jobId);
+        if (contentId) localStorage.setItem('suky_lab_last_content_id', contentId);
+        if (artifactId) localStorage.setItem('suky_lab_last_artifact_id', artifactId);
+
+        $('lblActiveJobIdWb').textContent = jobId || '--';
+        $('badgeWbJobStatus').className = 'status-badge running';
+        $('badgeWbJobStatus').textContent = 'ĐANG XỬ LÝ';
+        logToTerminal('wbTerminalBox', `[Bắt đầu] Đã tạo tiến trình: ${jobId} (Content #${contentId})`, 'info');
+
+        startAutoPolling();
+        showToast('Tiến trình tạo video đang chạy!', 'success');
+      } catch (err) {
+        showToast('Lỗi render: ' + err.message, 'error');
+      } finally {
+        $('btnRenderWhiteboard').disabled = false;
+      }
+    }
+
+    /* ==========================================================================
+       VIEW 2: AUDIO PODCAST WORKBENCH & SMART SCRIPT PATCH
+       ========================================================================== */
+    function loadSamplePodcastScript(idx) {
+      if (idx === 1) {
+        $('podTitleInput').value = 'Lý Thường Kiệt và phòng tuyến sông Như Nguyệt 1077';
+        $('podScriptInput').value = 'Mùa xuân năm 1077, đại quân nhà Tống do Quách Quỳ chỉ huy tiến sát bờ bắc sông Như Nguyệt. Thái úy Lý Thường Kiệt đã chủ động dựng phòng tuyến kiên cố suốt dọc bờ nam nhằm chặn đứng thế giặc. Đêm khuya thanh vắng, bài thơ thần Nam quốc sơn hà vang vọng từ đền Trương Hống, Trương Hát làm rúng động tinh thần quân xâm lược, mở màn cho trận phản công quyết định bảo vệ nền độc lập Đại Việt.';
+      } else if (idx === 2) {
+        $('podTitleInput').value = 'Quang Trung Nguyễn Huệ đại phá 29 vạn quân Thanh';
+        $('podScriptInput').value = 'Tết Kỷ Dậu năm 1789, vua Quang Trung tiến hành cuộc hành quân thần tốc tiến thẳng ra Thăng Long. Trận Ngọc Hồi - Đống Đa oanh liệt đã quét sạch 29 vạn quân xâm lược Mãn Thanh chỉ trong vài ngày ngắn ngủi.';
+      } else {
+        $('podTitleInput').value = 'Chiến thắng lịch sử Điện Biên Phủ năm 1954';
+        $('podScriptInput').value = 'Sau 56 ngày đêm khoét núi ngủ hầm, quân và dân ta đã đập tan tập đoàn cứ điểm Điện Biên Phủ kiên cố nhất Đông Dương của thực dân Pháp. Lá cờ Quyết chiến Quyết thắng tung bay trên nóc hầm Đờ Cát, ghi dấu mốc son chói lọi trong lịch sử dân tộc.';
+      }
+      updatePodcastScriptStats();
+      showToast('Đã nạp kịch bản mẫu!', 'info');
+    }
+
+    function updatePodcastScriptStats() {
+      const text = $('podScriptInput').value.trim();
+      const sentences = text ? text.split(/[.?!]\s+/).filter(Boolean) : [];
+      $('podScriptStats').textContent = `Ước tính: ${sentences.length} câu thuyết minh (~${text.length} ký tự).`;
+    }
+
+    async function handleVerifyPodcastScript() {
+      const scriptText = $('podScriptInput').value.trim();
+      if (!scriptText) {
+        showToast('Vui lòng nhập kịch bản cần thẩm định.', 'error');
+        return;
+      }
+      try {
+        showToast('Đang đối chiếu sử liệu qua RAG...', 'info');
+        const res = await apiCall('/api/v1/creator/studio/verify-script', {
+          method: 'POST',
+          body: { script: scriptText, scriptText }
+        });
+
+        $('podVerifyBox').style.display = 'block';
+        $('podVerifyScore').textContent = `Score: ${(res.score ?? res.accuracyScore ?? 0.95)}`;
+        $('podVerifySummary').textContent = res.summary || res.factCheckSummary || 'Sử liệu chính xác và phù hợp bối cảnh lịch sử.';
+        $('podSuggestedPrompt').textContent = res.suggestedImagePrompt || res.prompt || 'Tranh vẽ nghệ thuật cổ điển Việt Nam';
+        showToast('Thẩm định sử liệu hoàn tất!', 'success');
+      } catch (err) {
+        showToast('Lỗi thẩm định: ' + err.message, 'error');
+      }
+    }
+
+    async function generateAiPodcastScript() {
+      const title = $('podTitleInput').value.trim();
+      if (!title) {
+        showToast('Vui lòng nhập tiêu đề podcast.', 'error');
+        return;
+      }
+      try {
+        showToast('AI đang biên soạn kịch bản podcast...', 'info');
+        const res = await apiCall('/api/v1/creator/studio/storyboard', {
+          method: 'POST',
+          body: { topic: title, targetDurationSec: 60 }
+        });
+        if (res.scenes && res.scenes.length > 0) {
+          $('podScriptInput').value = res.scenes.map((s) => s.scriptText).join(' ');
+          updatePodcastScriptStats();
+          showToast('AI đã biên soạn kịch bản thành công!', 'success');
+        }
+      } catch (err) {
+        showToast('Lỗi AI soạn kịch bản: ' + err.message, 'error');
+      }
+    }
+
+    async function generateCanvasPodcastCover() {
+      const title = $('podTitleInput').value.trim() || 'PODCAST SỬ VIỆT';
+      const blob = await createHistoricalCanvasBlob({
+        width: 1080,
+        height: 1080,
+        title: 'AUDIO PODCAST',
+        subtitle: title.slice(0, 36),
+        paletteIndex: 0
+      });
+      const url = await uploadBlobOrDataUrl(blob, 'podcast_cover_1080.jpg');
+      $('podCoverUrlInput').value = url;
+      syncPodcastCoverPreview();
+      showToast('Đã tạo ảnh bìa cổ điển 1:1!', 'success');
+    }
+
+    function triggerPodCoverFileInput() {
+      const inp = $('podCoverFileInput');
+      if (inp) inp.click();
+    }
+
+    function handlePodCoverDragOver(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'copy';
+      const el = $('podCoverDropZone');
+      if (el && !el.classList.contains('is-dragover')) {
+        el.classList.add('is-dragover');
+        gsap.to(el, { scale: 1.03, duration: 0.18, ease: 'power2.out' });
+      }
+    }
+
+    function handlePodCoverDragLeave(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = $('podCoverDropZone');
+      if (el) {
+        el.classList.remove('is-dragover');
+        gsap.to(el, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+    }
+
+    async function handlePodCoverDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const el = $('podCoverDropZone');
+      if (el) {
+        el.classList.remove('is-dragover');
+        gsap.to(el, { scale: 1, duration: 0.2, ease: 'power2.out' });
+      }
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        if (!file.type.startsWith('image/')) {
+          showToast('Tệp kéo vào không phải ảnh hợp lệ.', 'error');
+          return;
+        }
+        await processPodCoverFile(file);
+      }
+    }
+
+    async function processPodCoverFile(file) {
+      showToast('Đang tải ảnh bìa Podcast 1:1...', 'info');
+      try {
+        const url = await uploadBlobOrDataUrl(file, `podcast_${file.name}`);
+        $('podCoverUrlInput').value = url;
+        syncPodcastCoverPreview();
+        showToast('Đã nạp ảnh bìa Podcast thành công!', 'success');
+      } catch (err) {
+        showToast(`Lỗi tải ảnh bìa: ${err.message}`, 'error');
+      }
+    }
+
+    async function handlePodcastCoverFile(input) {
+      const file = input.files?.[0];
+      if (!file) return;
+      await processPodCoverFile(file);
+      input.value = '';
+    }
+
+    function syncPodcastCoverPreview() {
+      const val = $('podCoverUrlInput').value.trim();
+      const zone = $('podCoverDropZone');
+      const emptyState = $('podCoverEmptyState');
+      const wrap = $('podCoverWrap');
+      const preview = $('podCoverPreview');
+
+      if (val) {
+        if (zone) zone.classList.add('has-image');
+        if (emptyState) emptyState.style.display = 'none';
+        if (wrap) wrap.style.display = 'block';
+        if (preview) {
+          preview.src = resolveMediaUrl(val);
+          try {
+            gsap.fromTo(preview,
+              { scale: 0.94, opacity: 0 },
+              { scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(1.5)' }
+            );
+          } catch (_) {}
+        }
+      } else {
+        if (zone) zone.classList.remove('has-image');
+        if (emptyState) emptyState.style.display = 'flex';
+        if (wrap) wrap.style.display = 'none';
+      }
+    }
+
+    async function submitPodcastRender() {
+      if (!state.creatorToken) {
+        showToast('Vui lòng đăng nhập Creator để render.', 'error');
+        openSettingsDrawer('auth');
+        return;
+      }
+      const title = $('podTitleInput').value.trim();
+      const scriptText = $('podScriptInput').value.trim();
+      const coverImage = $('podCoverUrlInput').value.trim();
+      const seriesId = $('podSeriesSelect').value ? Number($('podSeriesSelect').value) : null;
+      const durationSeconds = Number($('podDurationInput').value) || 60;
+
+      if (!title || !scriptText) {
+        showToast('Vui lòng nhập đủ tiêu đề và kịch bản.', 'error');
+        return;
+      }
+      if (!coverImage) {
+        showToast('Vui lòng tạo hoặc tải lên ảnh bìa 1:1.', 'error');
+        return;
+      }
+
+      try {
+        $('btnRenderPodcast').disabled = true;
+        showToast('Đang gửi lệnh tạo video Audio Podcast...', 'info');
+
+        let ttsEngine = $('aiTtsEngine')?.value || 'edge-tts';
+        let voiceName = ($('aiVoiceName')?.value || '').trim() || 'vi-VN-NamMinhNeural';
+        if (ttsEngine === 'elevenlabs' && (voiceName.startsWith('vi-VN-') || voiceName.includes('-'))) {
+          voiceName = 'Brian';
+          if ($('aiVoiceName')) $('aiVoiceName').value = 'Brian';
+        } else if (ttsEngine === 'edge-tts' && !voiceName.startsWith('vi-VN-')) {
+          voiceName = 'vi-VN-NamMinhNeural';
+          if ($('aiVoiceName')) $('aiVoiceName').value = 'vi-VN-NamMinhNeural';
+        }
+
+        const res = await apiCall('/api/v1/creator/studio/render', {
+          method: 'POST',
+          body: {
+            title,
+            renderMode: 'audio_podcast',
+            videoType: 'AI_PODCAST',
+            durationSec: durationSeconds,
+            durationSeconds,
+            seriesId,
+            coverImage,
+            scriptText,
+            ttsEngine,
+            voiceName
+          }
+        });
+
+        const contentId = (res.data && res.data.contentId) || res.contentId;
+        const artifactId = (res.data && res.data.artifactId) || res.artifactId;
+        const jobId = (res.data && res.data.jobId) || res.jobId;
+
+        state.activeContentId = contentId;
+        state.activeArtifactId = artifactId;
+        state.activeJobId = jobId;
+        if (jobId) localStorage.setItem('suky_lab_last_job_id', jobId);
+        if (contentId) localStorage.setItem('suky_lab_last_content_id', contentId);
+        if (artifactId) localStorage.setItem('suky_lab_last_artifact_id', artifactId);
+
+        $('lblActiveJobIdPod').textContent = jobId || '--';
+        $('badgePodJobStatus').className = 'status-badge running';
+        $('badgePodJobStatus').textContent = 'ĐANG XỬ LÝ';
+        logToTerminal('podTerminalBox', `[Bắt đầu] Đã tạo tiến trình: ${jobId} (Content #${contentId})`, 'info');
+
+        $('patchContentIdInput').value = contentId || '';
+
+        startAutoPolling();
+        showToast('Tiến trình tạo video Podcast đang chạy!', 'success');
+      } catch (err) {
+        showToast('Lỗi render podcast: ' + err.message, 'error');
+      } finally {
+        $('btnRenderPodcast').disabled = false;
+      }
+    }
+
+    /* Smart Podcast Script Patch (v2+) */
+    async function loadPodcastSentencesForPatch() {
+      const contentId = Number($('patchContentIdInput').value);
+      if (!contentId) {
+        showToast('Vui lòng nhập Content ID của tập podcast.', 'error');
+        return;
+      }
+      try {
+        showToast('Đang tải danh sách câu thuyết minh...', 'info');
+        const res = await apiCall(`/api/v1/creator/studio/videos/${contentId}/podcast-sentences`);
+        const sentences = res.sentences || res || [];
+        state.loadedSentences = sentences.map((s, idx) => ({
+          index: typeof s.index === 'number' ? s.index : idx,
+          originalText: s.text || s.sentenceText || String(s),
+          currentText: s.text || s.sentenceText || String(s)
+        }));
+
+        renderPatchSentencesUI();
+        showToast(`Đã tải ${state.loadedSentences.length} câu thuyết minh!`, 'success');
+      } catch (err) {
+        showToast('Lỗi tải câu: ' + err.message, 'error');
+      }
+    }
+
+    function renderPatchSentencesUI() {
+      const box = $('patchSentencesList');
+      if (state.loadedSentences.length === 0) {
+        box.innerHTML = '<div style="text-align:center; padding:16px; color:var(--color-fg-muted);">Không có câu nào.</div>';
+        return;
+      }
+
+      box.innerHTML = state.loadedSentences.map((item, i) => {
+        const isDiff = item.originalText !== item.currentText;
+        return `
+          <div class="patch-sentence-row ${isDiff ? 'modified' : ''}" id="patchRow_${i}" style="display:flex; align-items:center; gap:8px;">
+            <span class="patch-idx" style="width:28px; flex-shrink:0;">#${i + 1}</span>
+            <input type="text" class="form-control" style="font-size:0.78rem; flex:1;" value="${escapeHtml(item.currentText)}" oninput="onEditPatchSentence(${i}, this.value)">
+            <button type="button" class="btn btn-ghost btn-xs" onclick="previewPatchSentenceAudio(${i}, this)" title="Nghe thử âm thanh câu này">
+              <svg class="icon icon-xs"><use href="#ic-volume"></use></svg>
+            </button>
+            <span style="font-size:0.68rem; font-family:var(--font-mono); color:${isDiff ? 'var(--color-warning)' : 'var(--color-fg-muted)'}; width:46px; text-align:right; flex-shrink:0;">${isDiff ? 'ĐÃ SỬA' : 'GỐC'}</span>
+          </div>
+        `;
+      }).join('');
+      updatePatchDiffCount();
+    }
+
+    function onEditPatchSentence(idx, val) {
+      if (state.loadedSentences[idx]) {
+        state.loadedSentences[idx].currentText = val;
+        const row = $(`patchRow_${idx}`);
+        const isDiff = state.loadedSentences[idx].originalText !== val;
+        row?.classList.toggle('modified', isDiff);
+        updatePatchDiffCount();
+      }
+    }
+
+    function updatePatchDiffCount() {
+      const diffs = state.loadedSentences.filter((s) => s.originalText !== s.currentText).length;
+      $('patchDiffCounter').textContent = `${diffs} câu sửa`;
+      $('patchDiffCounter').className = diffs > 0 ? 'status-badge warning' : 'status-badge';
+    }
+
+    async function previewPatchSentenceAudio(idx, btnEl) {
+      const item = state.loadedSentences[idx];
+      if (!item || !item.currentText) return;
+      const ttsEngine = $('podTtsEngine')?.value || 'elevenlabs';
+      const voiceName = $('podVoiceName')?.value || 'Brian';
+      try {
+        if (btnEl) btnEl.classList.add('loading');
+        showToast(`Đang sinh âm thanh nghe thử câu #${idx + 1}...`, 'info');
+        const res = await apiCall('/api/v1/creator/studio/voices/preview', {
+          method: 'POST',
+          body: {
+            engine: ttsEngine,
+            voiceId: voiceName,
+            text: item.currentText.trim().slice(0, 180)
+          }
+        });
+        if (res && res.url) {
+          const audio = new Audio(resolveMediaUrl(res.url));
+          audio.play();
+          showToast(`Đang phát câu #${idx + 1}!`, 'success');
+        }
+      } catch (err) {
+        showToast('Lỗi nghe thử: ' + err.message, 'error');
+      } finally {
+        if (btnEl) btnEl.classList.remove('loading');
+      }
+    }
+
+    async function submitPodcastSmartPatch() {
+      const contentId = Number($('patchContentIdInput').value);
+      if (!contentId) {
+        showToast('Thiếu Content ID.', 'error');
+        return;
+      }
+      const modifiedSentences = state.loadedSentences.map((s) => s.currentText);
+
+      try {
+        $('btnSubmitPatchPodcast').disabled = true;
+        showToast('Đang thực thi vá câu thông minh (chỉ thu âm câu sửa)...', 'info');
+
+        const res = await apiCall(`/api/v1/creator/studio/videos/${contentId}/patch-podcast`, {
+          method: 'POST',
+          body: {
+            contentId,
+            sentences: modifiedSentences
+          }
+        });
+
+        state.activeJobId = res.jobId;
+        state.activeContentId = contentId;
+        state.activeArtifactId = res.artifactId;
+
+        $('lblActiveJobIdPod').textContent = res.jobId;
+        $('badgePodJobStatus').className = 'status-badge running';
+        $('badgePodJobStatus').textContent = 'RUNNING';
+        logToTerminal('podTerminalBox', `[Vá Câu] Đã tạo Job vá: ${res.jobId}`, 'info');
+
+        startAutoPolling();
+        showToast('Bản vá đang được kết xuất!', 'success');
+      } catch (err) {
+        showToast('Lỗi vá podcast: ' + err.message, 'error');
+      } finally {
+        $('btnSubmitPatchPodcast').disabled = false;
+      }
+    }
+
+    /* ==========================================================================
+       JOB MONITOR & POLLING ENGINE
+       ========================================================================== */
+    function logToTerminal(boxId, msg, type = 'info', isHtml = false) {
+      const box = $(boxId);
+      if (!box) return;
+      const line = document.createElement('div');
+      line.className = `terminal-line ${type}`;
+      const prefix = `[${new Date().toLocaleTimeString()}] `;
+      if (isHtml) {
+        line.innerHTML = prefix + msg;
+      } else {
+        line.textContent = prefix + msg;
+      }
+      box.appendChild(line);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function updateStepGrid(stepNum) {
+      const nodes = document.querySelectorAll('.step-node');
+      nodes.forEach((node) => {
+        const num = Number(node.getAttribute('data-step'));
+        if (num < stepNum) {
+          node.className = 'step-node done';
+        } else if (num === stepNum) {
+          node.className = 'step-node active';
+        } else {
+          node.className = 'step-node';
+        }
+      });
+    }
+
+    function startAutoPolling() {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      state.pollTimer = setInterval(pollRenderJobOnce, 2500);
+    }
+
+    function stopAutoPolling() {
+      if (state.pollTimer) {
+        clearInterval(state.pollTimer);
+        state.pollTimer = null;
+      }
+    }
+
+    async function pollRenderJobOnce() {
+      if (!state.activeJobId) return;
+
+      const terminalId = state.currentView === 'podcast' ? 'podTerminalBox' : 'wbTerminalBox';
+      const badgeId = state.currentView === 'podcast' ? 'badgePodJobStatus' : 'badgeWbJobStatus';
+
+      try {
+        const artifactParam = state.activeArtifactId ? `?artifactId=${state.activeArtifactId}` : '';
+        const res = await apiCall(`/api/v1/creator/studio/jobs/${state.activeJobId}${artifactParam}`);
+
+        const status = (res.status || 'PROCESSING').toUpperCase();
+        const badge = $(badgeId);
+        if (badge) {
+          badge.className = `status-badge ${status.toLowerCase()}`;
+          badge.textContent = status;
+        }
+
+        // Progress step
+        const progress = Number(res.progress) || (res.step && res.total_steps ? Math.round((res.step / res.total_steps) * 100) : 0);
+        let step = 1;
+        if (progress >= 90) step = 6;
+        else if (progress >= 70) step = 5;
+        else if (progress >= 50) step = 4;
+        else if (progress >= 30) step = 3;
+        else if (progress >= 15) step = 2;
+        updateStepGrid(step);
+
+        const realMessage = (res.step_name || (res.message !== 'Lấy trạng thái render thành công' ? res.message : '')) || '';
+        if (realMessage) {
+          logToTerminal(terminalId, `Tiến độ: ${progress}% - ${realMessage}`, 'info');
+        }
+
+        const errMsg = res.error || res.errorMessage || (res.data && res.data.error) || (res.message !== 'Lấy trạng thái render thành công' ? res.message : 'Có lỗi trong quá trình kết xuất video');
+
+        if (status === 'COMPLETED' || status === 'SUCCESS') {
+          stopAutoPolling();
+          if (!state.loggedCompletedJobs) state.loggedCompletedJobs = {};
+          if (!state.loggedCompletedJobs[state.activeJobId]) {
+            state.loggedCompletedJobs[state.activeJobId] = true;
+            logToTerminal(terminalId, 'RENDER THÀNH CÔNG HOÀN TẤT!', 'success');
+            showToast('Render video thành công!', 'success');
+          }
+          handleJobFinishedSuccess(res);
+        } else if (status === 'FAILED' || status === 'ERROR') {
+          stopAutoPolling();
+          logToTerminal(terminalId, `Render thất bại: ${errMsg}`, 'error');
+          showToast(`Render thất bại: ${errMsg}`, 'error');
+        }
+      } catch (err) {
+        logToTerminal(terminalId, 'Lỗi kiểm tra tiến trình: ' + err.message, 'warn');
+      }
+    }
+
+    function handleJobFinishedSuccess(jobData) {
+      const mediaUrl = jobData.videoUrl 
+                    || jobData.video_url 
+                    || jobData.cloudinaryUrl 
+                    || jobData.cloudinary_url 
+                    || jobData.outputUrl 
+                    || jobData.output_url 
+                    || jobData.fileUrl 
+                    || jobData.file_url 
+                    || (jobData.data && (jobData.data.videoUrl || jobData.data.video_url || jobData.data.cloudinaryUrl || jobData.data.cloudinary_url || jobData.data.fileUrl || jobData.data.file_url))
+                    || '';
+      if (!mediaUrl) return;
+
+      const fullUrl = resolveMediaUrl(mediaUrl);
+      const isPod = state.currentView === 'podcast' || (jobData.render_mode && String(jobData.render_mode).includes('pod'));
+      const resultBox = isPod ? $('podResultContainer') : $('wbResultContainer');
+      const player = isPod ? $('podVideoPlayer') : $('wbVideoPlayer');
+      const dlBtn = isPod ? $('btnPodDownloadMp4') : $('btnWbDownloadMp4');
+      const openBtn = isPod ? $('btnPodOpenNewTab') : $('btnWbOpenNewTab');
+
+      if (resultBox && player) {
+        resultBox.style.display = 'block';
+        if (player.src !== fullUrl) {
+          player.src = fullUrl;
+          try { player.load(); } catch (_) {}
+        }
+        if (dlBtn) dlBtn.href = fullUrl;
+        if (openBtn) openBtn.href = fullUrl;
+        if (!isPod && $('lblWbContentId')) {
+          $('lblWbContentId').textContent = '#' + (state.activeContentId || jobData.contentId || '--');
+        }
+        try {
+          gsap.from(resultBox, { opacity: 0, y: 15, duration: 0.3 });
+        } catch (_) {}
+      }
+
+      const terminalId = isPod ? 'podTerminalBox' : 'wbTerminalBox';
+      if (!state.loggedVideoLinks) state.loggedVideoLinks = {};
+      if (!state.loggedVideoLinks[state.activeJobId || fullUrl]) {
+        state.loggedVideoLinks[state.activeJobId || fullUrl] = true;
+        logToTerminal(terminalId, `🎬 Video MP4 đã sẵn sàng: <a href="${fullUrl}" target="_blank" rel="noopener" style="color:#60a5fa; text-decoration:underline; font-weight:700;">Xem video trực tiếp / Tải file</a>`, 'success', true);
+      }
+
+      // If podcast, load sentences automatically
+      if (isPod && state.activeContentId) {
+        loadPodcastSentencesForPatch();
+      }
+    }
+
+    function promptLookupJobId() {
+      const current = state.activeJobId || '';
+      const jid = prompt('Nhập mã tiến trình (Job ID) bạn muốn xem lại:', current);
+      if (jid && jid.trim()) {
+        state.activeJobId = jid.trim();
+        localStorage.setItem('suky_lab_last_job_id', state.activeJobId);
+        if ($('lblActiveJobIdWb')) $('lblActiveJobIdWb').textContent = state.activeJobId;
+        if ($('lblActiveJobIdPod')) $('lblActiveJobIdPod').textContent = state.activeJobId;
+        pollRenderJobOnce();
+      }
+    }
+
+    async function submitVideoAiShieldFromActive() {
+      if (!state.activeContentId) {
+        showToast('Chưa có Content ID để gửi duyệt.', 'error');
+        return;
+      }
+      submitVideoAiShield(state.activeContentId);
+    }
+
+    /* ==========================================================================
+       VIEW 3: KHO VIDEO, ADMIN DUYỆT & TÌM KIẾM
+       ========================================================================== */
+    function switchLibrarySubtab(tab) {
+      const subtabs = ['CreatorLib', 'AdminMod', 'PublicSearch'];
+      const activeKey = tab === 'creator' ? 'CreatorLib' : (tab === 'admin' ? 'AdminMod' : 'PublicSearch');
+
+      subtabs.forEach((k) => {
+        const btn = $('subtabBtn' + k);
+        const panel = $('subpanel' + k);
+        if (btn) btn.classList.toggle('active', k === activeKey);
+        if (panel) panel.style.display = k === activeKey ? 'block' : 'none';
+      });
+
+      if (tab === 'creator') loadCreatorVideoLibrary(true);
+      if (tab === 'admin') loadAdminModerationQueue();
+    }
+
+    function refreshCurrentLibraryTab() {
+      const isCreator = $('subpanelCreatorLib').style.display !== 'none';
+      const isAdmin = $('subpanelAdminMod').style.display !== 'none';
+      if (isCreator) loadCreatorVideoLibrary();
+      else if (isAdmin) loadAdminModerationQueue();
+      else testPublicVideoSearch();
+    }
+
+    async function loadCreatorVideoLibrary(silent = false) {
+      if (!state.creatorToken) return;
+      try {
+        if (!silent) showToast('Đang tải kho video của Creator...', 'info');
+        const status = $('libStatus')?.value || '';
+        const keyword = ($('libKeyword')?.value || '').trim();
+        let url = '/api/v1/creator/studio/videos?';
+        if (status) url += `status=${encodeURIComponent(status)}&`;
+        if (keyword) url += `keyword=${encodeURIComponent(keyword)}&`;
+        const res = await apiCall(url);
+        state.cachedVideos = Array.isArray(res) ? res : (res?.data || res?.content || []);
+        renderCreatorVideoCards(state.cachedVideos);
+      } catch (err) {
+        $('creatorVideoGrid').innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--color-danger); padding:24px;">Lỗi tải kho video: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    function filterCreatorVideosLocal() {
+      const q = ($('libKeyword')?.value || '').trim().toLowerCase();
+      if (!q) {
+        renderCreatorVideoCards(state.cachedVideos);
+        return;
+      }
+      const filtered = state.cachedVideos.filter((v) =>
+        (v.title || '').toLowerCase().includes(q) || (v.description || '').toLowerCase().includes(q)
+      );
+      renderCreatorVideoCards(filtered);
+    }
+
+    function renderCreatorVideoCards(list) {
+      const grid = $('creatorVideoGrid');
+      if (!grid) return;
+      if (!list || list.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; padding:32px; text-align:center; color:var(--color-fg-muted);">Không tìm thấy video nào. Hãy tạo video ở tab Whiteboard hoặc Podcast!</div>';
+        return;
+      }
+
+      grid.innerHTML = list.map((v) => {
+        const poster = resolveMediaUrl(v.thumbnailUrl || v.coverImage || '');
+        const videoUrl = resolveMediaUrl(v.fileUrl || '');
+        const status = (v.status || 'DRAFT').toUpperCase();
+        const cid = v.contentId || v.id;
+        const dur = v.durationSeconds ? Math.floor(v.durationSeconds / 60) + ':' + String(v.durationSeconds % 60).padStart(2, '0') : '--:--';
+        return `
+          <div class="lib-video-card" id="libCard_${cid}">
+            <div style="position:relative; width:100%; height:160px; background:#000; overflow:hidden;">
+              <img class="lib-video-poster" src="${poster || ''}" alt="${escapeHtml(v.title)}" onerror="this.src='https://placehold.co/600x338/0f172a/94a3b8?text=Suku+Video'">
+              <div style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.75); padding:2px 6px; border-radius:4px; font-size:0.68rem; font-family:var(--font-mono); font-weight:600; color:#fff;">
+                ${dur}
+              </div>
+            </div>
+            <div class="lib-video-content">
+              <div class="lib-video-meta" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-family:var(--font-mono); font-size:0.72rem; color:var(--color-fg-muted);">#${cid} &bull; ${escapeHtml(v.channelName || 'Kênh')}</span>
+                <span class="status-badge ${status.toLowerCase()}">${status}</span>
+              </div>
+              <h3 class="lib-video-title" style="font-size:0.86rem; font-weight:700; margin-bottom:8px; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;" title="${escapeHtml(v.title)}">${escapeHtml(v.title)}</h3>
+              <div style="display:flex; align-items:center; gap:12px; font-size:0.7rem; color:var(--color-fg-muted); margin-bottom:8px;">
+                <span>👁 ${v.viewCount || 0}</span>
+                <span>👍 ${v.likeCount || 0}</span>
+                <span>💬 ${v.commentCount || 0}</span>
+              </div>
+            </div>
+            <div class="lib-video-actions" style="padding:8px 12px; border-top:1px solid var(--color-border); display:flex; gap:6px; flex-wrap:wrap; background:rgba(255,255,255,0.02);">
+              <button type="button" class="btn btn-secondary btn-xs" onclick="inspectVideoDetailModal(${cid})" title="Xem chi tiết &amp; phát video">
+                <svg class="icon icon-xs"><use href="#ic-film"></use></svg>
+                <span>Chi tiết</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="loadVideoIntoStudio(${cid})" title="Nạp kịch bản vào Studio để sửa phân cảnh và render lại">
+                <svg class="icon icon-xs"><use href="#ic-edit"></use></svg>
+                <span>Sửa cảnh</span>
+              </button>
+              ${status === 'COMPLETED' ? `
+                <button type="button" class="btn btn-primary btn-xs" onclick="submitVideoAiShield(${cid})" title="Gửi duyệt AI Shield để xuất bản">
+                  <svg class="icon icon-xs"><use href="#ic-shield"></use></svg>
+                  <span>Gửi duyệt</span>
+                </button>` : ''}
+              ${videoUrl ? `
+                <a href="${videoUrl}" target="_blank" rel="noopener" class="btn btn-ghost btn-xs" title="Tải file MP4">
+                  <svg class="icon icon-xs"><use href="#ic-download"></use></svg>
+                </a>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      try {
+        if (typeof gsap !== 'undefined') {
+          gsap.from('#creatorVideoGrid .lib-video-card', {
+            opacity: 0,
+            y: 15,
+            duration: 0.28,
+            stagger: 0.04,
+            ease: 'power2.out'
+          });
+        }
+      } catch (_) {}
+    }
+
+    async function loadVideoIntoStudio(contentId) {
+      try {
+        showToast(`Đang tải dữ liệu Video #${contentId} vào Studio...`, 'info');
+        const v = await apiCall(`/api/v1/creator/studio/videos/${contentId}`);
+
+        switchView('whiteboard');
+
+        if ($('wbTopic')) $('wbTopic').value = v.title || '';
+        state.activeContentId = v.contentId;
+        state.activeArtifactId = v.artifactId;
+
+        let script = v.description || v.title || '';
+        let sentences = script.split(/(?<=[.?!])\s+/).filter((s) => s.trim().length > 0);
+        if (sentences.length === 0) sentences = [script];
+
+        state.storyboard = {
+          title: v.title,
+          thumbnailPrompt: `Cinematic historical documentary cover art for ${v.title}, ancient Vietnam, high quality`,
+          scenes: sentences.slice(0, 4).map((text, idx) => ({
+            sceneNumber: idx + 1,
+            sceneTitle: `Phân cảnh ${idx + 1}`,
+            durationSeconds: Math.max(12, Math.min(30, Math.round(text.split(/\s+/).length / 3.2))),
+            scriptText: text,
+            suggestedImagePrompt: `Historical painting illustration of ${v.title}, scene ${idx + 1}, ancient Vietnamese battle, 16:9 widescreen aspect ratio`
+          }))
+        };
+
+        if (v.thumbnailUrl) {
+          state.sceneImages['scene_1'] = v.thumbnailUrl;
+          state.sceneImages['1'] = v.thumbnailUrl;
+        }
+
+        renderWhiteboardScenesUI();
+        showToast(`Đã nạp Video #${contentId} vào Studio! Bạn có thể chỉnh sửa phân cảnh và render lại.`, 'success');
+        closeDetailModal();
+      } catch (err) {
+        showToast('Lỗi nạp video: ' + err.message, 'error');
+      }
+    }
+
+    function quickJumpToPatch(contentId) {
+      switchView('podcast');
+      $('patchContentIdInput').value = contentId;
+      loadPodcastSentencesForPatch();
+    }
+
+    async function submitVideoAiShield(contentId) {
+      try {
+        showToast(`Đang gửi Video #${contentId} vào hệ thống AI Shield...`, 'info');
+        const res = await apiCall(`/api/v1/creator/studio/videos/${contentId}/submit-publish`, { method: 'POST' });
+        showToast(res.message || 'Gửi kiểm duyệt AI Shield thành công!', 'success');
+        loadCreatorVideoLibrary(true);
+      } catch (err) {
+        showToast('Lỗi gửi kiểm duyệt: ' + err.message, 'error');
+      }
+    }
+
+    async function inspectVideoDetailModal(contentId) {
+      try {
+        showToast(`Đang tải chi tiết Video #${contentId}...`, 'info');
+        const v = await apiCall(`/api/v1/creator/studio/videos/${contentId}`);
+        const mediaUrl = resolveMediaUrl(v.fileUrl || '');
+        const poster = resolveMediaUrl(v.thumbnailUrl || '');
+        const status = (v.status || 'DRAFT').toUpperCase();
+
+        openDetailModal(`Chi Tiết Video #${contentId}`, `
+          <div style="display:flex; flex-direction:column; gap:16px;">
+            ${mediaUrl ? `
+              <div class="video-viewport" style="margin:0; border-radius:10px; overflow:hidden;">
+                <video src="${mediaUrl}" poster="${poster}" controls playsinline style="width:100%; max-height:280px; display:block; background:#000;"></video>
+              </div>
+            ` : `
+              <div style="height:140px; background:#000; border-radius:10px; display:flex; align-items:center; justify-content:center; color:var(--color-fg-muted); font-size:0.85rem;">
+                Chưa có tệp video kết xuất
+              </div>
+            `}
+
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span class="status-badge ${status.toLowerCase()}">${status}</span>
+                <span style="font-size:0.75rem; color:var(--color-fg-muted); font-family:var(--font-mono);">Kênh: ${escapeHtml(v.channelName || '--')} &bull; Thời lượng: ${v.durationSeconds || 0}s</span>
+              </div>
+              <h3 style="font-size:1.05rem; font-weight:800; line-height:1.35; color:var(--color-fg); margin:0 0 8px 0;">${escapeHtml(v.title || '')}</h3>
+              <p style="font-size:0.82rem; color:var(--color-fg-secondary); line-height:1.5; margin:0; max-height:90px; overflow-y:auto;">${escapeHtml(v.description || 'Không có mô tả.')}</p>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; padding:10px; background:rgba(255,255,255,0.03); border-radius:8px; border:1px solid var(--color-border); text-align:center;">
+              <div>
+                <div style="font-size:0.7rem; color:var(--color-fg-muted);">Lượt thích</div>
+                <strong style="color:var(--color-fg); font-size:0.95rem;">${v.likeCount || 0}</strong>
+              </div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--color-fg-muted);">Không thích</div>
+                <strong style="color:var(--color-fg); font-size:0.95rem;">${v.dislikeCount || 0}</strong>
+              </div>
+              <div>
+                <div style="font-size:0.7rem; color:var(--color-fg-muted);">Bình luận</div>
+                <strong style="color:var(--color-fg); font-size:0.95rem;">${v.commentCount || 0}</strong>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; padding-top:8px; border-top:1px solid var(--color-border);">
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="loadVideoIntoStudio(${contentId})" title="Nạp kịch bản vào Studio để sửa phân cảnh và render lại">
+                  <svg class="icon icon-sm"><use href="#ic-edit"></use></svg>
+                  <span>Sửa phân cảnh Studio</span>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="quickJumpToPatch(${contentId})" title="Vá câu thuyết minh">
+                  <svg class="icon icon-sm"><use href="#ic-mic"></use></svg>
+                  <span>Vá câu Podcast</span>
+                </button>
+              </div>
+              <div style="display:flex; gap:6px;">
+                ${status === 'COMPLETED' ? `
+                  <button type="button" class="btn btn-primary btn-sm" onclick="submitVideoAiShield(${contentId}); closeDetailModal();">
+                    <svg class="icon icon-sm"><use href="#ic-shield"></use></svg>
+                    <span>Gửi Duyệt AI Shield</span>
+                  </button>
+                ` : ''}
+                ${mediaUrl ? `
+                  <a href="${mediaUrl}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                    <svg class="icon icon-sm"><use href="#ic-download"></use></svg>
+                    <span>Tải MP4</span>
+                  </a>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        `);
+      } catch (err) {
+        showToast('Lỗi xem chi tiết: ' + err.message, 'error');
+      }
+    }
+
+    /* Admin Moderation Queue */
+    async function loadAdminModerationQueue() {
+      const box = $('adminReviewQueueContainer');
+      if (!state.adminToken) {
+        box.innerHTML = `
+          <div style="padding:24px; text-align:center; color:var(--color-fg-muted);">
+            Bạn chưa đăng nhập Admin. Bấm <strong>"Đăng Nhập Admin Mẫu"</strong> ở trên để truy cập hàng đợi kiểm duyệt!
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        const res = await apiCall('/api/v1/admin/moderation/reviews?status=PENDING&page=0&size=20', {
+          tokenOverride: state.adminToken
+        });
+        const list = Array.isArray(res) ? res : (res?.content || []);
+        if (list.length === 0) {
+          box.innerHTML = '<div style="padding:24px; text-align:center; color:var(--color-fg-muted);">Hàng đợi kiểm duyệt hiện đang trống.</div>';
+          return;
+        }
+
+        box.innerHTML = list.map((r) => `
+          <div class="panel-card" style="margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
+              <div>
+                <strong style="font-size:0.9rem;">Review #${r.id} &bull; Content #${r.contentId || r.content?.id}</strong>
+                <div style="font-size:0.75rem; color:var(--color-fg-muted);">${escapeHtml(r.content?.title || 'Tiêu đề video')}</div>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="inspectAdminSafetyReport(${r.id})">Báo Cáo An Toàn</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="submitAdminDecision(${r.id}, 'APPROVED')">Phê Duyệt</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="submitAdminDecision(${r.id}, 'REJECTED')">Từ Chối</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        box.innerHTML = `<div style="padding:24px; text-align:center; color:var(--color-danger);">Lỗi tải hàng đợi admin: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    async function inspectAdminSafetyReport(reviewId) {
+      try {
+        const rep = await apiCall(`/api/v1/admin/moderation/reviews/${reviewId}/report`, {
+          tokenOverride: state.adminToken
+        });
+        openDetailModal(`Báo Cáo An Toàn AI Shield #${reviewId}`, `
+          <pre style="background:var(--color-input-bg); padding:12px; border-radius:6px; font-family:var(--font-mono); font-size:0.76rem; max-height:360px; overflow-y:auto;">${escapeHtml(JSON.stringify(rep, null, 2))}</pre>
+        `);
+      } catch (err) {
+        showToast('Lỗi tải báo cáo: ' + err.message, 'error');
+      }
+    }
+
+    async function submitAdminDecision(reviewId, decision) {
+      try {
+        showToast(`Đang gửi quyết định ${decision}...`, 'info');
+        await apiCall(`/api/v1/admin/moderation/reviews/${reviewId}/decision`, {
+          method: 'POST',
+          tokenOverride: state.adminToken,
+          body: { decision, reason: decision === 'APPROVED' ? 'Đã thẩm định đạt chuẩn' : 'Chưa phù hợp tiêu chí kiểm duyệt' }
+        });
+        showToast(`Đã ra quyết định ${decision} cho Review #${reviewId}!`, 'success');
+        loadAdminModerationQueue();
+      } catch (err) {
+        showToast('Lỗi ra quyết định: ' + err.message, 'error');
+      }
+    }
+
+    /* Public Search */
+    async function testPublicVideoSearch() {
+      const q = $('pubSearchKeyword').value.trim();
+      const grid = $('pubSearchResultGrid');
+      try {
+        showToast('Đang tìm kiếm...', 'info');
+        const res = await apiCall(`/api/v1/contents/search?q=${encodeURIComponent(q)}&page=0&size=12`);
+        const list = Array.isArray(res) ? res : (res?.content || []);
+        if (list.length === 0) {
+          grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:24px; color:var(--color-fg-muted);">Không tìm thấy video nào. Chỉ những video có trạng thái PUBLISHED mới xuất hiện ở đây.</div>';
+          return;
+        }
+        grid.innerHTML = list.map((v) => `
+          <div class="lib-video-card">
+            <img class="lib-video-poster" src="${resolveMediaUrl(v.thumbnailUrl || v.coverImage || '')}" alt="${escapeHtml(v.title)}" onerror="this.src='https://placehold.co/600x338/182234/94a3b8?text=No+Poster'">
+            <div class="lib-video-content">
+              <span class="status-badge published">PUBLISHED</span>
+              <h3 class="lib-video-title">${escapeHtml(v.title)}</h3>
+              <div style="font-size:0.74rem; color:var(--color-fg-muted);">${escapeHtml(v.channelName || '')}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--color-danger); padding:24px;">Lỗi tìm kiếm: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    /* ==========================================================================
+       GLOBAL CLIPBOARD PASTE LISTENER (Ctrl+V / Cmd+V for Images)
+       ========================================================================== */
+    window.addEventListener('paste', async (e) => {
+      const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const file = items[i].getAsFile();
+          if (!file) continue;
+
+          e.preventDefault();
+
+          if (state.currentView === 'podcast') {
+            await processPodCoverFile(file);
+            return;
+          }
+
+          const scenes = state.storyboard?.scenes || [];
+          if (scenes.length === 0) {
+            showToast('Vui lòng nạp kịch bản phân cảnh trước khi dán ảnh.', 'warn');
+            return;
+          }
+
+          let targetSceneNum = null;
+          const hoveredCard = document.querySelector('.scene-card:hover');
+          if (hoveredCard && hoveredCard.id) {
+            const m = hoveredCard.id.match(/\d+/);
+            if (m) targetSceneNum = Number(m[0]);
+          }
+
+          if (!targetSceneNum) {
+            for (let s of scenes) {
+              const num = s.sceneNumber || 1;
+              if (!state.sceneImages[`scene_${num}`] && !state.sceneImages[`${num}`]) {
+                targetSceneNum = num;
+                break;
+              }
+            }
+          }
+
+          if (!targetSceneNum) {
+            targetSceneNum = scenes[0].sceneNumber || 1;
+          }
+
+          showToast(`📋 Đã nhận ảnh từ Clipboard! Đang nạp vào Cảnh ${targetSceneNum}...`, 'info');
+          await processSceneImageFile(targetSceneNum, file);
+          break;
+        }
+      }
+    });
+
+    /* ==========================================================================
+       INITIALIZATION
+       ========================================================================== */
+    window.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      updateAuthHeaderUI();
+      if (state.creatorToken) {
+        fetchMyChannelAndSeries();
+        loadAiSettings();
+      }
+      // Khôi phục tác vụ render gần nhất nếu có
+      if (state.activeJobId) {
+        if ($('lblActiveJobIdWb')) $('lblActiveJobIdWb').textContent = state.activeJobId;
+        if ($('lblActiveJobIdPod')) $('lblActiveJobIdPod').textContent = state.activeJobId;
+        pollRenderJobOnce();
+      }
+    });
+  </script>
+</body>
+</html>

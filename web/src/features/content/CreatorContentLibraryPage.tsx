@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dialog';
 import { CreatorVideoItem } from '@/types/creatorContent';
 import { formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
+import { resolveVideoThumbnail, resolveHistoricalThumbnail } from '@/features/studio/creatorStudioUtils';
 
 const STATUS_TABS: { key: string; label: string }[] = [
   { key: 'ALL', label: 'Tất cả' },
@@ -442,25 +443,45 @@ export const CreatorContentLibraryPage: React.FC = () => {
                     className="relative aspect-video bg-surface-subtle border-b border-border overflow-hidden flex items-center justify-center cursor-pointer group/thumb hover:brightness-95 transition-all duration-200 select-none"
                     title={`Xem video: ${item.title}`}
                   >
+                    {/* Thumbnail Poster Image: User upload -> Video snapshot -> Historical topic artwork */}
+                    {resolveHistoricalThumbnail(item.title, item.thumbnailUrl, item.fileUrl) ? (
+                      <img
+                        src={resolveHistoricalThumbnail(item.title, item.thumbnailUrl, item.fileUrl)}
+                        alt={item.title}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : null}
+
+                    {/* Gradient Overlay for contrast */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+
                     {/* Media preview icon */}
-                    <div className="h-12 w-12 rounded-full bg-canvas/90 text-accent flex items-center justify-center shadow-md group-hover/thumb:scale-110 group-hover/thumb:bg-accent group-hover/thumb:text-canvas transition-all duration-200">
+                    <div className="relative z-10 h-11 w-11 rounded-full bg-black/60 backdrop-blur-xs text-white border border-white/20 flex items-center justify-center shadow-md group-hover/thumb:scale-110 group-hover/thumb:bg-accent group-hover/thumb:text-white transition-all duration-200">
                       <Play className="h-5 w-5 fill-current ml-0.5 opacity-90 group-hover/thumb:opacity-100" />
                     </div>
 
                     {/* Hover Callout Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-end p-2.5 pointer-events-none">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-end p-2.5 pointer-events-none z-10">
                       <span className="text-[11px] font-medium text-white flex items-center gap-1.5 drop-shadow-sm">
                         <Play className="h-3 w-3 fill-current text-accent" />
                         <span>Xem video ngay</span>
                       </span>
                     </div>
 
-                    {/* Top status & VIP pill overlay */}
+                    {/* Top status & VIP & Version pill overlay */}
                     <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10 pointer-events-none">
                       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                       {item.isExclusive && (
                         <Badge variant="accent" size="sm">
                           VIP
+                        </Badge>
+                      )}
+                      {item.version && item.version > 1 && (
+                        <Badge variant="outline" size="sm" className="bg-black/75 text-accent border-accent/40 font-mono text-[10px]">
+                          v{item.version}
                         </Badge>
                       )}
                     </div>

@@ -46,8 +46,11 @@ public class CreatorStudioController {
 
     @Operation(summary = "Tải ảnh minh họa cảnh lên Cloudinary", description = "Upload file ảnh cảnh vẽ tay lên Cloudinary, trả về link HTTPS an toàn để lưu vào hệ thống")
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<CreatorUploadImageResponse> uploadSceneImage(@RequestParam("file") MultipartFile file) {
-        CreatorUploadImageResponse response = creatorStudioService.uploadSceneImage(file);
+    public ApiResponse<CreatorUploadImageResponse> uploadSceneImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "folder", required = false) String folder
+    ) {
+        CreatorUploadImageResponse response = creatorStudioService.uploadSceneImage(file, folder);
         return ApiResponse.success("Tải ảnh lên Cloudinary thành công", response);
     }
 
@@ -112,7 +115,7 @@ public class CreatorStudioController {
         return ApiResponse.success("Lấy chi tiết video thành công", detail);
     }
 
-    @Operation(summary = "Chỉnh sửa thông tin video", description = "Cập nhật tiêu đề, mô tả hoặc chế độ độc quyền của video")
+    @Operation(summary = "Chỉnh sửa thông tin video", description = "Cập nhật tiêu đề, mô tả, ảnh thumbnail đại diện hoặc chế độ độc quyền của video")
     @PutMapping("/videos/{contentId}")
     public ApiResponse<CreatorVideoItemResponse> updateVideo(
             @PathVariable Long contentId,
@@ -121,6 +124,17 @@ public class CreatorStudioController {
         String email = SecurityUtils.getCurrentUserEmail();
         CreatorVideoItemResponse updated = creatorStudioService.updateVideo(email, contentId, request);
         return ApiResponse.success("Cập nhật thông tin video thành công", updated);
+    }
+
+    @Operation(summary = "Tải lên Thumbnail cho video", description = "Creator tải lên ảnh thumbnail riêng biệt cho video và lưu trữ lên CDN")
+    @PostMapping(value = "/videos/{contentId}/thumbnail", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<CreatorVideoItemResponse> uploadVideoThumbnail(
+            @PathVariable Long contentId,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorVideoItemResponse updated = creatorStudioService.uploadVideoThumbnail(email, contentId, file);
+        return ApiResponse.success("Tải lên thumbnail thành công", updated);
     }
 
     @Operation(summary = "Ẩn hoặc Hiện video", description = "Chuyển trạng thái video thành HIDDEN (ẩn) hoặc PUBLISHED (công khai)")
@@ -165,6 +179,25 @@ public class CreatorStudioController {
         String email = SecurityUtils.getCurrentUserEmail();
         Map<String, Object> result = creatorStudioService.previewVoice(email, request);
         return ApiResponse.success("Tạo âm thanh nghe thử thành công", result);
+    }
+
+    @Operation(summary = "Lấy danh sách các câu thuyết minh của video Podcast", description = "Truy xuất danh sách từng câu kịch bản kèm liên kết nghe thử giọng đọc tương ứng")
+    @GetMapping("/videos/{contentId}/podcast-sentences")
+    public ApiResponse<CreatorPodcastSentencesResponse> getPodcastSentences(@PathVariable Long contentId) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorPodcastSentencesResponse res = creatorStudioService.getPodcastSentences(email, contentId);
+        return ApiResponse.success("Lấy danh sách câu kịch bản thành công", res);
+    }
+
+    @Operation(summary = "Vá và tái tạo video Podcast theo câu", description = "Chỉ thu âm lại các câu được chỉnh sửa và render lại video Podcast để tối ưu chi phí")
+    @PostMapping("/videos/{contentId}/patch-podcast")
+    public ApiResponse<CreatorPatchPodcastResponse> patchPodcastVideo(
+            @PathVariable Long contentId,
+            @Valid @RequestBody CreatorPatchPodcastRequest request
+    ) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorPatchPodcastResponse res = creatorStudioService.patchPodcastVideo(email, contentId, request);
+        return ApiResponse.success("Vá kịch bản và kết xuất lại video podcast thành công", res);
     }
 }
 

@@ -12,6 +12,8 @@ import com.prm.channel.repository.TranscriptRepository;
 import com.prm.common.exception.AppException;
 import com.prm.common.service.FileStorageService;
 import com.prm.creator.dto.request.CreatorRenderRequest;
+import com.prm.creator.dto.request.CreatorUpdateVideoRequest;
+import com.prm.creator.dto.response.CreatorVideoItemResponse;
 import com.prm.creator.entity.CreatorAiSetting;
 import com.prm.creator.repository.CreatorAiSettingRepository;
 import com.prm.creator.service.impl.CreatorStudioServiceImpl;
@@ -28,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Optional;
 
@@ -141,10 +144,19 @@ class CreatorStudioAudioPodcastTest {
         assertEquals("Vào năm 1075, Lý Thường Kiệt chủ động đem quân tấn công sang đất Tống để tự vệ.", savedContent.getTextBody());
 
         ArgumentCaptor<Artifact> artifactCaptor = ArgumentCaptor.forClass(Artifact.class);
-        verify(artifactRepository).save(artifactCaptor.capture());
-        Artifact savedArtifact = artifactCaptor.getValue();
-        assertEquals("PODCAST_STUDIO", savedArtifact.getSourceType());
-        assertEquals("VIDEO", savedArtifact.getType());
+        verify(artifactRepository, times(2)).save(artifactCaptor.capture());
+        Artifact savedVideoArtifact = artifactCaptor.getAllValues().stream()
+                .filter(a -> "VIDEO".equals(a.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("PODCAST_STUDIO", savedVideoArtifact.getSourceType());
+        assertEquals("VIDEO", savedVideoArtifact.getType());
+
+        Artifact savedCoverArtifact = artifactCaptor.getAllValues().stream()
+                .filter(a -> "COVER".equals(a.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(request.getCoverImage(), savedCoverArtifact.getFileUrl());
     }
 
     @Test
@@ -195,5 +207,93 @@ class CreatorStudioAudioPodcastTest {
         assertThrows(AppException.class, () ->
                 creatorStudioService.renderAndSaveVideo("creator@example.com", request)
         );
+    }
+
+    @Test
+    @DisplayName("Whiteboard Mode: Creator chủ động thêm ảnh Thumbnail riêng biệt (thumbnailUrl)")
+    void testRenderAndSaveVideo_WhiteboardMode_WithCustomThumbnail_Success() {
+        CreatorRenderRequest request = CreatorRenderRequest.builder()
+                .title("Chiến thắng Điện Biên Phủ")
+                .renderMode("whiteboard")
+                .storyboard(java.util.Map.of("title", "Chiến dịch 56 ngày đêm"))
+                .sceneImages(java.util.Map.of("1", "https://example.com/scene1.jpg", "2", "https://example.com/scene2.jpg"))
+                .thumbnailUrl("https://example.com/custom-creator-thumbnail.jpg")
+                .durationSec(60)
+                .ttsEngine("edge-tts")
+                .voiceName("vi-VN-NamMinhNeural")
+                .build();
+
+        var response = creatorStudioService.renderAndSaveVideo("creator@example.com", request);
+        assertNotNull(response);
+
+        ArgumentCaptor<Artifact> artifactCaptor = ArgumentCaptor.forClass(Artifact.class);
+        verify(artifactRepository, atLeastOnce()).save(artifactCaptor.capture());
+
+        Artifact thumbArt = artifactCaptor.getAllValues().stream()
+                .filter(a -> "THUMBNAIL".equals(a.getType()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("https://example.com/custom-creator-thumbnail.jpg", thumbArt.getFileUrl());
+    }
+
+    @Test
+    @DisplayName("Update Video: Creator cập nhật ảnh thumbnail đại diện qua CreatorUpdateVideoRequest")
+    void testUpdateVideo_WithCustomThumbnail_Success() {
+        Content content = Content.builder()
+                .id(105L)
+                .title("Video cũ")
+                .channel(mockChannel)
+                .status("DRAFT")
+                .build();
+        Artifact oldThumb = Artifact.builder()
+                .id(205L)
+                .content(content)
+                .type("THUMBNAIL")
+                .fileUrl("https://example.com/old-thumb.jpg")
+                .build();
+
+        when(contentRepository.findByIdAndCreatorId(105L, 10L)).thenReturn(Optional.of(content));
+        when(artifactRepository.findLatestCoverArtifact(anyLong())).thenReturn(Optional.of(oldThumb));
+
+        CreatorUpdateVideoRequest updateReq = CreatorUpdateVideoRequest.builder()
+                .title("Tiêu đề mới")
+                .description("Mô tả mới")
+                .thumbnailUrl("https://example.com/brand-new-thumbnail.jpg")
+                .build();
+
+        CreatorVideoItemResponse res = creatorStudioService.updateVideo("creator@example.com", 105L, updateReq);
+
+        assertNotNull(res);
+        assertEquals("Tiêu đề mới", res.getTitle());
+        assertEquals("https://example.com/brand-new-thumbnail.jpg", res.getThumbnailUrl());
+        assertEquals("https://example.com/brand-new-thumbnail.jpg", oldThumb.getFileUrl());
+        verify(artifactRepository).save(oldThumb);
+    }
+
+    @Test
+    @DisplayName("Upload Thumbnail: Creator trực tiếp tải lên tệp ảnh thumbnail tùy chỉnh")
+    void testUploadVideoThumbnail_Success() {
+        Content content = Content.builder()
+                .id(106L)
+                .title("Trận Cầu Giấy 1873")
+                .channel(mockChannel)
+                .status("DRAFT")
+                .build();
+
+        when(contentRepository.findByIdAndCreatorId(106L, 10L)).thenReturn(Optional.of(content));
+        when(artifactRepository.findLatestCoverArtifact(106L)).thenReturn(Optional.empty());
+        when(fileStorageService.uploadImage(any(), eq("creator/thumbnails")))
+                .thenReturn("https://res.cloudinary.com/prm/creator/thumbnails/custom_thumb.png");
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "thumb.png", "image/png", "fake image bytes".getBytes()
+        );
+
+        CreatorVideoItemResponse res = creatorStudioService.uploadVideoThumbnail("creator@example.com", 106L, file);
+
+        assertNotNull(res);
+        assertEquals("https://res.cloudinary.com/prm/creator/thumbnails/custom_thumb.png", res.getThumbnailUrl());
+        verify(fileStorageService).uploadImage(file, "creator/thumbnails");
+        verify(artifactRepository, atLeastOnce()).save(any(Artifact.class));
     }
 }

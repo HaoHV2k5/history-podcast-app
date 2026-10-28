@@ -12,6 +12,7 @@ import com.prm.channel.repository.ChannelRepository;
 import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.repository.ModerationReviewRepository;
 import com.prm.channel.repository.TranscriptRepository;
+import com.prm.common.enums.ArtifactStatus;
 import com.prm.common.enums.ContentStatus;
 import com.prm.common.exception.AppException;
 import com.prm.common.service.FileStorageService;
@@ -149,9 +150,11 @@ class CreatorStudioSubmitPublishTest {
     @DisplayName("Video đang ở trạng thái PENDING_REVIEW không được gửi trùng lặp")
     void testSubmitVideoForPublish_AlreadyPendingReview() {
         content.setStatus(ContentStatus.PENDING_REVIEW.name());
+        artifact.setStatus(ArtifactStatus.PENDING_REVIEW.name());
 
         when(userRepository.findByEmail("creator@historypodcast.com")).thenReturn(Optional.of(creator));
         when(contentRepository.findByIdAndCreatorId(100L, 10L)).thenReturn(Optional.of(content));
+        when(artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(100L)).thenReturn(Optional.of(artifact));
 
         AppException ex = assertThrows(AppException.class, () ->
                 creatorStudioService.submitVideoForPublish("creator@historypodcast.com", 100L)
@@ -160,17 +163,54 @@ class CreatorStudioSubmitPublishTest {
     }
 
     @Test
-    @DisplayName("Video đã PUBLISHED không được gửi duyệt lại")
+    @DisplayName("Video đã PUBLISHED và không có bản vá mới thì không được gửi duyệt lại")
     void testSubmitVideoForPublish_AlreadyPublished() {
         content.setStatus(ContentStatus.PUBLISHED.name());
+        artifact.setStatus(ArtifactStatus.PUBLISHED.name());
 
         when(userRepository.findByEmail("creator@historypodcast.com")).thenReturn(Optional.of(creator));
         when(contentRepository.findByIdAndCreatorId(100L, 10L)).thenReturn(Optional.of(content));
+        when(artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(100L)).thenReturn(Optional.of(artifact));
 
         AppException ex = assertThrows(AppException.class, () ->
                 creatorStudioService.submitVideoForPublish("creator@historypodcast.com", 100L)
         );
         assertTrue(ex.getMessage().contains("đã được xuất bản"));
+    }
+
+    @Test
+    @DisplayName("Video đang PUBLISHED (v1), nhưng tác giả tạo bản vá v2 (COMPLETED): Cho phép gửi duyệt v2 mà không gỡ v1")
+    void testSubmitVideoForPublish_WhenContentPublished_AllowsSubmittingNewVersion() {
+        content.setStatus(ContentStatus.PUBLISHED.name());
+
+        Artifact artifactV2 = Artifact.builder()
+                .id(202L)
+                .content(content)
+                .version(2)
+                .status("COMPLETED")
+                .fileUrl("https://cloudinary.com/dienbienphu_v2.mp4")
+                .durationSeconds(180)
+                .build();
+
+        when(userRepository.findByEmail("creator@historypodcast.com")).thenReturn(Optional.of(creator));
+        when(contentRepository.findByIdAndCreatorId(100L, 10L)).thenReturn(Optional.of(content));
+        when(artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(100L)).thenReturn(Optional.of(artifactV2));
+        when(creatorAiSettingRepository.findByUserId(10L)).thenReturn(Optional.empty());
+
+        when(aiFilterLogRepository.save(any(AiFilterLog.class))).thenAnswer(i -> i.getArgument(0));
+        when(moderationReviewRepository.findTopByArtifactIdOrderByIdDesc(202L)).thenReturn(Optional.empty());
+        when(moderationReviewRepository.save(any(ModerationReview.class))).thenAnswer(i -> i.getArgument(0));
+        when(artifactRepository.save(any(Artifact.class))).thenAnswer(i -> i.getArgument(0));
+        when(contentRepository.save(any(Content.class))).thenAnswer(i -> i.getArgument(0));
+
+        CreatorVideoItemResponse response = creatorStudioService.submitVideoForPublish("creator@historypodcast.com", 100L);
+
+        assertNotNull(response);
+        assertEquals(ArtifactStatus.PENDING_REVIEW.name(), response.getStatus());
+        assertEquals(2, response.getVersion());
+        // Điểm mấu chốt: content vẫn giữ PUBLISHED để phục vụ người xem ngoài trang chủ không bị gián đoạn!
+        assertEquals(ContentStatus.PUBLISHED.name(), content.getStatus());
+        assertEquals(ArtifactStatus.PENDING_REVIEW.name(), artifactV2.getStatus());
     }
 
     @Test

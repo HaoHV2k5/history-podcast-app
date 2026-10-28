@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.*;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InputStream;
@@ -33,16 +34,20 @@ public class WhiteboardMediaController {
 
     @Operation(summary = "Truyền phát video hoặc tải tệp kết xuất của job", description = "Proxy trực tiếp dữ liệu video MP4 hoặc phụ đề SRT từ engine sang trình duyệt")
     @GetMapping(value = {
-            "/outputs/{jobId}/{fileName}",
-            "/api/v1/creator/studio/outputs/{jobId}/{fileName}"
+            "/outputs/{jobId}/{fileName:.+}",
+            "/outputs/{jobId}/audio_clips/{clipName:.+}",
+            "/api/v1/creator/studio/outputs/{jobId}/{fileName:.+}",
+            "/api/v1/creator/studio/outputs/{jobId}/audio_clips/{clipName:.+}"
     })
     public ResponseEntity<Resource> streamMediaFile(
             @PathVariable String jobId,
-            @PathVariable String fileName,
+            @PathVariable(value = "fileName", required = false) String fileName,
+            @PathVariable(value = "clipName", required = false) String clipName,
             @RequestHeader HttpHeaders requestHeaders
     ) {
         try {
-            String targetUrl = toolUrl + "/outputs/" + jobId + "/" + fileName;
+            String actualFile = StringUtils.hasText(clipName) ? "audio_clips/" + clipName : fileName;
+            String targetUrl = toolUrl + "/outputs/" + jobId + "/" + actualFile;
 
             HttpRequest.Builder reqBuilder = HttpRequest.newBuilder()
                     .uri(URI.create(targetUrl))
@@ -69,12 +74,18 @@ public class WhiteboardMediaController {
                     responseHeaders.set(HttpHeaders.CONTENT_TYPE, ct)
             );
             if (!responseHeaders.containsKey(HttpHeaders.CONTENT_TYPE)) {
-                if (fileName.endsWith(".mp4")) {
+                if (actualFile.endsWith(".mp4")) {
                     responseHeaders.setContentType(MediaType.valueOf("video/mp4"));
-                } else if (fileName.endsWith(".mp3")) {
+                } else if (actualFile.endsWith(".mp3")) {
                     responseHeaders.setContentType(MediaType.valueOf("audio/mpeg"));
-                } else if (fileName.endsWith(".srt")) {
+                } else if (actualFile.endsWith(".wav")) {
+                    responseHeaders.setContentType(MediaType.valueOf("audio/wav"));
+                } else if (actualFile.endsWith(".srt")) {
                     responseHeaders.setContentType(MediaType.TEXT_PLAIN);
+                } else if (actualFile.endsWith(".png")) {
+                    responseHeaders.setContentType(MediaType.IMAGE_PNG);
+                } else if (actualFile.endsWith(".jpg") || actualFile.endsWith(".jpeg")) {
+                    responseHeaders.setContentType(MediaType.IMAGE_JPEG);
                 } else {
                     responseHeaders.setContentType(MediaType.APPLICATION_OCTET_STREAM);
                 }

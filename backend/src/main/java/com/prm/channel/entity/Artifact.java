@@ -33,6 +33,9 @@ public class Artifact {
     private Integer durationSeconds;
     @Column(name = "status")
     private String status;
+    @Column(name = "version")
+    @Builder.Default
+    private Integer version = 1;
     @Column(name = "created_at")
     private Instant createdAt;
 }

@@ -1,12 +1,15 @@
 package com.prm.creator.service;
 
 import com.prm.creator.dto.request.CreatorAiSettingRequest;
+import com.prm.creator.dto.request.CreatorPatchPodcastRequest;
 import com.prm.creator.dto.request.CreatorRenderRequest;
 import com.prm.creator.dto.request.CreatorStoryboardRequest;
 import com.prm.creator.dto.request.CreatorUpdateVideoRequest;
 import com.prm.creator.dto.request.CreatorVoicePreviewRequest;
 import com.prm.creator.dto.response.CreatorAiSettingResponse;
 import com.prm.creator.dto.response.CreatorCommentItemResponse;
+import com.prm.creator.dto.response.CreatorPatchPodcastResponse;
+import com.prm.creator.dto.response.CreatorPodcastSentencesResponse;
 import com.prm.creator.dto.response.CreatorRenderResponse;
 import com.prm.creator.dto.response.CreatorUploadImageResponse;
 import com.prm.creator.dto.response.CreatorVideoDetailResponse;
@@ -33,6 +36,10 @@ public interface CreatorStudioService {
      * Upload ảnh vẽ tay/minh họa cảnh lên Cloudinary và trả về Cloudinary HTTPS URL.
      */
     CreatorUploadImageResponse uploadSceneImage(MultipartFile file);
+
+    default CreatorUploadImageResponse uploadSceneImage(MultipartFile file, String folder) {
+        return uploadSceneImage(file);
+    }
 
     /**
      * Gọi RAG & Gemini để nghiên cứu kịch bản dựa trên chủ đề (KHÔNG lưu vào database ở bước này).
@@ -73,9 +80,14 @@ public interface CreatorStudioService {
     CreatorVideoDetailResponse getVideoDetail(String email, Long contentId);
 
     /**
-     * Chỉnh sửa thông tin video (tiêu đề, mô tả/nội dung, trạng thái độc quyền).
+     * Chỉnh sửa thông tin video (tiêu đề, mô tả/nội dung, trạng thái độc quyền, ảnh thumbnail).
      */
     CreatorVideoItemResponse updateVideo(String email, Long contentId, CreatorUpdateVideoRequest request);
+
+    /**
+     * Tải lên và cập nhật ảnh Thumbnail tùy chỉnh do Creator thêm vô cho video.
+     */
+    CreatorVideoItemResponse uploadVideoThumbnail(String email, Long contentId, org.springframework.web.multipart.MultipartFile file);
 
     /**
      * Ẩn hoặc Hiện video (chuyển đổi trạng thái PUBLISHED <-> HIDDEN).
@@ -108,4 +120,14 @@ public interface CreatorStudioService {
      * và chuyển vào hàng đợi Admin xem xét duyệt.
      */
     CreatorVideoItemResponse submitVideoForPublish(String email, Long contentId);
+
+    /**
+     * Lấy danh sách các câu thuyết minh của video Podcast kèm URL phát thử âm thanh từng câu.
+     */
+    CreatorPodcastSentencesResponse getPodcastSentences(String email, Long contentId);
+
+    /**
+     * Vá và tái tạo lại video Audio Podcast (chỉ thu âm lại các câu được chỉnh sửa để tối ưu chi phí).
+     */
+    CreatorPatchPodcastResponse patchPodcastVideo(String email, Long contentId, CreatorPatchPodcastRequest request);
 }

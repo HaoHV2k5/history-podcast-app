@@ -9,6 +9,7 @@ import com.prm.channel.mapper.ContentMapper;
 import com.prm.channel.repository.ArtifactRepository;
 import com.prm.channel.repository.ContentRepository;
 import com.prm.channel.service.ContentService;
+import com.prm.common.enums.ArtifactStatus;
 import com.prm.common.enums.ContentStatus;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
@@ -27,6 +28,7 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -139,7 +141,9 @@ public class ContentServiceImpl implements ContentService {
                 }
             }
 
-            Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null);
+            // Ưu tiên lấy phiên bản đã PUBLISHED đang phát sóng công khai (tránh lộ bản nháp/bản vá v2 đang duyệt)
+            Artifact artifact = artifactRepository.findFirstByContentIdAndStatusOrderByCreatedAtDesc(content.getId(), ArtifactStatus.PUBLISHED.name())
+                    .orElseGet(() -> artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null));
             long likeCount = 0;
             long dislikeCount = 0;
             long commentCount = 0;
@@ -158,6 +162,13 @@ public class ContentServiceImpl implements ContentService {
                 commentCount = commentRepository.countByArtifactId(artifact.getId());
             }
 
+            String thumbnailUrl = null;
+            Optional<Artifact> coverOpt = artifactRepository.findLatestCoverArtifact(content.getId());
+            if (coverOpt.isPresent()) {
+                Artifact coverArt = coverOpt.get();
+                thumbnailUrl = StringUtils.hasText(coverArt.getOptimizedUrl()) ? coverArt.getOptimizedUrl() : coverArt.getFileUrl();
+            }
+
             result.add(PublicVideoItemResponse.builder()
                     .contentId(content.getId())
                     .artifactId(artifactId)
@@ -167,6 +178,7 @@ public class ContentServiceImpl implements ContentService {
                     .description(content.getTextBody())
                     .status(content.getStatus())
                     .fileUrl(fileUrl)
+                    .thumbnailUrl(thumbnailUrl)
                     .durationSeconds(duration)
                     .isExclusive(content.getIsExclusive())
                     .createdAt(content.getCreatedAt())

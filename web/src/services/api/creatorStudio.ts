@@ -19,6 +19,9 @@ import {
   CreatorRenderResponse,
   CreatorJobStatusResponse,
   CreatorUploadImageResponse,
+  CreatorPodcastSentencesResponse,
+  CreatorPatchPodcastRequest,
+  CreatorPatchPodcastResponse,
 } from '@/types/creatorStudio';
 
 export interface BusinessApiErrorPayload {
@@ -249,9 +252,15 @@ export const creatorStudioApi = {
    * Tải ảnh minh họa cảnh hoặc thumbnail lên Cloudinary
    * POST /api/v1/creator/studio/upload-image
    */
-  uploadSceneImage: async (file: File): Promise<ApiResponse<CreatorUploadImageResponse>> => {
+  uploadSceneImage: async (
+    file: File,
+    folder?: 'whiteboard/scenes' | 'whiteboard/thumbnails' | 'whiteboard/covers' | 'podcasts/covers' | 'series/covers'
+  ): Promise<ApiResponse<CreatorUploadImageResponse>> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (folder) {
+      formData.append('folder', folder);
+    }
     const res = await apiClient.post<ApiResponse<CreatorUploadImageResponse>>(
       '/api/v1/creator/studio/upload-image',
       formData,
@@ -302,6 +311,78 @@ export const creatorStudioApi = {
     if (res.data && res.data.success === false) {
       throw new BusinessApiError(
         res.data.message || 'Không thể cập nhật trạng thái hiển thị của video',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Tải lên Thumbnail riêng cho video từ máy tính
+   * POST /api/v1/creator/studio/videos/{contentId}/thumbnail
+   */
+  uploadVideoThumbnail: async (
+    contentId: number,
+    file: File,
+    folder?: string
+  ): Promise<ApiResponse<CreatorVideoItem>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folder) {
+      formData.append('folder', folder);
+    }
+    const res = await apiClient.post<ApiResponse<CreatorVideoItem>>(
+      `/api/v1/creator/studio/videos/${contentId}/thumbnail`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể tải lên ảnh thumbnail',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Lấy danh sách câu kịch bản kèm audio riêng lẻ để nghe thử trước khi vá
+   * GET /api/v1/creator/studio/videos/{contentId}/podcast-sentences
+   */
+  getPodcastSentences: async (
+    contentId: number
+  ): Promise<ApiResponse<CreatorPodcastSentencesResponse>> => {
+    const res = await apiClient.get<ApiResponse<CreatorPodcastSentencesResponse>>(
+      `/api/v1/creator/studio/videos/${contentId}/podcast-sentences`
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể lấy danh sách câu kịch bản',
+        res.data.errorCode
+      );
+    }
+    return res.data;
+  },
+
+  /**
+   * Vá và tái tạo video Podcast theo câu (< 10s)
+   * POST /api/v1/creator/studio/videos/{contentId}/patch-podcast
+   */
+  patchPodcast: async (
+    contentId: number,
+    request: CreatorPatchPodcastRequest
+  ): Promise<ApiResponse<CreatorPatchPodcastResponse>> => {
+    const res = await apiClient.post<ApiResponse<CreatorPatchPodcastResponse>>(
+      `/api/v1/creator/studio/videos/${contentId}/patch-podcast`,
+      request
+    );
+    if (res.data && res.data.success === false) {
+      throw new BusinessApiError(
+        res.data.message || 'Không thể vá kịch bản podcast',
         res.data.errorCode
       );
     }

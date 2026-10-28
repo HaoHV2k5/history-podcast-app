@@ -19,9 +19,9 @@ export const CreatorLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-canvas text-ink">
+    <div className="fixed inset-0 flex h-full w-full overflow-hidden bg-canvas text-ink">
       {/* Desktop Sidebar */}
-      <div className="hidden lg:block shrink-0">
+      <div className="hidden lg:block shrink-0 h-full">
         <CreatorSidebar
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed(!collapsed)}
@@ -52,7 +52,7 @@ export const CreatorLayout: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0 h-full">
         <CreatorHeader
           onToggleMobileMenu={() => setMobileOpen(true)}
           currentUser={
@@ -67,7 +67,7 @@ export const CreatorLayout: React.FC = () => {
           onLogout={handleLogout}
         />
 
-        <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
+        <main className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
           <div className="mx-auto max-w-7xl w-full">
             <Outlet />
           </div>

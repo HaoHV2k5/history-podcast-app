@@ -70,6 +70,7 @@ class StoryboardRequest(BaseModel):
     duration_sec: int = 60
     gemini_api_key: Optional[str] = None
     use_rag: bool = True
+    keep_original_script: Optional[bool] = False
 
 
 class VerifyScriptRequest(BaseModel):
@@ -103,15 +104,54 @@ class AiShieldVerifyRequest(BaseModel):
     gemini_api_key: Optional[str] = None
 
 
+class PodcastSentenceItem(BaseModel):
+    index: int
+    text: str
+    audio_url: Optional[str] = None
+    duration: Optional[float] = None
+
+
+class PodcastSentencesResponse(BaseModel):
+    job_id: str
+    topic: Optional[str] = None
+    tts_engine: Optional[str] = None
+    voice_name: Optional[str] = None
+    sentences: list[PodcastSentenceItem]
+
+
+class PodcastPatchItem(BaseModel):
+    index: int
+    text: str
+    re_record: Optional[bool] = True
+
+
+class PodcastPatchRequest(BaseModel):
+    job_id: str
+    patches: Optional[list[PodcastPatchItem]] = None
+    sentences: Optional[list[str]] = None
+    tts_engine: Optional[str] = None
+    voice_name: Optional[str] = None
+    elevenlabs_api_key: Optional[str] = None
+    cover_image_b64: Optional[str] = None
+
+
 
 def decode_base64_image(b64_str: str) -> bytes:
     if not b64_str:
         raise ValueError("Dữ liệu hình ảnh cảnh không được để trống")
     b64_str = b64_str.strip()
     if b64_str.startswith("http://") or b64_str.startswith("https://"):
+        parsed = urllib.parse.urlparse(b64_str)
+        host = (parsed.hostname or "").lower()
+        # Chặn SSRF đến các dải IP nội bộ và metadata endpoint
+        if host in ("localhost", "127.0.0.1", "::1", "169.254.169.254") or host.startswith("10.") or host.startswith("192.168."):
+            raise ValueError("Địa chỉ URL hình ảnh không được phép truy cập mạng nội bộ.")
         req = urllib.request.Request(b64_str, headers={"User-Agent": "WhiteboardStudio/1.0"})
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            return resp.read()
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            content_len = resp.headers.get("Content-Length")
+            if content_len and int(content_len) > 15 * 1024 * 1024:
+                raise ValueError("Kích thước tệp hình ảnh vượt quá 15MB")
+            return resp.read(15 * 1024 * 1024)
     if "," in b64_str:
         b64_str = b64_str.split(",", 1)[1]
     return base64.b64decode(b64_str)
@@ -195,8 +235,11 @@ async def get_job(job_id: str):
         if video_p.exists():
             JOBS[job_id] = {
                 "id": job_id,
+                "job_id": job_id,
                 "status": "completed",
-                "step": 7,
+                "step": 6,
+                "total_steps": 6,
+                "progress": 100,
                 "step_name": "Đã hoàn thành xuất bản video!",
                 "video_url": f"/outputs/{job_id}/final_whiteboard_video.mp4",
                 "srt_url": f"/outputs/{job_id}/subtitles.srt" if srt_p.exists() else None,
@@ -204,7 +247,15 @@ async def get_job(job_id: str):
             }
         else:
             raise HTTPException(status_code=404, detail="Job không tồn tại")
-    return JOBS[job_id]
+    
+    job = JOBS[job_id]
+    if job.get("status") == "completed":
+        job["progress"] = 100
+    elif "total_steps" in job and job["total_steps"] > 0:
+        step = job.get("step", 0)
+        tot = job["total_steps"]
+        job["progress"] = min(99, int(round((step / tot) * 100)))
+    return job
 
 
 class OutOfScopeHistoryError(Exception):
@@ -226,7 +277,13 @@ async def generate_storyboard_endpoint(req: StoryboardRequest):
         )
     # RAG là bắt buộc 100% cho mọi kịch bản
     try:
-        sb = call_gemini_storyboard(topic, user_key, duration_sec=dur, use_rag=True)
+        sb = call_gemini_storyboard(
+            topic,
+            user_key,
+            duration_sec=dur,
+            use_rag=True,
+            keep_original_script=bool(req.keep_original_script)
+        )
         return sb
     except OutOfScopeHistoryError as ose:
         raise HTTPException(status_code=400, detail=str(ose))
@@ -289,6 +346,272 @@ async def get_rag_status_endpoint():
         return {"status": "error", "error": str(e), "total_chunks": 0}
 
 
+@app.get("/api/podcast/{job_id}/sentences", response_model=PodcastSentencesResponse)
+async def get_podcast_sentences_endpoint(job_id: str):
+    job_dir = OUTPUTS_DIR / job_id
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy dữ liệu kết xuất của job '{job_id}'")
+
+    sentences: list[str] = []
+    manifest_p = job_dir / "manifest.json"
+    topic = ""
+    tts_engine = "edge-tts"
+    voice_name = "vi-VN-NamMinhNeural"
+
+    if manifest_p.exists():
+        try:
+            data = json.loads(manifest_p.read_text(encoding="utf-8"))
+            sentences = data.get("sentences", [])
+            topic = data.get("topic", "")
+            tts_engine = data.get("tts_engine", tts_engine)
+            voice_name = data.get("voice_name", voice_name)
+        except Exception as ex:
+            print(f"[Podcast Patch] Lỗi đọc manifest.json: {ex}")
+
+    if not sentences:
+        script_p = job_dir / "script.txt"
+        if script_p.exists():
+            raw_text = script_p.read_text(encoding="utf-8")
+            sentences = [s.strip() for s in re.split(r"\n\s*\n|\n", raw_text) if s.strip()]
+
+    if not sentences:
+        srt_p = job_dir / "subtitles.srt"
+        if srt_p.exists():
+            srt_content = srt_p.read_text(encoding="utf-8")
+            blocks = srt_content.strip().split("\n\n")
+            for block in blocks:
+                lines = block.strip().split("\n")
+                if len(lines) >= 3:
+                    text = " ".join(lines[2:]).strip()
+                    if text:
+                        sentences.append(text)
+
+    audio_dir = job_dir / "audio_clips"
+    sentence_items: list[PodcastSentenceItem] = []
+    for idx, s in enumerate(sentences, start=1):
+        mp3_p = audio_dir / f"clip_{idx}.mp3"
+        wav_p = audio_dir / f"clip_{idx}.wav"
+        dur = None
+        audio_url = None
+        if wav_p.exists():
+            dur = get_audio_duration_wave(wav_p)
+        if mp3_p.exists():
+            audio_url = f"/outputs/{job_id}/audio_clips/clip_{idx}.mp3"
+        elif wav_p.exists():
+            audio_url = f"/outputs/{job_id}/audio_clips/clip_{idx}.wav"
+
+        sentence_items.append(PodcastSentenceItem(
+            index=idx,
+            text=s,
+            audio_url=audio_url,
+            duration=dur
+        ))
+
+    return PodcastSentencesResponse(
+        job_id=job_id,
+        topic=topic,
+        tts_engine=tts_engine,
+        voice_name=voice_name,
+        sentences=sentence_items
+    )
+
+
+@app.post("/api/podcast/patch")
+def patch_podcast_endpoint(req: PodcastPatchRequest):
+    job_id = req.job_id
+    job_dir = OUTPUTS_DIR / job_id
+    if not job_dir.exists():
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy thư mục của job '{job_id}'")
+
+    # 1. Đọc metadata cũ
+    manifest_p = job_dir / "manifest.json"
+    meta = {}
+    if manifest_p.exists():
+        try:
+            meta = json.loads(manifest_p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    existing_sentences: list[str] = meta.get("sentences", [])
+    if not existing_sentences:
+        script_p = job_dir / "script.txt"
+        if script_p.exists():
+            existing_sentences = [s.strip() for s in re.split(r"\n\s*\n|\n", script_p.read_text(encoding="utf-8")) if s.strip()]
+
+    if not existing_sentences:
+        raise HTTPException(status_code=400, detail="Không tìm thấy kịch bản cũ của job để thực hiện vá!")
+
+    tts_engine = req.tts_engine or meta.get("tts_engine") or "edge-tts"
+    voice_name = req.voice_name or meta.get("voice_name") or "vi-VN-NamMinhNeural"
+    el_key = req.elevenlabs_api_key
+
+    # Xử lý cập nhật ảnh bìa mới cho Audio Podcast nếu có yêu cầu
+    cover_b64 = req.cover_image_b64
+    has_new_cover = False
+    if cover_b64 and (cover_b64.strip().startswith("http") or len(cover_b64.strip()) >= 50):
+        try:
+            print(f"[{job_id}] 🖼️ Smart Patch: Creator cập nhật ảnh bìa mới cho Audio Podcast...")
+            raw_cover_bytes = decode_base64_image(cover_b64)
+            cover_png = job_dir / "cover.png"
+            video_bg_png = job_dir / "podcast_video_bg.png"
+            process_podcast_cover(raw_cover_bytes, cover_png, video_bg_png)
+            meta["has_custom_cover"] = True
+            has_new_cover = True
+            print(f"[{job_id}] ✅ Đã cập nhật ảnh bìa và phông nền video podcast thành công!")
+        except Exception as e:
+            print(f"[{job_id}] ⚠️ Lỗi khi cập nhật ảnh bìa mới trong bản vá: {e}")
+
+    # Xây dựng danh sách câu mới và xác định các câu cần thu âm lại
+    new_sentences = list(existing_sentences)
+    re_record_map: dict[int, bool] = {}
+
+    if req.patches:
+        for p in req.patches:
+            idx = p.index
+            if 1 <= idx <= len(new_sentences):
+                old_text = new_sentences[idx - 1]
+                new_sentences[idx - 1] = p.text.strip()
+                if new_sentences[idx - 1] != old_text:
+                    re_record_map[idx] = True if p.re_record is None else bool(p.re_record)
+            elif idx == len(new_sentences) + 1:
+                new_sentences.append(p.text.strip())
+                re_record_map[idx] = True
+    elif req.sentences:
+        for idx, s in enumerate(req.sentences, start=1):
+            if idx <= len(existing_sentences):
+                old_s = existing_sentences[idx - 1]
+                if s.strip() != old_s.strip():
+                    re_record_map[idx] = True
+            else:
+                re_record_map[idx] = True
+        new_sentences = [s.strip() for s in req.sentences if s.strip()]
+
+    audio_dir = job_dir / "audio_clips"
+    audio_dir.mkdir(exist_ok=True)
+
+    modified_count = len(re_record_map)
+    rerecorded_count = 0
+
+    clip_paths_and_starts: list[tuple[Path, float]] = []
+    cues: list[dict] = []
+    current_time = 0.5
+    PAUSE_BETWEEN = 0.45
+
+    for idx, sentence in enumerate(new_sentences, start=1):
+        mp3_p = audio_dir / f"clip_{idx}.mp3"
+        wav_p = audio_dir / f"clip_{idx}.wav"
+
+        need_rerecord = re_record_map.get(idx, False) or not wav_p.exists()
+        if need_rerecord:
+            rerecorded_count += 1
+            print(f"[{job_id}] 🎙️ Smart Patch: Thu âm lại câu {idx}/{len(new_sentences)}: {sentence[:30]}...")
+            dur = generate_single_audio_clip(sentence, mp3_p, wav_p, tts_engine, voice_name, el_key)
+        else:
+            dur = get_audio_duration_wave(wav_p)
+
+        start_s = current_time
+        end_s = start_s + dur
+        clip_paths_and_starts.append((wav_p, start_s))
+        cues.append({
+            "startMs": int(round(start_s * 1000)),
+            "endMs": int(round(end_s * 1000)),
+            "text": sentence
+        })
+        current_time = end_s + PAUSE_BETWEEN
+
+    total_audio_duration = current_time + 0.8
+    podcast_wav = job_dir / "podcast_voice.wav"
+    mix_scene_audio(clip_paths_and_starts, podcast_wav, total_audio_duration)
+
+    podcast_mp3 = job_dir / "podcast_voice.mp3"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(podcast_wav),
+        "-c:a", "libmp3lame",
+        "-b:a", "192k",
+        str(podcast_mp3)
+    ], check=True)
+
+    # Cập nhật SRT
+    srt_full = job_dir / "subtitles.srt"
+    lines = []
+    for i, cue in enumerate(cues, start=1):
+        lines.append(str(i))
+        lines.append(f"{format_srt_time(cue['startMs'])} --> {format_srt_time(cue['endMs'])}")
+        lines.append(cue["text"])
+        lines.append("")
+    srt_full.write_text("\n".join(lines), encoding="utf-8")
+
+    # Render video Podcast
+    cover_png = job_dir / "cover.png"
+    video_bg_png = job_dir / "podcast_video_bg.png"
+    bg_to_use = video_bg_png if video_bg_png.exists() else cover_png
+
+    if not bg_to_use.exists():
+        raise HTTPException(status_code=400, detail="Không tìm thấy tệp ảnh bìa/nền của podcast để kết xuất video!")
+
+    raw_video_p = job_dir / "podcast_base.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-loop", "1",
+        "-i", str(bg_to_use),
+        "-c:v", "libx264",
+        "-tune", "stillimage",
+        "-pix_fmt", "yuv420p",
+        "-r", "25",
+        "-t", f"{total_audio_duration:.3f}",
+        str(raw_video_p)
+    ], check=True)
+
+    sub_video_p = job_dir / "podcast_subbed.mp4"
+    add_subtitles(raw_video_p, cues, sub_video_p)
+
+    final_video = job_dir / "final_whiteboard_video.mp4"
+    podcast_video = job_dir / "final_audio_podcast.mp4"
+    subprocess.run([
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(sub_video_p),
+        "-i", str(podcast_wav),
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-movflags", "+faststart",
+        "-t", f"{total_audio_duration:.3f}",
+        str(final_video)
+    ], check=True)
+
+    shutil.copyfile(final_video, podcast_video)
+
+    # Cập nhật script.txt và manifest.json
+    (job_dir / "script.txt").write_text("\n\n".join(new_sentences), encoding="utf-8")
+    meta["sentences"] = new_sentences
+    meta["updated_at"] = time.time()
+    manifest_p.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if job_id in JOBS:
+        JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
+        JOBS[job_id]["audio_url"] = f"/outputs/{job_id}/podcast_voice.mp3"
+        JOBS[job_id]["srt_url"] = f"/outputs/{job_id}/subtitles.srt"
+        if has_new_cover:
+            JOBS[job_id]["cover_url"] = f"/outputs/{job_id}/cover.png"
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "status": "completed",
+        "video_url": f"/outputs/{job_id}/final_whiteboard_video.mp4",
+        "audio_url": f"/outputs/{job_id}/podcast_voice.mp3",
+        "cover_url": f"/outputs/{job_id}/cover.png" if has_new_cover else None,
+        "srt_url": f"/outputs/{job_id}/subtitles.srt",
+        "modified_count": modified_count,
+        "re_recorded_count": rerecorded_count,
+        "total_sentences": len(new_sentences),
+        "duration_seconds": int(round(total_audio_duration)),
+        "script_text": "\n\n".join(new_sentences),
+        "has_new_cover": has_new_cover
+    }
+
+
 @app.post("/api/create")
 @app.post("/api/render")
 async def create_video(req: VideoRequest, background_tasks: BackgroundTasks):
@@ -297,7 +620,12 @@ async def create_video(req: VideoRequest, background_tasks: BackgroundTasks):
     if render_mode in ["audio_podcast", "podcast", "audio"]:
         cover_b64 = req.cover_image_b64
         if not cover_b64 and req.custom_images:
-            cover_b64 = req.custom_images.get("cover") or req.custom_images.get("1")
+            cover_b64 = (
+                req.custom_images.get("cover")
+                or req.custom_images.get("thumbnail")
+                or req.custom_images.get("1")
+                or req.custom_images.get("scene_1")
+            )
         if not cover_b64 or (not cover_b64.strip().startswith("http") and len(cover_b64.strip()) < 50):
             raise HTTPException(
                 status_code=400,
@@ -334,6 +662,12 @@ def log(job_id: str, message: str, step: int = None, step_name: str = None):
             JOBS[job_id]["step"] = step
         if step_name is not None:
             JOBS[job_id]["step_name"] = step_name
+        if JOBS[job_id].get("status") == "completed":
+            JOBS[job_id]["progress"] = 100
+        else:
+            tot = JOBS[job_id].get("total_steps", 6)
+            st = JOBS[job_id].get("step", 0)
+            JOBS[job_id]["progress"] = min(99, int(round((st / tot) * 100)))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -416,9 +750,9 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
             image_prompt = (
                 f"Minimalist sketch illustration on solid warm beige background (#F5EBD7). "
                 f"Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. "
-                f"Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: "
+                f"Single horizontal row of exactly three separate items placed side by side from left to right: "
                 f"Left side: doodle of {p_left}. Center: doodle of {p_mid}. Right side: doodle of {p_right}. "
-                f"Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
+                f"Generous whitespace around each item. Strictly SINGLE ROW ONLY, strictly NO multiple rows, NO duplicate versions, NO concept comparison sheets, NO sprite sheets, NO split screen, NO text, NO letters, 16:9 widescreen aspect ratio."
             )
 
             scenes.append({
@@ -643,9 +977,9 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
         image_prompt = (
             f"Minimalist sketch illustration on solid warm beige background (#F5EBD7). "
             f"Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. "
-            f"Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: "
+            f"Single horizontal row of exactly three separate items placed side by side from left to right: "
             f"Left side: {v_left}. Center: {v_mid}. Right side: {v_right}. "
-            f"Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
+            f"Generous whitespace around each item. Strictly SINGLE ROW ONLY, strictly NO multiple rows, NO duplicate versions, NO concept comparison sheets, NO sprite sheets, NO split screen, NO text, NO letters, 16:9 widescreen aspect ratio."
         )
 
         scenes.append({
@@ -659,24 +993,28 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
 
 
 def check_history_scope_llm(topic: str, api_key: str) -> dict:
-    """Xác định nhanh bằng AI xem đề tài có thuộc phạm vi triều đại nhà Lý và nhà Trần hay không."""
-    prompt = f"""Bạn là Người Gác Cổng Sử Học chuyên trách THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) trong lịch sử Việt Nam.
-Nhiệm vụ: Xác định xem đề tài sau có thuộc phạm vi lịch sử triều đại nhà Lý hoặc nhà Trần hay không?
+    """Xác định nhanh bằng AI xem đề tài và TOÀN BỘ NỘI DUNG có thuần khiết thuộc triều đại nhà Lý và nhà Trần hay không."""
+    prompt = f"""Bạn là Chuyên Gia Kiểm Định Sử Học Tối Cao chuyên trách THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) của Đại Việt.
+Nhiệm vụ: Thẩm định TOÀN BỘ nội dung/kịch bản dưới đây xem có hợp lệ và thuần khiết theo chính sử Lý - Trần hay không.
 
-Đề tài: "{topic}"
+Nội dung thẩm định:
+\"\"\"
+{topic}
+\"\"\"
 
-Quy tắc phân định NGHIÊM NGẶT:
+QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRONOLOGY AUDIT):
 1. ĐƯỢC CHẤP NHẬN (in_scope = true):
-   - Đề tài thuộc triều đại nhà Lý (1009 - 1225): Vua Lý Thái Tổ (Lý Công Uẩn), Chiếu dời đô 1010, định đô Thăng Long, Lý Thái Tông, Lý Thánh Tông, Lý Nhân Tông, Lý Chiêu Hoàng; danh nhân Lý Thường Kiệt, Tô Hiến Thành; sự kiện phạt Tống, phòng tuyến sông Như Nguyệt, chùa Một Cột, văn miếu Quốc Tử Giám...
-   - Đề tài thuộc triều đại nhà Trần (1225 - 1400): Vua Trần Thái Tông, Trần Thánh Tông, Trần Nhân Tông, Trần Anh Tông...; tướng lĩnh Trần Hưng Đạo (Trần Quốc Tuấn), Trần Thủ Độ, Trần Quang Khải, Trần Nhật Duật, Trần Khánh Dư, Yết Kiêu, Dã Tượng, Phạm Ngũ Lão, Chu Văn An, Tuệ Tĩnh; 3 lần kháng chiến chống quân Nguyên Mông (1258, 1285, 1288), Đông Bộ Đầu, Chương Dương, Hàm Tử, Vạn Kiếp, Bạch Đằng 1288, Hịch tướng sĩ, Hội nghị Bình Than, Hội nghị Diên Hồng, Thiền phái Trúc Lâm Yên Tử...
-   - Đề tài giai đoạn chuyển giao tiền đề (như bối cảnh Hoa Lư thời Đinh - Tiền Lê dẫn tới việc Lý Thái Tổ dời đô).
+   - TOÀN BỘ nhân vật, sự kiện, địa danh và niên đại trong văn bản đều thuần khiết thuộc triều đại Nhà Lý (1009 - 1225) hoặc Nhà Trần (1225 - 1400) của Đại Việt.
+   - Không chứa bất kỳ nhân vật ngoại lai, sai niên đại hoặc chi tiết râu ông nọ cắm cằm bà kia nào.
 
-2. BỊ TỪ CHỐI (in_scope = false):
-   - BẤT KỲ thời kỳ nào khác ngoài Lý - Trần (ví dụ: thời Hồng Bàng, Hai Bà Trưng, Ngô Quyền, Đinh Bộ Lĩnh thời độc lập, nhà Hồ, Lê Sơ, Lê Lợi, Nguyễn Trãi, Lê Thánh Tông, thời Trịnh - Nguyễn, phong trào Tây Sơn, vua Quang Trung, triều Nguyễn, thời Pháp thuộc, thời hiện đại).
-   - BẤT KỲ đề tài nào ngoài lịch sử Việt Nam (quốc tế, công nghệ, thể thao, kinh tế hiện đại, thời sự 2024-2025).
+2. BẮT BUỘC TỪ CHỐI (in_scope = false):
+   - Chứa BẤT KỲ nhân vật/địa danh ngoài lịch sử Việt Nam hoặc hư cấu (ví dụ nhân vật thời Tam Quốc Trung Quốc: Trương Liêu, Lưu Bị, Quan Vũ, Tào Tháo, Tôn Quyền, Gia Cát Lượng, Lữ Bố...; nhân vật kiếm hiệp, tiểu thuyết...).
+   - Chứa nhân vật hoặc sự kiện thuộc CÁC THỜI KỲ KHÁC của lịch sử Việt Nam bị gán ghép sai vào thời Lý - Trần (ví dụ: Đinh Bộ Lĩnh, Ngô Quyền, Hai Bà Trưng, Lê Lợi, Nguyễn Trãi, Quang Trung, thời Nguyễn...).
+   - Râu ông nọ cắm cằm bà kia hoặc mâu thuẫn sử học nghiêm trọng (ví dụ: Lý Thường Kiệt đánh giặc Mông - Nguyên thời Trần, Lý Thái Tổ đánh trận Bạch Đằng 1288, v.v.).
+   - QUY TẮC BẮT BUỘC: Dù bài viết có 90-99% nội dung đúng về nhà Lý hoặc nhà Trần, nhưng NẾU CÓ DÙ CHỈ MỘT CÂU/CỤM TỪ cố ý hoặc vô tình chèn nhân vật sai trái/ngoại lai/lạc thời kỳ (như 'Trương Liêu', 'Lưu Bị', 'Đinh Bộ Lĩnh') -> BẮT BUỘC PHẢI TỪ CHỐI (in_scope = false) và vạch rõ tên các nhân vật sai phạm trong lý do!
 
 Trả về JSON thuần túy (không bọc trong markdown):
-{{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng"}}"""
+{{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng, chỉ đích danh nhân vật hoặc chi tiết sai phạm nếu có"}}"""
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -701,24 +1039,38 @@ Trả về JSON thuần túy (không bọc trong markdown):
     except Exception as e:
         print(f"⚠️ Scope check error: {e}")
         other_dynasties_keywords = [
-            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền",
+            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền", "đinh bộ lĩnh",
             "lê lợi", "nguyễn trãi", "lê sơ", "lê thánh tông", "quang trung", "tây sơn",
-            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025"
+            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025",
+            "trương liêu", "lưu bị", "tào tháo", "quan vũ", "tôn quyền", "gia cát lượng", "lữ bố", "triệu vân"
         ]
         if any(k in topic.lower() for k in other_dynasties_keywords):
-            return {"in_scope": False, "reason": "Đề tài thuộc thời kỳ lịch sử ngoài triều đại Lý - Trần."}
+            return {"in_scope": False, "reason": "Văn bản chứa nhân vật hoặc sự kiện ngoại lai/ngoài phạm vi triều đại Lý - Trần."}
         return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần"}
 
 
-def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: int = 60, use_rag: bool = True) -> dict:
+def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: int = 60, use_rag: bool = True, keep_original_script: bool = False) -> dict:
     api_key = sanitize_gemini_key(raw_api_key)
     if not api_key:
         raise ValueError("⚠️ Chưa có Google Gemini API Key của người dùng. Vui lòng mở Cài đặt (⚙️) và nhập API Key cá nhân.")
 
-    num_scenes = max(1, min(10, int(round(duration_sec / 30.0)) or 1))
-    target_scene_time = duration_sec / num_scenes
     raw_input = topic.strip()
-    is_long_text = len(raw_input) > 100 or "\n" in raw_input or raw_input.count(".") >= 3
+    words = re.findall(r'\S+', raw_input)
+    word_count = len(words)
+    # Tự động nhận diện chế độ kịch bản tự soạn
+    is_verbatim_mode = keep_original_script or word_count >= 15 or "\n" in raw_input or raw_input.count(".") >= 2
+
+    if is_verbatim_mode:
+        # 1 cảnh whiteboard (~30s) đọc vừa vặn từ 40 đến 65 từ tiếng Việt (~120 từ/phút)
+        est_scenes = max(1, min(10, int(round(word_count / 60.0)) or 1))
+        requested_scenes = int(round(duration_sec / 30.0)) or 1
+        num_scenes = max(1, min(requested_scenes, est_scenes))
+        actual_duration = num_scenes * 30
+    else:
+        num_scenes = max(1, min(10, int(round(duration_sec / 30.0)) or 1))
+        actual_duration = duration_sec
+
+    target_scene_time = actual_duration / num_scenes
 
     # ── BƯỚC 1: BỘ GÁC CỔNG PHẠM VI SỬ LIỆU THỜI KỲ LÝ - TRẦN ──
     # Chỉ cho phép các sự kiện, nhân vật thời Lý (1009-1225) và thời Trần (1225-1400)
@@ -765,14 +1117,33 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
     rag_context_section = "\n\nTƯ LIỆU SỬ HỌC BẮT BUỘC ĐỐI CHIẾU TỪ KHO SÁCH doc/ (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):\n"
     for i, c in enumerate(chunks, 1):
         rag_context_section += f"[{i}] ({c['book_title']} - Trang {c['page']}): {c['text']}\n\n"
-    if is_long_text:
-        prompt_instruction = f"""Người dùng cung cấp một BÀI VIẾT / KỊCH BẢN / DÀN Ý CÓ SẴN dưới đây:
-\"{raw_input}\"
+
+    if is_verbatim_mode:
+        prompt_instruction = f"""ĐÂY LÀ BÀI VIẾT / KỊCH BẢN TỰ SOẠN CỦA TÁC GIẢ (CHẾ ĐỘ GIỮ NGUYÊN TÁC 100% - VERBATIM):
+\"\"\"
+{raw_input}
+\"\"\"
 {rag_context_section}
-HÃY PHÂN TÍCH VÀ BIÊN TẬP THÀNH KỊCH BẢN VIDEO HOẠT HỌA BẢNG TRẮNG:
-- BÁM SÁT DỮ LIỆU ĐƯỢC CUNG CẤP: Kiểm tra kỹ lưỡng các mốc năm, sự kiện, địa danh và nhân vật so với tư liệu sử học. Sửa chữa ngay mọi chi tiết sai lệch hoặc hiểu nhầm.
-- Giữ trọn vẹn thông điệp cốt lõi của người dùng, phân bổ hợp lý vào đúng {num_scenes} CẢNH (tổng thời lượng video mục tiêu: đúng {duration_sec} giây, ~{target_scene_time:.0f} giây mỗi cảnh).
-- VĂN PHONG TỰ NHIÊN, KHÔNG DÙNG TỪ NỐI RẬP KHUÔN: Tuyệt đối KHÔNG mở đầu câu bằng các từ nối máy móc như 'Thế nhưng,', 'Chính vì vậy,', 'Không dừng lại ở đó,', 'Và kết quả là,'. Dẫn dắt câu chuyện tự nhiên bằng thời gian, bối cảnh và hành động cụ thể."""
+QUY TẮC BẮT BUỘC TUYỆT ĐỐI CHO LỜI THUYẾT MINH (SUBTITLE):
+1. GIỮ NGUYÊN 100% TỪNG CÂU TỪ CỦA TÁC GIẢ (VERBATIM PRESERVATION):
+   - TUYỆT ĐỐI KHÔNG ĐƯỢC VIẾT LẠI, KHÔNG DIỄN GIẢI LẠI, KHÔNG PARAPHRASE, KHÔNG THAY ĐỔI DÙ CHỈ MỘT TỪ trong văn bản của tác giả.
+   - TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT THÊM SỰ KIỆN HOẶC PHÂN CẢNH MỚI không có trong văn bản trên.
+   - TUYỆT ĐỐI KHÔNG ĐƯỢC LẶP LẠI (DUPLICATE) CÙNG MỘT CÂU TRONG NHIỀU KHỐI SUBTITLE CỦA CÙNG MỘT CẢNH HOẶC GIỮA CÁC CẢNH. Mỗi câu chỉ được xuất hiện ĐÚNG 1 LẦN.
+   - PHÂN CHIA MỆNH ĐỀ VÀO CÁC KHỐI: Nếu một cảnh chỉ có 1 câu dài (hoặc ít câu hơn 3 khối), BẮT BUỘC ngắt câu theo dấu phẩy hoặc mệnh đề tự nhiên để chia vào 3 khối từ Trái qua Phải.
+     Ví dụ câu: "Thời Lý – Trần đã lùi xa, nhưng hào khí Đông A vẫn còn sống mãi, nhắc nhở mỗi người Việt Nam về một thời đại vàng son của lịch sử dân tộc."
+     -> Khối 1 (label: "Dấu Ấn Lý – Trần"): "Thời Lý – Trần đã lùi xa,"
+     -> Khối 2 (label: "Hào Khí Đông A"): "nhưng hào khí Đông A vẫn còn sống mãi,"
+     -> Khối 3 (label: "Thời Đại Vàng Son"): "nhắc nhở mỗi người Việt Nam về một thời đại vàng son của lịch sử dân tộc."
+     Cả 3 khối này khi đọc liên tục sẽ ghép thành đúng câu văn hoàn chỉnh của tác giả!
+   - Từng khối "subtitle" PHẢI LÀ NGUYÊN VĂN các câu/mệnh đề của tác giả. BỎ QUA HOÀN TOÀN QUY ĐỊNH 25-35 TỪ, giữ nguyên đúng câu từ của tác giả!
+2. BỐ CỤC {num_scenes} CẢNH:
+   - Phân chia hợp lý vào đúng {num_scenes} CẢNH (Scene 1 đến Scene {num_scenes}).
+   - scene_title: Tên cảnh ngắn gọn, phản ánh đúng nội dung đoạn trích.
+   - label: Nhãn tên chủ thể ngắn gọn (2-4 từ tiếng Việt, ví dụ: 'Thời Lý Rực Rỡ', 'Chiếu Dời Đô 1010', 'Kinh Đô Thăng Long').
+   - narrativeRole: Vai trò dẫn chuyện ngắn gọn.
+   - visual_desc & image_prompt: Soạn prompt mỹ thuật Notion Doodle sketch 16:9 mô tả trực quan và chính xác nội dung câu thuyết minh của tác giả.
+3. ĐỐI CHIẾU SỬ LIỆU & ĐIỂM SỐ:
+   - Đối chiếu sử liệu để kiểm chứng độ chính xác lịch sử và tính điểm overall_score (95-100 nếu chuẩn xác). Nếu không có nhân vật hư cấu ngoại lai, mảng "discrepancies" là mảng rỗng []."""
     else:
         # Đề tài thuộc kho sử liệu Việt Nam
         history_specific_note = ""
@@ -803,26 +1174,45 @@ QUY CHUẨN NỘI DUNG VÀ VĂN PHONG PHIM TÀI LIỆU LỊCH SỬ CHÍNH THỐN
    - TUYỆT ĐỐI KHÔNG mở đầu câu bằng các từ nối công thức: 'Thế nhưng,', 'Chính vì vậy,', 'Không dừng lại ở đó,', 'Và kết quả là,', 'Và qua đó,', 'Chính trong hoàn cảnh đó,'.
    - Hãy dẫn dắt tự nhiên bằng tiến trình thời gian và hành động của nhân vật.
 
-4. BỐ CỤC: Chia thành đúng {num_scenes} CẢNH liền mạch. Tổng thời lượng video mục tiêu là đúng {duration_sec} giây."""
+4. BỐ CỤC: Chia thành đúng {num_scenes} CẢNH liền mạch. Tổng thời lượng video mục tiêu là đúng {duration_sec} giây.
+
+5. ĐỐI CHIẾU SỬ LIỆU & PHÁT HIỆN CHI TIẾT SAI LỆCH TRONG ĐỀ TÀI:
+   - Hãy rà soát kỹ các nhân vật, sự kiện, địa danh và mốc năm trong đề tài của người dùng so với tư liệu sử học chính thống.
+   - Nếu phát hiện chi tiết hoặc nhân vật sai lệch/hư cấu/ngoại lai (ví dụ Quan Vũ, Trương Bá Thông, chiêu thức kiếm hiệp, sự kiện hoặc nhân vật thuộc thời đại khác không liên quan), BẮT BUỘC:
+     + LOẠI BỎ hoàn toàn các nhân vật/chi tiết sai lệch đó ra khỏi kịch bản (chỉ viết về các nhân vật và sự kiện lịch sử thật có trong sử liệu).
+     + Ghi nhận CỰC KỲ NGẮN GỌN (tối đa 1 câu, dưới 25 từ mỗi ý) vào mảng "discrepancies", chỉ nêu rõ: Đã loại bỏ [chi tiết sai] do không thuộc sử liệu [sự kiện/triều đại]. Tuyệt đối KHÔNG viết bài luận giải thích dài dòng.
+   - Nếu đề tài hoàn toàn chính xác theo sử liệu, "discrepancies" là mảng rỗng [].
+   - Điểm số "overall_score" (số nguyên từ 50 đến 100):
+     + Đề tài chuẩn xác 100%: 95 - 100.
+     + Đề tài có chi tiết sai lệch/ngoại lai đã được lọc bỏ: cho điểm từ 65 đến 85 tùy mức độ sai lệch của đề tài ban đầu."""
+
+    if is_verbatim_mode:
+        subtitle_req = "  + subtitle: NGUYÊN VĂN câu thuyết minh trích xuất từ văn bản của tác giả. TUYỆT ĐỐI GIỮ NGUYÊN 100% TỪNG CHỮ CỦA TÁC GIẢ, KHÔNG thêm bớt từ ngữ, KHÔNG diễn giải lại."
+    else:
+        subtitle_req = f"  + subtitle: 1-2 câu thuyết minh tiếng Việt CHUẨN XÁC THEO SỬ LIỆU, ĐĨNH ĐẠC, GIÀU CHI TIẾT LỊCH SỬ, có độ dài từ 28 đến 35 từ (được căn chỉnh vừa vặn đọc truyền cảm trong 8.5 đến 10.0 giây, nhằm đảm bảo thời lượng mỗi cảnh đạt đúng ~30 giây và tổng video đạt đúng {duration_sec} giây). TUYỆT ĐỐI KHÔNG VIẾT NGẮN CỤT LỦN dưới 25 từ vì sẽ làm video bị hụt thời lượng."
 
     prompt = f"""{prompt_instruction}
 
 YÊU CẦU ĐỊNH DẠNG:
-- Tổng cộng đúng {num_scenes} Cảnh (từ Scene 1 đến Scene {num_scenes}). Tổng thời lượng video mục tiêu: đúng {duration_sec} giây (~{target_scene_time:.0f} giây mỗi cảnh).
+- Tổng cộng đúng {num_scenes} Cảnh (từ Scene 1 đến Scene {num_scenes}). Tổng thời lượng video mục tiêu: đúng {actual_duration} giây (~{target_scene_time:.0f} giây mỗi cảnh).
 - Mỗi cảnh gồm đúng 3 khối chủ thể xuất hiện từ Trái qua Phải.
 - Mỗi khối chủ thể có:
   + label: Nhãn tên chủ thể ngắn gọn, đắt giá (2-4 từ tiếng Việt, ví dụ: 'Cố Đô Hoa Lư', 'Chiếu Dời Đô 1010', 'Rồng Vàng Thăng Long').
   + narrativeRole: Vai trò dẫn dắt câu chuyện (tiếng Việt).
-  + subtitle: 1-2 câu thuyết minh tiếng Việt CHUẨN XÁC THEO SỬ LIỆU, ĐĨNH ĐẠC, GIÀU CHI TIẾT LỊCH SỬ, có độ dài từ 28 đến 35 từ (được căn chỉnh vừa vặn đọc truyền cảm trong 8.5 đến 10.0 giây, nhằm đảm bảo thời lượng mỗi cảnh đạt đúng ~30 giây và tổng video đạt đúng {duration_sec} giây). TUYỆT ĐỐI KHÔNG VIẾT NGẮN CỤT LỦN dưới 25 từ vì sẽ làm video bị hụt thời lượng.
+{subtitle_req}
   + visual_desc: Mô tả hình vẽ phác thảo tối giản kiểu doodle/sketch bằng tiếng Anh cho AI tạo ảnh.
 - image_prompt: 1 prompt tổng thể tiếng Anh (16:9) theo chuẩn Notion Doodle để người dùng copy tạo ảnh:
-  "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
-- thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa Podcast lịch sử theo chuẩn VUÔNG 1:1 (ví dụ 1200x1200px):
-  "Epic cinematic historical documentary podcast cover art illustration of [chủ đề chính], dramatic atmosphere, volumetric lighting, rich historical color palette, classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark."
+  "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Single horizontal row of exactly three separate items placed side by side from left to right: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Generous whitespace around each item. Strictly SINGLE ROW ONLY, strictly NO multiple rows, NO duplicate versions, NO concept comparison sheets, NO sprite sheets, NO split screen, NO text, NO letters, 16:9 widescreen aspect ratio."
+- thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh Thumbnail / Poster đại diện bắt mắt cho video lịch sử (chuẩn tỷ lệ 16:9 cho video hoạt họa bảng trắng hoặc 1:1 cho Audio Podcast):
+  "Epic cinematic historical documentary poster illustration of [chủ đề chính], dramatic historical atmosphere, volumetric lighting, rich classical art style, highly detailed, masterwork, 16:9 widescreen aspect ratio, strictly NO text, NO typography, NO watermark."
 
 Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 {{
   "title": "Tiêu đề video",
+  "discrepancies": [
+    "Đã loại bỏ chi tiết 'quang vũ' và 'trướng bá thông' do không có trong sử liệu thời Lý."
+  ],
+  "overall_score": 98,
   "thumbnail_prompt": "Epic cinematic historical documentary podcast cover art illustration of...",
   "scenes": [
     {{
@@ -872,43 +1262,142 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
                         print(f"[Gemini] ✅ Thành công với {ver}/{model} (attempt {attempt+1})")
                         parsed = json.loads(text_out)
 
-                        # Bộ lọc khử câu chào / đối thoại meta của AI nếu vô tình lọt vào kịch bản
-                        META_AI_PATTERNS = [
-                            r"tôi đã sẵn sàng",
-                            r"hãy gửi nội dung",
-                            r"sẵn sàng nhận",
-                            r"chào bạn",
-                            r"tôi là (?:trợ lý|ai|mô hình)",
-                            r"rất sẵn lòng"
-                        ]
-                        for sc in parsed.get("scenes", []):
-                            for el in sc.get("elements", []):
-                                sub = el.get("subtitle", "").strip()
-                                for pat in META_AI_PATTERNS:
-                                    if re.search(pat, sub, re.IGNORECASE):
-                                        print(f"[Sanitize] ⚠️ Phát hiện câu meta AI: '{sub}', đang tự động sửa thành nội dung lịch sử chuẩn.")
-                                        if any(k in raw_input.lower() for k in ["hoa lư", "lý thái tổ", "dời đô", "thăng long"]):
-                                            el["subtitle"] = "Thành Hoa Lư hiểm trở hợp phòng thủ thời loạn, nhưng đóng đô lâu dài khiến thế đại không bền, trăm họ hao tổn."
-                                            el["label"] = "Cố Đô Hoa Lư"
-                                        break
+                        # Trích xuất tiêu đề nếu kịch bản tự soạn có dòng tiêu đề mở đầu
+                        lines = [l.strip() for l in raw_input.split("\n") if l.strip()]
+                        if lines and (lines[0].startswith("**") or lines[0].startswith("#")):
+                            clean_t = lines[0].replace("**", "").replace("#", "").strip()
+                            if clean_t and len(clean_t) <= 80:
+                                parsed["title"] = clean_t
+
+                        if is_verbatim_mode:
+                            # Đảm bảo số cảnh không vượt quá num_scenes đã tính toán
+                            if len(parsed.get("scenes", [])) > num_scenes:
+                                print(f"[Verbatim] ✂️ Giới hạn số cảnh từ {len(parsed['scenes'])} về {num_scenes} cảnh để bám sát độ dài kịch bản gốc.")
+                                parsed["scenes"] = parsed["scenes"][:num_scenes]
+
+                            # Khử trùng lặp subtitle trong cùng cảnh (nếu AI copy-paste cùng 1 câu vào 3 khối)
+                            for sc in parsed.get("scenes", []):
+                                elems = sc.get("elements", [])
+                                if len(elems) == 3:
+                                    s0 = elems[0].get("subtitle", "").strip()
+                                    s1 = elems[1].get("subtitle", "").strip()
+                                    s2 = elems[2].get("subtitle", "").strip()
+                                    if s0 and (s0 == s1 or s1 == s2 or s0 == s2):
+                                        dup_text = s0 if (s0 == s1 or s0 == s2) else s1
+                                        print(f"[Verbatim] ⚠️ Phát hiện subtitle bị lặp trong Cảnh {sc.get('scene_index')}: '{dup_text[:40]}...'. Tự động tách thành 3 mệnh đề tự nhiên!")
+                                        parts = [p.strip() for p in re.split(r'[,;]\s*', dup_text) if p.strip()]
+                                        if len(parts) >= 3:
+                                            elems[0]["subtitle"] = parts[0] + ","
+                                            elems[1]["subtitle"] = parts[1] + ","
+                                            elems[2]["subtitle"] = " ".join(parts[2:])
+                                            if not elems[2]["subtitle"].endswith("."):
+                                                elems[2]["subtitle"] += "."
+                                        elif len(parts) == 2:
+                                            elems[0]["subtitle"] = parts[0] + ","
+                                            sub_parts = re.split(r'\s+(?=nhưng\s+|đồng thời\s+|nhắc nhở\s+|đặt\s+|tạo\s+)', parts[1])
+                                            if len(sub_parts) >= 2:
+                                                elems[1]["subtitle"] = sub_parts[0] + ","
+                                                elems[2]["subtitle"] = " ".join(sub_parts[1:])
+                                            else:
+                                                words_p1 = parts[1].split()
+                                                mid = max(1, len(words_p1) // 2)
+                                                elems[1]["subtitle"] = " ".join(words_p1[:mid]) + ","
+                                                elems[2]["subtitle"] = " ".join(words_p1[mid:])
+                                        else:
+                                            words_all = dup_text.split()
+                                            n = len(words_all)
+                                            c1 = max(1, n // 3)
+                                            c2 = max(c1 + 1, (2 * n) // 3)
+                                            elems[0]["subtitle"] = " ".join(words_all[:c1])
+                                            elems[1]["subtitle"] = " ".join(words_all[c1:c2])
+                                            elems[2]["subtitle"] = " ".join(words_all[c2:])
+
+                        # Bộ lọc khử câu chào / đối thoại meta của AI nếu vô tình lọt vào kịch bản (chế độ sáng tác)
+                        if not is_verbatim_mode:
+                            META_AI_PATTERNS = [
+                                r"tôi đã sẵn sàng",
+                                r"hãy gửi nội dung",
+                                r"sẵn sàng nhận",
+                                r"chào bạn",
+                                r"tôi là (?:trợ lý|ai|mô hình)",
+                                r"rất sẵn lòng"
+                            ]
+                            for sc in parsed.get("scenes", []):
+                                for el in sc.get("elements", []):
+                                    sub = el.get("subtitle", "").strip()
+                                    for pat in META_AI_PATTERNS:
+                                        if re.search(pat, sub, re.IGNORECASE):
+                                            print(f"[Sanitize] ⚠️ Phát hiện câu meta AI: '{sub}', đang tự động sửa thành nội dung lịch sử chuẩn.")
+                                            if any(k in raw_input.lower() for k in ["hoa lư", "lý thái tổ", "dời đô", "thăng long"]):
+                                                el["subtitle"] = "Thành Hoa Lư hiểm trở hợp phòng thủ thời loạn, nhưng đóng đô lâu dài khiến thế đại không bền, trăm họ hao tổn."
+                                                el["label"] = "Cố Đô Hoa Lư"
+                                            break
 
                         if not parsed.get("thumbnail_prompt"):
                             clean_topic = re.sub(r'[\r\n\t"]+', ' ', raw_input[:100]).strip()
                             parsed["thumbnail_prompt"] = (
-                                f"Epic cinematic historical documentary podcast cover art illustration of {clean_topic}, "
-                                "dramatic atmosphere, volumetric lighting, rich historical color palette, "
-                                "classical oil painting art style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, "
+                                f"Epic cinematic historical documentary poster illustration of {clean_topic}, "
+                                "dramatic historical atmosphere, volumetric lighting, rich classical art style, "
+                                "highly detailed, masterwork, 16:9 widescreen aspect ratio, "
                                 "strictly NO text, NO typography, NO watermark"
                             )
 
                         parsed["citations"] = citations
                         parsed["use_rag"] = True
+
+                        # Rà soát discrepancies (chi tiết/nhân vật sai lệch phát hiện trong đề tài)
+                        discrepancies = parsed.get("discrepancies") or []
+                        if not isinstance(discrepancies, list):
+                            discrepancies = [str(discrepancies)] if discrepancies else []
+
+                        # Fallback rà soát từ khóa nhân vật hư cấu / dị giới nếu Gemini bỏ sót cảnh báo
+                        raw_lower = raw_input.lower()
+                        other_era_checks = {
+                            "quang vũ": "Đã loại bỏ 'quang vũ' (Quan Vũ) không thuộc sử liệu thời Lý - Trần.",
+                            "quan vũ": "Đã loại bỏ 'quan vũ' không thuộc sử liệu thời Lý - Trần.",
+                            "trướng bá thông": "Đã loại bỏ 'trướng bá thông' do là nhân vật hư cấu không có trong sử liệu.",
+                            "chu bá thông": "Đã loại bỏ 'chu bá thông' do là nhân vật hư cấu không có trong sử liệu.",
+                            "tôn ngộ không": "Đã loại bỏ nhân vật thần thoại 'Tôn Ngộ Không'.",
+                            "gia cát lượng": "Đã loại bỏ 'Gia Cát Lượng' không thuộc sử liệu thời Lý - Trần."
+                        }
+                        for kw, msg in other_era_checks.items():
+                            if kw in raw_lower and not any(kw in str(d).lower() for d in discrepancies):
+                                discrepancies.append(msg)
+
+                        # Rút gọn các câu giải thích quá dài và làm sạch dấu bullet đầu dòng
+                        clean_discrepancies = []
+                        for d in discrepancies:
+                            d_str = str(d).strip()
+                            d_str = re.sub(r"^[\s•\-\*\d\.\)]+", "", d_str).strip()
+                            # Nếu dài quá 130 ký tự, lấy câu đầu tiên để thông báo ngắn gọn súc tích
+                            if len(d_str) > 130 and "." in d_str:
+                                first_sen = d_str.split(".")[0].strip() + "."
+                                clean_discrepancies.append(first_sen)
+                            else:
+                                clean_discrepancies.append(d_str)
+                        discrepancies = [c for c in clean_discrepancies if c]
+
+                        # Tính điểm chuẩn xác thực tế của đề tài
+                        score_val = parsed.get("overall_score")
+                        if not isinstance(score_val, (int, float)) or score_val <= 0 or score_val > 100:
+                            score_val = max(60, 95 - len(discrepancies) * 15) if discrepancies else 98
+                        else:
+                            score_val = int(round(score_val))
+
+                        parsed["discrepancies"] = discrepancies
                         book_titles = list(dict.fromkeys(c.get("book_title", "") for c in citations if c.get("book_title")))
+                        status_str = "warning" if discrepancies else "verified"
+                        summary_str = (
+                            f"Phát hiện {len(discrepancies)} chi tiết không khớp với sử liệu trong đề tài ban đầu. Hệ thống đã tự động loại trừ và chuẩn hóa kịch bản theo {', '.join(book_titles) if book_titles else 'Đại Việt Sử Ký Toàn Thư'}."
+                            if discrepancies else
+                            f"Nội dung kịch bản đã được đối chiếu và thẩm định trực tiếp với kho sử liệu ({', '.join(book_titles) if book_titles else 'Đại Việt Sử Ký Toàn Thư'})."
+                        )
                         parsed["verification"] = {
-                            "overall_score": 98,
-                            "status": "verified",
+                            "overall_score": score_val,
+                            "status": status_str,
                             "in_scope": True,
-                            "summary": f"Nội dung kịch bản đã được đối chiếu và thẩm định trực tiếp với kho sử liệu ({', '.join(book_titles) if book_titles else 'Đại Việt Sử Ký Toàn Thư'}).",
+                            "summary": summary_str,
+                            "discrepancies": discrepancies,
                             "citations": citations
                         }
                         return parsed
@@ -1061,9 +1550,9 @@ def build_annotation_json(
         elements.append(elem_dict)
 
     ann = {
-        "sceneId": scene_data.get("scene_index", 1),
+        "sceneId": scene_data.get("scene_index") or scene_data.get("sceneNumber", 1),
         "canvas": {"width": 1376, "height": 768},
-        "storyBasis": scene_data.get("scene_title", ""),
+        "storyBasis": scene_data.get("scene_title") or scene_data.get("title", ""),
         "sceneDurationMs": scene_duration_ms,
         "elements": elements
     }
@@ -1071,41 +1560,88 @@ def build_annotation_json(
     return out_json
 
 
+def normalize_tts_phonemes(text: str) -> str:
+    """
+    Chuẩn hóa văn bản trước khi đưa vào Edge-TTS:
+    1. Làm sạch unicode dash, quote, markdown asterisks, thừa khoảng trắng.
+    2. Khắc phục lỗi tokenizer của Microsoft Azure TTS đối với các từ có chữ 'kỷ'/'kỳ' (thay bằng 'kỉ'/'kì'
+       để giữ nguyên 100% ngữ âm tiếng Việt nhưng không kích hoạt lỗi NoAudioReceived ngắt kết nối WebSocket).
+    3. Đảm bảo câu luôn kết thúc bằng dấu chấm/hỏi/than để âm điệu dứt khoát, tự nhiên.
+    """
+    clean = re.sub(r'[\r\n\t]+', ' ', text).strip()
+    clean = clean.replace('–', '-').replace('—', '-').replace('“', '"').replace('”', '"').replace('’', "'").replace('‘', "'")
+    clean = re.sub(r'[\*#_`~]+', '', clean).strip()
+
+    # Chuẩn hóa các âm tiết gây lỗi Microsoft Edge-TTS tokenizer (phát âm giữ nguyên 100%)
+    clean = re.sub(r'\bthế kỷ\b', 'thế kỉ', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bThế kỷ\b', 'Thế kỉ', clean)
+    clean = re.sub(r'\bthời kỳ\b', 'thời kì', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bThời kỳ\b', 'Thời kì', clean)
+    clean = re.sub(r'\bkỷ\b', 'kỉ', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bkỳ\b', 'kì', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bmỹ\b', 'mĩ', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\blý\b', 'lí', clean, flags=re.IGNORECASE)
+
+    if not clean:
+        clean = "..."
+    elif not clean.endswith((".", "!", "?", "…")):
+        clean += "."
+    return clean
+
+
+def generate_speech_google_tts(text: str, out_p: Path) -> bool:
+    """Fallback TTS bằng Google Translate Audio khi Edge-TTS bị Microsoft ngắt kết nối."""
+    try:
+        clean_text = normalize_tts_phonemes(text)
+        if not clean_text:
+            return False
+        url = 'https://translate.google.com/translate_tts?ie=UTF-8&q=' + urllib.parse.quote(clean_text) + '&tl=vi&client=tw-ob'
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            data = resp.read()
+            if len(data) > 500:
+                out_p.write_bytes(data)
+                return True
+    except Exception as e:
+        print(f"[Google-TTS] Fallback thất bại: {e}")
+    return False
+
+
 # ──────────────────────────────────────────────────────────────
 # BƯỚC 3: TTS & DÒNG THỜI GIAN ĐỘNG (CONTINUOUS NARRATION ENGINE)
 # ──────────────────────────────────────────────────────────────
 async def generate_speech_edge(text: str, voice: str, out_p: Path):
+    """
+    Sinh giọng đọc Edge-TTS với nguyên tắc BẢO TOÀN 100% TÍNH ĐỒNG NHẤT CỦA GIỌNG ĐỌC:
+    - Tuyệt đối không tự ý tráo đổi giữa giọng Nam và giọng Nữ (NamMinh <-> HoaiMy) giữa các câu trong cùng một video.
+    - Sử dụng retry backoff trên chính giọng được chỉ định kết hợp bộ chuẩn hóa ngữ âm normalize_tts_phonemes.
+    """
     import edge_tts
-    # Thử gọi 3 lần với khoảng nghỉ nhỏ chống nghẽn websocket
-    for attempt in range(3):
+    clean_text = normalize_tts_phonemes(text)
+    vname = voice.strip() if voice in ["vi-VN-NamMinhNeural", "vi-VN-HoaiMyNeural"] else "vi-VN-NamMinhNeural"
+
+    # Thử giọng chính với retry & backoff lũy tiến
+    delays = [0.8, 1.5, 2.5, 3.5, 5.0]
+    for attempt, delay in enumerate(delays):
         try:
-            comm = edge_tts.Communicate(text, voice)
+            out_p.unlink(missing_ok=True)
+            comm = edge_tts.Communicate(clean_text, vname)
             await comm.save(str(out_p))
             if out_p.exists() and out_p.stat().st_size > 500:
                 return
         except Exception as e:
-            print(f"Edge-TTS attempt {attempt+1} failed: {e}")
-            await asyncio.sleep(0.8)
-            continue
+            print(f"[Edge-TTS] Lần {attempt+1}/{len(delays)} giọng {vname} gặp sự cố cho '{clean_text[:35]}...': {e}")
+            await asyncio.sleep(delay)
 
-    # Nếu vẫn lỗi, thử đổi sang giọng dự phòng
-    alt_voice = "vi-VN-HoaiMyNeural" if "Nam" in voice else "vi-VN-NamMinhNeural"
-    try:
-        print(f"Thử lại với giọng phụ: {alt_voice}")
-        comm = edge_tts.Communicate(text, alt_voice)
-        await comm.save(str(out_p))
-        if out_p.exists() and out_p.stat().st_size > 500:
-            return
-    except Exception as e:
-        print(f"Edge-TTS alt voice failed: {e}")
+    # Nếu sau 5 lần thử với đúng giọng yêu cầu vẫn bị từ chối kết nối từ Microsoft,
+    # kích hoạt Google Translate TTS dự phòng để cứu video không bị gián đoạn
+    print(f"[TTS-Fallback] 🌐 Kích hoạt Google Translate TTS dự phòng cho câu: '{clean_text[:40]}'...")
+    if generate_speech_google_tts(clean_text, out_p):
+        print(f"[TTS-Fallback] ✅ Google Translate TTS đã tạo giọng đọc thành công cho '{clean_text[:30]}'!")
+        return
 
-    # Fallback an toàn: Tạo file âm thanh giả lập (tránh sập luồng)
-    subprocess.run([
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono",
-        "-t", "5.0", "-q:a", "9", "-acodec", "libmp3lame",
-        str(out_p)
-    ], check=True)
+    # Sau các lần thử nếu vẫn thất bại, ném lỗi rõ ràng
+    raise RuntimeError(f"❌ Không thể tạo giọng đọc cho câu: \"{clean_text[:50]}\". Dịch vụ Edge-TTS và Google TTS đều không phản hồi.")
 
 
 ELEVENLABS_VOICES = {
@@ -1247,15 +1783,24 @@ def generate_single_audio_clip(
             )
         # Hỗ trợ cả Voice Name (Brian, Liam, Adam...) lẫn Voice ID trực tiếp từ ElevenLabs
         v_clean = voice_name.strip() if voice_name else "Brian"
+        voice_map_lower = {k.lower(): v for k, v in ELEVENLABS_VOICES.items()}
         if v_clean in ELEVENLABS_VOICES:
             vid = ELEVENLABS_VOICES[v_clean]
-        elif len(v_clean) >= 15:
-            # Người dùng nhập trực tiếp Voice ID (thường là chuỗi mã 20 ký tự)
+        elif v_clean.lower() in voice_map_lower:
+            vid = voice_map_lower[v_clean.lower()]
+        elif len(v_clean) >= 18 and len(v_clean) <= 24 and v_clean.isalnum():
+            # Người dùng nhập trực tiếp Voice ID ElevenLabs (chuỗi 20-24 ký tự alphanumeric)
             vid = v_clean
         else:
-            vid = ELEVENLABS_VOICES.get(v_clean, ELEVENLABS_VOICES["Brian"])
-        # Sẽ raise RuntimeError nếu lỗi - không silent fallback
-        generate_speech_elevenlabs(text, vid, el_key.strip(), out_mp3)
+            # Nếu voice_name không hợp lệ với ElevenLabs (ví dụ: vi-VN-NamMinhNeural), tự động dùng Brian
+            print(f"⚠️ Giọng đọc '{v_clean}' không phải Voice ID ElevenLabs hợp lệ. Tự động dùng giọng Brian ({ELEVENLABS_VOICES['Brian']})")
+            vid = ELEVENLABS_VOICES["Brian"]
+
+        try:
+            generate_speech_elevenlabs(text, vid, el_key.strip(), out_mp3)
+        except Exception as e_eleven:
+            print(f"⚠️ ElevenLabs TTS gặp lỗi ({e_eleven}). Tự động fallback sang Microsoft Edge-TTS vi-VN-NamMinhNeural...")
+            asyncio.run(generate_speech_edge(text, "vi-VN-NamMinhNeural", out_mp3))
     else:
         vname = "vi-VN-NamMinhNeural" if "Nam" in voice_name or voice_name in ["Brian", "Liam", "Adam", "George", "Callum", "Bill"] else "vi-VN-HoaiMyNeural"
         asyncio.run(generate_speech_edge(text, vname, out_mp3))
@@ -1270,6 +1815,25 @@ def generate_single_audio_clip(
     except Exception:
         dur = 5.0
     return max(0.5, dur)
+
+
+def get_audio_duration_wave(wav_path: Path) -> float:
+    """Đo thời lượng của file âm thanh WAV mà không cần sinh lại âm thanh."""
+    try:
+        import wave
+        with wave.open(str(wav_path), "rb") as wf:
+            frames = wf.getnframes()
+            rate = wf.getframerate()
+            if rate > 0:
+                return max(0.5, frames / float(rate))
+    except Exception:
+        pass
+    cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(wav_path)]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return max(0.5, float(res.stdout.strip()))
+    except Exception:
+        return 5.0
 
 
 def compute_scene_continuous_timeline(audio_durations: list[float]) -> dict:
@@ -1332,6 +1896,17 @@ def mix_scene_audio(
     scene_dur_s: float
 ) -> Path:
     """Trộn các câu thoại vào đúng mốc thời gian liên tục của từng cảnh."""
+    scene_dur_s = max(1.0, float(scene_dur_s))
+    if not clip_files_and_starts:
+        # Nếu không có clip nào, tạo file wav tĩnh (silence) để tránh lỗi ffmpeg amix=inputs=0
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+            "-t", f"{scene_dur_s:.3f}",
+            str(out_wav)
+        ], check=True)
+        return out_wav
+
     inputs = []
     parts = []
     for idx, (p, start_s) in enumerate(clip_files_and_starts):
@@ -1533,6 +2108,16 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         display_title = display_title[:50]
         JOBS[job_id]["title"] = display_title
         (job_dir / "script.txt").write_text("\n\n".join(sentences), encoding="utf-8")
+        manifest_data = {
+            "job_id": job_id,
+            "render_mode": "audio_podcast",
+            "topic": display_title,
+            "tts_engine": req.tts_engine,
+            "voice_name": req.voice_name,
+            "sentences": sentences,
+            "created_at": time.time()
+        }
+        (job_dir / "manifest.json").write_text(json.dumps(manifest_data, ensure_ascii=False, indent=2), encoding="utf-8")
 
         # 2. ẢNH BÌA PODCAST
         log(job_id, "🖼️ Bước 2: Chuẩn bị ảnh bìa Podcast (chuẩn vuông 1:1 hoặc tỷ lệ tự do)...", 2, "Ảnh bìa Podcast")
@@ -1540,7 +2125,12 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         video_bg_png = job_dir / "podcast_video_bg.png"
         cover_b64 = req.cover_image_b64
         if not cover_b64 and req.custom_images:
-            cover_b64 = req.custom_images.get("cover") or req.custom_images.get("1")
+            cover_b64 = (
+                req.custom_images.get("cover")
+                or req.custom_images.get("thumbnail")
+                or req.custom_images.get("1")
+                or req.custom_images.get("scene_1")
+            )
 
         if not cover_b64 or (not cover_b64.strip().startswith("http") and len(cover_b64.strip()) < 50):
             raise ValueError("⚠️ Bắt buộc phải có ảnh bìa cho bản thu Audio Podcast! Vui lòng tải lên ảnh trước khi xuất bản.")
@@ -1565,6 +2155,7 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
             wav_p = audio_dir / f"clip_{clip_idx}.wav"
             log(job_id, f"   Đang đọc câu {clip_idx}/{len(sentences)}: {sentence[:35]}...")
             dur = generate_single_audio_clip(sentence, mp3_p, wav_p, req.tts_engine, req.voice_name, req.elevenlabs_api_key)
+            time.sleep(0.35)
             start_s = current_time
             end_s = start_s + dur
             clip_paths_and_starts.append((wav_p, start_s))
@@ -1639,6 +2230,7 @@ def run_audio_podcast_pipeline(job_id: str, req: VideoRequest):
         # 5. HOÀN TẤT
         JOBS[job_id]["step"] = 5
         JOBS[job_id]["total_steps"] = 5
+        JOBS[job_id]["progress"] = 100
         JOBS[job_id]["step_name"] = "Hoàn tất"
         JOBS[job_id]["status"] = "completed"
         JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
@@ -1685,6 +2277,9 @@ def run_pipeline(job_id: str, req: VideoRequest):
             log(job_id, f"✅ Đã tải kịch bản Studio ({len(storyboard.get('scenes', []))} cảnh): {storyboard.get('title')}", 1, "Nghiên cứu & Kịch bản")
 
         scenes = storyboard.get("scenes", [])
+        for sc_i, sc in enumerate(scenes):
+            if not sc.get("scene_index"):
+                sc["scene_index"] = sc.get("sceneNumber") or (sc_i + 1)
         num_scenes = max(1, len(scenes))
 
         display_t = storyboard.get("title", req.topic or "Whiteboard Animation")
@@ -1695,23 +2290,41 @@ def run_pipeline(job_id: str, req: VideoRequest):
         log(job_id, f"🎨 Bước 2: Chuẩn bị hình ảnh minh họa vẽ tay cho {num_scenes} cảnh...", 2, "Xử lý ảnh vẽ tay")
         img_scenes = []
         
-        # Hỗ trợ custom_images dạng dict {"1": b64, "2": b64, ...} lẫn legacy fields
+        # Hỗ trợ custom_images dạng dict {"1": b64, "2": b64, ...}, {"scene_1": b64, ...} lẫn legacy fields
         custom_b64s = {}
         if req.custom_images:
             for k, v in req.custom_images.items():
+                if not v:
+                    continue
+                v_str = str(v).strip()
                 try:
-                    custom_b64s[int(k)] = v
+                    custom_b64s[int(k)] = v_str
                 except Exception:
                     pass
+                try:
+                    cleaned_k = str(k).lower().replace("scene_", "").replace("scene", "").strip()
+                    custom_b64s[int(cleaned_k)] = v_str
+                except Exception:
+                    pass
+                custom_b64s[str(k).strip()] = v_str
+                custom_b64s[f"scene_{k}"] = v_str
+
         if req.scene_1_b64 and 1 not in custom_b64s:
             custom_b64s[1] = req.scene_1_b64
         if req.scene_2_b64 and 2 not in custom_b64s:
             custom_b64s[2] = req.scene_2_b64
 
-        for sc in scenes:
-            s_idx = sc["scene_index"]
+        for sc_i, sc in enumerate(scenes):
+            s_idx = sc.get("scene_index") or sc.get("sceneNumber") or (sc_i + 1)
             img_p = job_dir / f"scene_{s_idx}.png"
-            b64_val = custom_b64s.get(s_idx)
+            b64_val = (
+                custom_b64s.get(s_idx)
+                or custom_b64s.get(str(s_idx))
+                or custom_b64s.get(f"scene_{s_idx}")
+                or sc.get("imageUrl")
+                or sc.get("image_url")
+                or sc.get("custom_image")
+            )
             if b64_val and (b64_val.strip().startswith("http") or len(b64_val.strip()) > 50):
                 log(job_id, f"   🖼️ Sử dụng ảnh bạn đã tải lên cho Cảnh {s_idx}!")
                 raw_bytes = decode_base64_image(b64_val)
@@ -1733,10 +2346,35 @@ def run_pipeline(job_id: str, req: VideoRequest):
         ann_files = []
 
         for s_i, sc in enumerate(scenes):
-            s_idx = sc["scene_index"]
+            s_idx = sc.get("scene_index") or sc.get("sceneNumber") or (s_i + 1)
             log(job_id, f"   Đang thu âm & khớp nhịp liên tục Cảnh {s_idx}...")
             
-            elements = sc.get("elements", [])[:3]
+            elements = sc.get("elements") or []
+            if not elements:
+                script = sc.get("scriptText") or sc.get("script") or sc.get("text") or ""
+                script = script.strip()
+                if script:
+                    import re
+                    raw_sents = [s.strip() for s in re.split(r'(?<=[.?!])\s+', script) if s.strip()]
+                    if not raw_sents:
+                        raw_sents = [script]
+                    elements = []
+                    for idx, s in enumerate(raw_sents[:3]):
+                        elements.append({
+                            "label": f"Phần {idx+1}",
+                            "narrativeRole": "Dẫn chuyện",
+                            "subtitle": s,
+                            "visual_desc": s
+                        })
+                else:
+                    elements = [{
+                        "label": "Thuyết minh",
+                        "narrativeRole": "Dẫn chuyện",
+                        "subtitle": f"Phân cảnh {s_idx}",
+                        "visual_desc": f"Cảnh {s_idx}"
+                    }]
+            sc["elements"] = elements[:3]
+            elements = sc["elements"]
             audio_durations = []
             clip_paths_and_starts = []
 
@@ -1748,6 +2386,7 @@ def run_pipeline(job_id: str, req: VideoRequest):
                 sub_text = el.get("subtitle", "")
                 dur = generate_single_audio_clip(sub_text, mp3_p, wav_p, req.tts_engine, req.voice_name, req.elevenlabs_api_key)
                 audio_durations.append(dur)
+                time.sleep(0.35)  # Tránh nghẽn websocket Edge-TTS khi gọi dồn dập
 
             # Tính toán dòng thời gian liền mạch (nghỉ 0.35s giữa các câu, đợi 1.5s chuyển cảnh)
             timeline = compute_scene_continuous_timeline(audio_durations)
@@ -1784,7 +2423,8 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         scene_final_videos = []
         for i, ann_p in enumerate(ann_files):
-            s_idx = scenes[i]["scene_index"]
+            sc = scenes[i]
+            s_idx = sc.get("scene_index") or sc.get("sceneNumber") or (i + 1)
             dur_s = scene_timelines[i]["scene_duration_s"]
             log(job_id, f"   Đang vẽ nét Cảnh {s_idx} ({dur_s:.1f}s)...")
             raw_mp4 = job_dir / f"scene_{s_idx}_raw.mp4"
@@ -1833,6 +2473,8 @@ def run_pipeline(job_id: str, req: VideoRequest):
 
         # 6. Hoàn tất
         JOBS[job_id]["step"] = 6
+        JOBS[job_id]["total_steps"] = 6
+        JOBS[job_id]["progress"] = 100
         JOBS[job_id]["step_name"] = "Hoàn tất"
         JOBS[job_id]["status"] = "completed"
         JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"

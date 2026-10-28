@@ -106,3 +106,36 @@ export function getContentStatusBadge(status?: string | null): {
   }
 }
 
+/**
+ * Format ISO date string into readable relative time in Vietnamese (e.g. 2 giờ trước, 1 ngày trước)
+ */
+export function formatRelativeTime(isoString?: string | null): string {
+  if (!isoString) return 'Vừa xong';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return 'Vừa xong';
+    const now = Date.now();
+    const diffMs = now - d.getTime();
+    if (diffMs < 0 || diffMs < 60_000) return 'Vừa xong';
+
+    const diffMins = Math.floor(diffMs / 60_000);
+    if (diffMins < 60) return `${diffMins} phút trước`;
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} giờ trước`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays} ngày trước`;
+
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 5) return `${diffWeeks} tuần trước`;
+
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) return `${diffMonths} tháng trước`;
+
+    return formatDate(isoString);
+  } catch {
+    return 'Vừa xong';
+  }
+}
+
