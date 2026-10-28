@@ -281,12 +281,55 @@ export const resolveVideoThumbnail = (
     return cleanFile.replace(/\.(mp4|webm|mov)$/i, '.jpg');
   }
 
-  // Local Python outputs video snapshot
+  // Local Python outputs video snapshot (cover.png)
   if (cleanFile.includes('/outputs/') && cleanFile.endsWith('.mp4')) {
-    return resolveMediaUrl(
-      cleanFile.replace(/final_whiteboard_video\.mp4$/i, 'cover.png'),
-      apiBaseUrl
-    );
+    const coverPath = cleanFile.includes('final_whiteboard_video.mp4')
+      ? cleanFile.replace(/final_whiteboard_video\.mp4$/i, 'cover.png')
+      : cleanFile.replace(/\/[^/]+\.mp4$/i, '/cover.png');
+    return resolveMediaUrl(coverPath, apiBaseUrl);
+  }
+
+  return '';
+};
+
+/**
+ * Resolves a thumbnail for creator videos:
+ * 1. User uploaded thumbnail (explicit thumbnailUrl).
+ * 2. Generated video poster snapshot (Cloudinary .jpg or /outputs/.../cover.png).
+ * 3. Historical topic curated artwork fallback (matching title keywords like Bạch Đằng, Thăng Long, Lam Sơn, Diên Hồng, Như Nguyệt).
+ */
+export const resolveHistoricalThumbnail = (
+  title?: string | null,
+  thumbnailUrl?: string | null,
+  fileUrl?: string | null,
+  apiBaseUrl?: string
+): string => {
+  const direct = resolveVideoThumbnail(thumbnailUrl, fileUrl, apiBaseUrl);
+  if (direct && direct.trim().length > 0) {
+    return direct;
+  }
+
+  const t = (title || '').toLowerCase();
+  if (t.includes('bạch đằng 938') || (t.includes('bạch đằng') && t.includes('938'))) {
+    return '/assets/studio/topic-bach-dang-938.png';
+  }
+  if (t.includes('bạch đằng 1288') || (t.includes('bạch đằng') && (t.includes('1288') || t.includes('trần quốc tuấn')))) {
+    return '/assets/studio/topic-bach-dang-1288.png';
+  }
+  if (t.includes('chiếu dời đô') || t.includes('dời đô') || t.includes('thăng long')) {
+    return '/assets/studio/topic-thang-long-banner.png';
+  }
+  if (t.includes('lam sơn') || t.includes('lê lợi')) {
+    return '/assets/studio/topic-lam-son.png';
+  }
+  if (t.includes('diên hồng') || t.includes('trần thánh tông')) {
+    return '/assets/studio/topic-dien-hong.png';
+  }
+  if (t.includes('như nguyệt') || t.includes('lý thường kiệt')) {
+    return '/assets/studio/topic-nhu-nguyet.png';
+  }
+  if (t.includes('bạch đằng')) {
+    return '/assets/studio/topic-bach-dang-938.png';
   }
 
   return '';
