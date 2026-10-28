@@ -750,9 +750,9 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
             image_prompt = (
                 f"Minimalist sketch illustration on solid warm beige background (#F5EBD7). "
                 f"Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. "
-                f"Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: "
+                f"Single horizontal row of exactly three separate items placed side by side from left to right: "
                 f"Left side: doodle of {p_left}. Center: doodle of {p_mid}. Right side: doodle of {p_right}. "
-                f"Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
+                f"Generous whitespace around each item. Strictly SINGLE ROW ONLY, strictly NO multiple rows, NO duplicate versions, NO concept comparison sheets, NO sprite sheets, NO split screen, NO text, NO letters, 16:9 widescreen aspect ratio."
             )
 
             scenes.append({
@@ -977,9 +977,9 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
         image_prompt = (
             f"Minimalist sketch illustration on solid warm beige background (#F5EBD7). "
             f"Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. "
-            f"Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: "
+            f"Single horizontal row of exactly three separate items placed side by side from left to right: "
             f"Left side: {v_left}. Center: {v_mid}. Right side: {v_right}. "
-            f"Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
+            f"Generous whitespace around each item. Strictly SINGLE ROW ONLY, strictly NO multiple rows, NO duplicate versions, NO concept comparison sheets, NO sprite sheets, NO split screen, NO text, NO letters, 16:9 widescreen aspect ratio."
         )
 
         scenes.append({
@@ -1197,7 +1197,7 @@ YÊU CẦU ĐỊNH DẠNG:
 {subtitle_req}
   + visual_desc: Mô tả hình vẽ phác thảo tối giản kiểu doodle/sketch bằng tiếng Anh cho AI tạo ảnh.
 - image_prompt: 1 prompt tổng thể tiếng Anh (16:9) theo chuẩn Notion Doodle để người dùng copy tạo ảnh:
-  "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Strictly NO text, NO letters, NO words, NO numbers anywhere. Three distinct separate subjects arranged horizontally from left to right with generous whitespace between them: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Pure minimalist doodle style, clean outlines, ample empty beige space, 16:9 ratio."
+  "Minimalist sketch illustration on solid warm beige background (#F5EBD7). Clean doodle line art with dark charcoal grey hand-drawn outlines and subtle selective warm color accents. Single horizontal row of exactly three separate items placed side by side from left to right: Left side: [Mô tả chi tiết phân cảnh 1]. Center: [Mô tả chi tiết phân cảnh 2]. Right side: [Mô tả chi tiết phân cảnh 3]. Generous whitespace around each item. Strictly SINGLE ROW ONLY, strictly NO multiple rows, NO duplicate versions, NO concept comparison sheets, NO sprite sheets, NO split screen, NO text, NO letters, 16:9 widescreen aspect ratio."
 - thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh Thumbnail / Poster đại diện bắt mắt cho video lịch sử (chuẩn tỷ lệ 16:9 cho video hoạt họa bảng trắng hoặc 1:1 cho Audio Podcast):
   "Epic cinematic historical documentary poster illustration of [chủ đề chính], dramatic historical atmosphere, volumetric lighting, rich classical art style, highly detailed, masterwork, 16:9 widescreen aspect ratio, strictly NO text, NO typography, NO watermark."
 
