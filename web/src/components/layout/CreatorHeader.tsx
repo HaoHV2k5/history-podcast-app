@@ -26,10 +26,10 @@ interface CreatorHeaderProps {
 
 const CREATOR_ROUTE_NAME_MAP: Record<string, string> = {
   creator: 'Không gian Sáng tạo',
-  dashboard: 'Tổng quan Studio',
+  dashboard: 'Tổng quan Bàn làm việc',
   content: 'Thư viện nội dung',
   create: 'Tạo nội dung mới',
-  series: 'Tuyển tập Podcast',
+  series: 'Tuyển tập Tác phẩm',
   livestream: 'Phát trực tiếp',
   kyc: 'Xác thực KYC',
   channel: 'Quản lý Kênh',
@@ -46,13 +46,19 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
   const isAdmin = useAuthStore((s) => s.isAdmin());
 
   const segments = location.pathname.split('/').filter(Boolean);
+  const isExactCreatorRoot = location.pathname === '/creator' || location.pathname === '/creator/';
 
-  const breadcrumbs = segments.map((seg, idx) => {
-    const path = '/' + segments.slice(0, idx + 1).join('/');
-    const name = CREATOR_ROUTE_NAME_MAP[seg] || seg;
-    const isLast = idx === segments.length - 1;
-    return { name, path, isLast };
-  });
+  const breadcrumbs = isExactCreatorRoot
+    ? [
+        { name: 'Không gian Sáng tạo', path: '/creator', isLast: false },
+        { name: 'Tổng quan Bàn làm việc', path: '/creator', isLast: true },
+      ]
+    : segments.map((seg, idx) => {
+        const path = '/' + segments.slice(0, idx + 1).join('/');
+        const name = CREATOR_ROUTE_NAME_MAP[seg] || seg;
+        const isLast = idx === segments.length - 1;
+        return { name, path, isLast };
+      });
 
   return (
     <header className="sticky top-0 z-20 flex h-16 w-full items-center justify-between border-b border-border/80 bg-surface/85 backdrop-blur-md px-4 md:px-6 shadow-xs transition-colors">
@@ -64,7 +70,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
           size="sm"
           onClick={onToggleMobileMenu}
           className="lg:hidden min-h-[44px] min-w-[44px] h-11 w-11 p-0 text-muted hover:text-ink cursor-pointer"
-          aria-label="Mở danh mục điều hướng Studio"
+          aria-label="Mở danh mục điều hướng Bàn làm việc"
         >
           <Menu className="h-5 w-5" />
         </Button>
@@ -72,7 +78,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
         {/* Breadcrumb Trail */}
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted truncate">
           {breadcrumbs.map((crumb, idx) => (
-            <React.Fragment key={crumb.path}>
+            <React.Fragment key={`${crumb.path}-${idx}`}>
               {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-border shrink-0" />}
               {crumb.isLast ? (
                 <span className="font-semibold text-ink truncate max-w-[160px] md:max-w-[220px]">
@@ -95,7 +101,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
       <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
         <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-status-success-text/25 bg-status-success-bg/80 text-status-success-text text-[11px] font-medium select-none shadow-2xs">
           <span className="h-1.5 w-1.5 rounded-full bg-status-success-text animate-pulse" />
-          <span>Creator Studio Online</span>
+          <span>Hệ Thống Trực Tuyến</span>
         </div>
 
         {/* Switch to Admin Workspace for Dual-Role Users */}

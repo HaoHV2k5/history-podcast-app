@@ -942,7 +942,7 @@ export const CreatorStudioPage: React.FC = () => {
               {/* Score and summary pill */}
               <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                  <span className="font-bold text-amber-800 flex items-center gap-1.5">
                     <span>Điểm tin cậy sử liệu:</span>
                     <span className="text-sm font-mono">{softGuardWarning.overall_score || 70} / 100</span>
                   </span>

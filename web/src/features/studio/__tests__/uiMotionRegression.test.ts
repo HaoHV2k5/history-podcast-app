@@ -21,10 +21,10 @@ const ADMIN_EXPECTED_LABELS = [
 ];
 
 const CREATOR_EXPECTED_LABELS = [
-  'Tổng quan Studio',
+  'Tổng quan Bàn làm việc',
   'Thư viện nội dung',
   'Tạo nội dung mới',
-  'Tuyển tập Podcast',
+  'Tuyển tập Tác phẩm',
   'Phát trực tiếp',
   'Xác thực KYC',
   'Quản lý Kênh',
