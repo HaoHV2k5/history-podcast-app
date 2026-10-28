@@ -1610,7 +1610,7 @@ export const CreatorContentDetailPage: React.FC = () => {
               <span>Cập Nhật Ảnh Bìa Thumbnail (Poster)</span>
             </DialogTitle>
             <DialogDescription>
-              Tải lên hình ảnh poster tỷ lệ 16:9 xuất hiện ngoài trang chủ và danh sách phát. Tệp sẽ được tự động lưu trữ trên Cloudinary CDN.
+              Tải lên hình ảnh đại diện tỷ lệ 16:9 để hiển thị nổi bật trên trang chủ và danh sách phát của kênh.
             </DialogDescription>
           </DialogHeader>
 

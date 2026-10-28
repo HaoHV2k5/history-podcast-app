@@ -37,6 +37,10 @@ public interface CreatorStudioService {
      */
     CreatorUploadImageResponse uploadSceneImage(MultipartFile file);
 
+    default CreatorUploadImageResponse uploadSceneImage(MultipartFile file, String folder) {
+        return uploadSceneImage(file);
+    }
+
     /**
      * Gọi RAG & Gemini để nghiên cứu kịch bản dựa trên chủ đề (KHÔNG lưu vào database ở bước này).
      */

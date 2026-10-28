@@ -438,7 +438,7 @@ export const StoryboardStudioAudioPodcastView: React.FC = () => {
           <div className="lg:col-span-5 space-y-2">
             <div className="flex items-center justify-between">
               <span className="font-sans text-xs font-bold text-[#1C1917]">Tải Ảnh Bìa Podcast (1:1)</span>
-              <span className="font-sans text-[11px] text-[#78716C]">CDN Cloudinary</span>
+              <span className="font-sans text-[11px] text-[#78716C]">Khung vuông 1:1</span>
             </div>
 
             {onUploadCoverImage && (
@@ -714,7 +714,7 @@ const WhiteboardSceneCard: React.FC<WhiteboardSceneCardProps> = ({
             <span className="font-sans text-xs font-bold text-[#1C1917]">
               Ảnh Cảnh {scene.scene_index} (16:9)
             </span>
-            <span className="font-sans text-[11px] text-[#78716C]">Widescreen</span>
+            <span className="font-sans text-[11px] text-[#78716C]">Khung ngang 16:9</span>
           </div>
 
           <SceneImageUploadDropzone

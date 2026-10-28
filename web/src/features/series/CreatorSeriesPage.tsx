@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   BookOpen,
@@ -17,6 +17,8 @@ import {
   ChevronUp,
   ChevronDown,
   Check,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { seriesApi } from '@/services/api/series';
 import { creatorStudioApi } from '@/services/api/creatorStudio';
@@ -40,7 +42,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { formatDate, formatDuration } from '@/utils/formatters';
+import { formatDate, formatDuration, getContentStatusBadge } from '@/utils/formatters';
 
 export const CreatorSeriesPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -55,6 +57,39 @@ export const CreatorSeriesPage: React.FC = () => {
   const [formCoverUrl, setFormCoverUrl] = useState('');
   const [formStatus, setFormStatus] = useState<'PUBLISHED' | 'HIDDEN' | 'DRAFT'>('PUBLISHED');
   const [formError, setFormError] = useState<string | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleUploadSeriesCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      setFormError('Định dạng ảnh không hợp lệ. Vui lòng chọn file JPG, PNG hoặc WEBP.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFormError('Kích thước ảnh vượt quá 10MB. Vui lòng chọn ảnh nhẹ hơn.');
+      return;
+    }
+
+    setFormError(null);
+    setIsUploadingCover(true);
+    try {
+      const res = await creatorStudioApi.uploadSceneImage(file, 'series/covers');
+      const uploadedUrl = res.data?.imageUrl || '';
+      if (uploadedUrl) {
+        setFormCoverUrl(uploadedUrl);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Không thể tải ảnh bìa lên. Vui lòng thử lại.';
+      setFormError(msg);
+    } finally {
+      setIsUploadingCover(false);
+    }
+  };
 
   // Delete modal state
   const [deleteConfirmSeries, setDeleteConfirmSeries] = useState<SeriesItem | null>(null);
@@ -459,7 +494,7 @@ export const CreatorSeriesPage: React.FC = () => {
                 Tiêu đề tuyển tập <span className="text-danger">*</span>
               </label>
               <Input
-                placeholder="Ví dụ: Đại chiến Bạch Đằng & Triều đại Tiền Lê"
+                placeholder="Ví dụ: Hào Khí Đông A — Ba Lần Đại Phá Nguyên Mông"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
                 required
@@ -477,15 +512,107 @@ export const CreatorSeriesPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-ink">URL ảnh bìa (16:9)</label>
-              <Input
-                placeholder="https://res.cloudinary.com/..."
-                value={formCoverUrl}
-                onChange={(e) => setFormCoverUrl(e.target.value)}
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-accent" />
+                  <span>Ảnh bìa tuyển tập (16:9)</span>
+                </label>
+                <span className="text-[11px] font-sans text-ink-muted bg-surface-subtle px-2 py-0.5 rounded-md border border-border/70">
+                  Khuyên dùng tỉ lệ ngang 16:9
+                </span>
+              </div>
+
+              <input
+                ref={coverFileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleUploadSeriesCover}
+                className="hidden"
               />
-              <p className="text-[11px] text-ink-muted">
-                Có thể dán liên kết ảnh từ Cloudinary hoặc ảnh đã tải lên hệ thống.
-              </p>
+
+              {formCoverUrl ? (
+                <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-border bg-surface-subtle group shadow-2xs">
+                  <img
+                    src={formCoverUrl}
+                    alt="Xem trước ảnh bìa tuyển tập"
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-ink/45 opacity-0 group-hover:opacity-100 transition-opacity duration-150 ease-out flex items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isUploadingCover}
+                      onClick={() => coverFileInputRef.current?.click()}
+                      className="h-8 text-xs gap-1.5 bg-white text-ink border-border active:scale-[0.97] transition-[transform,background-color] duration-150 ease-out"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-accent" />
+                      <span>Đổi ảnh khác</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isUploadingCover}
+                      onClick={() => setFormCoverUrl('')}
+                      className="h-8 text-xs gap-1 bg-white text-danger border-danger/30 hover:bg-danger/10 active:scale-[0.97] transition-[transform,background-color] duration-150 ease-out"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span>Gỡ</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={isUploadingCover}
+                  onClick={() => coverFileInputRef.current?.click()}
+                  className="w-full rounded-xl border border-dashed border-border hover:border-accent/50 bg-surface-subtle/50 hover:bg-accent/5 p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer active:scale-[0.99] transition-[transform,border-color,background-color] duration-150 ease-out disabled:opacity-60"
+                >
+                  {isUploadingCover ? (
+                    <>
+                      <Loader2 className="h-5 w-5 text-accent animate-spin" />
+                      <span className="text-xs font-semibold text-accent">
+                        Đang tải ảnh bìa lên...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 text-accent" />
+                      <span className="text-xs font-semibold text-ink">
+                        Bấm để chọn ảnh bìa từ máy tính
+                      </span>
+                      <span className="text-[11px] text-ink-muted">
+                        Hỗ trợ ảnh JPG, PNG, WebP (tối đa 10MB) • Khuyến nghị 1280×720px
+                      </span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                <Input
+                  placeholder="Hoặc dán đường dẫn ảnh có sẵn (https://...)"
+                  value={formCoverUrl}
+                  onChange={(e) => setFormCoverUrl(e.target.value)}
+                  className="text-xs h-8"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingCover}
+                  onClick={() => coverFileInputRef.current?.click()}
+                  className="shrink-0 h-8 px-3 text-xs gap-1.5 border-accent/30 text-accent hover:bg-accent/5 active:scale-[0.97] transition-[transform,background-color,border-color] duration-150 ease-out"
+                >
+                  {isUploadingCover ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  <span>Tải ảnh lên</span>
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -499,7 +626,7 @@ export const CreatorSeriesPage: React.FC = () => {
                   className={formStatus === 'PUBLISHED' ? 'bg-accent text-white' : ''}
                 >
                   <Eye className="h-3.5 w-3.5 mr-1.5" />
-                  Công khai (PUBLISHED)
+                  Công khai
                 </Button>
                 <Button
                   type="button"
@@ -509,7 +636,7 @@ export const CreatorSeriesPage: React.FC = () => {
                   className={formStatus === 'HIDDEN' ? 'bg-amber-600 text-white' : ''}
                 >
                   <EyeOff className="h-3.5 w-3.5 mr-1.5" />
-                  Ẩn (HIDDEN)
+                  Tạm ẩn
                 </Button>
                 <Button
                   type="button"
@@ -633,7 +760,7 @@ export const CreatorSeriesPage: React.FC = () => {
               <option value="">-- Chọn video/podcast để thêm vào tuyển tập --</option>
               {creatorVideos.map((v) => (
                 <option key={v.contentId} value={v.contentId}>
-                  #{v.contentId} — {v.title} ({v.status})
+                  {v.title} — {getContentStatusBadge(v.status).label}
                 </option>
               ))}
             </select>

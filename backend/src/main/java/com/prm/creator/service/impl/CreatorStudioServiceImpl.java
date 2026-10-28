@@ -223,7 +223,27 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             throw new AppException(ErrorCode.FILE_EMPTY, "Vui lòng chọn hình ảnh để tải lên");
         }
         log.info("Uploading creator scene image ({} bytes) to Cloudinary...", file.getSize());
-        String secureUrl = fileStorageService.uploadImage(file, "whiteboard/scenes");
+        return uploadSceneImage(file, "whiteboard/scenes");
+    }
+
+    private static final Set<String> ALLOWED_UPLOAD_FOLDERS = Set.of(
+            "whiteboard/scenes",
+            "whiteboard/thumbnails",
+            "whiteboard/covers",
+            "podcasts/covers",
+            "series/covers"
+    );
+
+    @Override
+    public CreatorUploadImageResponse uploadSceneImage(MultipartFile file, String folder) {
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.FILE_EMPTY, "Vui lòng chọn hình ảnh để tải lên");
+        }
+        String targetFolder = (StringUtils.hasText(folder) && ALLOWED_UPLOAD_FOLDERS.contains(folder.trim()))
+                ? folder.trim()
+                : "whiteboard/scenes";
+        log.info("Uploading creator image ({} bytes) to Cloudinary folder '{}'...", file.getSize(), targetFolder);
+        String secureUrl = fileStorageService.uploadImage(file, targetFolder);
         log.info("Scene image uploaded successfully to Cloudinary: {}", secureUrl);
         return CreatorUploadImageResponse.builder()
                 .imageUrl(secureUrl)
