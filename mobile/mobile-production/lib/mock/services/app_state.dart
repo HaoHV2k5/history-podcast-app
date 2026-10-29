@@ -206,6 +206,12 @@ class AppState extends ChangeNotifier {
         );
       }
     }
+
+    if (apiClient != null) {
+      apiClient!.onSessionExpired = () {
+        logout();
+      };
+    }
   }
 
   final SharedPreferences preferences;
