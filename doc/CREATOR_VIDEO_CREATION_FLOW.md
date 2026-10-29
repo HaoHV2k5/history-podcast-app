@@ -216,12 +216,17 @@ Ngay khi bấm tạo kịch bản, hệ thống **không vội gửi ngay cho AI
    - Creator mở video xem lại hình ảnh, nghe giọng đọc và xem phụ đề.
    - Nếu muốn đổi ảnh Thumbnail khác: Creator bấm nút "Đổi Thumbnail" (`POST /videos/{id}/thumbnail` hoặc `PUT /videos/{id}`) để thay ảnh bìa mới bất cứ lúc nào.
 2. **Vá kịch bản siêu tốc theo từng câu (Smart Script Patching) - Tùy chọn:**
-   - Nếu nghe lại thấy 1 từ phát âm chưa chuẩn (ví dụ chữ *"Bạch Đằng"* đọc chưa vang) hoặc muốn đổi ý 1 câu:
+   - Nếu nghe lại thấy 1 từ phát âm chưa chuẩn (ví dụ chữ *"Bạch Đằng"* đọc chưa vang), cần bổ sung chi tiết hoặc chỉnh sửa câu chữ:
    - **Không cần tạm ẩn video**: Nếu video đang phát sóng công khai ngoài trang chủ (`PUBLISHED`), bản `v1` cũ vẫn tiếp tục chiếu cho khán giả xem bình thường, không bị gián đoạn hay mất lượt xem!
-   - Creator mở công cụ vá: Hệ thống hiển thị từng câu kèm nút nghe thử riêng biệt của câu đó (`GET /podcast-sentences`).
-   - Creator sửa lại chữ câu cần sửa (và có thể chọn đổi ảnh bìa mới nếu là Podcast) $\rightarrow$ Bấm **"Vá Video"** (`POST /patch-podcast`).
-   - **Python Engine chỉ thu âm lại đúng 1 câu bị sửa**, tận dụng lại 100% âm thanh của các câu khác và dùng FFmpeg ghép lại video mới trong chưa đầy **10 giây** (tiết kiệm 90% thời gian và chi phí API so với việc render lại từ đầu).
-   - Hệ thống tạo ra một phiên bản mới `v2` độc lập với trạng thái `COMPLETED`.
+   - **Popup Vá kịch bản trực quan**: Hệ thống bóc tách toàn bộ câu thoại và liên kết nút **"Nghe thử"** riêng biệt cho từng câu (`GET /podcast-sentences`), hỗ trợ chuẩn xác cả video vẽ tay Whiteboard (`scene_{s}_elem_{e}.mp3`) lẫn Audio Podcast (`clip_{idx}.mp3`).
+   - **🛡️ Chốt chặn AI ScopeGate bắt buộc chống gian lận (Anti-Bypass Security)**:
+     - Khi Creator bấm **"Bắt Đầu Vá Video"**, hệ thống **bắt buộc kích hoạt AI ScopeGate** quét toàn bộ câu thoại chỉnh sửa.
+     - **Quy tắc kiểm định**: Toàn bộ nội dung câu vá phải thuần khiết thuộc thời kỳ Nhà Lý (1009 – 1225) và Nhà Trần (1225 – 1400).
+     - **Chặn đứng mọi ý đồ lách luật**: Nếu Creator cố tình đưa nhân vật ngoại lai (như *Trương Liêu, Lưu Bị, Tào Tháo...* thời Tam Quốc, nhân vật thời khác như *Đinh Bộ Lĩnh, Lê Lợi...*) hoặc sai lệch nghiêm trọng niên đại (gộp *Lý Thường Kiệt* vào trận Bạch Đằng 1288), hệ thống sẽ **bật cảnh báo đỏ từ chối ngay lập tức (`HTTP 400 - ⚠️ BẢN VÁ BỊ TỪ CHỐI`)** và vạch rõ chi tiết sai phạm, ngăn chặn tuyệt đối việc tạo ra video sai lệch lịch sử.
+   - **⚡ Cơ chế Vá siêu tốc theo từng định dạng video (< 3 giây)**:
+     - **Với Video vẽ tay (Whiteboard)**: Nhận diện chính xác câu sửa thuộc phân cảnh (scene) và phần tử (element) nào. **Chỉ thu âm lại đúng câu đó**, giữ nguyên và tái sử dụng 100% video hoạt họa nét vẽ tay gốc (`scene_*_raw.mp4`), tính toán lại nhịp nói, dập lại phụ đề Hardsub và ghép nối các cảnh hoàn tất trong chưa đầy **3 giây** (tiết kiệm 95% thời gian và hoàn toàn không phải vẽ lại tay từ đầu).
+     - **Với Video Audio Podcast**: Thu âm lại câu sửa, cập nhật lại ảnh bìa nếu Creator dán/tải ảnh mới và ghép lại video podcast trong < 5 giây.
+   - Hệ thống tạo ra một phiên bản mới `v2` độc lập với trạng thái `COMPLETED` để Creator xem trước.
 3. **Gửi kiểm duyệt xuất bản (`POST /submit-publish`):**
    - Khi Creator đã ưng ý với tác phẩm, bấm **"Gửi Kiểm Duyệt Xuất Bản"**.
    - **Lớp 1 - AI Shield tự động**: Quét video và kịch bản, chấm điểm an toàn nội dung lịch sử (0 – 100 điểm) và xếp hạng mức độ an toàn.
@@ -247,10 +252,10 @@ sequenceDiagram
     Note over Creator, Py: GIAI ĐOẠN 1 & 2: KỊCH BẢN, PROMPT & TẢI ẢNH
     Creator->>Web: 1. Nhập ý tưởng/kịch bản
     Web->>BE: POST /api/v1/creator/studio/storyboard
-    BE->>Py: POST /api/storyboard (RAG tra cứu sử liệu + Gemini AI)
+    BE->>Py: POST /api/storyboard (RAG tra cứu sử liệu + ScopeGate Lý - Trần)
     Py-->>BE: Kịch bản phân cảnh + Prompt từng cảnh + Prompt Thumbnail
     BE-->>Web: Trả về kịch bản & bộ prompt
-    Creator->>Web: 2. Copy prompt tạo ảnh & tải lên (Ảnh cảnh 1..N + Ảnh Thumbnail)
+    Creator->>Web: 2. Copy prompt tạo ảnh & dán (Ctrl+V) / tải lên (Ảnh cảnh 1..N + Ảnh Thumbnail)
     Web->>BE: POST /api/v1/creator/studio/upload-image
     BE-->>Web: Trả về link ảnh CDN Cloudinary
 
@@ -280,11 +285,19 @@ sequenceDiagram
 
     Note over Creator, Admin: GIAI ĐOẠN 4: VÁ CÂU (TÙY CHỌN) & XUẤT BẢN
     opt Nếu Creator muốn sửa phát âm/đổi ý nghĩa 1 vài câu
-        Creator->>Web: Sửa câu lỗi (và có thể đổi ảnh bìa nếu là podcast)
+        Creator->>Web: Mở Popup Vá kịch bản (Nghe thử từng câu & sửa lại chữ)
         Web->>BE: POST /api/v1/creator/studio/videos/{id}/patch-podcast
-        BE->>Py: Chỉ thu âm lại đúng câu bị sửa & ghép video mới trong < 10s
-        Py-->>BE: Trả về video bản mới (v2)
-        BE->>DB: Lưu Artifact VIDEO v2 (Bản v1 ngoài trang chủ vẫn tiếp tục chiếu)
+        BE->>Py: POST /api/podcast/patch (Kèm gemini_api_key + câu sửa)
+        Py->>Py: 🛡️ Chạy AI ScopeGate kiểm định lịch sử (Chỉ hỗ trợ Nhà Lý & Nhà Trần)
+        alt Câu thoại chứa thông tin sai lệch / nhân vật ngoại lai
+            Py-->>BE: HTTP 400 (⚠️ BẢN VÁ BỊ TỪ CHỐI kèm lý do sử liệu)
+            BE-->>Web: Hiển thị cảnh báo đỏ từ chối vá kịch bản
+        else Câu thoại hợp lệ chính sử Lý - Trần
+            Py->>Py: Chỉ thu âm lại câu bị sửa & tái sử dụng nét vẽ tay gốc (< 3s)
+            Py-->>BE: Trả về video bản mới (v2)
+            BE->>DB: Lưu Artifact VIDEO v2 (Bản v1 ngoài trang chủ vẫn tiếp tục chiếu)
+            BE-->>Web: Báo vá kịch bản thành công!
+        end
     end
 
     Creator->>Web: Bấm "Gửi kiểm duyệt xuất bản"
@@ -320,8 +333,8 @@ sequenceDiagram
 | **11** | `PUT` | `/api/v1/creator/studio/videos/{contentId}` | Sửa tiêu đề, mô tả, hoặc **cập nhật lại đường dẫn ảnh `thumbnailUrl`**. |
 | **12** | `POST` | `/api/v1/creator/studio/videos/{contentId}/thumbnail` | **Creator tải trực tiếp file ảnh Thumbnail từ máy tính lên Cloudinary** để gán cho video. |
 | **13** | `PATCH` | `/api/v1/creator/studio/videos/{contentId}/visibility` | Ẩn hoặc Hiện video đã xuất bản (`PUBLISHED` $\leftrightarrow$ `HIDDEN`). |
-| **14** | `GET` | `/api/v1/creator/studio/videos/{contentId}/podcast-sentences` | Lấy danh sách từng câu thoại kèm file audio riêng lẻ để nghe thử trước khi vá câu. |
-| **15** | `POST` | `/api/v1/creator/studio/videos/{contentId}/patch-podcast` | Vá các câu kịch bản theo yêu cầu (hỗ trợ đổi ảnh bìa `coverImage` cho podcast) và tạo video mới trong < 10s. |
+| **14** | `GET` | `/api/v1/creator/studio/videos/{contentId}/podcast-sentences` | Lấy danh sách từng câu thoại kèm file audio riêng lẻ (`scene_{s}_elem_{e}.mp3` hoặc `clip_{idx}.mp3`) để nghe thử trước khi vá câu (hỗ trợ cả Whiteboard và Podcast). |
+| **15** | `POST` | `/api/v1/creator/studio/videos/{contentId}/patch-podcast` | Vá kịch bản siêu tốc (< 3s) cho cả Video vẽ tay Whiteboard và Audio Podcast, tích hợp **Bộ thẩm định AI ScopeGate Sử Liệu Lý - Trần bắt buộc** trước khi thu âm & ghép video. |
 | **16** | `POST` | `/api/v1/creator/studio/videos/{contentId}/submit-publish` | Chạy thẩm định an toàn AI Shield và nộp phiếu kiểm duyệt lên Admin. |
 
 ---
