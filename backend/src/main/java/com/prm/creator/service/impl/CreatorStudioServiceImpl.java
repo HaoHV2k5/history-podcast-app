@@ -1282,22 +1282,47 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         Content content = contentRepository.findByIdAndCreatorId(contentId, creator.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy video hoặc bạn không có quyền cập nhật"));
 
-        String newStatus = Boolean.TRUE.equals(hidden) ? ContentStatus.HIDDEN.name() : ContentStatus.PUBLISHED.name();
-        content.setStatus(newStatus);
+        boolean isCurrentlyPublished = ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus());
+        boolean isCurrentlyHidden = ContentStatus.HIDDEN.name().equalsIgnoreCase(content.getStatus());
+
+        if (Boolean.TRUE.equals(hidden)) {
+            // Cho phép ẩn video nếu video đang được phát sóng công khai (PUBLISHED)
+            if (!isCurrentlyPublished) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Chỉ có thể ẩn các video đang được phát sóng công khai!");
+            }
+            content.setStatus(ContentStatus.HIDDEN.name());
+        } else {
+            // Cho phép hiện lại nếu video đang bị HIDDEN (đã từng được Admin duyệt và bị Creator tạm ẩn)
+            if (!isCurrentlyHidden) {
+                throw new AppException(ErrorCode.FORBIDDEN_ACCESS, 
+                        "Chỉ Quản trị viên (Admin) mới có quyền phê duyệt công khai video! Vui lòng bấm 'Gửi Duyệt' để nộp nội dung qua kiểm duyệt.");
+            }
+            content.setStatus(ContentStatus.PUBLISHED.name());
+        }
+
         content.setUpdatedAt(Instant.now());
         Content saved = contentRepository.save(content);
 
-        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(saved.getId()).orElse(null);
-        if (artifact != null) {
-            artifact.setStatus(newStatus);
-            // Khi publish: đảm bảo optimizedUrl đã được build (backup nếu lần render chưa build)
-            if (ContentStatus.PUBLISHED.name().equals(newStatus) && !StringUtils.hasText(artifact.getOptimizedUrl())
-                    && StringUtils.hasText(artifact.getFileUrl())) {
-                artifact.setOptimizedUrl(fileStorageService.buildOptimizedVideoUrl(artifact.getFileUrl()));
-                log.info("Built optimized URL on publish for artifact {}", artifact.getId());
+        // Đồng bộ trạng thái cho các artifact liên quan (PUBLISHED <-> HIDDEN)
+        List<Artifact> artifacts = artifactRepository.findByContentId(saved.getId());
+        for (Artifact a : artifacts) {
+            if (Boolean.TRUE.equals(hidden)) {
+                if (ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(a.getStatus())) {
+                    a.setStatus(ArtifactStatus.HIDDEN.name());
+                    artifactRepository.save(a);
+                }
+            } else {
+                if (ArtifactStatus.HIDDEN.name().equalsIgnoreCase(a.getStatus())) {
+                    a.setStatus(ArtifactStatus.PUBLISHED.name());
+                    if (!StringUtils.hasText(a.getOptimizedUrl()) && StringUtils.hasText(a.getFileUrl())) {
+                        a.setOptimizedUrl(fileStorageService.buildOptimizedVideoUrl(a.getFileUrl()));
+                    }
+                    artifactRepository.save(a);
+                }
             }
-            artifactRepository.save(artifact);
         }
+
+        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(saved.getId()).orElse(null);
 
         long likeCount = artifact != null ? reactionRepository.countByArtifactIdAndType(artifact.getId(), "LIKE") : 0;
         long dislikeCount = artifact != null ? reactionRepository.countByArtifactIdAndType(artifact.getId(), "DISLIKE") : 0;
@@ -1320,7 +1345,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .status(saved.getStatus())
                 .version(artifact != null ? artifact.getVersion() : 1)
                 .fileUrl(artifact != null
-                        ? (ContentStatus.PUBLISHED.name().equalsIgnoreCase(newStatus) && StringUtils.hasText(artifact.getOptimizedUrl())
+                        ? (ContentStatus.PUBLISHED.name().equalsIgnoreCase(saved.getStatus()) && StringUtils.hasText(artifact.getOptimizedUrl())
                             ? artifact.getOptimizedUrl()
                             : artifact.getFileUrl())
                         : null)

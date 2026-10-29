@@ -3402,7 +3402,7 @@
               <h3 style="font-family:var(--font-display); font-size:1.35rem; font-weight:400; color:var(--semantic-success);" id="resultVideoTitle">
                 Video Đã Render Hoàn Tất
               </h3>
-              <span class="badge-status published">COMPLETED</span>
+              <span class="badge-status draft" id="resultVideoStatusBadge"><span class="status-dot"></span><span>Đã Render Xong</span></span>
             </div>
 
             <!-- Video Player -->
@@ -5941,6 +5941,16 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
       // Smart Patch button visibility
       $('btnOpenSmartPatchModal').style.display = state.currentStudioMode === 'audio_podcast' ? 'inline-flex' : 'none';
 
+      if ($('btnSubmitPublishActive')) {
+        $('btnSubmitPublishActive').disabled = false;
+        $('btnSubmitPublishActive').textContent = 'Gửi Duyệt Xuất Bản';
+      }
+      if ($('resultVideoStatusBadge')) {
+        $('resultVideoStatusBadge').className = 'badge-status draft';
+        $('resultVideoStatusBadge').innerHTML = '<span class="status-dot"></span><span>Đã Render Xong</span>';
+      }
+
+      loadCreatorVideos();
       card.scrollIntoView({ behavior: 'smooth' });
 
       if (window.gsap) {
@@ -6183,6 +6193,14 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
         const tier = v.aiShieldTierLabel || v.aiShieldTier || 'GOOD';
 
         showToast(`AI Shield chấm điểm: ${score} (${tier}). Đã chuyển vào hàng đợi Admin duyệt!`, 'success');
+        if (state.activeContentId == contentId && $('btnSubmitPublishActive')) {
+          $('btnSubmitPublishActive').disabled = true;
+          $('btnSubmitPublishActive').textContent = 'Đã Gửi Admin Duyệt';
+          if ($('resultVideoStatusBadge')) {
+            $('resultVideoStatusBadge').className = 'badge-status pending';
+            $('resultVideoStatusBadge').innerHTML = '<span class="status-dot"></span><span>Chờ Admin Duyệt</span>';
+          }
+        }
         loadCreatorVideos();
       } catch (err) {
         showToast('Lỗi gửi kiểm duyệt: ' + err.message, 'error');
@@ -6239,9 +6257,10 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
           const isPending = v.status === 'PENDING_REVIEW';
           const isFailed = v.status === 'FAILED';
           const isProcessing = v.status === 'PROCESSING';
+          const isDraft = v.status === 'DRAFT' || v.status === 'COMPLETED';
 
           const statusClass = isPub ? 'published' : isHid ? 'hidden' : (isPending ? 'pending' : (isFailed ? 'failed' : (isProcessing ? 'processing' : 'draft')));
-          const statusLabel = isPub ? 'Công Khai' : isHid ? 'Đang Ẩn' : (isPending ? 'Chờ Duyệt' : (isFailed ? 'Thất Bại' : (isProcessing ? 'Đang Xử Lý' : escapeHtml(v.status))));
+          const statusLabel = isPub ? 'Đã Xuất Bản' : isHid ? 'Đang Ẩn' : (isPending ? 'Chờ Admin Duyệt' : (isFailed ? 'Thất Bại' : (isProcessing ? 'Đang Xử Lý' : (isDraft ? 'Chưa Gửi Duyệt' : escapeHtml(v.status)))));
 
           const videoUrl = v.fileUrl || '';
           const thumbUrl = v.thumbnailUrl || '';
@@ -6259,10 +6278,14 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
             `;
           }
 
+          const versionNum = v.version || 1;
+          const isVersionPatched = versionNum > 1;
+          const versionBadge = `<span style="font-family:var(--font-mono); font-size:0.75rem; font-weight:700; background:var(--canvas-soft); color:var(--ink); padding:2px 7px; border-radius:6px; border:1px solid var(--hairline-strong); display:inline-flex; align-items:center; gap:4px;">v${versionNum}${isVersionPatched ? ' <span style="color:var(--accent); font-size:0.68rem; font-weight:600;">(Bản vá)</span>' : ''}</span>`;
+
           return `
             <div class="video-item-card">
               <div class="video-item-thumb">
-                <span class="video-thumb-id">#${v.contentId}</span>
+                <span class="video-thumb-id">#${v.contentId} • v${versionNum}</span>
                 ${videoUrl ? `
                   <video src="${videoUrl}" controls playsinline preload="metadata" poster="${thumbUrl}"></video>
                 ` : (thumbUrl ? `<img src="${thumbUrl}" alt="Thumbnail">` : `
@@ -6277,7 +6300,10 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
               <div class="video-item-content">
                 <div>
                   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
-                    <h3 class="video-item-title">${escapeHtml(v.title || 'Chưa đặt tiêu đề')}</h3>
+                    <h3 class="video-item-title" style="display:flex; align-items:center; gap:8px;">
+                      ${versionBadge}
+                      <span>${escapeHtml(v.title || 'Chưa đặt tiêu đề')}</span>
+                    </h3>
                     <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
                       ${shieldBadge}
                       <span class="badge-status ${statusClass}">
@@ -6316,15 +6342,17 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
                     <span>Đổi Thumbnail</span>
                   </button>
 
-                  <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => toggleVideoVisibility(${v.contentId}, ${isPub}))">
-                    ${isPub ? `
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                      <span>Ẩn Video</span>
-                    ` : `
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      <span>Công Khai</span>
-                    `}
-                  </button>
+                  ${(isPub || isHid) ? `
+                    <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => toggleVideoVisibility(${v.contentId}, ${isPub}))">
+                      ${isPub ? `
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        <span>Ẩn Video</span>
+                      ` : `
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span>Hiện Lại Video</span>
+                      `}
+                    </button>
+                  ` : ''}
 
                   <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => openCommentsModal(${v.contentId}))">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -6336,12 +6364,17 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
                     <span>Vá Câu</span>
                   </button>
 
-                  ${v.status !== 'PUBLISHED' && v.status !== 'PENDING_REVIEW' ? `
+                  ${isPending ? `
+                    <button type="button" class="btn btn-outline btn-sm" disabled style="opacity:0.75; cursor:not-allowed; background:rgba(217, 119, 6, 0.08); color:var(--warning); border-color:rgba(217, 119, 6, 0.3);" title="Video đang trong hàng đợi chờ Admin kiểm duyệt và phê duyệt công khai">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span>Chờ Admin Duyệt</span>
+                    </button>
+                  ` : (!isPub && !isHid ? `
                     <button type="button" class="btn btn-primary btn-sm" onclick="animateButtonAction(this, () => submitVideoForPublish(${v.contentId}))">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                      <span>Gửi Duyệt</span>
+                      <span>${isVersionPatched ? `Gửi Duyệt v${versionNum}` : 'Gửi Duyệt'}</span>
                     </button>
-                  ` : ''}
+                  ` : '')}
 
                   ${videoUrl ? `
                     <a href="${videoUrl}" target="_blank" class="btn btn-ghost btn-sm">
@@ -6382,7 +6415,7 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
 
     // Toggle Visibility (PATCH /videos/{id}/visibility)
     async function toggleVideoVisibility(contentId, isCurrentlyPublished) {
-      const actionText = isCurrentlyPublished ? 'ẩn video này' : 'công khai lại video này';
+      const actionText = isCurrentlyPublished ? 'ẩn video này khỏi trang chủ' : 'hiện lại video này';
       if (!confirm(`Bạn có chắc chắn muốn ${actionText}?`)) return;
 
       try {
