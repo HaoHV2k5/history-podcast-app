@@ -1112,7 +1112,7 @@ class _MembershipPageState extends State<MembershipPage> {
   );
 }
 
-class ProfileContent extends StatelessWidget {
+class ProfileContent extends StatefulWidget {
   const ProfileContent({
     super.key,
     required this.state,
@@ -1120,11 +1120,25 @@ class ProfileContent extends StatelessWidget {
   });
   final AppState state;
   final ValueChanged<Channel> onChannel;
+
+  @override
+  State<ProfileContent> createState() => _ProfileContentState();
+}
+
+class _ProfileContentState extends State<ProfileContent> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.state.isLoggedIn) {
+      widget.state.refreshProfile();
+    }
+  }
+
   void _openAuth(BuildContext context) => showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => AuthSheet(state: state),
+    builder: (_) => AuthSheet(state: widget.state),
   );
 
   List<Widget> _buildRoleBadges(BuildContext context, AppState state) {
@@ -1224,10 +1238,18 @@ class ProfileContent extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-    key: const PageStorageKey('profile-scroll'),
-    padding: EdgeInsets.fromLTRB(24, 4, 24, state.current == null ? 28 : 118),
-    children: [
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final onChannel = widget.onChannel;
+    return RefreshIndicator(
+      onRefresh: () async {
+        await state.refreshProfile();
+      },
+      child: ListView(
+        key: const PageStorageKey('profile-scroll'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(24, 4, 24, state.current == null ? 28 : 118),
+        children: [
       Text('Góc của bạn', style: editorial(31)),
       const SizedBox(height: 24),
       Row(
@@ -1435,7 +1457,9 @@ class ProfileContent extends StatelessWidget {
         ),
       ),
     ],
-  );
+  ),
+);
+}
 }
 
 class _PersonalLink extends StatelessWidget {

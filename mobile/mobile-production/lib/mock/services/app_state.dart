@@ -1338,6 +1338,36 @@ class AppState extends ChangeNotifier {
         } catch (_) {}
       }
 
+      if (freelancerRepository != null) {
+        try {
+          final f = await freelancerRepository!
+              .getMyProfile()
+              .timeout(const Duration(seconds: 4));
+          if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+            initialRoles.add('FREELANCER');
+            userRoles = initialRoles.toList();
+            isFreelancer = true;
+            await preferences.setStringList('userRoles', userRoles);
+            await preferences.setBool('isFreelancer', true);
+          }
+        } catch (_) {}
+      }
+
+      if (kycRepository != null) {
+        try {
+          final kyc = await kycRepository!
+              .getMyKycProfile()
+              .timeout(const Duration(seconds: 4));
+          if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
+            initialRoles.add('CREATOR');
+            userRoles = initialRoles.toList();
+            isCreator = true;
+            await preferences.setStringList('userRoles', userRoles);
+            await preferences.setBool('isCreator', true);
+          }
+        } catch (_) {}
+      }
+
       await preferences.setBool('isLoggedIn', true);
       await preferences.remove('manual_logout');
       await preferences.setString('displayName', displayName);
