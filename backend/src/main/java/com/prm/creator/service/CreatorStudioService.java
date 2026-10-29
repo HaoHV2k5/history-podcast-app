@@ -130,4 +130,9 @@ public interface CreatorStudioService {
      * Vá và tái tạo lại video Audio Podcast (chỉ thu âm lại các câu được chỉnh sửa để tối ưu chi phí).
      */
     CreatorPatchPodcastResponse patchPodcastVideo(String email, Long contentId, CreatorPatchPodcastRequest request);
+
+    /**
+     * Khôi phục (Rollback) phiên bản video (v1, v2...) của bài đăng.
+     */
+    CreatorVideoItemResponse restoreVideoVersion(String email, Long contentId, Integer targetVersion);
 }
