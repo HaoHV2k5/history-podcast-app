@@ -89,6 +89,10 @@ class AuthRepository {
     });
   }
 
+  Future<String?> refreshToken() async {
+    return await apiClient.refreshAccessToken();
+  }
+
   Future<void> logout() async {
     await apiClient.clearTokens();
   }

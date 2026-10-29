@@ -360,6 +360,10 @@ void main() {
       await tester.tap(find.byKey(const Key('open-live-studio-btn')));
       await tester.pumpAndSettle();
 
+      // Kênh phát sóng tự động khóa theo Creator, không còn ChoiceChip chọn kênh thủ công
+      expect(find.byKey(const Key('livestream-locked-channel-card')), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
+
       final studioScrollable = find
           .descendant(
             of: find.byType(CreatorLivestreamStudioPage),
@@ -398,6 +402,20 @@ void main() {
       // Đang ở trong phòng phát sóng với quyền Host (PUBLISHER)
       expect(find.byKey(const Key('end-livestream-btn')), findsOneWidget);
       expect(find.byKey(const Key('host-mic-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('host-camera-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('host-screenshare-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('livestream-video-stage')), findsOneWidget);
+
+      // Thử bật Chia sẻ màn hình (Screen Share)
+      await tester.tap(find.byKey(const Key('host-screenshare-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('livestream-screenshare-view')), findsOneWidget);
+      expect(find.byKey(const Key('livestream-pip-camera')), findsOneWidget);
+
+      // Dừng chia sẻ màn hình -> quay về chế độ Camera
+      await tester.tap(find.byKey(const Key('host-screenshare-toggle')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('livestream-camera-view')), findsOneWidget);
 
       // Kết thúc phiên phát sóng
       await tester.tap(find.byKey(const Key('end-livestream-btn')));

@@ -65,7 +65,47 @@ class _ChannelPageState extends State<ChannelPage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.state,
     builder: (context, _) {
-      final c = channelByName(widget.channel.name);
+      // Tìm thông tin kênh chính xác từ backend (remoteChannels) hoặc widget.channel
+      final remoteMatch = remoteChannels.firstWhere(
+        (rc) =>
+            (widget.channel.id != null && rc.id == widget.channel.id) ||
+            rc.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+        orElse: () => widget.channel,
+      );
+
+      final String bannerImage = (widget.channel.coverImage.startsWith('http://') ||
+              widget.channel.coverImage.startsWith('https://'))
+          ? widget.channel.coverImage
+          : ((remoteMatch.coverImage.startsWith('http://') ||
+                  remoteMatch.coverImage.startsWith('https://'))
+              ? remoteMatch.coverImage
+              : (remoteMatch.coverImage.isNotEmpty
+                  ? remoteMatch.coverImage
+                  : (widget.channel.coverImage.isNotEmpty
+                      ? widget.channel.coverImage
+                      : (remoteMatch.image.isNotEmpty ? remoteMatch.image : widget.channel.image))));
+
+      final String avatarImage = (widget.channel.image.startsWith('http://') ||
+              widget.channel.image.startsWith('https://'))
+          ? widget.channel.image
+          : ((remoteMatch.image.startsWith('http://') ||
+                  remoteMatch.image.startsWith('https://'))
+              ? remoteMatch.image
+              : (remoteMatch.image.isNotEmpty ? remoteMatch.image : widget.channel.image));
+
+      final baseC = channelByName(widget.channel.name);
+
+      final c = Channel(
+        remoteMatch.name.isNotEmpty ? remoteMatch.name : widget.channel.name,
+        remoteMatch.initial.isNotEmpty ? remoteMatch.initial : widget.channel.initial,
+        avatarImage.isNotEmpty ? avatarImage : baseC.image,
+        remoteMatch.description.isNotEmpty ? remoteMatch.description : baseC.description,
+        id: remoteMatch.id ?? widget.channel.id ?? baseC.id,
+        coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
+        monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
+        hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
+      );
+
       final followed = widget.state.followed.contains(c.name);
       final member = widget.state.memberships.contains(c.name);
       final seriesList = widget.state.getChannelSeries(c.name);
@@ -75,7 +115,6 @@ class _ChannelPageState extends State<ChannelPage> {
         if (filter == 'Hội viên') return e.membersOnly;
         return true;
       }).toList();
-      final bannerImage = c.coverImage.isNotEmpty ? c.coverImage : c.image;
       return Scaffold(
         appBar: AppBar(
           title: const Text('Kênh kể chuyện', style: TextStyle(fontSize: 14)),
@@ -783,14 +822,20 @@ class _MembershipPageState extends State<MembershipPage> {
                 (perk) => Benefit(
                   icon: CupertinoIcons.checkmark_seal,
                   title: perk,
-                  detail: 'Quyền lợi chính thức từ kênh ${c.name}.',
+                  detail: 'Đặc quyền từ gói hội viên của kênh ${c.name}.',
                 ),
               ),
             Benefit(
               icon: CupertinoIcons.headphones,
-              title:
-                  '${c.content.where((e) => e.membersOnly).length} tập nghe riêng',
-              detail: 'Mở các tập có nhãn Hội viên của ${c.name}.',
+              title: 'Mở khóa các tập Podcast Hội viên',
+              detail: c.content.any((e) => e.membersOnly)
+                  ? 'Mở khóa ${c.content.where((e) => e.membersOnly).length} tập chuyên sâu có nhãn Hội viên của ${c.name}.'
+                  : 'Mở khóa các tập podcast độc quyền và nội dung chuyên sâu của ${c.name}.',
+            ),
+            const Benefit(
+              icon: CupertinoIcons.videocam_fill,
+              title: 'Phát sóng trực tiếp độc quyền (VIP)',
+              detail: 'Tham gia các buổi Livestream dành riêng cho hội viên.',
             ),
             const Benefit(
               icon: CupertinoIcons.bookmark,
@@ -1112,7 +1157,7 @@ class _MembershipPageState extends State<MembershipPage> {
   );
 }
 
-class ProfileContent extends StatelessWidget {
+class ProfileContent extends StatefulWidget {
   const ProfileContent({
     super.key,
     required this.state,
@@ -1120,17 +1165,136 @@ class ProfileContent extends StatelessWidget {
   });
   final AppState state;
   final ValueChanged<Channel> onChannel;
+
+  @override
+  State<ProfileContent> createState() => _ProfileContentState();
+}
+
+class _ProfileContentState extends State<ProfileContent> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.state.isLoggedIn) {
+      widget.state.refreshProfile();
+    }
+  }
+
   void _openAuth(BuildContext context) => showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => AuthSheet(state: state),
+    builder: (_) => AuthSheet(state: widget.state),
   );
+
+  List<Widget> _buildRoleBadges(BuildContext context, AppState state) {
+    final badges = <Widget>[];
+
+    // 1. VIEWER (luôn hiển thị cho người dùng đã đăng nhập)
+    badges.add(
+      _buildRolePill(
+        key: const Key('role-badge-viewer'),
+        label: 'VIEWER',
+        borderColor: const Color(0xFFD7CCC8),
+        backgroundColor: const Color(0xFFF5F4F0),
+        textColor: const Color(0xFF555555),
+      ),
+    );
+
+    // 2. CREATOR (khi tài khoản có vai trò CREATOR, có kênh sáng tạo hoặc KYC approved)
+    final hasCreator = state.isCreator ||
+        state.userRoles.any((r) => r.toUpperCase() == 'CREATOR') ||
+        state.kycStatus == 'APPROVED' ||
+        state.creatorState.channel.isNotEmpty;
+
+    if (hasCreator) {
+      badges.add(
+        _buildRolePill(
+          key: const Key('role-badge-creator'),
+          label: 'CREATOR',
+          borderColor: const Color(0xFF8D6E63),
+          backgroundColor: const Color(0xFFFAF6F2),
+          textColor: const Color(0xFF4E342E),
+        ),
+      );
+    }
+
+    // 3. FREELANCER (khi tài khoản có vai trò FREELANCER / NARRATOR)
+    final hasFreelancer = state.isFreelancer ||
+        state.userRoles.any((r) =>
+            r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR') ||
+        state.preferences.getBool('isFreelancer') == true ||
+        state.preferences.getBool('isFreelancerActiveV1') == true ||
+        state.preferences.getString('narratorFreelancerProfileV1') != null;
+
+    if (hasFreelancer) {
+      badges.add(
+        _buildRolePill(
+          key: const Key('role-badge-freelancer'),
+          label: 'FREELANCER',
+          borderColor: const Color(0xFF00796B),
+          backgroundColor: const Color(0xFFE0F2F1).withValues(alpha: 0.6),
+          textColor: const Color(0xFF004D40),
+        ),
+      );
+    }
+
+    // 4. ADMIN (nếu có vai trò ADMIN)
+    final hasAdmin = state.userRoles.any((r) => r.toUpperCase() == 'ADMIN');
+    if (hasAdmin) {
+      badges.add(
+        _buildRolePill(
+          key: const Key('role-badge-admin'),
+          label: 'ADMIN',
+          borderColor: Palette.red,
+          backgroundColor: Palette.red.withValues(alpha: 0.08),
+          textColor: Palette.red,
+        ),
+      );
+    }
+
+    return badges;
+  }
+
+  Widget _buildRolePill({
+    required Key key,
+    required String label,
+    required Color borderColor,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.6,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => ListView(
-    key: const PageStorageKey('profile-scroll'),
-    padding: EdgeInsets.fromLTRB(24, 4, 24, state.current == null ? 28 : 118),
-    children: [
+  Widget build(BuildContext context) {
+    final state = widget.state;
+    final onChannel = widget.onChannel;
+    return RefreshIndicator(
+      onRefresh: () async {
+        await state.refreshProfile();
+      },
+      child: ListView(
+        key: const PageStorageKey('profile-scroll'),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(24, 4, 24, state.current == null ? 28 : 118),
+        children: [
       Text('Góc của bạn', style: editorial(31)),
       const SizedBox(height: 24),
       Row(
@@ -1138,7 +1302,9 @@ class ProfileContent extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: ArtworkImage(
-              artworkReference('avatar'),
+              (state.userAvatarUrl != null && state.userAvatarUrl!.isNotEmpty)
+                  ? state.userAvatarUrl!
+                  : artworkReference('avatar'),
               width: 56,
               height: 56,
               semanticLabel: 'Ảnh đại diện của bạn',
@@ -1179,6 +1345,14 @@ class ProfileContent extends StatelessWidget {
                       : 'Hồ sơ trên thiết bị này',
                   style: const TextStyle(color: Palette.muted, fontSize: 12),
                 ),
+                if (state.isLoggedIn) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _buildRoleBadges(context, state),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1330,7 +1504,9 @@ class ProfileContent extends StatelessWidget {
         ),
       ),
     ],
-  );
+  ),
+);
+}
 }
 
 class _PersonalLink extends StatelessWidget {
@@ -1648,6 +1824,7 @@ class _AuthSheetState extends State<AuthSheet> {
 
   Future<void> submit() async {
     if (!formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       busy = true;
       error = null;
@@ -1668,7 +1845,9 @@ class _AuthSheetState extends State<AuthSheet> {
               : passwordCtrl.text,
         );
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

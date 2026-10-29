@@ -265,7 +265,7 @@ void main() {
     await tester.tap(jobBoardTab);
     await tester.pumpAndSettle();
 
-    final applyBtn = find.text('Ứng tuyển / Gửi báo giá').first;
+    final applyBtn = find.text('Ứng tuyển').first;
     expect(applyBtn, findsOneWidget);
     await tester.tap(applyBtn);
     await tester.pumpAndSettle();

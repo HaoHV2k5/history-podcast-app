@@ -143,32 +143,37 @@ class Channel {
 List<Channel> get channels {
   final byName = <String, Channel>{};
   for (final c in remoteChannels) {
-    byName[c.name] = c;
+    byName[c.name.trim().toLowerCase()] = c;
   }
-  if (remoteChannels.isEmpty) {
-    for (final c in baseChannels) {
-      final existing = byName[c.name];
-      if (existing == null) {
-        byName[c.name] = c;
-      } else {
-        byName[c.name] = Channel(
-          existing.name,
-          existing.initial,
-          existing.image.isNotEmpty ? existing.image : c.image,
-          existing.description.isNotEmpty ? existing.description : c.description,
-          id: existing.id ?? c.id,
-          coverImage: existing.coverImage.isNotEmpty
-              ? existing.coverImage
-              : c.coverImage,
-          monthlyPrice: existing.monthlyPrice ?? c.monthlyPrice,
-          hasBackendPlan: existing.hasBackendPlan || c.hasBackendPlan,
-        );
-      }
+  for (final c in baseChannels) {
+    final key = c.name.trim().toLowerCase();
+    final existing = byName[key];
+    if (existing == null) {
+      byName[key] = c;
+    } else {
+      // Giữ lại URL Cloudinary cho avatar và ảnh bìa từ Backend nếu có
+      final avatarImg = (existing.image.startsWith('http://') || existing.image.startsWith('https://'))
+          ? existing.image
+          : (c.image.isNotEmpty ? c.image : existing.image);
+      final coverImg = (existing.coverImage.startsWith('http://') || existing.coverImage.startsWith('https://'))
+          ? existing.coverImage
+          : (c.coverImage.isNotEmpty ? c.coverImage : existing.coverImage);
+      byName[key] = Channel(
+        existing.name,
+        existing.initial,
+        avatarImg,
+        existing.description.isNotEmpty ? existing.description : c.description,
+        id: existing.id ?? c.id,
+        coverImage: coverImg,
+        monthlyPrice: existing.monthlyPrice ?? c.monthlyPrice,
+        hasBackendPlan: existing.hasBackendPlan || c.hasBackendPlan,
+      );
     }
   }
   for (final e in [...remoteEpisodes, ...publishedEpisodes]) {
-    if (!byName.containsKey(e.channel)) {
-      byName[e.channel] = Channel(
+    final key = e.channel.trim().toLowerCase();
+    if (!byName.containsKey(key)) {
+      byName[key] = Channel(
         e.channel,
         e.channel.isNotEmpty ? e.channel.substring(0, 1) : 'S',
         e.channelImage.isNotEmpty ? e.channelImage : e.image,
@@ -180,15 +185,23 @@ List<Channel> get channels {
   return byName.values.toList();
 }
 
-Channel channelByName(String name) => channels.firstWhere(
-  (c) => c.name.trim().toLowerCase() == name.trim().toLowerCase(),
-  orElse: () => Channel(
-    name,
-    name.isNotEmpty ? name.substring(0, 1) : 'S',
-    'assets/images/hue-citadel.jpg',
-    'Kênh kể chuyện lịch sử trên nền tảng Sử Ký.',
-  ),
-);
+Channel channelByName(String name) {
+  final target = name.trim().toLowerCase();
+  for (final c in remoteChannels) {
+    if (c.name.trim().toLowerCase() == target) {
+      return c;
+    }
+  }
+  return channels.firstWhere(
+    (c) => c.name.trim().toLowerCase() == target,
+    orElse: () => Channel(
+      name,
+      name.isNotEmpty ? name.substring(0, 1) : 'S',
+      'assets/images/hue-citadel.jpg',
+      'Kênh kể chuyện lịch sử trên nền tảng Sử Ký.',
+    ),
+  );
+}
 
 String clockLabel(int seconds) =>
     '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';

@@ -41,10 +41,25 @@ class _ChannelMembershipPlanSheetState
       text: plan?.description ??
           'Mở khóa toàn bộ tập chuyên sâu và phòng phát sóng trực tiếp độc quyền.',
     );
+    final defaultPerks = [
+      'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên',
+      'Nghe không giới hạn các nội dung độc quyền của kênh',
+      'Tham gia phòng phát sóng trực tiếp độc quyền (VIP)',
+    ];
+    final existingPerks = (plan != null && plan.perks.isNotEmpty)
+        ? plan.perks.map((p) {
+            if (p.toLowerCase().contains('bình luận') || p.toLowerCase().contains('huy hiệu')) {
+              return 'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên';
+            }
+            if (p.toLowerCase().contains('nghe sớm') || p.toLowerCase().contains('nghe trước')) {
+              return 'Nghe không giới hạn các nội dung độc quyền của kênh';
+            }
+            return p;
+          }).toSet().toList()
+        : defaultPerks;
+
     _perksCtrl = TextEditingController(
-      text: (plan != null && plan.perks.isNotEmpty)
-          ? plan.perks.join('\n')
-          : 'Nghe sớm 48 giờ các tập chuyên đề\nTham gia phòng Livestream VIP',
+      text: existingPerks.join('\n'),
     );
     _isActive = plan?.isActive ?? true;
   }

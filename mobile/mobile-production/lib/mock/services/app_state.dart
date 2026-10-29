@@ -44,6 +44,42 @@ import '../../core/api/wallet_transaction_repository.dart';
 import '../../core/api/withdrawal_repository.dart';
 import 'creator_state.dart';
 
+class LivestreamMediaState {
+  final bool isScreenSharing;
+  final bool isCameraOn;
+  final bool isMicOn;
+  final bool isFrontCamera;
+  final int currentSlideIndex;
+  final String? customDocumentTitle;
+
+  const LivestreamMediaState({
+    this.isScreenSharing = false,
+    this.isCameraOn = true,
+    this.isMicOn = true,
+    this.isFrontCamera = true,
+    this.currentSlideIndex = 0,
+    this.customDocumentTitle,
+  });
+
+  LivestreamMediaState copyWith({
+    bool? isScreenSharing,
+    bool? isCameraOn,
+    bool? isMicOn,
+    bool? isFrontCamera,
+    int? currentSlideIndex,
+    String? customDocumentTitle,
+  }) {
+    return LivestreamMediaState(
+      isScreenSharing: isScreenSharing ?? this.isScreenSharing,
+      isCameraOn: isCameraOn ?? this.isCameraOn,
+      isMicOn: isMicOn ?? this.isMicOn,
+      isFrontCamera: isFrontCamera ?? this.isFrontCamera,
+      currentSlideIndex: currentSlideIndex ?? this.currentSlideIndex,
+      customDocumentTitle: customDocumentTitle ?? this.customDocumentTitle,
+    );
+  }
+}
+
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
   AppState(
@@ -106,8 +142,13 @@ class AppState extends ChangeNotifier {
     currentUserId = preferences.getInt('currentUserId');
     userEmail = preferences.getString('userEmail');
     userPhone = preferences.getString('userPhone');
+    userAvatarUrl = preferences.getString('userAvatarUrl');
     userRoles = preferences.getStringList('userRoles') ?? ['VIEWER'];
     isCreator = preferences.getBool('isCreator') ?? false;
+    isFreelancer = preferences.getBool('isFreelancer') ??
+        preferences.getBool('isFreelancerActiveV1') ??
+        userRoles.contains('FREELANCER') ||
+        userRoles.contains('NARRATOR');
     kycStatus = preferences.getString('kycStatus');
 
     recentSearches.addAll(
@@ -164,6 +205,12 @@ class AppState extends ChangeNotifier {
           ),
         );
       }
+    }
+
+    if (apiClient != null) {
+      apiClient!.onSessionExpired = () {
+        logout();
+      };
     }
   }
 
@@ -238,7 +285,23 @@ class AppState extends ChangeNotifier {
   int walletPendingBalance = 0;
   List<String> userRoles = ['VIEWER'];
   bool isCreator = false;
+  bool isFreelancer = false;
   String? kycStatus;
+
+  void setFreelancerRole(bool enabled) {
+    isFreelancer = enabled;
+    if (enabled) {
+      if (!userRoles.contains('FREELANCER')) {
+        userRoles.add('FREELANCER');
+      }
+    } else {
+      userRoles.remove('FREELANCER');
+      userRoles.remove('NARRATOR');
+    }
+    preferences.setBool('isFreelancer', enabled);
+    preferences.setStringList('userRoles', userRoles);
+    notifyListeners();
+  }
 
   Future<void> refreshProfile() async {
     if (!isLoggedIn) return;
@@ -259,6 +322,10 @@ class AppState extends ChangeNotifier {
           userPhone = profile.phone;
           await preferences.setString('userPhone', userPhone!);
         }
+        if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+          userAvatarUrl = profile.avatarUrl;
+          await preferences.setString('userAvatarUrl', userAvatarUrl!);
+        }
         final rolesSet = <String>{...profile.roles};
         if (profile.roleName != null && profile.roleName!.isNotEmpty) {
           rolesSet.add(profile.roleName!);
@@ -266,13 +333,41 @@ class AppState extends ChangeNotifier {
         if (profile.isCreator) {
           rolesSet.add('CREATOR');
         }
+        if (profile.isFreelancer) {
+          rolesSet.add('FREELANCER');
+        }
+        if (preferences.getBool('isFreelancerActiveV1') == true ||
+            preferences.getBool('isFreelancer') == true ||
+            preferences.getString('narratorFreelancerProfileV1') != null) {
+          rolesSet.add('FREELANCER');
+        }
         if (rolesSet.isEmpty) {
           rolesSet.add('VIEWER');
         }
         userRoles = rolesSet.toList();
         isCreator = profile.isCreator || userRoles.contains('CREATOR');
+        isFreelancer = profile.isFreelancer ||
+            userRoles.contains('FREELANCER') ||
+            userRoles.contains('NARRATOR') ||
+            preferences.getBool('isFreelancer') == true ||
+            preferences.getBool('isFreelancerActiveV1') == true;
         await preferences.setStringList('userRoles', userRoles);
         await preferences.setBool('isCreator', isCreator);
+        await preferences.setBool('isFreelancer', isFreelancer);
+      } catch (_) {}
+    }
+
+    if (freelancerRepository != null) {
+      try {
+        final f = await freelancerRepository!.getMyProfile();
+        if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+          if (!userRoles.contains('FREELANCER')) {
+            userRoles.add('FREELANCER');
+            await preferences.setStringList('userRoles', userRoles);
+          }
+          isFreelancer = true;
+          await preferences.setBool('isFreelancer', true);
+        }
       } catch (_) {}
     }
 
@@ -313,6 +408,32 @@ class AppState extends ChangeNotifier {
   final Map<String, int> _reactionIds = {};
   final List<LivestreamSessionModel> activeLivestreams = [];
   final Map<int, List<LivestreamChatMessage>> _livestreamChats = {};
+  final Map<int, LivestreamMediaState> _sessionMediaStates = {};
+
+  LivestreamMediaState getLivestreamMediaState(int sessionId) {
+    return _sessionMediaStates[sessionId] ?? const LivestreamMediaState();
+  }
+
+  void updateLivestreamMediaState(
+    int sessionId, {
+    bool? isScreenSharing,
+    bool? isCameraOn,
+    bool? isMicOn,
+    bool? isFrontCamera,
+    int? currentSlideIndex,
+    String? customDocumentTitle,
+  }) {
+    final current = getLivestreamMediaState(sessionId);
+    _sessionMediaStates[sessionId] = current.copyWith(
+      isScreenSharing: isScreenSharing,
+      isCameraOn: isCameraOn,
+      isMicOn: isMicOn,
+      isFrontCamera: isFrontCamera,
+      currentSlideIndex: currentSlideIndex,
+      customDocumentTitle: customDocumentTitle,
+    );
+    notifyListeners();
+  }
 
   List<SeriesModel> getChannelSeries(String channelName) =>
       List.unmodifiable(channelSeries[channelName] ?? const []);
@@ -531,8 +652,8 @@ class AppState extends ChangeNotifier {
       final currentBase = apiClient!.baseUrl;
       String? fallbackUrl;
       if (currentBase.contains('10.0.2.2')) {
-        fallbackUrl = 'http://192.168.1.72:8080';
-      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206')) {
+        fallbackUrl = 'http://10.87.31.229:8080';
+      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229')) {
         fallbackUrl = 'http://10.0.2.2:8080';
       }
       if (fallbackUrl != null) {
@@ -1114,6 +1235,7 @@ class AppState extends ChangeNotifier {
   bool isLoggedIn = false;
   String? userEmail;
   String? userPhone;
+  String? userAvatarUrl;
 
   void _loadComments() {
     if (!isLiveBackend) {
@@ -1199,16 +1321,65 @@ class AppState extends ChangeNotifier {
       if (initialRoles.isEmpty) initialRoles.add('VIEWER');
       userRoles = initialRoles.toList();
       isCreator = userRoles.contains('CREATOR');
+      isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
       await preferences.setStringList('userRoles', userRoles);
       await preferences.setBool('isCreator', isCreator);
+      await preferences.setBool('isFreelancer', isFreelancer);
 
       if (userRepository != null) {
         try {
-          final profile = await userRepository!.getMyProfile();
+          final profile = await userRepository!
+              .getMyProfile()
+              .timeout(const Duration(seconds: 4));
           currentUserId = profile.id;
           await preferences.setInt('currentUserId', profile.id);
+          if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+            userAvatarUrl = profile.avatarUrl;
+            await preferences.setString('userAvatarUrl', userAvatarUrl!);
+          }
           if (profile.fullName.trim().isNotEmpty) {
             displayName = profile.fullName.trim();
+          }
+          if (profile.roles.isNotEmpty) {
+            initialRoles.addAll(profile.roles);
+          }
+          if (profile.isCreator) initialRoles.add('CREATOR');
+          if (profile.isFreelancer) initialRoles.add('FREELANCER');
+          userRoles = initialRoles.toList();
+          isCreator = userRoles.contains('CREATOR');
+          isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
+          await preferences.setStringList('userRoles', userRoles);
+          await preferences.setBool('isCreator', isCreator);
+          await preferences.setBool('isFreelancer', isFreelancer);
+        } catch (_) {}
+      }
+
+      if (freelancerRepository != null) {
+        try {
+          final f = await freelancerRepository!
+              .getMyProfile()
+              .timeout(const Duration(seconds: 4));
+          if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+            initialRoles.add('FREELANCER');
+            userRoles = initialRoles.toList();
+            isFreelancer = true;
+            await preferences.setStringList('userRoles', userRoles);
+            await preferences.setBool('isFreelancer', true);
+          }
+        } catch (_) {}
+      }
+
+      if (kycRepository != null) {
+        try {
+          final kyc = await kycRepository!
+              .getMyKycProfile()
+              .timeout(const Duration(seconds: 4));
+          if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
+            initialRoles.add('CREATOR');
+            userRoles = initialRoles.toList();
+            isCreator = true;
+            await preferences.setStringList('userRoles', userRoles);
+            await preferences.setBool('isCreator', true);
           }
         } catch (_) {}
       }
@@ -1225,8 +1396,8 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
-      await initRealBackend();
       notifyListeners();
+      unawaited(initRealBackend());
       return;
     }
 
@@ -1319,8 +1490,8 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
-      await initRealBackend();
       notifyListeners();
+      unawaited(initRealBackend());
       return;
     }
 
@@ -1372,13 +1543,17 @@ class AppState extends ChangeNotifier {
     currentUserId = null;
     userEmail = null;
     userPhone = null;
+    userAvatarUrl = null;
     userRoles = ['VIEWER'];
     isCreator = false;
+    isFreelancer = false;
     kycStatus = null;
     await preferences.remove('currentUserId');
     await preferences.remove('userRoles');
     await preferences.remove('isCreator');
+    await preferences.remove('isFreelancer');
     await preferences.remove('kycStatus');
+    await preferences.remove('userAvatarUrl');
     await preferences.setBool('manual_logout', true);
     displayName = 'Người nghe';
     memberships.clear();
