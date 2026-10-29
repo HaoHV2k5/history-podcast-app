@@ -255,26 +255,26 @@ export const CreatorLivestreamStudioPage: React.FC = () => {
 
   if (isSessionEnded) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-border bg-surface p-8 text-center space-y-4 mt-12 shadow-xs">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-subtle text-muted mx-auto">
-          <Clock className="h-6 w-6" />
+      <div className="mx-auto max-w-lg rounded-2xl border border-[#EBE4D8] bg-white p-8 sm:p-10 text-center space-y-4 mt-12 shadow-xs">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#FAF7F2] text-[#A11C27] mx-auto border border-[#EBE4D8]">
+          <Clock className="h-7 w-7" />
         </div>
-        <div className="space-y-1">
-          <h2 className="font-serif text-lg font-bold text-ink">
+        <div className="space-y-1.5">
+          <h2 className="font-serif text-xl font-bold text-[#1C1615]">
             Phiên phát sóng này đã kết thúc
           </h2>
-          <p className="text-xs text-muted">
-            &ldquo;{session.title}&rdquo; đã kết thúc vào {formatDateTime(session.endedAt)}. Không thể tiếp tục phát sóng lại phiên này.
+          <p className="text-xs text-[#5C524F] leading-relaxed max-w-sm mx-auto">
+            &ldquo;{session.title}&rdquo; đã kết thúc vào {formatDateTime(session.endedAt)}. Bản ghi và lịch sử phiên đã được lưu trữ trong hệ thống Sử Ký.
           </p>
         </div>
-        <div className="pt-2">
+        <div className="pt-3 flex items-center justify-center gap-3">
           <Button
             size="sm"
             onClick={() => navigate('/creator/livestream')}
-            className="gap-2 bg-accent hover:bg-accent-hover text-canvas"
+            className="gap-2 bg-[#A11C27] hover:bg-[#85151E] text-white font-semibold rounded-xl text-xs h-9 px-4 shadow-xs"
           >
             <ChevronLeft className="h-4 w-4" />
-            <span>Quay lại danh sách phiên</span>
+            <span>Quay lại danh sách</span>
           </Button>
         </div>
       </div>
