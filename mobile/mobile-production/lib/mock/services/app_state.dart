@@ -44,6 +44,42 @@ import '../../core/api/wallet_transaction_repository.dart';
 import '../../core/api/withdrawal_repository.dart';
 import 'creator_state.dart';
 
+class LivestreamMediaState {
+  final bool isScreenSharing;
+  final bool isCameraOn;
+  final bool isMicOn;
+  final bool isFrontCamera;
+  final int currentSlideIndex;
+  final String? customDocumentTitle;
+
+  const LivestreamMediaState({
+    this.isScreenSharing = false,
+    this.isCameraOn = true,
+    this.isMicOn = true,
+    this.isFrontCamera = true,
+    this.currentSlideIndex = 0,
+    this.customDocumentTitle,
+  });
+
+  LivestreamMediaState copyWith({
+    bool? isScreenSharing,
+    bool? isCameraOn,
+    bool? isMicOn,
+    bool? isFrontCamera,
+    int? currentSlideIndex,
+    String? customDocumentTitle,
+  }) {
+    return LivestreamMediaState(
+      isScreenSharing: isScreenSharing ?? this.isScreenSharing,
+      isCameraOn: isCameraOn ?? this.isCameraOn,
+      isMicOn: isMicOn ?? this.isMicOn,
+      isFrontCamera: isFrontCamera ?? this.isFrontCamera,
+      currentSlideIndex: currentSlideIndex ?? this.currentSlideIndex,
+      customDocumentTitle: customDocumentTitle ?? this.customDocumentTitle,
+    );
+  }
+}
+
 /// AppState kết nối API thực tế tới Spring Boot Backend
 class AppState extends ChangeNotifier {
   AppState(
@@ -361,6 +397,32 @@ class AppState extends ChangeNotifier {
   final Map<String, int> _reactionIds = {};
   final List<LivestreamSessionModel> activeLivestreams = [];
   final Map<int, List<LivestreamChatMessage>> _livestreamChats = {};
+  final Map<int, LivestreamMediaState> _sessionMediaStates = {};
+
+  LivestreamMediaState getLivestreamMediaState(int sessionId) {
+    return _sessionMediaStates[sessionId] ?? const LivestreamMediaState();
+  }
+
+  void updateLivestreamMediaState(
+    int sessionId, {
+    bool? isScreenSharing,
+    bool? isCameraOn,
+    bool? isMicOn,
+    bool? isFrontCamera,
+    int? currentSlideIndex,
+    String? customDocumentTitle,
+  }) {
+    final current = getLivestreamMediaState(sessionId);
+    _sessionMediaStates[sessionId] = current.copyWith(
+      isScreenSharing: isScreenSharing,
+      isCameraOn: isCameraOn,
+      isMicOn: isMicOn,
+      isFrontCamera: isFrontCamera,
+      currentSlideIndex: currentSlideIndex,
+      customDocumentTitle: customDocumentTitle,
+    );
+    notifyListeners();
+  }
 
   List<SeriesModel> getChannelSeries(String channelName) =>
       List.unmodifiable(channelSeries[channelName] ?? const []);
