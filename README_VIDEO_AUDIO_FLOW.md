@@ -48,8 +48,11 @@ graph LR
 - Web hiển thị thanh tiến trình 6 bước (0% $\rightarrow$ 100%). Kể cả khi Creator tắt tab, video vẫn được máy chủ vẽ xong và lưu an toàn vào Thư viện.
 
 ### Bước 4: Xem trước, Vá lỗi siêu tốc & Xuất bản
-- Video hoàn thành nằm trong Thư viện ở trạng thái `COMPLETED`.
-- **Nếu cần sửa phát âm 1 vài câu**: Dùng tính năng **Vá kịch bản theo câu (Smart Script Patching)**. Python chỉ thu âm lại đúng 1 câu bị sửa và ghép lại video trong chưa đầy 10 giây. Bản video cũ ngoài trang chủ vẫn tiếp tục chiếu bình thường, không bị gián đoạn!
+- Video hoàn thành nằm trong Thư viện ở trạng thái `COMPLETED` (bản nháp riêng của Creator).
+- **Vá kịch bản theo câu siêu tốc (Smart Script Patching - Hỗ trợ cả Whiteboard & Podcast)**:
+  - Cho phép nghe thử từng câu độc lập trên Popup (`GET /podcast-sentences`).
+  - **🛡️ Chốt chặn AI ScopeGate bắt buộc (Chống lách luật - Anti-Bypass)**: Ngay khi bấm *"Bắt Đầu Vá Video"*, hệ thống thẩm định lại toàn bộ câu thoại mới bằng AI. Ngăn chặn tuyệt đối việc Creator lợi dụng bản vá để vượt qua AI đợt 1 rồi chèn nhân vật ngoại lai (Trương Liêu, Lưu Bị thời Tam Quốc...) hoặc sửa sai lệch niên đại. Nếu phát hiện vi phạm, hệ thống từ chối ngay lập tức (`HTTP 400 - ⚠️ BẢN VÁ BỊ TỪ CHỐI`) và dừng render.
+  - **⚡ Siêu tốc (< 3s)**: Chỉ thu âm lại đúng câu bị sửa, tái sử dụng 100% nét vẽ tay có sẵn (`scene_*_raw.mp4`) đối với video Whiteboard, ghép lại video bản `v2` hoàn chỉnh. Bản video cũ ngoài trang chủ vẫn tiếp tục chiếu bình thường, không bị gián đoạn!
 - **Gửi duyệt (`POST /submit-publish`)**: AI Shield chấm điểm an toàn $\rightarrow$ Admin bấm **DUYỆT** $\rightarrow$ Video chính thức công khai (`PUBLISHED`) ra trang chủ.
 
 ---
@@ -61,13 +64,13 @@ graph LR
 | **Cấu hình AI Key** | `GET / PUT /api/v1/creator/studio/settings` | Lưu Gemini Key & ElevenLabs Key |
 | **Nghe thử giọng** | `POST /api/v1/creator/studio/voices/preview` | Sinh audio nghe thử câu mẫu trực tiếp |
 | **Sinh kịch bản & Prompt** | `POST /api/v1/creator/studio/storyboard` | Sinh kịch bản + Prompt từng cảnh + **Prompt Thumbnail** |
-| **Tải ảnh cảnh / bìa / thumbnail** | `POST /api/v1/creator/studio/upload-image` | Upload lên Cloudinary, trả về link CDN |
+| **Tải ảnh cảnh / bìa / thumbnail** | `POST /api/v1/creator/studio/upload-image` | Upload lên Cloudinary (chọn tệp hoặc dán `Ctrl+V`), trả về link CDN |
 | **Khởi chạy Render Video** | `POST /api/v1/creator/studio/render` | Nhận `thumbnailUrl`, `sceneImages`, lưu DB và render ngầm |
 | **Thăm dò tiến độ** | `GET /api/v1/creator/studio/jobs/{jobId}` | Polling mỗi 2s cập nhật thanh tiến trình 6 bước |
 | **Tải file Thumbnail riêng** | `POST /api/v1/creator/studio/videos/{id}/thumbnail` | Upload tệp ảnh thumbnail tùy chỉnh trực tiếp |
 | **Sửa video & Thumbnail** | `PUT /api/v1/creator/studio/videos/{id}` | Cập nhật tiêu đề, mô tả, đường dẫn `thumbnailUrl` |
-| **Lấy câu kịch bản podcast** | `GET /api/v1/creator/studio/videos/{id}/podcast-sentences` | Lấy danh sách câu và link audio nghe thử từng câu |
-| **Vá kịch bản podcast** | `POST /api/v1/creator/studio/videos/{id}/patch-podcast` | Thu âm lại câu sửa & đổi ảnh bìa và ghép nhanh lại video |
+| **Lấy câu kịch bản vá video** | `GET /api/v1/creator/studio/videos/{id}/podcast-sentences` | Lấy danh sách câu và link audio nghe thử từng câu (hỗ trợ cả Whiteboard & Podcast) |
+| **Vá kịch bản siêu tốc** | `POST /api/v1/creator/studio/videos/{id}/patch-podcast` | Kiểm định AI ScopeGate Lý - Trần, thu âm lại câu sửa & ghép video mới trong < 3s |
 | **Gửi duyệt xuất bản** | `POST /api/v1/creator/studio/videos/{id}/submit-publish` | Chạy AI Shield + tạo phiếu cho Admin duyệt |
 
 ---
