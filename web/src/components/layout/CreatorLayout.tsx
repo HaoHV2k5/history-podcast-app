@@ -52,7 +52,7 @@ export const CreatorLayout: React.FC = () => {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0 h-full">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0 h-full relative">
         <CreatorHeader
           onToggleMobileMenu={() => setMobileOpen(true)}
           currentUser={
@@ -72,6 +72,9 @@ export const CreatorLayout: React.FC = () => {
             <Outlet />
           </div>
         </main>
+
+        {/* Dedicated Persistent Slot for Floating Bottom Player Bar */}
+        <div id="creator-player-slot" className="pointer-events-none" />
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ const MODULE_CONFIGS: Record<string, ModuleConfig> = {
     icon: PlusCircle,
   },
   series: {
-    title: 'Tuyển tập Podcast',
+    title: 'Tuyển tập tác phẩm',
     subtitle: 'Phân loại tác phẩm theo thời kỳ và chủ đề lịch sử',
     milestone: 'Milestone 4 — Series & Album Collections',
     description:

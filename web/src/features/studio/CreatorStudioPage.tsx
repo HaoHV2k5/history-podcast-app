@@ -60,21 +60,84 @@ export const CreatorStudioPage: React.FC = () => {
 
   // Active Guided Step: 'script' | 'storyboard' | 'voices' | 'render'
   const [activeTab, setActiveTab] = useState<'script' | 'storyboard' | 'voices' | 'render'>('script');
+
+  // Animation Refs (GSAP Smooth Float In matching Content Library)
+  const isFirstMountRef = useRef<boolean>(true);
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const stepperRef = useRef<HTMLDivElement>(null);
   const tabContentRef = useRef<HTMLDivElement>(null);
 
-  // GSAP Smooth Step transition feedback
+  // ─── 1. ENTRANCE ANIMATION: GSAP SMOOTH CASCADE ON MOUNT ───────────────────
   useEffect(() => {
+    if (isReducedMotion()) return;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+
+      if (headerRef.current) {
+        tl.fromTo(
+          headerRef.current,
+          { opacity: 0, y: 16 },
+          { opacity: 1, y: 0, duration: 0.44 }
+        );
+      }
+
+      if (bannerRef.current) {
+        tl.fromTo(
+          bannerRef.current,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.36 },
+          '-=0.25'
+        );
+      }
+
+      if (stepperRef.current) {
+        tl.fromTo(
+          stepperRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.4 },
+          '-=0.25'
+        );
+      }
+
+      if (tabContentRef.current) {
+        tl.fromTo(
+          tabContentRef.current,
+          { opacity: 0, y: 18, scale: 0.99 },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.42,
+            clearProps: 'transform,opacity',
+          },
+          '-=0.2'
+        );
+      }
+    }, pageContainerRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // ─── 2. STEP TRANSITION: GSAP SMOOTH STEP CHANGE ───────────────────────────
+  useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
     if (isReducedMotion() || !tabContentRef.current) return;
 
     const ctx = gsap.context(() => {
       gsap.fromTo(
         tabContentRef.current,
-        { opacity: 0, y: MOTION_CONFIG.distance.sm },
+        { opacity: 0, y: 14 },
         {
           opacity: 1,
           y: 0,
-          duration: MOTION_CONFIG.duration.studioStep,
-          ease: MOTION_CONFIG.ease,
+          duration: 0.3,
+          ease: 'power2.out',
           overwrite: 'auto',
           clearProps: 'transform,opacity',
         }
@@ -662,16 +725,18 @@ export const CreatorStudioPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 pb-10">
+    <div ref={pageContainerRef} className="space-y-4 pb-10">
       {/* 1. Page Header & Studio Actions with Historical Watermark */}
-      <StudioHeader
-        onOpenSettings={() => setIsSettingsOpen(true)}
-        onNavigateLibrary={() => navigate('/creator/content')}
-      />
+      <div ref={headerRef}>
+        <StudioHeader
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          onNavigateLibrary={() => navigate('/creator/content')}
+        />
+      </div>
 
       {/* 2. Notice Banner: Missing Gemini API Key */}
       {settings && !settings.geminiApiKey && (
-        <div className="rounded-xl border border-status-warning-text/30 bg-status-warning-bg/40 px-3.5 py-2.5 text-xs text-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
+        <div ref={bannerRef} className="rounded-xl border border-status-warning-text/30 bg-status-warning-bg/40 px-3.5 py-2.5 text-xs text-ink flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
           <div className="flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 text-status-warning-text shrink-0" />
             <span>
@@ -690,17 +755,19 @@ export const CreatorStudioPage: React.FC = () => {
       )}
 
       {/* 3. Four-Stage Workflow Indicator (Stepper) */}
-      <StudioWorkflowStepper
-        activeTab={activeTab}
-        maxUnlockedStep={effectiveMaxStep}
-        hasStoryboard={Boolean(generatedStoryboard)}
-        hasActiveJob={Boolean(activeJobId)}
-        onSelectTab={handleSelectTab}
-        onAttemptLockedStep={handleAttemptLockedStep}
-      />
+      <div ref={stepperRef}>
+        <StudioWorkflowStepper
+          activeTab={activeTab}
+          maxUnlockedStep={effectiveMaxStep}
+          hasStoryboard={Boolean(generatedStoryboard)}
+          hasActiveJob={Boolean(activeJobId)}
+          onSelectTab={handleSelectTab}
+          onAttemptLockedStep={handleAttemptLockedStep}
+        />
+      </div>
 
       {/* 4. Active Step Content with GSAP & Smooth Entrance Transition */}
-      <div ref={tabContentRef} className="w-full animate-fade-in-up">
+      <div ref={tabContentRef} className="w-full">
         {/* Step 1: Script Input & RAG Fact-checking */}
         {activeTab === 'script' && (
           <Step1ScriptInput

@@ -1195,7 +1195,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
           </div>
         </div>
 
-        {/* Action 3: Tuyển tập Podcast */}
+        {/* Action 3: Tuyển tập tác phẩm */}
         <div
           onClick={() => navigate('/creator/series')}
           className="group relative overflow-hidden rounded-2xl border border-[#F8D2D9] bg-gradient-to-br from-[#FDF2F4] via-[#FFF7F8] to-white p-5 shadow-xs hover:border-rose-300:border-rose-800 hover:shadow-md transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[175px]"
@@ -1203,7 +1203,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
           {/* Authentic Watercolor Artwork Illustration */}
           <img
             src="/assets/studio/action-podcast-clean.png"
-            alt="Tuyển tập Podcast"
+            alt="Tuyển tập tác phẩm"
             className="absolute right-0 bottom-0 w-36 h-28 object-contain object-bottom pointer-events-none group-hover:scale-105 transition-transform duration-300 select-none"
           />
 
@@ -1212,7 +1212,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
               <BookOpen className="h-5 w-5" />
             </div>
             <h3 className="text-[15px] font-bold text-[#881337] transition-colors">
-              Tuyển tập Podcast
+              Tuyển tập tác phẩm
             </h3>
             <p className="text-xs text-stone-600 mt-1 leading-relaxed max-w-[190px]">
               Khám phá các tuyển tập theo chủ đề lịch sử.

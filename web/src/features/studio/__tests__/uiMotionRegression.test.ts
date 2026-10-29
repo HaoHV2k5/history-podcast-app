@@ -24,7 +24,7 @@ const CREATOR_EXPECTED_LABELS = [
   'Tổng quan Bàn làm việc',
   'Thư viện nội dung',
   'Tạo nội dung mới',
-  'Tuyển tập Tác phẩm',
+  'Tuyển tập tác phẩm',
   'Phát trực tiếp',
   'Xác thực KYC',
   'Quản lý Kênh',
