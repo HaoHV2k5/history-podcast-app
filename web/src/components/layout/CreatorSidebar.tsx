@@ -39,7 +39,7 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
     items: [
       { id: '02', label: 'Thư viện nội dung', to: '/creator/content', icon: Video },
       { id: '03', label: 'Tạo nội dung mới', to: '/creator/create', icon: PlusCircle },
-      { id: '04', label: 'Tuyển tập Tác phẩm', to: '/creator/series', icon: BookOpen },
+      { id: '04', label: 'Tuyển tập tác phẩm', to: '/creator/series', icon: BookOpen },
       { id: '05', label: 'Phát trực tiếp', to: '/creator/livestream', icon: Tv },
     ],
   },
@@ -126,7 +126,7 @@ export const CreatorSidebar: React.FC<CreatorSidebarProps> = ({
                     key={item.to}
                     to={item.to}
                     end={item.to === '/creator'}
-                    title={collapsed ? item.label : undefined}
+                    title={item.label}
                     onClick={onNavClick}
                     className={({ isActive }) =>
                       cn(
@@ -162,6 +162,7 @@ export const CreatorSidebar: React.FC<CreatorSidebarProps> = ({
           id="creator-sidebar-collapse-btn"
           type="button"
           onClick={onToggleCollapse}
+          title={collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
           className="flex h-11 min-h-[44px] w-full items-center justify-center rounded-lg border border-border bg-surface text-muted hover:bg-surface-subtle hover:text-ink transition-colors text-xs font-medium gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
           aria-label={collapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
         >
