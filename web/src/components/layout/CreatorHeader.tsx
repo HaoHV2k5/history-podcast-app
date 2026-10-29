@@ -29,7 +29,7 @@ const CREATOR_ROUTE_NAME_MAP: Record<string, string> = {
   dashboard: 'Tổng quan Bàn làm việc',
   content: 'Thư viện nội dung',
   create: 'Tạo nội dung mới',
-  series: 'Tuyển tập Tác phẩm',
+  series: 'Tuyển tập tác phẩm',
   livestream: 'Phát trực tiếp',
   kyc: 'Xác thực KYC',
   channel: 'Quản lý Kênh',
@@ -99,9 +99,12 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
 
       {/* Right: Quick workspace switch (if dual-role) + User Profile Dropdown */}
       <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-status-success-text/25 bg-status-success-bg/80 text-status-success-text text-[11px] font-medium select-none shadow-2xs">
-          <span className="h-1.5 w-1.5 rounded-full bg-status-success-text animate-pulse" />
-          <span>Hệ Thống Trực Tuyến</span>
+        <div
+          title="Trạng thái hệ thống: Phòng thu trực tuyến đang sẵn sàng"
+          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-300/60 bg-emerald-50 text-emerald-700 text-[11px] font-medium select-none shadow-2xs"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Phòng thu Trực tuyến</span>
         </div>
 
         {/* Switch to Admin Workspace for Dual-Role Users */}
@@ -132,6 +135,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
                 type="button"
                 className="flex items-center gap-2.5 rounded-lg border border-border bg-canvas px-3 py-1.5 min-h-[44px] text-left transition-colors hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
                 aria-label="Menu tài khoản nhà sáng tạo"
+                title="Tài khoản Nhà sáng tạo Sử Ký"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold text-xs border border-accent/20">
                   {currentUser.fullName ? (
@@ -166,7 +170,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
                         variant={r === 'CREATOR' ? 'default' : 'outline'}
                         className="text-[10px] py-0 px-1"
                       >
-                        {r}
+                        {r === 'CREATOR' ? 'Nhà sáng tạo' : r === 'ADMIN' ? 'Quản trị viên' : r}
                       </Badge>
                     ))}
                   </div>
@@ -201,7 +205,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
         ) : (
           <div className="flex items-center gap-2 text-xs text-muted">
             <Video className="h-4 w-4 text-accent" />
-            <span className="font-medium">Creator Studio</span>
+            <span className="font-medium">Xưởng Sáng tạo Sử Ký</span>
           </div>
         )}
       </div>
