@@ -1753,6 +1753,7 @@ class _AuthSheetState extends State<AuthSheet> {
 
   Future<void> submit() async {
     if (!formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       busy = true;
       error = null;
@@ -1773,7 +1774,9 @@ class _AuthSheetState extends State<AuthSheet> {
               : passwordCtrl.text,
         );
       }
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {

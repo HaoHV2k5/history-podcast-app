@@ -1254,7 +1254,9 @@ class AppState extends ChangeNotifier {
 
       if (userRepository != null) {
         try {
-          final profile = await userRepository!.getMyProfile();
+          final profile = await userRepository!
+              .getMyProfile()
+              .timeout(const Duration(seconds: 4));
           currentUserId = profile.id;
           await preferences.setInt('currentUserId', profile.id);
           if (profile.fullName.trim().isNotEmpty) {
@@ -1286,8 +1288,8 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
-      await initRealBackend();
       notifyListeners();
+      unawaited(initRealBackend());
       return;
     }
 
@@ -1380,8 +1382,8 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
-      await initRealBackend();
       notifyListeners();
+      unawaited(initRealBackend());
       return;
     }
 
