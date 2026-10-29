@@ -142,6 +142,7 @@ class AppState extends ChangeNotifier {
     currentUserId = preferences.getInt('currentUserId');
     userEmail = preferences.getString('userEmail');
     userPhone = preferences.getString('userPhone');
+    userAvatarUrl = preferences.getString('userAvatarUrl');
     userRoles = preferences.getStringList('userRoles') ?? ['VIEWER'];
     isCreator = preferences.getBool('isCreator') ?? false;
     isFreelancer = preferences.getBool('isFreelancer') ??
@@ -314,6 +315,10 @@ class AppState extends ChangeNotifier {
         if (profile.phone != null && profile.phone!.isNotEmpty) {
           userPhone = profile.phone;
           await preferences.setString('userPhone', userPhone!);
+        }
+        if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+          userAvatarUrl = profile.avatarUrl;
+          await preferences.setString('userAvatarUrl', userAvatarUrl!);
         }
         final rolesSet = <String>{...profile.roles};
         if (profile.roleName != null && profile.roleName!.isNotEmpty) {
@@ -1224,6 +1229,7 @@ class AppState extends ChangeNotifier {
   bool isLoggedIn = false;
   String? userEmail;
   String? userPhone;
+  String? userAvatarUrl;
 
   void _loadComments() {
     if (!isLiveBackend) {
@@ -1321,6 +1327,10 @@ class AppState extends ChangeNotifier {
               .timeout(const Duration(seconds: 4));
           currentUserId = profile.id;
           await preferences.setInt('currentUserId', profile.id);
+          if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+            userAvatarUrl = profile.avatarUrl;
+            await preferences.setString('userAvatarUrl', userAvatarUrl!);
+          }
           if (profile.fullName.trim().isNotEmpty) {
             displayName = profile.fullName.trim();
           }
@@ -1527,6 +1537,7 @@ class AppState extends ChangeNotifier {
     currentUserId = null;
     userEmail = null;
     userPhone = null;
+    userAvatarUrl = null;
     userRoles = ['VIEWER'];
     isCreator = false;
     isFreelancer = false;
@@ -1536,6 +1547,7 @@ class AppState extends ChangeNotifier {
     await preferences.remove('isCreator');
     await preferences.remove('isFreelancer');
     await preferences.remove('kycStatus');
+    await preferences.remove('userAvatarUrl');
     await preferences.setBool('manual_logout', true);
     displayName = 'Người nghe';
     memberships.clear();

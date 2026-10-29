@@ -65,7 +65,47 @@ class _ChannelPageState extends State<ChannelPage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.state,
     builder: (context, _) {
-      final c = channelByName(widget.channel.name);
+      // Tìm thông tin kênh chính xác từ backend (remoteChannels) hoặc widget.channel
+      final remoteMatch = remoteChannels.firstWhere(
+        (rc) =>
+            (widget.channel.id != null && rc.id == widget.channel.id) ||
+            rc.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+        orElse: () => widget.channel,
+      );
+
+      final String bannerImage = (widget.channel.coverImage.startsWith('http://') ||
+              widget.channel.coverImage.startsWith('https://'))
+          ? widget.channel.coverImage
+          : ((remoteMatch.coverImage.startsWith('http://') ||
+                  remoteMatch.coverImage.startsWith('https://'))
+              ? remoteMatch.coverImage
+              : (remoteMatch.coverImage.isNotEmpty
+                  ? remoteMatch.coverImage
+                  : (widget.channel.coverImage.isNotEmpty
+                      ? widget.channel.coverImage
+                      : (remoteMatch.image.isNotEmpty ? remoteMatch.image : widget.channel.image))));
+
+      final String avatarImage = (widget.channel.image.startsWith('http://') ||
+              widget.channel.image.startsWith('https://'))
+          ? widget.channel.image
+          : ((remoteMatch.image.startsWith('http://') ||
+                  remoteMatch.image.startsWith('https://'))
+              ? remoteMatch.image
+              : (remoteMatch.image.isNotEmpty ? remoteMatch.image : widget.channel.image));
+
+      final baseC = channelByName(widget.channel.name);
+
+      final c = Channel(
+        remoteMatch.name.isNotEmpty ? remoteMatch.name : widget.channel.name,
+        remoteMatch.initial.isNotEmpty ? remoteMatch.initial : widget.channel.initial,
+        avatarImage.isNotEmpty ? avatarImage : baseC.image,
+        remoteMatch.description.isNotEmpty ? remoteMatch.description : baseC.description,
+        id: remoteMatch.id ?? widget.channel.id ?? baseC.id,
+        coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
+        monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
+        hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
+      );
+
       final followed = widget.state.followed.contains(c.name);
       final member = widget.state.memberships.contains(c.name);
       final seriesList = widget.state.getChannelSeries(c.name);
@@ -75,7 +115,6 @@ class _ChannelPageState extends State<ChannelPage> {
         if (filter == 'Hội viên') return e.membersOnly;
         return true;
       }).toList();
-      final bannerImage = c.coverImage.isNotEmpty ? c.coverImage : c.image;
       return Scaffold(
         appBar: AppBar(
           title: const Text('Kênh kể chuyện', style: TextStyle(fontSize: 14)),
@@ -1263,7 +1302,9 @@ class _ProfileContentState extends State<ProfileContent> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: ArtworkImage(
-              artworkReference('avatar'),
+              (state.userAvatarUrl != null && state.userAvatarUrl!.isNotEmpty)
+                  ? state.userAvatarUrl!
+                  : artworkReference('avatar'),
               width: 56,
               height: 56,
               semanticLabel: 'Ảnh đại diện của bạn',
