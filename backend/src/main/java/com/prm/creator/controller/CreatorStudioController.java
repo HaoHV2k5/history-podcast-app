@@ -199,5 +199,16 @@ public class CreatorStudioController {
         CreatorPatchPodcastResponse res = creatorStudioService.patchPodcastVideo(email, contentId, request);
         return ApiResponse.success("Vá kịch bản và kết xuất lại video podcast thành công", res);
     }
+
+    @Operation(summary = "Khôi phục phiên bản video (Rollback version)", description = "Đặt phiên bản video chỉ định (v1, v2...) làm phiên bản hiển thị chính của bài đăng")
+    @PostMapping("/videos/{contentId}/restore-version/{version}")
+    public ApiResponse<CreatorVideoItemResponse> restoreVideoVersion(
+            @PathVariable Long contentId,
+            @PathVariable Integer version
+    ) {
+        String email = SecurityUtils.getCurrentUserEmail();
+        CreatorVideoItemResponse res = creatorStudioService.restoreVideoVersion(email, contentId, version);
+        return ApiResponse.success("Đã khôi phục thành công phiên bản v" + version, res);
+    }
 }
 

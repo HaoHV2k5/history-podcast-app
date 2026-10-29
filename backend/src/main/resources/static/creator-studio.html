@@ -3773,6 +3773,34 @@
   </div>
 
   <!-- ==========================================================================
+       MODAL 4B: LỊCH SỬ CÁC PHIÊN BẢN VIDEO (V1, V2...)
+       ========================================================================== -->
+  <div class="modal-overlay" id="modalVersionHistory">
+    <div class="modal-dialog" style="max-width:640px;">
+      <div class="modal-header-bar">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge neutral">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          </div>
+          <div>
+            <h3 id="versionHistoryModalTitle">Lịch Sử Phiên Bản Video</h3>
+            <p class="modal-subtitle" id="versionHistoryModalSubtitle">Xem lại bản gốc v1, bản vá v2 và khôi phục bản cũ nếu cần</p>
+          </div>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="closeModal('modalVersionHistory')" aria-label="Đóng">✕</button>
+      </div>
+
+      <div class="modal-body-content" id="versionHistoryListBody" style="max-height:480px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+        <!-- Dynamic version rows inserted here -->
+      </div>
+
+      <div class="modal-footer-bar">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modalVersionHistory')">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
        MODAL 5: CÀI ĐẶT HỆ THỐNG & API KEYS
        ========================================================================== -->
   <div class="modal-overlay" id="modalSettings">
@@ -6282,12 +6310,38 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
           const isVersionPatched = versionNum > 1;
           const versionBadge = `<span style="font-family:var(--font-mono); font-size:0.75rem; font-weight:700; background:var(--canvas-soft); color:var(--ink); padding:2px 7px; border-radius:6px; border:1px solid var(--hairline-strong); display:inline-flex; align-items:center; gap:4px;">v${versionNum}${isVersionPatched ? ' <span style="color:var(--accent); font-size:0.68rem; font-weight:600;">(Bản vá)</span>' : ''}</span>`;
 
+          const hasMultipleVersions = v.versions && v.versions.length > 1;
+          const versionSwitcherHtml = hasMultipleVersions ? `
+            <div class="version-switch-bar" style="display:flex; align-items:center; gap:8px; margin: 8px 0 10px 0; flex-wrap:wrap;">
+              <span style="font-size:0.75rem; color:var(--muted); font-weight:600; display:inline-flex; align-items:center; gap:4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                Xem Phiên Bản:
+              </span>
+              <div style="display:inline-flex; gap:6px; background:var(--canvas-soft); padding:3px; border-radius:8px; border:1px solid var(--hairline-strong); flex-wrap:wrap;">
+                ${v.versions.map(ver => {
+                  const isCur = ver.version === versionNum;
+                  const verLabel = ver.version > 1 ? `v${ver.version} (Bản vá)` : `v${ver.version} (Bản gốc)`;
+                  const stLabel = ver.status === 'PUBLISHED' ? 'Công khai' : (ver.status === 'ARCHIVED' ? 'Lưu trữ' : (ver.status === 'PENDING_REVIEW' ? 'Chờ duyệt' : 'Chưa duyệt'));
+                  return `
+                    <button type="button" 
+                      id="btnVer_${v.contentId}_${ver.version}"
+                      class="btn-version-pill ${isCur ? 'active' : ''}"
+                      style="padding: 3px 9px; font-size: 0.72rem; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; transition: all 0.2s; ${isCur ? 'background: var(--ink); color: var(--canvas); box-shadow: 0 1px 3px rgba(0,0,0,0.15);' : 'background: transparent; color: var(--muted);'}"
+                      onclick="selectCardVersion(${v.contentId}, ${ver.version})">
+                      ${verLabel} • <span style="font-size:0.68rem; opacity:0.85;">${stLabel}</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          ` : '';
+
           return `
-            <div class="video-item-card">
+            <div class="video-item-card" id="videoCard_${v.contentId}">
               <div class="video-item-thumb">
-                <span class="video-thumb-id">#${v.contentId} • v${versionNum}</span>
+                <span class="video-thumb-id" id="thumbId_${v.contentId}">#${v.contentId} • v${versionNum}</span>
                 ${videoUrl ? `
-                  <video src="${videoUrl}" controls playsinline preload="metadata" poster="${thumbUrl}"></video>
+                  <video id="videoPlayer_${v.contentId}" src="${videoUrl}" controls playsinline preload="metadata" poster="${thumbUrl}"></video>
                 ` : (thumbUrl ? `<img src="${thumbUrl}" alt="Thumbnail">` : `
                   <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--muted); font-size:0.75rem;">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
@@ -6301,17 +6355,19 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
                 <div>
                   <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
                     <h3 class="video-item-title" style="display:flex; align-items:center; gap:8px;">
-                      ${versionBadge}
+                      <span id="titleVerBadge_${v.contentId}">${versionBadge}</span>
                       <span>${escapeHtml(v.title || 'Chưa đặt tiêu đề')}</span>
                     </h3>
                     <div style="display:flex; gap:8px; align-items:center; flex-shrink:0;">
                       ${shieldBadge}
-                      <span class="badge-status ${statusClass}">
+                      <span class="badge-status ${statusClass}" id="statusBadge_${v.contentId}">
                         <span class="status-dot"></span>
                         <span>${statusLabel}</span>
                       </span>
                     </div>
                   </div>
+
+                  ${versionSwitcherHtml}
 
                   <p class="video-item-desc">
                     ${escapeHtml(v.description || 'Không có mô tả kịch bản.')}
@@ -6359,6 +6415,11 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
                     <span>Bình luận (${v.commentCount || 0})</span>
                   </button>
 
+                  <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => openVersionHistoryModal(${v.contentId}))">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                    <span>Lịch Sử (${v.versions ? v.versions.length : 1})</span>
+                  </button>
+
                   <button type="button" class="btn btn-outline btn-sm" onclick="animateButtonAction(this, () => openSmartPatchModal(${v.contentId}))">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     <span>Vá Câu</span>
@@ -6377,7 +6438,7 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
                   ` : '')}
 
                   ${videoUrl ? `
-                    <a href="${videoUrl}" target="_blank" class="btn btn-ghost btn-sm">
+                    <a href="${videoUrl}" target="_blank" class="btn btn-ghost btn-sm" id="linkCdn_${v.contentId}">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                       <span>Link CDN</span>
                     </a>
@@ -6470,6 +6531,175 @@ Trên dòng sông Bạch Đằng lịch sử, trận địa cọc ngầm đượ
         `).join('');
       } catch (err) {
         body.innerHTML = `<div style="text-align:center; padding:20px; color:var(--semantic-error);">✕ ${err.message}</div>`;
+      }
+    }
+
+    // Switch displayed version directly on the card
+    function selectCardVersion(contentId, targetVersion) {
+      const v = state.cachedVideos?.find(item => item.contentId === contentId);
+      if (!v || !v.versions) return;
+      const verObj = v.versions.find(ver => ver.version === targetVersion);
+      if (!verObj) return;
+
+      // Update player
+      const player = $(`videoPlayer_${contentId}`);
+      if (player && verObj.fileUrl) {
+        player.src = verObj.fileUrl;
+        player.load();
+      }
+
+      // Update thumb tag
+      const thumbTag = $(`thumbId_${contentId}`);
+      if (thumbTag) {
+        thumbTag.textContent = `#${contentId} • v${targetVersion}`;
+      }
+
+      // Update title badge
+      const titleBadge = $(`titleVerBadge_${contentId}`);
+      if (titleBadge) {
+        const isPatched = targetVersion > 1;
+        titleBadge.innerHTML = `<span style="font-family:var(--font-mono); font-size:0.75rem; font-weight:700; background:var(--canvas-soft); color:var(--ink); padding:2px 7px; border-radius:6px; border:1px solid var(--hairline-strong); display:inline-flex; align-items:center; gap:4px;">v${targetVersion}${isPatched ? ' <span style="color:var(--accent); font-size:0.68rem; font-weight:600;">(Bản vá)</span>' : ''}</span>`;
+      }
+
+      // Update status badge
+      const statusBadge = $(`statusBadge_${contentId}`);
+      if (statusBadge) {
+        const s = (verObj.status || 'DRAFT').toUpperCase();
+        const isPub = s === 'PUBLISHED';
+        const isHid = s === 'HIDDEN';
+        const isArch = s === 'ARCHIVED';
+        const isPend = s === 'PENDING_REVIEW';
+        const sClass = isPub ? 'published' : (isHid ? 'hidden' : (isPend ? 'pending' : 'draft'));
+        const sText = isPub ? 'Đã Xuất Bản' : (isHid ? 'Đang Ẩn' : (isArch ? 'Bản Lưu Trữ' : (isPend ? 'Chờ Admin Duyệt' : 'Chưa Gửi Duyệt')));
+        statusBadge.className = `badge-status ${sClass}`;
+        statusBadge.innerHTML = `<span class="status-dot"></span><span>${sText}</span>`;
+      }
+
+      // Update CDN link
+      const cdnLink = $(`linkCdn_${contentId}`);
+      if (cdnLink && verObj.fileUrl) {
+        cdnLink.href = verObj.fileUrl;
+      }
+
+      // Toggle active style on version pills
+      v.versions.forEach(ver => {
+        const btn = $(`btnVer_${contentId}_${ver.version}`);
+        if (btn) {
+          const isSelected = ver.version === targetVersion;
+          btn.style.background = isSelected ? 'var(--ink)' : 'transparent';
+          btn.style.color = isSelected ? 'var(--canvas)' : 'var(--muted)';
+          btn.style.boxShadow = isSelected ? '0 1px 3px rgba(0,0,0,0.15)' : 'none';
+        }
+      });
+    }
+
+    // Open Version History Modal
+    function openVersionHistoryModal(contentId) {
+      const v = state.cachedVideos?.find(item => item.contentId === contentId);
+      if (!v) {
+        showToast('Không tìm thấy thông tin video!', 'error');
+        return;
+      }
+
+      openModal('modalVersionHistory');
+      $('versionHistoryModalTitle').textContent = `Lịch Sử Phiên Bản: #${v.contentId}`;
+      $('versionHistoryModalSubtitle').textContent = v.title || 'Danh sách các phiên bản đã tạo';
+
+      const body = $('versionHistoryListBody');
+      const versions = v.versions || [];
+
+      if (versions.length === 0) {
+        body.innerHTML = `
+          <div style="text-align:center; padding:30px; color:var(--muted);">
+            Video này chỉ có một phiên bản v1 duy nhất.
+          </div>
+        `;
+        return;
+      }
+
+      const curVersion = v.version || 1;
+
+      body.innerHTML = versions.map(ver => {
+        const isCur = ver.version === curVersion;
+        const isPatched = ver.version > 1;
+        const timeFormatted = ver.createdAt ? new Date(ver.createdAt).toLocaleString('vi-VN') : 'Không rõ';
+        const durationFormatted = ver.durationSeconds ? formatTime(ver.durationSeconds) : 'N/A';
+
+        const s = (ver.status || 'DRAFT').toUpperCase();
+        const isPub = s === 'PUBLISHED';
+        const isHid = s === 'HIDDEN';
+        const isArch = s === 'ARCHIVED';
+        const isPend = s === 'PENDING_REVIEW';
+        const sClass = isPub ? 'published' : (isHid ? 'hidden' : (isPend ? 'pending' : 'draft'));
+        const sText = isPub ? 'Đã Xuất Bản' : (isHid ? 'Đang Ẩn' : (isArch ? 'Bản Lưu Trữ' : (isPend ? 'Chờ Admin Duyệt' : 'Chưa Gửi Duyệt')));
+
+        return `
+          <div style="border:1px solid var(--hairline-strong); border-radius:12px; padding:14px 16px; background:var(--canvas-soft); display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-family:var(--font-mono); font-weight:700; font-size:0.85rem; background:var(--surface); color:var(--ink); padding:3px 9px; border-radius:6px; border:1px solid var(--hairline-strong);">v${ver.version}</span>
+                <b style="font-size:0.88rem; color:var(--ink);">${isPatched ? 'Bản vá kịch bản' : 'Bản gốc ban đầu'}</b>
+                ${isCur ? '<span style="font-size:0.7rem; font-weight:700; color:var(--semantic-success); background:rgba(22, 163, 74, 0.12); padding:2px 8px; border-radius:6px;">Hiện tại</span>' : ''}
+              </div>
+              <span class="badge-status ${sClass}">
+                <span class="status-dot"></span>
+                <span>${sText}</span>
+              </span>
+            </div>
+
+            <div style="font-size:0.75rem; color:var(--muted); display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+              <span>🕒 Tạo: ${timeFormatted}</span>
+              <span>⏱ Thời lượng: ${durationFormatted}</span>
+              <span>📦 Artifact #${ver.artifactId}</span>
+            </div>
+
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="selectCardVersion(${v.contentId}, ${ver.version}); closeModal('modalVersionHistory'); showToast('Đã chọn bản v${ver.version} lên khung phát video!', 'info');">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Xem Bản Này</span>
+              </button>
+
+              ${ver.fileUrl ? `
+                <a href="${ver.fileUrl}" target="_blank" class="btn btn-ghost btn-sm">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                  <span>Link CDN</span>
+                </a>
+                <a href="${ver.fileUrl}" download="video_${v.contentId}_v${ver.version}.mp4" class="btn btn-ghost btn-sm">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  <span>Tải Video MP4</span>
+                </a>
+              ` : ''}
+
+              ${!isCur ? `
+                <button type="button" class="btn btn-outline btn-sm" style="color:var(--accent); border-color:var(--accent); margin-left:auto;" onclick="confirmRestoreVersion(${v.contentId}, ${ver.version})">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  <span>Khôi Phục Bản Này Làm Bản Chính</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Confirm Restore / Rollback Version
+    async function confirmRestoreVersion(contentId, targetVersion) {
+      if (!confirm(`Bạn có chắc chắn muốn khôi phục bản v${targetVersion} làm phiên bản hiển thị chính của video #${contentId}?`)) return;
+
+      try {
+        const res = await fetch(`/api/v1/creator/studio/videos/${contentId}/restore-version/${targetVersion}`, {
+          method: 'POST',
+          headers: getAuthHeaders(true)
+        });
+
+        const data = await res.json();
+        if (!res.ok || data.success === false) throw new Error(data.message || 'Lỗi khi khôi phục phiên bản');
+
+        closeModal('modalVersionHistory');
+        showToast(`Đã khôi phục thành công bản v${targetVersion} làm phiên bản chính!`, 'success');
+        loadCreatorVideos();
+      } catch (err) {
+        showToast('Lỗi khôi phục: ' + err.message, 'error');
       }
     }
 

@@ -34,6 +34,7 @@ public class CreatorVideoDetailResponse {
     private long commentCount;
 
     private List<CreatorCommentItemResponse> comments;
+    private List<CreatorVideoItemResponse.VersionItem> versions;
 
     // Chỉ số & Trạng thái kiểm duyệt AI Shield
     private BigDecimal aiShieldScore;
