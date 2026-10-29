@@ -245,7 +245,10 @@ Ngay khi bấm tạo kịch bản, hệ thống **không vội gửi ngay cho AI
    > - **Quy trình bắt buộc**: Creator phải bấm **"Gửi Duyệt"** (hoặc **"Gửi Duyệt v2"**) $\rightarrow$ Hệ thống quét AI Shield $\rightarrow$ Đưa vào hàng đợi `PENDING_REVIEW` cho Admin.
    > - **Chỉ Quản trị viên (Admin) mới có quyền duyệt (`APPROVED`) để chuyển sang `PUBLISHED`**: Khi Admin phê duyệt, video mới chính thức xuất hiện trên ứng dụng người dùng.
    > - **Quản lý hiển thị (Ẩn / Hiện lại)**: Creator chỉ có quyền tạm ẩn (`Ẩn Video` $\rightarrow$ `HIDDEN`) hoặc bỏ ẩn (`Hiện Lại Video` $\rightarrow$ `PUBLISHED`) đối với các video **đã từng được Admin phê duyệt**. Nếu video chưa được Admin duyệt mà cố tình gọi API mở công khai, hệ thống sẽ chặn đứng và trả về lỗi `403 FORBIDDEN_ACCESS`.
-   > - **Hiển thị huy hiệu phiên bản rõ ràng**: Trên mỗi thẻ video ở Studio, hệ thống gắn huy hiệu phiên bản nổi bật (`v1`, `v2 (Bản vá)`) cùng ID Content để Creator theo dõi chính xác vòng đời và lịch sử sửa đổi.
+   > - **Hiển thị huy hiệu & Bộ chọn phiên bản (Version Switcher & History)**:
+   >   - Video `v1` **hoàn toàn không bị mất hay ghi đè**, mà luôn được lưu trữ nguyên vẹn trong cơ sở dữ liệu (`ARCHIVED`).
+   >   - Trên mỗi thẻ video ở Studio, Creator có thể bấm các nút chọn nhanh `[v1 (Bản gốc)]` và `[v2 (Bản vá)]` để chuyển đổi khung phát video trên Player, so sánh âm thanh/hình ảnh và lấy link CDN riêng biệt của từng bản.
+   >   - Nút hành động **[Lịch Sử]** mở bảng danh mục tất cả phiên bản theo thời gian, hỗ trợ tải về hoặc **Khôi phục bản cũ (Rollback)** làm bản chính của bài đăng bất kỳ lúc nào.
 
 3. **Gửi kiểm duyệt xuất bản (`POST /submit-publish`):**
    - Khi Creator đã ưng ý với tác phẩm, bấm **"Gửi Kiểm Duyệt Xuất Bản"**.
@@ -356,6 +359,7 @@ sequenceDiagram
 | **14** | `GET` | `/api/v1/creator/studio/videos/{contentId}/podcast-sentences` | Lấy danh sách từng câu thoại kèm file audio riêng lẻ (`scene_{s}_elem_{e}.mp3` hoặc `clip_{idx}.mp3`) để nghe thử trước khi vá câu (hỗ trợ cả Whiteboard và Podcast). |
 | **15** | `POST` | `/api/v1/creator/studio/videos/{contentId}/patch-podcast` | Vá kịch bản siêu tốc (< 3s) cho cả Video vẽ tay Whiteboard và Audio Podcast, tích hợp **Bộ thẩm định AI ScopeGate Sử Liệu Lý - Trần bắt buộc** trước khi thu âm & ghép video. |
 | **16** | `POST` | `/api/v1/creator/studio/videos/{contentId}/submit-publish` | Chạy thẩm định an toàn AI Shield và nộp phiếu kiểm duyệt lên Admin. |
+| **17** | `POST` | `/api/v1/creator/studio/videos/{contentId}/restore-version/{version}` | Khôi phục phiên bản video chỉ định (v1, v2...) làm phiên bản hiển thị chính của bài đăng. |
 
 ---
 *Tài liệu nội bộ dự án PRM - Nền tảng Kể chuyện & Podcast Lịch sử Việt Nam.*
