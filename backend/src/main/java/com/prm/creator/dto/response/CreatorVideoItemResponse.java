@@ -5,6 +5,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,6 +28,23 @@ public class CreatorVideoItemResponse {
     private Boolean isExclusive;
     private Instant createdAt;
     private Instant updatedAt;
+
+    // Lịch sử các phiên bản (v1, v2...)
+    @Getter
+    @Setter
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class VersionItem {
+        private Long artifactId;
+        private Integer version;
+        private String status;
+        private String fileUrl;
+        private Integer durationSeconds;
+        private Instant createdAt;
+    }
+
+    private List<VersionItem> versions;
 
     // Chỉ số tương tác (Engagement metrics)
     private long likeCount;

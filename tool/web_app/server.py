@@ -132,6 +132,7 @@ class PodcastPatchRequest(BaseModel):
     tts_engine: Optional[str] = None
     voice_name: Optional[str] = None
     elevenlabs_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     cover_image_b64: Optional[str] = None
 
 
@@ -353,6 +354,7 @@ async def get_podcast_sentences_endpoint(job_id: str):
         raise HTTPException(status_code=404, detail=f"Không tìm thấy dữ liệu kết xuất của job '{job_id}'")
 
     sentences: list[str] = []
+    flat_clip_names: list[str] = []
     manifest_p = job_dir / "manifest.json"
     topic = ""
     tts_engine = "edge-tts"
@@ -367,6 +369,25 @@ async def get_podcast_sentences_endpoint(job_id: str):
             voice_name = data.get("voice_name", voice_name)
         except Exception as ex:
             print(f"[Podcast Patch] Lỗi đọc manifest.json: {ex}")
+
+    storyboard_p = job_dir / "storyboard.json"
+    if storyboard_p.exists():
+        try:
+            sb = json.loads(storyboard_p.read_text(encoding="utf-8"))
+            if not topic:
+                topic = sb.get("title", "")
+            sb_sentences = []
+            for sc_i, sc in enumerate(sb.get("scenes", []), start=1):
+                s_idx = sc.get("scene_index") or sc.get("sceneNumber") or sc_i
+                for e_i, el in enumerate(sc.get("elements", []), start=1):
+                    sub = el.get("subtitle", "").strip()
+                    if sub:
+                        sb_sentences.append(sub)
+                        flat_clip_names.append(f"scene_{s_idx}_elem_{e_i}")
+            if not sentences and sb_sentences:
+                sentences = sb_sentences
+        except Exception as ex:
+            print(f"[Podcast Patch] Lỗi đọc storyboard.json: {ex}")
 
     if not sentences:
         script_p = job_dir / "script.txt"
@@ -389,16 +410,29 @@ async def get_podcast_sentences_endpoint(job_id: str):
     audio_dir = job_dir / "audio_clips"
     sentence_items: list[PodcastSentenceItem] = []
     for idx, s in enumerate(sentences, start=1):
-        mp3_p = audio_dir / f"clip_{idx}.mp3"
-        wav_p = audio_dir / f"clip_{idx}.wav"
+        candidates = []
+        if idx - 1 < len(flat_clip_names):
+            candidates.append(flat_clip_names[idx - 1])
+        candidates.append(f"clip_{idx}")
+
+        target_mp3 = None
+        target_wav = None
+        for name in candidates:
+            mp3_c = audio_dir / f"{name}.mp3"
+            wav_c = audio_dir / f"{name}.wav"
+            if mp3_c.exists() or wav_c.exists():
+                target_mp3 = mp3_c if mp3_c.exists() else None
+                target_wav = wav_c if wav_c.exists() else None
+                break
+
         dur = None
         audio_url = None
-        if wav_p.exists():
-            dur = get_audio_duration_wave(wav_p)
-        if mp3_p.exists():
-            audio_url = f"/outputs/{job_id}/audio_clips/clip_{idx}.mp3"
-        elif wav_p.exists():
-            audio_url = f"/outputs/{job_id}/audio_clips/clip_{idx}.wav"
+        if target_wav and target_wav.exists():
+            dur = get_audio_duration_wave(target_wav)
+        if target_mp3 and target_mp3.exists():
+            audio_url = f"/outputs/{job_id}/audio_clips/{target_mp3.name}"
+        elif target_wav and target_wav.exists():
+            audio_url = f"/outputs/{job_id}/audio_clips/{target_wav.name}"
 
         sentence_items.append(PodcastSentenceItem(
             index=idx,
@@ -414,6 +448,30 @@ async def get_podcast_sentences_endpoint(job_id: str):
         voice_name=voice_name,
         sentences=sentence_items
     )
+
+
+def verify_patch_history_scope(job_id: str, new_sentences: list[str], re_record_map: dict[int, bool], gemini_key: str):
+    """Thẩm định tính chính xác sử học bắt buộc cho kịch bản khi Creator vá câu thoại.
+    Ngăn chặn việc lợi dụng bản vá để sửa sai lệch lịch sử hoặc chèn nhân vật ngoài thời Lý - Trần."""
+    modified_indices = [idx for idx, needed in re_record_map.items() if needed]
+    if not modified_indices:
+        return
+    modified_texts = [new_sentences[idx - 1] for idx in modified_indices if 1 <= idx <= len(new_sentences)]
+    full_text_to_audit = "\n\n".join(new_sentences)
+    print(f"[{job_id}] 🛡️ AI Verify: Đang thẩm định lịch sử cho {len(modified_texts)} câu thoại vừa chỉnh sửa...")
+
+    scope_res = check_history_scope_llm(full_text_to_audit, gemini_key)
+    if not scope_res.get("in_scope", True):
+        reason = scope_res.get("reason", "Nội dung câu vá chứa thông tin hoặc nhân vật không thuộc thời kỳ nhà Lý (1009 - 1225) và nhà Trần (1225 - 1400).")
+        print(f"[{job_id}] 🚫 TỪ CHỐI BẢN VÁ DO SAI LỆCH SỬ LIỆU: {reason}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"⚠️ BẢN VÁ BỊ TỪ CHỐI (CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN):\n\n"
+                   f"Nội dung chỉnh sửa: \"{' | '.join(modified_texts)[:180]}\"\n"
+                   f"Lý do: {reason}\n\n"
+                   f"Hệ thống yêu cầu bảo toàn tính chuẩn xác chính sử: CHỈ TẠO & VÁ VIDEO CHO CÁC SỰ KIỆN, NHÂN VẬT THUỘC THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400). Mọi thông tin sai lệch thời kỳ hoặc nhân vật ngoại lai đều bị chặn."
+        )
+    print(f"[{job_id}] ✅ AI Verify: Nội dung câu vá hoàn toàn hợp lệ theo chính sử Lý - Trần!")
 
 
 @app.post("/api/podcast/patch")
@@ -433,10 +491,41 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
             pass
 
     existing_sentences: list[str] = meta.get("sentences", [])
+
+    storyboard_p = job_dir / "storyboard.json"
+    storyboard = None
+    if storyboard_p.exists():
+        try:
+            storyboard = json.loads(storyboard_p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    if not existing_sentences and storyboard:
+        for sc in storyboard.get("scenes", []):
+            for el in sc.get("elements", []):
+                sub = el.get("subtitle", "").strip()
+                if sub:
+                    existing_sentences.append(sub)
+
     if not existing_sentences:
         script_p = job_dir / "script.txt"
         if script_p.exists():
             existing_sentences = [s.strip() for s in re.split(r"\n\s*\n|\n", script_p.read_text(encoding="utf-8")) if s.strip()]
+
+    if not existing_sentences:
+        srt_p = job_dir / "subtitles.srt"
+        if srt_p.exists():
+            srt_content = srt_p.read_text(encoding="utf-8")
+            blocks = srt_content.strip().split("\n\n")
+            for block in blocks:
+                lines = block.strip().split("\n")
+                if len(lines) >= 3:
+                    text = " ".join(lines[2:]).strip()
+                    if text:
+                        existing_sentences.append(text)
+
+    if not existing_sentences and req.sentences:
+        existing_sentences = [s.strip() for s in req.sentences if s.strip()]
 
     if not existing_sentences:
         raise HTTPException(status_code=400, detail="Không tìm thấy kịch bản cũ của job để thực hiện vá!")
@@ -444,24 +533,286 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
     tts_engine = req.tts_engine or meta.get("tts_engine") or "edge-tts"
     voice_name = req.voice_name or meta.get("voice_name") or "vi-VN-NamMinhNeural"
     el_key = req.elevenlabs_api_key
+    gemini_key = sanitize_gemini_key(req.gemini_api_key) or os.environ.get("GEMINI_API_KEY", "") or os.environ.get("SYSTEM_GEMINI_API_KEY", "")
 
-    # Xử lý cập nhật ảnh bìa mới cho Audio Podcast nếu có yêu cầu
+    # Xử lý cập nhật ảnh bìa mới nếu có yêu cầu
     cover_b64 = req.cover_image_b64
     has_new_cover = False
     if cover_b64 and (cover_b64.strip().startswith("http") or len(cover_b64.strip()) >= 50):
         try:
-            print(f"[{job_id}] 🖼️ Smart Patch: Creator cập nhật ảnh bìa mới cho Audio Podcast...")
+            print(f"[{job_id}] 🖼️ Smart Patch: Creator cập nhật ảnh bìa mới...")
             raw_cover_bytes = decode_base64_image(cover_b64)
             cover_png = job_dir / "cover.png"
             video_bg_png = job_dir / "podcast_video_bg.png"
             process_podcast_cover(raw_cover_bytes, cover_png, video_bg_png)
             meta["has_custom_cover"] = True
             has_new_cover = True
-            print(f"[{job_id}] ✅ Đã cập nhật ảnh bìa và phông nền video podcast thành công!")
+            print(f"[{job_id}] ✅ Đã cập nhật ảnh bìa thành công!")
         except Exception as e:
             print(f"[{job_id}] ⚠️ Lỗi khi cập nhật ảnh bìa mới trong bản vá: {e}")
 
-    # Xây dựng danh sách câu mới và xác định các câu cần thu âm lại
+    # Nhận diện loại video: Hoạt họa vẽ tay Whiteboard hay Audio Podcast ảnh tĩnh
+    has_whiteboard_media = any(
+        (job_dir / f"scene_{i}_raw.mp4").exists() or (job_dir / f"scene_{i}_final.mp4").exists()
+        for i in range(1, 20)
+    )
+    is_whiteboard = (meta.get("render_mode") == "whiteboard") or (storyboard is not None and has_whiteboard_media) or has_whiteboard_media
+
+    # =========================================================================
+    # NHÁNH 1: VÁ KỊCH BẢN VIDEO VẼ TAY WHITEBOARD (Tốc độ siêu nhanh < 3s)
+    # =========================================================================
+    if is_whiteboard:
+        scenes = storyboard.get("scenes", []) if storyboard else []
+        for sc_i, sc in enumerate(scenes):
+            if not sc.get("scene_index"):
+                sc["scene_index"] = sc.get("sceneNumber") or (sc_i + 1)
+
+        flat_elems = []
+        for sc in scenes:
+            s_idx = sc["scene_index"]
+            for e_i, el in enumerate(sc.get("elements", []), start=1):
+                flat_elems.append({
+                    "scene": sc,
+                    "scene_index": s_idx,
+                    "elem_index": e_i,
+                    "element": el
+                })
+
+        new_sentences = [fe["element"].get("subtitle", "").strip() for fe in flat_elems] if flat_elems else list(existing_sentences)
+        re_record_map: dict[int, bool] = {}
+
+        if req.patches:
+            for p in req.patches:
+                idx = p.index
+                if 1 <= idx <= len(new_sentences):
+                    old_text = new_sentences[idx - 1]
+                    new_sentences[idx - 1] = p.text.strip()
+                    if new_sentences[idx - 1] != old_text or p.re_record:
+                        re_record_map[idx] = True if p.re_record is None else bool(p.re_record)
+                elif idx == len(new_sentences) + 1:
+                    new_sentences.append(p.text.strip())
+                    re_record_map[idx] = True
+        elif req.sentences:
+            for idx, s in enumerate(req.sentences, start=1):
+                if idx <= len(new_sentences):
+                    old_s = new_sentences[idx - 1]
+                    if s.strip() != old_s.strip():
+                        re_record_map[idx] = True
+                else:
+                    re_record_map[idx] = True
+            new_sentences = [s.strip() for s in req.sentences if s.strip()]
+
+        # Nếu có thêm câu mới ngoài số element hiện có, gắn vào scene cuối
+        if len(new_sentences) > len(flat_elems) and scenes:
+            last_sc = scenes[-1]
+            last_elements = last_sc.setdefault("elements", [])
+            for extra_idx in range(len(flat_elems), len(new_sentences)):
+                extra_text = new_sentences[extra_idx]
+                elem_num = len(last_elements) + 1
+                new_elem = {
+                    "label": f"Phần {elem_num}",
+                    "narrativeRole": "Dẫn chuyện",
+                    "subtitle": extra_text,
+                    "visual_desc": extra_text
+                }
+                last_elements.append(new_elem)
+                flat_elems.append({
+                    "scene": last_sc,
+                    "scene_index": last_sc["scene_index"],
+                    "elem_index": elem_num,
+                    "element": new_elem
+                })
+
+        # Cập nhật phụ đề cho elements
+        for idx, fe in enumerate(flat_elems, start=1):
+            if idx <= len(new_sentences):
+                fe["element"]["subtitle"] = new_sentences[idx - 1]
+
+        # ── BƯỚC BẮT BUỘC: THẨM ĐỊNH AI SỬ LIỆU (SCOPE & HISTORICAL INTEGRITY AUDIT) ──
+        verify_patch_history_scope(job_id, new_sentences, re_record_map, gemini_key)
+
+        audio_dir = job_dir / "audio_clips"
+        audio_dir.mkdir(exist_ok=True)
+
+        # Xác định cảnh bị thay đổi để chỉ xử lý lại các cảnh này
+        modified_scenes = set()
+        for idx, fe in enumerate(flat_elems, start=1):
+            s_idx = fe["scene_index"]
+            e_i = fe["elem_index"]
+            cid = f"scene_{s_idx}_elem_{e_i}"
+            wav_p = audio_dir / f"{cid}.wav"
+            if re_record_map.get(idx, False) or not wav_p.exists():
+                modified_scenes.add(s_idx)
+
+        for sc in scenes:
+            s_idx = sc["scene_index"]
+            if not (job_dir / f"scene_{s_idx}_final.mp4").exists():
+                modified_scenes.add(s_idx)
+
+        print(f"[{job_id}] 🎨 Smart Patch Whiteboard: Cảnh cần vá: {modified_scenes if modified_scenes else 'Không (chỉ ghép nối)'}")
+
+        py_env = str(ROOT_DIR / ".venv" / "bin" / "python") if (ROOT_DIR / ".venv" / "bin" / "python").exists() else sys.executable
+        rerecorded_count = 0
+        scene_final_videos = []
+        ann_files = []
+
+        for s_i, sc in enumerate(scenes):
+            s_idx = sc["scene_index"]
+            ann_p = job_dir / f"scene_{s_idx}.annotation.json"
+            raw_mp4 = job_dir / f"scene_{s_idx}_raw.mp4"
+            sub_mp4 = job_dir / f"scene_{s_idx}_subbed.mp4"
+            scene_voice_wav = job_dir / f"scene_{s_idx}_voice.wav"
+            scene_final_mp4 = job_dir / f"scene_{s_idx}_final.mp4"
+            ann_files.append(ann_p)
+
+            elements = sc.get("elements", [])
+
+            if s_idx not in modified_scenes and scene_final_mp4.exists():
+                print(f"[{job_id}] ⚡ Cảnh {s_idx} không đổi, tái sử dụng video: {scene_final_mp4.name}")
+                scene_final_videos.append(scene_final_mp4)
+                continue
+
+            audio_durations = []
+            clip_paths_and_starts = []
+
+            for e_i, el in enumerate(elements, start=1):
+                cid = f"scene_{s_idx}_elem_{e_i}"
+                mp3_p = audio_dir / f"{cid}.mp3"
+                wav_p = audio_dir / f"{cid}.wav"
+                sub_text = el.get("subtitle", "").strip()
+
+                g_idx = None
+                for idx_check, fe in enumerate(flat_elems, start=1):
+                    if fe["scene_index"] == s_idx and fe["elem_index"] == e_i:
+                        g_idx = idx_check
+                        break
+
+                need_rerecord = (g_idx in re_record_map) or not wav_p.exists()
+                if need_rerecord:
+                    rerecorded_count += 1
+                    print(f"[{job_id}] 🎙️ Smart Patch: Thu âm lại câu [{s_idx}.{e_i}]: {sub_text[:35]}...")
+                    dur = generate_single_audio_clip(sub_text, mp3_p, wav_p, tts_engine, voice_name, el_key)
+                else:
+                    dur = get_audio_duration_wave(wav_p)
+
+                audio_durations.append(dur)
+
+            timeline = compute_scene_continuous_timeline(audio_durations)
+            dur_s = timeline["scene_duration_s"]
+
+            for e_i, t in enumerate(timeline["element_timings"], start=1):
+                wav_p = audio_dir / f"scene_{s_idx}_elem_{e_i}.wav"
+                clip_paths_and_starts.append((wav_p, t["voice_start_s"]))
+
+            mix_scene_audio(clip_paths_and_starts, scene_voice_wav, dur_s)
+
+            if ann_p.exists():
+                try:
+                    ann_data = json.loads(ann_p.read_text(encoding="utf-8"))
+                    ann_data["sceneDurationMs"] = timeline["scene_duration_ms"]
+                    ann_elems = sorted(ann_data.get("elements", []), key=lambda e: e.get("reveal", {}).get("startMs", 0))
+                    for e_i, timing in enumerate(timeline["element_timings"]):
+                        if e_i < len(ann_elems):
+                            ann_elems[e_i]["subtitle"] = elements[e_i].get("subtitle", "")
+                            ann_elems[e_i]["speech"] = {
+                                "startMs": int(round(timing["voice_start_s"] * 1000)),
+                                "endMs": int(round(timing["voice_end_s"] * 1000))
+                            }
+                    ann_data["elements"] = ann_elems
+                    ann_p.write_text(json.dumps(ann_data, ensure_ascii=False, indent=2), encoding="utf-8")
+                except Exception as e:
+                    print(f"[{job_id}] ⚠️ Cảnh báo cập nhật annotation: {e}")
+            else:
+                img_p = job_dir / f"scene_{s_idx}.png"
+                build_annotation_json(sc, img_p, ann_p, timeline["element_timings"], timeline["scene_duration_ms"])
+
+            cues = parse_annotation(ann_p)
+            if not raw_mp4.exists():
+                print(f"[{job_id}] ⚠️ Không tìm thấy raw_mp4 của Cảnh {s_idx}, tiến hành vẽ lại cảnh...")
+                render_script = ROOT_DIR / "scripts" / "render_stream_whiteboard.py"
+                hand_img = ROOT_DIR / "assets" / "drawing-hand.png"
+                img_p = job_dir / f"scene_{s_idx}.png"
+                subprocess.run([
+                    str(py_env), str(render_script),
+                    str(img_p), str(ann_p), str(raw_mp4), str(hand_img),
+                    "--cap-long-edge", "1080"
+                ], check=True)
+
+            print(f"[{job_id}] ✍️ Đóng phụ đề mới lên hoạt họa vẽ tay Cảnh {s_idx}...")
+            add_subtitles(raw_mp4, cues, sub_mp4)
+
+            print(f"[{job_id}] 🔊 Lồng tiếng khớp nhịp Cảnh {s_idx} ({dur_s:.2f}s)...")
+            subprocess.run([
+                "ffmpeg", "-y", "-loglevel", "error",
+                "-i", str(sub_mp4),
+                "-i", str(scene_voice_wav),
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-b:a", "192k",
+                "-movflags", "+faststart",
+                "-t", f"{dur_s:.3f}",
+                str(scene_final_mp4)
+            ], check=True)
+            scene_final_videos.append(scene_final_mp4)
+
+        final_video = job_dir / "final_whiteboard_video.mp4"
+        if len(scene_final_videos) == 1:
+            shutil.copyfile(scene_final_videos[0], final_video)
+        else:
+            merge_script = ROOT_DIR / "scripts" / "merge_scenes.py"
+            subprocess.run([
+                str(py_env), str(merge_script),
+                "--inputs", *[str(p) for p in scene_final_videos],
+                "--output", str(final_video)
+            ], check=True)
+
+        valid_anns = [str(a) for a in ann_files if a.exists()]
+        if valid_anns:
+            export_srt(valid_anns, str(job_dir / "subtitles.srt"))
+
+        podcast_mp3 = job_dir / "podcast_voice.mp3"
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(final_video),
+            "-vn", "-c:a", "libmp3lame", "-b:a", "192k",
+            str(podcast_mp3)
+        ], check=False)
+
+        cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(final_video)]
+        actual_total_s = float(subprocess.run(cmd, capture_output=True, text=True).stdout.strip() or 0.0)
+
+        if storyboard:
+            (job_dir / "storyboard.json").write_text(json.dumps(storyboard, ensure_ascii=False, indent=2), encoding="utf-8")
+        (job_dir / "script.txt").write_text("\n\n".join(new_sentences), encoding="utf-8")
+        meta["sentences"] = new_sentences
+        meta["render_mode"] = "whiteboard"
+        meta["updated_at"] = time.time()
+        manifest_p.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+
+        if job_id in JOBS:
+            JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
+            JOBS[job_id]["audio_url"] = f"/outputs/{job_id}/podcast_voice.mp3"
+            JOBS[job_id]["srt_url"] = f"/outputs/{job_id}/subtitles.srt"
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "status": "completed",
+            "video_url": f"/outputs/{job_id}/final_whiteboard_video.mp4",
+            "audio_url": f"/outputs/{job_id}/podcast_voice.mp3",
+            "cover_url": f"/outputs/{job_id}/cover.png" if (job_dir / "cover.png").exists() else None,
+            "srt_url": f"/outputs/{job_id}/subtitles.srt",
+            "modified_count": len(re_record_map),
+            "re_recorded_count": rerecorded_count,
+            "total_sentences": len(new_sentences),
+            "duration_seconds": int(round(actual_total_s)),
+            "script_text": "\n\n".join(new_sentences),
+            "has_new_cover": False
+        }
+
+    # =========================================================================
+    # NHÁNH 2: VÁ KỊCH BẢN AUDIO PODCAST (ẢNH NỀN TĨNH)
+    # =========================================================================
     new_sentences = list(existing_sentences)
     re_record_map: dict[int, bool] = {}
 
@@ -485,6 +836,9 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
             else:
                 re_record_map[idx] = True
         new_sentences = [s.strip() for s in req.sentences if s.strip()]
+
+    # ── BƯỚC BẮT BUỘC: THẨM ĐỊNH AI SỬ LIỆU (SCOPE & HISTORICAL INTEGRITY AUDIT) ──
+    verify_patch_history_scope(job_id, new_sentences, re_record_map, gemini_key)
 
     audio_dir = job_dir / "audio_clips"
     audio_dir.mkdir(exist_ok=True)
@@ -542,13 +896,31 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
         lines.append("")
     srt_full.write_text("\n".join(lines), encoding="utf-8")
 
-    # Render video Podcast
+    # Render video Podcast với tìm kiếm ảnh nền an toàn
     cover_png = job_dir / "cover.png"
     video_bg_png = job_dir / "podcast_video_bg.png"
     bg_to_use = video_bg_png if video_bg_png.exists() else cover_png
 
     if not bg_to_use.exists():
-        raise HTTPException(status_code=400, detail="Không tìm thấy tệp ảnh bìa/nền của podcast để kết xuất video!")
+        candidates = [
+            job_dir / "cover.png",
+            job_dir / "podcast_video_bg.png",
+            job_dir / "thumbnail.png",
+            job_dir / "scene_1.png",
+        ]
+        for c in candidates:
+            if c.exists():
+                bg_to_use = c
+                break
+        if not bg_to_use or not bg_to_use.exists():
+            other_imgs = list(job_dir.glob("*.png")) + list(job_dir.glob("*.jpg"))
+            if other_imgs:
+                bg_to_use = other_imgs[0]
+            else:
+                from PIL import Image
+                default_img = Image.new("RGB", (1280, 720), color=(245, 235, 215))
+                bg_to_use = job_dir / "podcast_video_bg.png"
+                default_img.save(bg_to_use)
 
     raw_video_p = job_dir / "podcast_base.mp4"
     subprocess.run([
@@ -1015,6 +1387,17 @@ QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRO
 
 Trả về JSON thuần túy (không bọc trong markdown):
 {{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng, chỉ đích danh nhân vật hoặc chi tiết sai phạm nếu có"}}"""
+
+    if not api_key:
+        other_dynasties_keywords = [
+            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền", "đinh bộ lĩnh",
+            "lê lợi", "nguyễn trãi", "lê sơ", "lê thánh tông", "quang trung", "tây sơn",
+            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025",
+            "trương liêu", "lưu bị", "tào tháo", "quan vũ", "tôn quyền", "gia cát lượng", "lữ bố", "triệu vân"
+        ]
+        if any(k in topic.lower() for k in other_dynasties_keywords):
+            return {"in_scope": False, "reason": "Văn bản chứa nhân vật hoặc sự kiện ngoại lai/ngoài phạm vi triều đại Lý - Trần."}
+        return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần"}
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -2471,6 +2854,33 @@ def run_pipeline(job_id: str, req: VideoRequest):
         cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(final_video)]
         actual_total_s = float(subprocess.run(cmd, capture_output=True, text=True).stdout.strip() or 0.0)
 
+        # Trích xuất podcast_voice.mp3 và lưu manifest.json + script.txt hỗ trợ Vá kịch bản siêu tốc
+        podcast_mp3 = job_dir / "podcast_voice.mp3"
+        subprocess.run([
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-i", str(final_video),
+            "-vn", "-c:a", "libmp3lame", "-b:a", "192k",
+            str(podcast_mp3)
+        ], check=False)
+
+        all_sentences = []
+        for sc in scenes:
+            for el in sc.get("elements", []):
+                sub = el.get("subtitle", "").strip()
+                if sub:
+                    all_sentences.append(sub)
+        (job_dir / "script.txt").write_text("\n\n".join(all_sentences), encoding="utf-8")
+        manifest_data = {
+            "job_id": job_id,
+            "render_mode": "whiteboard",
+            "topic": display_t,
+            "tts_engine": req.tts_engine,
+            "voice_name": req.voice_name,
+            "sentences": all_sentences,
+            "created_at": time.time()
+        }
+        (job_dir / "manifest.json").write_text(json.dumps(manifest_data, ensure_ascii=False, indent=2), encoding="utf-8")
+
         # 6. Hoàn tất
         JOBS[job_id]["step"] = 6
         JOBS[job_id]["total_steps"] = 6
@@ -2478,6 +2888,7 @@ def run_pipeline(job_id: str, req: VideoRequest):
         JOBS[job_id]["step_name"] = "Hoàn tất"
         JOBS[job_id]["status"] = "completed"
         JOBS[job_id]["video_url"] = f"/outputs/{job_id}/final_whiteboard_video.mp4"
+        JOBS[job_id]["audio_url"] = f"/outputs/{job_id}/podcast_voice.mp3"
         JOBS[job_id]["srt_url"] = f"/outputs/{job_id}/subtitles.srt"
         log(job_id, f"🎉 XUẤT BẢN THÀNH CÔNG! Video ({actual_total_s:.1f}s) đã sẵn sàng: mạch nói liên tục, chuyển cảnh mượt mà sau 1.5s!")
 

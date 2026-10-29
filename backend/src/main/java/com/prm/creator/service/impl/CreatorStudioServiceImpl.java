@@ -842,7 +842,25 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
         List<CreatorVideoItemResponse> result = new ArrayList<>();
         for (Content content : contents) {
-            Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null);
+            List<Artifact> mediaArtifacts = artifactRepository.findMediaArtifactsByContentId(content.getId());
+            Artifact artifact = !mediaArtifacts.isEmpty() ? mediaArtifacts.get(0) : null;
+
+            List<CreatorVideoItemResponse.VersionItem> versionItems = new ArrayList<>();
+            for (Artifact a : mediaArtifacts) {
+                boolean isArtPublished = ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus())
+                        || ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(a.getStatus());
+                String vUrl = (isArtPublished && StringUtils.hasText(a.getOptimizedUrl()))
+                        ? a.getOptimizedUrl()
+                        : a.getFileUrl();
+                versionItems.add(CreatorVideoItemResponse.VersionItem.builder()
+                        .artifactId(a.getId())
+                        .version(a.getVersion() != null ? a.getVersion() : 1)
+                        .status(a.getStatus())
+                        .fileUrl(vUrl)
+                        .durationSeconds(a.getDurationSeconds())
+                        .createdAt(a.getCreatedAt())
+                        .build());
+            }
 
             // 1. Lọc theo trạng thái (Hỗ trợ lọc theo Content status hoặc Artifact version status)
             if (StringUtils.hasText(status) && !"ALL".equalsIgnoreCase(status.trim())) {
@@ -955,6 +973,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                     .description(content.getTextBody())
                     .status(itemStatus)
                     .version(artifact != null ? artifact.getVersion() : 1)
+                    .versions(versionItems)
                     .fileUrl(fileUrl)
                     .thumbnailUrl(thumbnailUrl)
                     .durationSeconds(duration)
@@ -1021,7 +1040,25 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         Content content = contentRepository.findByIdAndCreatorId(contentId, creator.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy video hoặc bạn không có quyền truy cập"));
 
-        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null);
+        List<Artifact> mediaArtifacts = artifactRepository.findMediaArtifactsByContentId(content.getId());
+        Artifact artifact = !mediaArtifacts.isEmpty() ? mediaArtifacts.get(0) : null;
+
+        List<CreatorVideoItemResponse.VersionItem> versionItems = new ArrayList<>();
+        for (Artifact a : mediaArtifacts) {
+            boolean isArtPublished = ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus())
+                    || ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(a.getStatus());
+            String vUrl = (isArtPublished && StringUtils.hasText(a.getOptimizedUrl()))
+                    ? a.getOptimizedUrl()
+                    : a.getFileUrl();
+            versionItems.add(CreatorVideoItemResponse.VersionItem.builder()
+                    .artifactId(a.getId())
+                    .version(a.getVersion() != null ? a.getVersion() : 1)
+                    .status(a.getStatus())
+                    .fileUrl(vUrl)
+                    .durationSeconds(a.getDurationSeconds())
+                    .createdAt(a.getCreatedAt())
+                    .build());
+        }
         long likeCount = 0;
         long dislikeCount = 0;
         long commentCount = 0;
@@ -1119,6 +1156,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .dislikeCount(dislikeCount)
                 .commentCount(commentCount)
                 .comments(commentItems)
+                .versions(versionItems)
                 .aiShieldScore(aiShieldScore)
                 .aiShieldTier(aiShieldTier)
                 .aiShieldTierLabel(aiShieldTierLabel)
@@ -1221,7 +1259,25 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         String secureUrl = fileStorageService.uploadImage(file, "creator/thumbnails");
         log.info("Uploaded custom video thumbnail for content {}: {}", contentId, secureUrl);
 
-        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(content.getId()).orElse(null);
+        List<Artifact> mediaArtifacts = artifactRepository.findMediaArtifactsByContentId(content.getId());
+        Artifact artifact = !mediaArtifacts.isEmpty() ? mediaArtifacts.get(0) : null;
+
+        List<CreatorVideoItemResponse.VersionItem> versionItems = new ArrayList<>();
+        for (Artifact a : mediaArtifacts) {
+            boolean isArtPublished = ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus())
+                    || ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(a.getStatus());
+            String vUrl = (isArtPublished && StringUtils.hasText(a.getOptimizedUrl()))
+                    ? a.getOptimizedUrl()
+                    : a.getFileUrl();
+            versionItems.add(CreatorVideoItemResponse.VersionItem.builder()
+                    .artifactId(a.getId())
+                    .version(a.getVersion() != null ? a.getVersion() : 1)
+                    .status(a.getStatus())
+                    .fileUrl(vUrl)
+                    .durationSeconds(a.getDurationSeconds())
+                    .createdAt(a.getCreatedAt())
+                    .build());
+        }
         Optional<Artifact> coverOpt = artifactRepository.findLatestCoverArtifact(content.getId());
         if (coverOpt.isPresent()) {
             Artifact existingThumb = coverOpt.get();
@@ -1265,6 +1321,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                             : artifact.getFileUrl())
                         : null)
                 .thumbnailUrl(secureUrl)
+                .versions(versionItems)
                 .durationSeconds(artifact != null ? artifact.getDurationSeconds() : null)
                 .isExclusive(saved.getIsExclusive())
                 .createdAt(saved.getCreatedAt())
@@ -1282,22 +1339,47 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         Content content = contentRepository.findByIdAndCreatorId(contentId, creator.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy video hoặc bạn không có quyền cập nhật"));
 
-        String newStatus = Boolean.TRUE.equals(hidden) ? ContentStatus.HIDDEN.name() : ContentStatus.PUBLISHED.name();
-        content.setStatus(newStatus);
+        boolean isCurrentlyPublished = ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus());
+        boolean isCurrentlyHidden = ContentStatus.HIDDEN.name().equalsIgnoreCase(content.getStatus());
+
+        if (Boolean.TRUE.equals(hidden)) {
+            // Cho phép ẩn video nếu video đang được phát sóng công khai (PUBLISHED)
+            if (!isCurrentlyPublished) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Chỉ có thể ẩn các video đang được phát sóng công khai!");
+            }
+            content.setStatus(ContentStatus.HIDDEN.name());
+        } else {
+            // Cho phép hiện lại nếu video đang bị HIDDEN (đã từng được Admin duyệt và bị Creator tạm ẩn)
+            if (!isCurrentlyHidden) {
+                throw new AppException(ErrorCode.FORBIDDEN_ACCESS, 
+                        "Chỉ Quản trị viên (Admin) mới có quyền phê duyệt công khai video! Vui lòng bấm 'Gửi Duyệt' để nộp nội dung qua kiểm duyệt.");
+            }
+            content.setStatus(ContentStatus.PUBLISHED.name());
+        }
+
         content.setUpdatedAt(Instant.now());
         Content saved = contentRepository.save(content);
 
-        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(saved.getId()).orElse(null);
-        if (artifact != null) {
-            artifact.setStatus(newStatus);
-            // Khi publish: đảm bảo optimizedUrl đã được build (backup nếu lần render chưa build)
-            if (ContentStatus.PUBLISHED.name().equals(newStatus) && !StringUtils.hasText(artifact.getOptimizedUrl())
-                    && StringUtils.hasText(artifact.getFileUrl())) {
-                artifact.setOptimizedUrl(fileStorageService.buildOptimizedVideoUrl(artifact.getFileUrl()));
-                log.info("Built optimized URL on publish for artifact {}", artifact.getId());
+        // Đồng bộ trạng thái cho các artifact liên quan (PUBLISHED <-> HIDDEN)
+        List<Artifact> artifacts = artifactRepository.findByContentId(saved.getId());
+        for (Artifact a : artifacts) {
+            if (Boolean.TRUE.equals(hidden)) {
+                if (ArtifactStatus.PUBLISHED.name().equalsIgnoreCase(a.getStatus())) {
+                    a.setStatus(ArtifactStatus.HIDDEN.name());
+                    artifactRepository.save(a);
+                }
+            } else {
+                if (ArtifactStatus.HIDDEN.name().equalsIgnoreCase(a.getStatus())) {
+                    a.setStatus(ArtifactStatus.PUBLISHED.name());
+                    if (!StringUtils.hasText(a.getOptimizedUrl()) && StringUtils.hasText(a.getFileUrl())) {
+                        a.setOptimizedUrl(fileStorageService.buildOptimizedVideoUrl(a.getFileUrl()));
+                    }
+                    artifactRepository.save(a);
+                }
             }
-            artifactRepository.save(artifact);
         }
+
+        Artifact artifact = artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(saved.getId()).orElse(null);
 
         long likeCount = artifact != null ? reactionRepository.countByArtifactIdAndType(artifact.getId(), "LIKE") : 0;
         long dislikeCount = artifact != null ? reactionRepository.countByArtifactIdAndType(artifact.getId(), "DISLIKE") : 0;
@@ -1320,7 +1402,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .status(saved.getStatus())
                 .version(artifact != null ? artifact.getVersion() : 1)
                 .fileUrl(artifact != null
-                        ? (ContentStatus.PUBLISHED.name().equalsIgnoreCase(newStatus) && StringUtils.hasText(artifact.getOptimizedUrl())
+                        ? (ContentStatus.PUBLISHED.name().equalsIgnoreCase(saved.getStatus()) && StringUtils.hasText(artifact.getOptimizedUrl())
                             ? artifact.getOptimizedUrl()
                             : artifact.getFileUrl())
                         : null)
@@ -2051,6 +2133,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
         Optional<CreatorAiSetting> settingOpt = creatorAiSettingRepository.findByUserId(creator.getId());
         String elevenKey = settingOpt.map(CreatorAiSetting::getElevenlabsApiKey).orElse("");
+        String geminiKey = settingOpt.map(CreatorAiSetting::getGeminiApiKey).orElse("");
         String ttsEngine = settingOpt.map(CreatorAiSetting::getTtsEngine).orElse("edge-tts");
         String voiceName = settingOpt.map(CreatorAiSetting::getVoiceName).orElse("vi-VN-NamMinhNeural");
         if ("elevenlabs".equalsIgnoreCase(ttsEngine) && (voiceName.startsWith("vi-VN-") || voiceName.contains("-"))) {
@@ -2073,6 +2156,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         if (StringUtils.hasText(elevenKey)) {
             toolPayload.put("elevenlabs_api_key", elevenKey);
         }
+        if (StringUtils.hasText(geminiKey)) {
+            toolPayload.put("gemini_api_key", geminiKey);
+        }
 
         try {
             String jsonBody = objectMapper.writeValueAsString(toolPayload);
@@ -2088,7 +2174,10 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             if (response.statusCode() != 200) {
                 String errorDetail = extractErrorDetail(response.body(), response.statusCode());
                 log.error("Tool patch podcast failed with HTTP {}: {}", response.statusCode(), errorDetail);
-                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khi vá video podcast: " + errorDetail);
+                if (response.statusCode() == 400) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA, errorDetail);
+                }
+                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khi vá video: " + errorDetail);
             }
 
             JsonNode resJson = objectMapper.readTree(response.body());
@@ -2225,6 +2314,52 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             log.error("Lỗi khi kết nối đến dịch vụ vá video podcast: {}", e.getMessage(), e);
             throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Không thể kết nối đến máy chủ xử lý video: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional
+    public CreatorVideoItemResponse restoreVideoVersion(String email, Long contentId, Integer targetVersion) {
+        User creator = getUserByEmail(email);
+        Content content = contentRepository.findByIdAndCreatorId(contentId, creator.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy video hoặc bạn không có quyền thao tác"));
+
+        List<Artifact> mediaArtifacts = artifactRepository.findMediaArtifactsByContentId(content.getId());
+        Artifact targetArtifact = mediaArtifacts.stream()
+                .filter(a -> Objects.equals(a.getVersion(), targetVersion))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Không tìm thấy phiên bản v" + targetVersion + " của video này"));
+
+        boolean isContentPublished = ContentStatus.PUBLISHED.name().equalsIgnoreCase(content.getStatus());
+        String activeStatus = isContentPublished ? ArtifactStatus.PUBLISHED.name() : ArtifactStatus.COMPLETED.name();
+
+        for (Artifact a : mediaArtifacts) {
+            if (a.getId().equals(targetArtifact.getId())) {
+                a.setStatus(activeStatus);
+                if (isContentPublished && !StringUtils.hasText(a.getOptimizedUrl()) && StringUtils.hasText(a.getFileUrl())) {
+                    a.setOptimizedUrl(fileStorageService.buildOptimizedVideoUrl(a.getFileUrl()));
+                }
+            } else {
+                a.setStatus(ArtifactStatus.ARCHIVED.name());
+            }
+            artifactRepository.save(a);
+        }
+
+        // Cập nhật transcript nếu có cho phiên bản này
+        if (transcriptRepository != null && targetArtifact.getId() != null) {
+            transcriptRepository.findFirstByArtifactIdOrderByCreatedAtDesc(targetArtifact.getId())
+                    .ifPresent(tr -> {
+                        content.setTextBody(tr.getTextBody());
+                        content.setUpdatedAt(Instant.now());
+                        contentRepository.save(content);
+                    });
+        }
+
+        log.info("Creator '{}' restored video ID '{}' to version v{}", email, contentId, targetVersion);
+
+        return getCreatorVideos(email, null, null, null, "createdAt", "desc").stream()
+                .filter(v -> v.getContentId().equals(contentId))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.RESOURCE_NOT_FOUND, "Lỗi nạp lại thông tin video sau khi khôi phục"));
     }
 
     private String extractJobId(String url) {

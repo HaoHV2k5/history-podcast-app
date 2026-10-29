@@ -184,10 +184,12 @@ def add_subtitles(video_path: Path, cues: list[dict], output_path: Path) -> Path
     frame_idx = 0
     ms_per_frame = 1000.0 / fps
 
+    last_frame = None
     while True:
         ret, frame = cap.read()
         if not ret:
             break
+        last_frame = frame
         cur_ms = frame_idx * ms_per_frame
 
         # Tìm phụ đề đang hoạt động
@@ -203,6 +205,27 @@ def add_subtitles(video_path: Path, cues: list[dict], output_path: Path) -> Path
 
         writer.write(frame)
         frame_idx += 1
+
+    # Nếu cues hoặc kịch bản vá có thời lượng dài hơn video thô ban đầu,
+    # tiếp tục giữ khung hình cuối cùng cùng phụ đề tương ứng để video không bị kết thúc sớm
+    max_cue_end_ms = max([c["endMs"] for c in cues], default=0)
+    needed_frames = max(frame_idx, int(np.ceil((max_cue_end_ms + 1500) / ms_per_frame)))
+    if last_frame is not None and frame_idx < needed_frames:
+        while frame_idx < needed_frames:
+            frame = last_frame.copy()
+            cur_ms = frame_idx * ms_per_frame
+            active_ov = None
+            for rc in rendered_cues:
+                if rc["startMs"] <= cur_ms <= rc["endMs"]:
+                    active_ov = rc["overlay"]
+                    break
+
+            if active_ov is not None:
+                sub_bgr, alpha = active_ov
+                frame = (frame.astype(np.float32) * (1.0 - alpha) + sub_bgr.astype(np.float32) * alpha).astype(np.uint8)
+
+            writer.write(frame)
+            frame_idx += 1
 
     cap.release()
     writer.release()
