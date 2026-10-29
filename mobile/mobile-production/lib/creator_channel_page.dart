@@ -789,9 +789,24 @@ class _CreatorChannelPageState extends State<CreatorChannelPage> {
                           const SizedBox(height: 10),
                           const Divider(height: 1),
                           const SizedBox(height: 10),
-                          // Các đặc quyền
-                          if (plan != null && plan.perks.isNotEmpty)
-                            ...plan.perks.map(
+                          // Các đặc quyền thực tế từ Backend
+                          ...(() {
+                            final perksList = (plan != null && plan.perks.isNotEmpty)
+                                ? plan.perks.map((p) {
+                                    if (p.toLowerCase().contains('bình luận') || p.toLowerCase().contains('huy hiệu')) {
+                                      return 'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên';
+                                    }
+                                    if (p.toLowerCase().contains('nghe sớm') || p.toLowerCase().contains('nghe trước')) {
+                                      return 'Nghe không giới hạn các nội dung độc quyền của kênh';
+                                    }
+                                    return p;
+                                  }).toList()
+                                : [
+                                    'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên',
+                                    'Nghe không giới hạn các nội dung độc quyền của kênh',
+                                    'Tham gia phòng phát sóng trực tiếp độc quyền (VIP)',
+                                  ];
+                            return perksList.toSet().map(
                               (p) => Padding(
                                 padding: const EdgeInsets.only(bottom: 6),
                                 child: Row(
@@ -803,12 +818,8 @@ class _CreatorChannelPageState extends State<CreatorChannelPage> {
                                   ],
                                 ),
                               ),
-                            )
-                          else ...[
-                            _buildPerkBullet('Tham gia phòng phát sóng trực tiếp độc quyền (VIP)'),
-                            _buildPerkBullet('Nghe trước các tập podcast mới ra mắt'),
-                            _buildPerkBullet('Huy hiệu hội viên đặc biệt khi bình luận và tương tác'),
-                          ],
+                            );
+                          })(),
                         ],
                       ),
                     ),

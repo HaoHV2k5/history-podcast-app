@@ -783,14 +783,20 @@ class _MembershipPageState extends State<MembershipPage> {
                 (perk) => Benefit(
                   icon: CupertinoIcons.checkmark_seal,
                   title: perk,
-                  detail: 'Quyền lợi chính thức từ kênh ${c.name}.',
+                  detail: 'Đặc quyền từ gói hội viên của kênh ${c.name}.',
                 ),
               ),
             Benefit(
               icon: CupertinoIcons.headphones,
-              title:
-                  '${c.content.where((e) => e.membersOnly).length} tập nghe riêng',
-              detail: 'Mở các tập có nhãn Hội viên của ${c.name}.',
+              title: 'Mở khóa các tập Podcast Hội viên',
+              detail: c.content.any((e) => e.membersOnly)
+                  ? 'Mở khóa ${c.content.where((e) => e.membersOnly).length} tập chuyên sâu có nhãn Hội viên của ${c.name}.'
+                  : 'Mở khóa các tập podcast độc quyền và nội dung chuyên sâu của ${c.name}.',
+            ),
+            const Benefit(
+              icon: CupertinoIcons.videocam_fill,
+              title: 'Phát sóng trực tiếp độc quyền (VIP)',
+              detail: 'Tham gia các buổi Livestream dành riêng cho hội viên.',
             ),
             const Benefit(
               icon: CupertinoIcons.bookmark,
