@@ -238,6 +238,15 @@ Ngay khi bấm tạo kịch bản, hệ thống **không vội gửi ngay cho AI
      - **Với Video vẽ tay (Whiteboard)**: Nhận diện chính xác câu sửa thuộc phân cảnh (scene) và phần tử (element) nào. **Chỉ thu âm lại đúng câu đó**, giữ nguyên và tái sử dụng 100% video hoạt họa nét vẽ tay gốc (`scene_*_raw.mp4`), tính toán lại nhịp nói, dập lại phụ đề Hardsub và ghép nối các cảnh hoàn tất trong chưa đầy **3 giây** (tiết kiệm 95% thời gian và hoàn toàn không phải vẽ lại tay từ đầu).
      - **Với Video Audio Podcast**: Thu âm lại câu sửa, cập nhật lại ảnh bìa nếu Creator dán/tải ảnh mới và ghép lại video podcast trong < 5 giây.
    - Hệ thống tạo ra một phiên bản mới `v2` độc lập với trạng thái `COMPLETED` để Creator xem trước.
+
+   > [!IMPORTANT]
+   > **🔒 PHÂN QUYỀN DUYỆT CÔNG KHAI (ADMIN-ONLY PUBLISH & PHIÊN BẢN v1/v2):**
+   > - **Creator KHÔNG THỂ tự ý công khai video**: Nút "Công Khai" trực tiếp bị loại bỏ hoàn toàn đối với vai trò Creator. Mọi tác phẩm mới (kể cả bản vá `v2`) sau khi render xong đều ở trạng thái `COMPLETED (Chưa Gửi Duyệt)`.
+   > - **Quy trình bắt buộc**: Creator phải bấm **"Gửi Duyệt"** (hoặc **"Gửi Duyệt v2"**) $\rightarrow$ Hệ thống quét AI Shield $\rightarrow$ Đưa vào hàng đợi `PENDING_REVIEW` cho Admin.
+   > - **Chỉ Quản trị viên (Admin) mới có quyền duyệt (`APPROVED`) để chuyển sang `PUBLISHED`**: Khi Admin phê duyệt, video mới chính thức xuất hiện trên ứng dụng người dùng.
+   > - **Quản lý hiển thị (Ẩn / Hiện lại)**: Creator chỉ có quyền tạm ẩn (`Ẩn Video` $\rightarrow$ `HIDDEN`) hoặc bỏ ẩn (`Hiện Lại Video` $\rightarrow$ `PUBLISHED`) đối với các video **đã từng được Admin phê duyệt**. Nếu video chưa được Admin duyệt mà cố tình gọi API mở công khai, hệ thống sẽ chặn đứng và trả về lỗi `403 FORBIDDEN_ACCESS`.
+   > - **Hiển thị huy hiệu phiên bản rõ ràng**: Trên mỗi thẻ video ở Studio, hệ thống gắn huy hiệu phiên bản nổi bật (`v1`, `v2 (Bản vá)`) cùng ID Content để Creator theo dõi chính xác vòng đời và lịch sử sửa đổi.
+
 3. **Gửi kiểm duyệt xuất bản (`POST /submit-publish`):**
    - Khi Creator đã ưng ý với tác phẩm, bấm **"Gửi Kiểm Duyệt Xuất Bản"**.
    - **Lớp 1 - AI Shield tự động**: Quét video và kịch bản, chấm điểm an toàn nội dung lịch sử (0 – 100 điểm) và xếp hạng mức độ an toàn.
