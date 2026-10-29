@@ -51,7 +51,7 @@ graph LR
 - Video hoàn thành nằm trong Thư viện ở trạng thái `COMPLETED` (bản nháp riêng của Creator).
 - **Vá kịch bản theo câu siêu tốc (Smart Script Patching - Hỗ trợ cả Whiteboard & Podcast)**:
   - Cho phép nghe thử từng câu độc lập trên Popup (`GET /podcast-sentences`).
-  - **🛡️ Chốt chặn AI ScopeGate bắt buộc**: Kiểm tra câu vừa sửa có thuần khiết thuộc thời kỳ Nhà Lý (1009–1225) và Nhà Trần (1225–1400) hay không. Ngăn chặn tuyệt đối việc lợi dụng bản vá để đưa nhân vật ngoại lai (Trương Liêu, Lưu Bị...) hoặc sai lệch sử liệu vào video. Nếu vi phạm, hệ thống từ chối ngay lập tức (`HTTP 400`).
+  - **🛡️ Chốt chặn AI ScopeGate bắt buộc (Chống lách luật - Anti-Bypass)**: Ngay khi bấm *"Bắt Đầu Vá Video"*, hệ thống thẩm định lại toàn bộ câu thoại mới bằng AI. Ngăn chặn tuyệt đối việc Creator lợi dụng bản vá để vượt qua AI đợt 1 rồi chèn nhân vật ngoại lai (Trương Liêu, Lưu Bị thời Tam Quốc...) hoặc sửa sai lệch niên đại. Nếu phát hiện vi phạm, hệ thống từ chối ngay lập tức (`HTTP 400 - ⚠️ BẢN VÁ BỊ TỪ CHỐI`) và dừng render.
   - **⚡ Siêu tốc (< 3s)**: Chỉ thu âm lại đúng câu bị sửa, tái sử dụng 100% nét vẽ tay có sẵn (`scene_*_raw.mp4`) đối với video Whiteboard, ghép lại video bản `v2` hoàn chỉnh. Bản video cũ ngoài trang chủ vẫn tiếp tục chiếu bình thường, không bị gián đoạn!
 - **Gửi duyệt (`POST /submit-publish`)**: AI Shield chấm điểm an toàn $\rightarrow$ Admin bấm **DUYỆT** $\rightarrow$ Video chính thức công khai (`PUBLISHED`) ra trang chủ.
 
