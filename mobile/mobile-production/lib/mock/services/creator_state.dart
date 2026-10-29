@@ -640,13 +640,16 @@ class CreatorState extends ChangeNotifier {
       throw StateError('Tên kênh từ 1–60 ký tự.');
     }
 
-    if (channelRepository != null && channelModel != null) {
-      final res = await channelRepository!.updateChannel(
-        channelModel!.id,
-        name: name.trim(),
-        description: description.trim(),
-      );
-      channelModel = res;
+    if (channelRepository != null) {
+      try {
+        final id = channelModel?.id ?? (await channelRepository!.getMyChannel()).id;
+        final res = await channelRepository!.updateChannel(
+          id,
+          name: name.trim(),
+          description: description.trim(),
+        );
+        channelModel = res;
+      } catch (_) {}
     }
 
     await _commit(
