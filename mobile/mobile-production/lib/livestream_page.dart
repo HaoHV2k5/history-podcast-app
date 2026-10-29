@@ -883,34 +883,70 @@ class _CreatorLivestreamStudioPageState
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  late String _selectedChannelName;
   bool _isExclusive = false;
   bool _busy = false;
+  bool _loadingChannel = false;
   String? _error;
   ChannelModel? _myChannel;
 
   @override
   void initState() {
     super.initState();
-    _selectedChannelName =
-        (widget.initialChannelName != null &&
-            widget.initialChannelName!.trim().isNotEmpty)
-        ? widget.initialChannelName!.trim()
-        : (channels.isNotEmpty ? channels.first.name : 'Dấu Ấn Lịch Sử');
     _loadMyChannel();
   }
 
+  String _resolveEffectiveChannelName() {
+    if (_myChannel != null && _myChannel!.name.isNotEmpty) {
+      return _myChannel!.name;
+    }
+    if (widget.state.creatorState.channelModel != null &&
+        widget.state.creatorState.channelModel!.name.isNotEmpty) {
+      return widget.state.creatorState.channelModel!.name;
+    }
+    if (widget.state.creatorState.channel.isNotEmpty) {
+      return widget.state.creatorState.channel;
+    }
+    if (widget.initialChannelName != null &&
+        widget.initialChannelName!.trim().isNotEmpty) {
+      return widget.initialChannelName!.trim();
+    }
+    if (widget.state.displayName.isNotEmpty) {
+      return 'Kênh của ${widget.state.displayName}';
+    }
+    return 'Kênh phát sóng chính thức';
+  }
+
+  int _resolveEffectiveChannelId() {
+    if (_myChannel != null && _myChannel!.id > 0) {
+      return _myChannel!.id;
+    }
+    if (widget.state.creatorState.channelModel != null &&
+        widget.state.creatorState.channelModel!.id > 0) {
+      return widget.state.creatorState.channelModel!.id;
+    }
+    return 1;
+  }
+
   Future<void> _loadMyChannel() async {
+    if (widget.state.creatorState.channelModel != null) {
+      _myChannel = widget.state.creatorState.channelModel;
+    }
     if (widget.state.channelRepository != null) {
+      setState(() => _loadingChannel = true);
       try {
         final myChan = await widget.state.channelRepository!.getMyChannel();
         if (mounted && myChan.name.isNotEmpty) {
           setState(() {
             _myChannel = myChan;
-            _selectedChannelName = myChan.name;
+            widget.state.creatorState.channelModel = myChan;
           });
         }
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        if (mounted) {
+          setState(() => _loadingChannel = false);
+        }
+      }
     }
   }
 
@@ -928,24 +964,8 @@ class _CreatorLivestreamStudioPageState
       _error = null;
     });
     try {
-      int channelId;
-      String channelName;
-      if (_myChannel != null && _selectedChannelName == _myChannel!.name) {
-        channelId = _myChannel!.id;
-        channelName = _myChannel!.name;
-      } else {
-        final remoteMatch = remoteChannels.where(
-          (c) => c.name.toLowerCase() == _selectedChannelName.toLowerCase(),
-        );
-        if (remoteMatch.isNotEmpty && remoteMatch.first.id != null) {
-          channelId = remoteMatch.first.id!;
-          channelName = remoteMatch.first.name;
-        } else {
-          final ch = channelByName(_selectedChannelName);
-          channelId = ch.id ?? 1;
-          channelName = ch.name;
-        }
-      }
+      final int channelId = _resolveEffectiveChannelId();
+      final String channelName = _resolveEffectiveChannelName();
 
       final created = await widget.state.createLivestreamSession(
         channelId: channelId,
@@ -1067,7 +1087,7 @@ class _CreatorLivestreamStudioPageState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Chọn kênh phát sóng',
+                      'Kênh phát sóng chính thức (Tự động theo Creator)',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -1075,37 +1095,112 @@ class _CreatorLivestreamStudioPageState
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Builder(
-                      builder: (context) {
-                        final available = <String>[];
-                        if (_myChannel != null && _myChannel!.name.isNotEmpty) {
-                          available.add(_myChannel!.name);
-                        }
-                        for (final c in remoteChannels) {
-                          if (!available.contains(c.name)) available.add(c.name);
-                        }
-                        for (final c in channels) {
-                          if (!available.contains(c.name)) available.add(c.name);
-                        }
-                        return Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: available
-                              .map(
-                                (name) => ChoiceChip(
-                                  label: Text(
-                                    name,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  selected: _selectedChannelName == name,
-                                  onSelected: (_) => setState(
-                                    () => _selectedChannelName = name,
-                                  ),
+                    Container(
+                      key: const Key('livestream-locked-channel-card'),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Palette.soft,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Palette.line),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: (_myChannel?.avatarUrl != null &&
+                                      _myChannel!.avatarUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      _myChannel!.avatarUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Container(
+                                        color: Palette.paper,
+                                        child: const Icon(
+                                          CupertinoIcons.dot_radiowaves_left_right,
+                                          color: Palette.red,
+                                          size: 22,
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: Palette.paper,
+                                      child: const Icon(
+                                        CupertinoIcons.dot_radiowaves_left_right,
+                                        color: Palette.red,
+                                        size: 22,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _resolveEffectiveChannelName(),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Palette.ink,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (_loadingChannel)
+                                      const Padding(
+                                        padding: EdgeInsets.only(left: 6),
+                                        child: SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                              )
-                              .toList(),
-                        );
-                      },
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Mã kênh: #${_resolveEffectiveChannelId()} · Chủ kênh: ${widget.state.displayName.isNotEmpty ? widget.state.displayName : "Tôi"}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Palette.muted,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFA5D6A7),
+                              ),
+                            ),
+                            child: const Text(
+                              'Đã xác thực',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 18),
                     TextFormField(

@@ -360,6 +360,10 @@ void main() {
       await tester.tap(find.byKey(const Key('open-live-studio-btn')));
       await tester.pumpAndSettle();
 
+      // Kênh phát sóng tự động khóa theo Creator, không còn ChoiceChip chọn kênh thủ công
+      expect(find.byKey(const Key('livestream-locked-channel-card')), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNothing);
+
       final studioScrollable = find
           .descendant(
             of: find.byType(CreatorLivestreamStudioPage),
