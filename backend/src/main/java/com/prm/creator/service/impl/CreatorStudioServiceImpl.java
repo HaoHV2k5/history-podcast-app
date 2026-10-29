@@ -2051,6 +2051,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
 
         Optional<CreatorAiSetting> settingOpt = creatorAiSettingRepository.findByUserId(creator.getId());
         String elevenKey = settingOpt.map(CreatorAiSetting::getElevenlabsApiKey).orElse("");
+        String geminiKey = settingOpt.map(CreatorAiSetting::getGeminiApiKey).orElse("");
         String ttsEngine = settingOpt.map(CreatorAiSetting::getTtsEngine).orElse("edge-tts");
         String voiceName = settingOpt.map(CreatorAiSetting::getVoiceName).orElse("vi-VN-NamMinhNeural");
         if ("elevenlabs".equalsIgnoreCase(ttsEngine) && (voiceName.startsWith("vi-VN-") || voiceName.contains("-"))) {
@@ -2073,6 +2074,9 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
         if (StringUtils.hasText(elevenKey)) {
             toolPayload.put("elevenlabs_api_key", elevenKey);
         }
+        if (StringUtils.hasText(geminiKey)) {
+            toolPayload.put("gemini_api_key", geminiKey);
+        }
 
         try {
             String jsonBody = objectMapper.writeValueAsString(toolPayload);
@@ -2088,7 +2092,10 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             if (response.statusCode() != 200) {
                 String errorDetail = extractErrorDetail(response.body(), response.statusCode());
                 log.error("Tool patch podcast failed with HTTP {}: {}", response.statusCode(), errorDetail);
-                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khi vá video podcast: " + errorDetail);
+                if (response.statusCode() == 400) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA, errorDetail);
+                }
+                throw new AppException(ErrorCode.INTERNAL_SERVER_ERROR, "Lỗi khi vá video: " + errorDetail);
             }
 
             JsonNode resJson = objectMapper.readTree(response.body());

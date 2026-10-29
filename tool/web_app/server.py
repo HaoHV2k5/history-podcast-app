@@ -132,6 +132,7 @@ class PodcastPatchRequest(BaseModel):
     tts_engine: Optional[str] = None
     voice_name: Optional[str] = None
     elevenlabs_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
     cover_image_b64: Optional[str] = None
 
 
@@ -449,6 +450,30 @@ async def get_podcast_sentences_endpoint(job_id: str):
     )
 
 
+def verify_patch_history_scope(job_id: str, new_sentences: list[str], re_record_map: dict[int, bool], gemini_key: str):
+    """Thẩm định tính chính xác sử học bắt buộc cho kịch bản khi Creator vá câu thoại.
+    Ngăn chặn việc lợi dụng bản vá để sửa sai lệch lịch sử hoặc chèn nhân vật ngoài thời Lý - Trần."""
+    modified_indices = [idx for idx, needed in re_record_map.items() if needed]
+    if not modified_indices:
+        return
+    modified_texts = [new_sentences[idx - 1] for idx in modified_indices if 1 <= idx <= len(new_sentences)]
+    full_text_to_audit = "\n\n".join(new_sentences)
+    print(f"[{job_id}] 🛡️ AI Verify: Đang thẩm định lịch sử cho {len(modified_texts)} câu thoại vừa chỉnh sửa...")
+
+    scope_res = check_history_scope_llm(full_text_to_audit, gemini_key)
+    if not scope_res.get("in_scope", True):
+        reason = scope_res.get("reason", "Nội dung câu vá chứa thông tin hoặc nhân vật không thuộc thời kỳ nhà Lý (1009 - 1225) và nhà Trần (1225 - 1400).")
+        print(f"[{job_id}] 🚫 TỪ CHỐI BẢN VÁ DO SAI LỆCH SỬ LIỆU: {reason}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"⚠️ BẢN VÁ BỊ TỪ CHỐI (CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN):\n\n"
+                   f"Nội dung chỉnh sửa: \"{' | '.join(modified_texts)[:180]}\"\n"
+                   f"Lý do: {reason}\n\n"
+                   f"Hệ thống yêu cầu bảo toàn tính chuẩn xác chính sử: CHỈ TẠO & VÁ VIDEO CHO CÁC SỰ KIỆN, NHÂN VẬT THUỘC THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400). Mọi thông tin sai lệch thời kỳ hoặc nhân vật ngoại lai đều bị chặn."
+        )
+    print(f"[{job_id}] ✅ AI Verify: Nội dung câu vá hoàn toàn hợp lệ theo chính sử Lý - Trần!")
+
+
 @app.post("/api/podcast/patch")
 def patch_podcast_endpoint(req: PodcastPatchRequest):
     job_id = req.job_id
@@ -508,6 +533,7 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
     tts_engine = req.tts_engine or meta.get("tts_engine") or "edge-tts"
     voice_name = req.voice_name or meta.get("voice_name") or "vi-VN-NamMinhNeural"
     el_key = req.elevenlabs_api_key
+    gemini_key = sanitize_gemini_key(req.gemini_api_key) or os.environ.get("GEMINI_API_KEY", "") or os.environ.get("SYSTEM_GEMINI_API_KEY", "")
 
     # Xử lý cập nhật ảnh bìa mới nếu có yêu cầu
     cover_b64 = req.cover_image_b64
@@ -601,6 +627,9 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
         for idx, fe in enumerate(flat_elems, start=1):
             if idx <= len(new_sentences):
                 fe["element"]["subtitle"] = new_sentences[idx - 1]
+
+        # ── BƯỚC BẮT BUỘC: THẨM ĐỊNH AI SỬ LIỆU (SCOPE & HISTORICAL INTEGRITY AUDIT) ──
+        verify_patch_history_scope(job_id, new_sentences, re_record_map, gemini_key)
 
         audio_dir = job_dir / "audio_clips"
         audio_dir.mkdir(exist_ok=True)
@@ -807,6 +836,9 @@ def patch_podcast_endpoint(req: PodcastPatchRequest):
             else:
                 re_record_map[idx] = True
         new_sentences = [s.strip() for s in req.sentences if s.strip()]
+
+    # ── BƯỚC BẮT BUỘC: THẨM ĐỊNH AI SỬ LIỆU (SCOPE & HISTORICAL INTEGRITY AUDIT) ──
+    verify_patch_history_scope(job_id, new_sentences, re_record_map, gemini_key)
 
     audio_dir = job_dir / "audio_clips"
     audio_dir.mkdir(exist_ok=True)
@@ -1355,6 +1387,17 @@ QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRO
 
 Trả về JSON thuần túy (không bọc trong markdown):
 {{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng, chỉ đích danh nhân vật hoặc chi tiết sai phạm nếu có"}}"""
+
+    if not api_key:
+        other_dynasties_keywords = [
+            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền", "đinh bộ lĩnh",
+            "lê lợi", "nguyễn trãi", "lê sơ", "lê thánh tông", "quang trung", "tây sơn",
+            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025",
+            "trương liêu", "lưu bị", "tào tháo", "quan vũ", "tôn quyền", "gia cát lượng", "lữ bố", "triệu vân"
+        ]
+        if any(k in topic.lower() for k in other_dynasties_keywords):
+            return {"in_scope": False, "reason": "Văn bản chứa nhân vật hoặc sự kiện ngoại lai/ngoài phạm vi triều đại Lý - Trần."}
+        return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần"}
 
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
