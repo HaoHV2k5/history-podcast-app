@@ -1126,6 +1126,103 @@ class ProfileContent extends StatelessWidget {
     showDragHandle: true,
     builder: (_) => AuthSheet(state: state),
   );
+
+  List<Widget> _buildRoleBadges(BuildContext context, AppState state) {
+    final badges = <Widget>[];
+
+    // 1. VIEWER (luôn hiển thị cho người dùng đã đăng nhập)
+    badges.add(
+      _buildRolePill(
+        key: const Key('role-badge-viewer'),
+        label: 'VIEWER',
+        borderColor: const Color(0xFFD7CCC8),
+        backgroundColor: const Color(0xFFF5F4F0),
+        textColor: const Color(0xFF555555),
+      ),
+    );
+
+    // 2. CREATOR (khi tài khoản có vai trò CREATOR, có kênh sáng tạo hoặc KYC approved)
+    final hasCreator = state.isCreator ||
+        state.userRoles.any((r) => r.toUpperCase() == 'CREATOR') ||
+        state.kycStatus == 'APPROVED' ||
+        state.creatorState.channel.isNotEmpty;
+
+    if (hasCreator) {
+      badges.add(
+        _buildRolePill(
+          key: const Key('role-badge-creator'),
+          label: 'CREATOR',
+          borderColor: const Color(0xFF8D6E63),
+          backgroundColor: const Color(0xFFFAF6F2),
+          textColor: const Color(0xFF4E342E),
+        ),
+      );
+    }
+
+    // 3. FREELANCER (khi tài khoản có vai trò FREELANCER / NARRATOR)
+    final hasFreelancer = state.isFreelancer ||
+        state.userRoles.any((r) =>
+            r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR') ||
+        state.preferences.getBool('isFreelancer') == true ||
+        state.preferences.getBool('isFreelancerActiveV1') == true ||
+        state.preferences.getString('narratorFreelancerProfileV1') != null;
+
+    if (hasFreelancer) {
+      badges.add(
+        _buildRolePill(
+          key: const Key('role-badge-freelancer'),
+          label: 'FREELANCER',
+          borderColor: const Color(0xFF00796B),
+          backgroundColor: const Color(0xFFE0F2F1).withValues(alpha: 0.6),
+          textColor: const Color(0xFF004D40),
+        ),
+      );
+    }
+
+    // 4. ADMIN (nếu có vai trò ADMIN)
+    final hasAdmin = state.userRoles.any((r) => r.toUpperCase() == 'ADMIN');
+    if (hasAdmin) {
+      badges.add(
+        _buildRolePill(
+          key: const Key('role-badge-admin'),
+          label: 'ADMIN',
+          borderColor: Palette.red,
+          backgroundColor: Palette.red.withValues(alpha: 0.08),
+          textColor: Palette.red,
+        ),
+      );
+    }
+
+    return badges;
+  }
+
+  Widget _buildRolePill({
+    required Key key,
+    required String label,
+    required Color borderColor,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Container(
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.1),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.6,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     key: const PageStorageKey('profile-scroll'),
@@ -1179,6 +1276,14 @@ class ProfileContent extends StatelessWidget {
                       : 'Hồ sơ trên thiết bị này',
                   style: const TextStyle(color: Palette.muted, fontSize: 12),
                 ),
+                if (state.isLoggedIn) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _buildRoleBadges(context, state),
+                  ),
+                ],
               ],
             ),
           ),

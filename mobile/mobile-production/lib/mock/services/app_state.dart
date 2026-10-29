@@ -108,6 +108,10 @@ class AppState extends ChangeNotifier {
     userPhone = preferences.getString('userPhone');
     userRoles = preferences.getStringList('userRoles') ?? ['VIEWER'];
     isCreator = preferences.getBool('isCreator') ?? false;
+    isFreelancer = preferences.getBool('isFreelancer') ??
+        preferences.getBool('isFreelancerActiveV1') ??
+        userRoles.contains('FREELANCER') ||
+        userRoles.contains('NARRATOR');
     kycStatus = preferences.getString('kycStatus');
 
     recentSearches.addAll(
@@ -238,7 +242,23 @@ class AppState extends ChangeNotifier {
   int walletPendingBalance = 0;
   List<String> userRoles = ['VIEWER'];
   bool isCreator = false;
+  bool isFreelancer = false;
   String? kycStatus;
+
+  void setFreelancerRole(bool enabled) {
+    isFreelancer = enabled;
+    if (enabled) {
+      if (!userRoles.contains('FREELANCER')) {
+        userRoles.add('FREELANCER');
+      }
+    } else {
+      userRoles.remove('FREELANCER');
+      userRoles.remove('NARRATOR');
+    }
+    preferences.setBool('isFreelancer', enabled);
+    preferences.setStringList('userRoles', userRoles);
+    notifyListeners();
+  }
 
   Future<void> refreshProfile() async {
     if (!isLoggedIn) return;
@@ -266,13 +286,41 @@ class AppState extends ChangeNotifier {
         if (profile.isCreator) {
           rolesSet.add('CREATOR');
         }
+        if (profile.isFreelancer) {
+          rolesSet.add('FREELANCER');
+        }
+        if (preferences.getBool('isFreelancerActiveV1') == true ||
+            preferences.getBool('isFreelancer') == true ||
+            preferences.getString('narratorFreelancerProfileV1') != null) {
+          rolesSet.add('FREELANCER');
+        }
         if (rolesSet.isEmpty) {
           rolesSet.add('VIEWER');
         }
         userRoles = rolesSet.toList();
         isCreator = profile.isCreator || userRoles.contains('CREATOR');
+        isFreelancer = profile.isFreelancer ||
+            userRoles.contains('FREELANCER') ||
+            userRoles.contains('NARRATOR') ||
+            preferences.getBool('isFreelancer') == true ||
+            preferences.getBool('isFreelancerActiveV1') == true;
         await preferences.setStringList('userRoles', userRoles);
         await preferences.setBool('isCreator', isCreator);
+        await preferences.setBool('isFreelancer', isFreelancer);
+      } catch (_) {}
+    }
+
+    if (freelancerRepository != null) {
+      try {
+        final f = await freelancerRepository!.getMyProfile();
+        if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+          if (!userRoles.contains('FREELANCER')) {
+            userRoles.add('FREELANCER');
+            await preferences.setStringList('userRoles', userRoles);
+          }
+          isFreelancer = true;
+          await preferences.setBool('isFreelancer', true);
+        }
       } catch (_) {}
     }
 
@@ -531,8 +579,8 @@ class AppState extends ChangeNotifier {
       final currentBase = apiClient!.baseUrl;
       String? fallbackUrl;
       if (currentBase.contains('10.0.2.2')) {
-        fallbackUrl = 'http://192.168.1.72:8080';
-      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206')) {
+        fallbackUrl = 'http://10.87.31.229:8080';
+      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229')) {
         fallbackUrl = 'http://10.0.2.2:8080';
       }
       if (fallbackUrl != null) {
@@ -1199,8 +1247,10 @@ class AppState extends ChangeNotifier {
       if (initialRoles.isEmpty) initialRoles.add('VIEWER');
       userRoles = initialRoles.toList();
       isCreator = userRoles.contains('CREATOR');
+      isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
       await preferences.setStringList('userRoles', userRoles);
       await preferences.setBool('isCreator', isCreator);
+      await preferences.setBool('isFreelancer', isFreelancer);
 
       if (userRepository != null) {
         try {
@@ -1210,6 +1260,17 @@ class AppState extends ChangeNotifier {
           if (profile.fullName.trim().isNotEmpty) {
             displayName = profile.fullName.trim();
           }
+          if (profile.roles.isNotEmpty) {
+            initialRoles.addAll(profile.roles);
+          }
+          if (profile.isCreator) initialRoles.add('CREATOR');
+          if (profile.isFreelancer) initialRoles.add('FREELANCER');
+          userRoles = initialRoles.toList();
+          isCreator = userRoles.contains('CREATOR');
+          isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
+          await preferences.setStringList('userRoles', userRoles);
+          await preferences.setBool('isCreator', isCreator);
+          await preferences.setBool('isFreelancer', isFreelancer);
         } catch (_) {}
       }
 
@@ -1374,10 +1435,12 @@ class AppState extends ChangeNotifier {
     userPhone = null;
     userRoles = ['VIEWER'];
     isCreator = false;
+    isFreelancer = false;
     kycStatus = null;
     await preferences.remove('currentUserId');
     await preferences.remove('userRoles');
     await preferences.remove('isCreator');
+    await preferences.remove('isFreelancer');
     await preferences.remove('kycStatus');
     await preferences.setBool('manual_logout', true);
     displayName = 'Người nghe';

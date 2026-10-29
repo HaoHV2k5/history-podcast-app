@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'creator_state.dart';
 import 'contract_chat_sheet.dart';
+import 'creator_freelancer_chat.dart';
 import 'design.dart';
 import 'motion.dart';
 import 'narrator_state.dart';
@@ -1292,6 +1293,55 @@ class _RecruitmentMarketplaceViewState
     super.dispose();
   }
 
+  /// Mở Trung tâm Trò chuyện (Chat Hub) kết nối POST /api/v1/chats/conversation
+  void openChatHubSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Palette.paper,
+      builder: (_) => CreatorFreelancerChatHubSheet(
+        chatRepository: widget.state.chatRepository ?? creatorState.chatRepository,
+        contractRepository: widget.state.contractRepository ?? creatorState.contractRepository,
+        postRepository: widget.state.postRepository ?? creatorState.postRepository,
+        myPosts: _myPosts,
+        myApplications: _myApplications,
+        contractOrders: contracts.orders,
+        preferences: widget.state.preferences,
+        isCreator: creatorState.channel.isNotEmpty || !profile.canReceiveJobs,
+        currentUserName: widget.state.displayName.isNotEmpty ? widget.state.displayName : 'Tôi',
+      ),
+    );
+  }
+
+  /// Mở phòng chat trực tiếp với đối tác theo Hợp đồng hoặc Ứng tuyển bài đăng
+  void openDirectChat({
+    int? contractId,
+    int? postId,
+    int? applicantId,
+    String? partnerName,
+    String? contextTitle,
+    String senderRole = 'CREATOR',
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Palette.paper,
+      builder: (_) => CreatorFreelancerChatSheet(
+        chatRepository: widget.state.chatRepository ?? creatorState.chatRepository,
+        contractId: contractId,
+        postId: postId,
+        applicantId: applicantId,
+        partnerName: partnerName,
+        contextTitle: contextTitle,
+        senderRole: senderRole,
+        senderName: widget.state.displayName.isNotEmpty ? widget.state.displayName : 'Tôi',
+        preferences: widget.state.preferences,
+      ),
+    );
+  }
+
   /// 1. Đăng tin mới (Chuẩn 100% Swagger POST /api/v1/posts)
   Future<void> openPostJobSheet() async {
     final titleCtrl = TextEditingController();
@@ -1875,52 +1925,103 @@ class _RecruitmentMarketplaceViewState
                               ],
                               if (app.status == 'PENDING') ...[
                                 const SizedBox(height: 10),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: FilledButton.icon(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2E7D32),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () async {
-                                      try {
-                                        await repo!.chooseApplicant(
-                                          post.id,
-                                          app.applicantId,
-                                        );
-                                        update(() {
-                                          fetchApps(update);
-                                        });
-                                        await _loadMyPosts();
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Đã chọn ứng viên ${app.applicantFullName ?? "#${app.applicantId}"}!',
-                                              ),
-                                            ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        key: Key('chat-applicant-${app.applicantId}'),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: Palette.ink,
+                                          side: const BorderSide(color: Palette.line),
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        onPressed: () {
+                                          Navigator.pop(ctx);
+                                          openDirectChat(
+                                            postId: post.id,
+                                            applicantId: app.applicantId,
+                                            partnerName: app.applicantFullName,
+                                            contextTitle: 'Ứng tuyển bài #${post.id}: ${post.title}',
+                                            senderRole: 'CREATOR',
                                           );
-                                        }
-                                      } catch (e) {
-                                        if (mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
+                                        },
+                                        icon: const Icon(CupertinoIcons.chat_bubble_2, size: 14, color: Palette.red),
+                                        label: const Text('Nhắn tin', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton.icon(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2E7D32),
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        onPressed: () async {
+                                          try {
+                                            await repo!.chooseApplicant(
+                                              post.id,
+                                              app.applicantId,
+                                            );
+                                            update(() {
+                                              fetchApps(update);
+                                            });
+                                            await _loadMyPosts();
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
                                                 SnackBar(
                                                   content: Text(
-                                                    'Lỗi chọn ứng viên: $e',
+                                                    'Đã chọn ứng viên ${app.applicantFullName ?? "#${app.applicantId}"}!',
                                                   ),
                                                 ),
                                               );
-                                        }
-                                      }
-                                    },
-                                    icon: const Icon(
-                                      CupertinoIcons.checkmark_alt,
-                                      size: 14,
+                                            }
+                                          } catch (e) {
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        'Lỗi chọn ứng viên: $e',
+                                                      ),
+                                                    ),
+                                                  );
+                                            }
+                                          }
+                                        },
+                                        icon: const Icon(
+                                          CupertinoIcons.checkmark_alt,
+                                          size: 14,
+                                        ),
+                                        label: const Text('Chọn ứng viên này', style: TextStyle(fontSize: 11)),
+                                      ),
                                     ),
-                                    label: const Text('Chọn ứng viên này'),
+                                  ],
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    key: Key('chat-applicant-${app.applicantId}'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Palette.ink,
+                                      side: const BorderSide(color: Palette.line),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      openDirectChat(
+                                        postId: post.id,
+                                        applicantId: app.applicantId,
+                                        partnerName: app.applicantFullName,
+                                        contextTitle: 'Ứng tuyển bài #${post.id}: ${post.title}',
+                                        senderRole: 'CREATOR',
+                                      );
+                                    },
+                                    icon: const Icon(CupertinoIcons.chat_bubble_2, size: 14, color: Palette.red),
+                                    label: const Text('Trao đổi với ứng viên', style: TextStyle(fontSize: 12)),
                                   ),
                                 ),
                               ],
@@ -2349,25 +2450,57 @@ class _RecruitmentMarketplaceViewState
                       ),
                     ],
                   ),
-                  FilledButton.icon(
-                    key: const Key('open-post-job-btn'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Palette.red,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      OutlinedButton.icon(
+                        key: const Key('open-chat-hub-btn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Palette.ink,
+                          side: const BorderSide(color: Palette.line),
+                          backgroundColor: Palette.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: openChatHubSheet,
+                        icon: const Icon(
+                          CupertinoIcons.chat_bubble_2_fill,
+                          size: 15,
+                          color: Palette.red,
+                        ),
+                        label: const Text(
+                          'Trò chuyện',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    onPressed: openPostJobSheet,
-                    icon: const Icon(CupertinoIcons.plus_circle, size: 14),
-                    label: const Text(
-                      'Đăng tin',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        key: const Key('open-post-job-btn'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Palette.red,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: openPostJobSheet,
+                        icon: const Icon(CupertinoIcons.plus_circle, size: 14),
+                        label: const Text(
+                          'Đăng tin',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ],
               ),
@@ -3106,6 +3239,27 @@ class _RecruitmentMarketplaceViewState
                                 ),
                               ),
                             ],
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                key: Key('chat-my-app-${app.id}'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Palette.ink,
+                                  side: const BorderSide(color: Palette.line),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: () => openDirectChat(
+                                  postId: app.postId,
+                                  applicantId: app.applicantId,
+                                  partnerName: 'Creator bài #${app.postId}',
+                                  contextTitle: app.postTitle != null ? 'Ứng tuyển bài: ${app.postTitle!}' : 'Ứng tuyển bài #${app.postId}',
+                                  senderRole: 'FREELANCER',
+                                ),
+                                icon: const Icon(CupertinoIcons.chat_bubble_2_fill, size: 14, color: Palette.red),
+                                label: const Text('Nhắn tin với Creator', style: TextStyle(fontSize: 12)),
+                              ),
+                            ),
                           ],
                         ),
                       ),

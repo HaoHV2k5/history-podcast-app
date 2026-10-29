@@ -105,6 +105,30 @@ class ChannelRepository {
     return ChannelModel.fromJson(data);
   }
 
+  /// 2. Tải ảnh đại diện kênh lên Cloudinary (POST /api/v1/channels/me/avatar)
+  Future<ChannelModel> uploadAvatar(List<int> fileBytes, String filename) async {
+    final res = await client.multipartPost(
+      '/api/v1/channels/me/avatar',
+      fileField: 'file',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
+    final data = res['data'] as Map<String, dynamic>;
+    return ChannelModel.fromJson(data);
+  }
+
+  /// 3. Tải ảnh bìa kênh lên Cloudinary (POST /api/v1/channels/me/cover)
+  Future<ChannelModel> uploadCover(List<int> fileBytes, String filename) async {
+    final res = await client.multipartPost(
+      '/api/v1/channels/me/cover',
+      fileField: 'file',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
+    final data = res['data'] as Map<String, dynamic>;
+    return ChannelModel.fromJson(data);
+  }
+
   /// 4. Lấy thông tin kênh của tôi (GET /api/v1/channels/me)
   Future<ChannelModel> getMyChannel() async {
     final res = await client.get('/api/v1/channels/me');

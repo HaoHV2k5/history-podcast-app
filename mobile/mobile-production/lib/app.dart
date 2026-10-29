@@ -84,7 +84,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _showServerConfigDialog() {
-    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://172.18.1.206:8080';
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://10.87.31.229:8080';
     final controller = TextEditingController(text: currentUrl);
     showDialog(
       context: context,
@@ -106,7 +106,7 @@ class _HomeShellState extends State<HomeShell> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Palette.soft,
-                hintText: 'http://172.18.1.206:8080',
+                hintText: 'http://10.87.31.229:8080',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -118,11 +118,11 @@ class _HomeShellState extends State<HomeShell> {
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Máy tính Wi-Fi', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://172.18.1.206:8080',
+                  label: const Text('Máy tính Wi-Fi (10.87.31.229)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://10.87.31.229:8080',
                 ),
                 ActionChip(
-                  label: const Text('Giả lập Android', style: TextStyle(fontSize: 11)),
+                  label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
                   onPressed: () => controller.text = 'http://10.0.2.2:8080',
                 ),
                 ActionChip(

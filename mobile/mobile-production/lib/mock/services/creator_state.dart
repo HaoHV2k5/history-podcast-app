@@ -473,6 +473,12 @@ class CreatorState extends ChangeNotifier {
   }
 
   void _requireCreator({bool needsChannel = true}) {
+    if (isLiveBackend) {
+      if (needsChannel && channel.isEmpty && channelModel == null) {
+        throw StateError('Cần kênh sáng tạo hợp lệ.');
+      }
+      return;
+    }
     if (!demoVerified || !kyc.isApproved || (needsChannel && channel.isEmpty)) {
       throw StateError('Cần hồ sơ đã duyệt và kênh sáng tạo hợp lệ.');
     }
@@ -648,6 +654,28 @@ class CreatorState extends ChangeNotifier {
       description: description.trim(),
       category: category.trim(),
     );
+  }
+
+  Future<ChannelModel?> uploadChannelAvatar(List<int> bytes, String filename) async {
+    _requireCreator();
+    if (channelRepository != null) {
+      final res = await channelRepository!.uploadAvatar(bytes, filename);
+      channelModel = res;
+      notifyListeners();
+      return res;
+    }
+    return null;
+  }
+
+  Future<ChannelModel?> uploadChannelCover(List<int> bytes, String filename) async {
+    _requireCreator();
+    if (channelRepository != null) {
+      final res = await channelRepository!.uploadCover(bytes, filename);
+      channelModel = res;
+      notifyListeners();
+      return res;
+    }
+    return null;
   }
 
   Future<void> save(CreatorDraft draft) async {

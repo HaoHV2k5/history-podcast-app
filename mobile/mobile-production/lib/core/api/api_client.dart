@@ -154,7 +154,7 @@ class ApiClient {
     );
     request.files.add(multipartFile);
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await _http.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     return _handleResponse(response);
   }

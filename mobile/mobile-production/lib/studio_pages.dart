@@ -23,6 +23,8 @@ import 'core/api/narrator_profile_repository.dart';
 import 'core/api/post_repository.dart';
 import 'core/api/wallet_repository.dart';
 import 'core/api/withdrawal_repository.dart';
+import 'creator_channel_page.dart';
+export 'creator_channel_page.dart';
 import 'creator_state.dart';
 import 'creator_studio_extensions.dart';
 export 'creator_studio_extensions.dart';
@@ -139,10 +141,10 @@ class _CreatorStudioState extends State<CreatorStudio> {
     icon: const Icon(CupertinoIcons.ellipsis, size: 22),
     onSelected: (action) {
       switch (action) {
+        case 'channel':
         case 'edit':
-          openEditChannelDialog();
         case 'artwork':
-          openChannelArtwork();
+          openChannelManagementPage();
         case 'preview':
           openChannelPreview();
         case 'narrator':
@@ -161,8 +163,11 @@ class _CreatorStudioState extends State<CreatorStudio> {
       }
     },
     itemBuilder: (_) => [
-      const PopupMenuItem(value: 'edit', child: Text('Sửa kênh')),
-      const PopupMenuItem(value: 'artwork', child: Text('Ảnh kênh')),
+      const PopupMenuItem(
+        key: Key('open-channel-management-menu-item'),
+        value: 'channel',
+        child: Text('Quản lý Kênh & Ảnh bìa'),
+      ),
       const PopupMenuItem(value: 'preview', child: Text('Xem trang kênh')),
       const PopupMenuItem(
         key: Key('open-marketplace-btn'),
@@ -176,6 +181,18 @@ class _CreatorStudioState extends State<CreatorStudio> {
       ),
     ],
   );
+
+  void openChannelManagementPage() {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreatorChannelPage(
+          state: state,
+          onOpenPreview: openChannelPreview,
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -365,6 +382,70 @@ class _CreatorStudioState extends State<CreatorStudio> {
     if (mounted) setState(() {});
   }
 
+  String _formatDate(String? raw) {
+    if (raw == null || raw.isEmpty) return '–';
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final d = dt.day.toString().padLeft(2, '0');
+      final m = dt.month.toString().padLeft(2, '0');
+      final y = dt.year;
+      return '$d/$m/$y';
+    } catch (_) {
+      return raw.length >= 10 ? raw.substring(0, 10) : raw;
+    }
+  }
+
+  Widget _buildCoverPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF2C2420), Color(0xFF6B2D2B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(CupertinoIcons.photo_fill_on_rectangle_fill, color: Colors.white.withValues(alpha: 0.6), size: 28),
+            const SizedBox(height: 6),
+            Text(
+              'SỬ KÝ PODCAST PLATFORM • BANNER 16:9',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudioAvatarPlaceholder() {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: Palette.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: Text(
+          state.channel.isNotEmpty ? state.channel[0].toUpperCase() : 'K',
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Palette.red,
+          ),
+        ),
+      ),
+    );
+  }
+
   void openChannelPreview() {
     showModalBottomSheet<void>(
       context: context,
@@ -401,65 +482,138 @@ class _CreatorStudioState extends State<CreatorStudio> {
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Palette.soft,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Palette.line),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ArtworkImage(
-                      artworkReference('channel'),
-                      width: 72,
-                      height: 72,
-                      semanticLabel: 'Ảnh kênh',
+                    AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: (state.channelModel?.coverUrl != null &&
+                              state.channelModel!.coverUrl!.isNotEmpty)
+                          ? Image.network(
+                              state.channelModel!.coverUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _buildCoverPlaceholder(),
+                            )
+                          : _buildCoverPlaceholder(),
                     ),
-                    const SizedBox(height: 12),
-                    Text(state.channel, style: editorial(24)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Palette.paper,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Palette.line),
-                      ),
-                      child: Text(
-                        state.channelCategory,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Palette.red,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      state.channelDescription.isNotEmpty
-                          ? state.channelDescription
-                          : 'Kênh kể chuyện lịch sử trên Sử Ký.',
-                      style: const TextStyle(fontSize: 13, height: 1.6),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          '${state.drafts.where((d) => d.stage == DraftStage.approved).length} tập đã duyệt',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Palette.muted,
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Transform.translate(
+                                offset: const Offset(0, -28),
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: Palette.paper,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Palette.paper, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: (state.channelModel?.avatarUrl != null &&
+                                            state.channelModel!.avatarUrl!.isNotEmpty)
+                                        ? Image.network(
+                                            state.channelModel!.avatarUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => ArtworkImage(
+                                              artworkReference('channel'),
+                                              width: 64,
+                                              height: 64,
+                                              semanticLabel: 'Ảnh kênh',
+                                            ),
+                                          )
+                                        : ArtworkImage(
+                                            artworkReference('channel'),
+                                            width: 64,
+                                            height: 64,
+                                            semanticLabel: 'Ảnh kênh',
+                                          ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      Text(
+                                        'Mã kênh: #${state.channelModel?.id ?? 1}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Palette.muted,
+                                        ),
+                                      ),
+                                      const Text('•', style: TextStyle(color: Palette.line)),
+                                      Text(
+                                        'Tác giả ID: #${state.channelModel?.creatorId ?? 1}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Palette.muted,
+                                        ),
+                                      ),
+                                      const Text('•', style: TextStyle(color: Palette.line)),
+                                      Text(
+                                        'Ngày tạo: ${_formatDate(state.channelModel?.createdAt)}',
+                                        style: const TextStyle(fontSize: 11, color: Palette.muted),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        const Text(
-                          '0 người theo dõi',
-                          style: TextStyle(fontSize: 12, color: Palette.muted),
-                        ),
-                      ],
+                          Text(state.channel, style: editorial(22)),
+                          const SizedBox(height: 6),
+                          Text(
+                            state.channelDescription.isNotEmpty
+                                ? state.channelDescription
+                                : 'Chưa có mô tả cho kênh này.',
+                            style: const TextStyle(fontSize: 13, height: 1.6),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                '${state.drafts.where((d) => d.stage == DraftStage.approved).length} tập đã duyệt',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Palette.muted,
+                                ),
+                              ),
+                              const Text(
+                                '0 người theo dõi',
+                                style: TextStyle(fontSize: 12, color: Palette.muted),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -523,37 +677,84 @@ class _CreatorStudioState extends State<CreatorStudio> {
             ),
           ),
           const SizedBox(height: 12),
-          if (state.channel.isNotEmpty &&
-              ArtworkStore(widget.preferences)
-                  .read()
-                  .containsKey('channel')) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: ArtworkImage(
-                  artworkReference('channel'),
-                  width: 64,
-                  height: 64,
-                  semanticLabel: 'Ảnh kênh ${state.channel}',
+          if (state.channel.isNotEmpty) ...[
+            InkWell(
+              key: const Key('open-channel-management-card'),
+              onTap: openChannelManagementPage,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Row(
+                  children: [
+                    if (state.channelModel?.avatarUrl != null &&
+                        state.channelModel!.avatarUrl!.isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          state.channelModel!.avatarUrl!,
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildStudioAvatarPlaceholder(),
+                        ),
+                      )
+                    else if (ArtworkStore(widget.preferences)
+                        .read()
+                        .containsKey('channel'))
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ArtworkImage(
+                          artworkReference('channel'),
+                          width: 52,
+                          height: 52,
+                          semanticLabel: 'Ảnh kênh ${state.channel}',
+                        ),
+                      )
+                    else
+                      _buildStudioAvatarPlaceholder(),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(state.channel, style: editorial(22)),
+                          const SizedBox(height: 2),
+                          const Row(
+                            children: [
+                              Icon(CupertinoIcons.checkmark_seal_fill, size: 12, color: Color(0xFF2E7D32)),
+                              SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Kênh hoạt động · Quản lý ảnh bìa & thông tin',
+                                  style: TextStyle(fontSize: 11, color: Palette.muted),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(CupertinoIcons.chevron_right, size: 16, color: Palette.muted),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-          Text(
-            state.channel.isEmpty
-                ? 'Mỗi câu chuyện,\nmột góc nhìn.'
-                : state.channel,
-            style: editorial(32),
-          ),
-          if (state.channel.isEmpty) ...[
             const SizedBox(height: 16),
+          ] else ...[
             Text(
-              state.channel.isEmpty
-                  ? 'Từ trang tư liệu đến một tập kể. Bắt đầu với kênh của bạn.'
-                  : 'Nơi những trang viết dần thành câu chuyện.',
-              style: const TextStyle(color: Palette.muted),
+              'Mỗi câu chuyện,\nmột góc nhìn.',
+              style: editorial(32),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Từ trang tư liệu đến một tập kể. Bắt đầu với kênh của bạn.',
+              style: TextStyle(color: Palette.muted),
             ),
           ],
           if (!state.demoVerified && !state.isLiveBackend) ...[
@@ -788,11 +989,16 @@ class _CreatorStudioState extends State<CreatorStudio> {
               ),
             ),
           ] else ...[
-            Text(
-              state.channelCategory,
-              style: const TextStyle(color: Palette.muted, fontSize: 12),
-            ),
-            const SizedBox(height: 24),
+            if (state.channelDescription.isNotEmpty) ...[
+              Text(
+                state.channelDescription,
+                style: const TextStyle(color: Palette.muted, fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 16),
+            ] else
+              const SizedBox(height: 8),
             FilledButton.icon(
               key: const Key('new-draft'),
               onPressed: busy ? null : () => edit(),
@@ -804,6 +1010,12 @@ class _CreatorStudioState extends State<CreatorStudio> {
               spacing: 8,
               runSpacing: 8,
               children: [
+                OutlinedButton.icon(
+                  key: const Key('open-channel-management-btn'),
+                  onPressed: busy ? null : openChannelManagementPage,
+                  icon: const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 15),
+                  label: const Text('Quản lý Kênh'),
+                ),
                 OutlinedButton.icon(
                   key: const Key('open-ai-pipeline-btn'),
                   onPressed: busy
