@@ -2781,7 +2781,7 @@ class _RecruitmentMarketplaceViewState
                                         visualDensity: VisualDensity.compact,
                                       ),
                                       onPressed: () => openApplySheet(post),
-                                      child: const Text('Ứng tuyển / Gửi báo giá'),
+                                      child: const Text('Ứng tuyển'),
                                     ),
                                   ),
                                 ],
