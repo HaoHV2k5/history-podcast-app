@@ -2054,15 +2054,103 @@ class _CreatorLivestreamStudioPageState
       );
     } catch (e) {
       if (mounted) {
+        String msg = e
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('StateError: ', '');
+        final lower = msg.toLowerCase();
+        if (lower.contains('timeoutexception') || lower.contains('timed out')) {
+          final host = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.80:8080';
+          msg = 'Quá thời gian chờ kết nối máy chủ (15s). Vui lòng đảm bảo backend đang chạy tại $host và điện thoại kết nối chung Wi-Fi.';
+        } else if (lower.contains('socketexception') || lower.contains('connection refused') || lower.contains('failed host lookup')) {
+          final host = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.80:8080';
+          msg = 'Không thể kết nối đến máy chủ backend ($host). Vui lòng đảm bảo backend đang chạy hoặc bấm "Đổi IP máy chủ".';
+        }
         setState(() {
           _busy = false;
-          _error = e
-              .toString()
-              .replaceFirst('Exception: ', '')
-              .replaceFirst('StateError: ', '');
+          _error = msg;
         });
       }
     }
+  }
+
+  void _showServerConfigDialog() {
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.80:8080';
+    final controller = TextEditingController(text: currentUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Palette.paper,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cấu hình máy chủ API', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Nhập địa chỉ máy chủ backend Sử Ký:',
+              style: TextStyle(fontSize: 13, color: Palette.muted),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Palette.soft,
+                hintText: 'http://192.168.1.80:8080',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Gợi ý kết nối nhanh:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('Máy tính Wi-Fi (192.168.1.80)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://192.168.1.80:8080',
+                ),
+                ActionChip(
+                  label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://10.0.2.2:8080',
+                ),
+                ActionChip(
+                  label: const Text('Localhost (Web / Desktop)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://localhost:8080',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Palette.red),
+            onPressed: () async {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                await widget.state.updateApiBaseUrl(newUrl);
+                if (mounted) {
+                  setState(() {
+                    _error = null;
+                  });
+                  _loadMyChannel();
+                }
+              }
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Lưu & Kết nối'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -2072,7 +2160,17 @@ class _CreatorLivestreamStudioPageState
       builder: (context, _) {
         final active = widget.state.activeLivestreams;
         return Scaffold(
-          appBar: AppBar(title: const Text('Phòng phát sóng trực tiếp')),
+          appBar: AppBar(
+            title: const Text('Phòng phát sóng trực tiếp'),
+            actions: [
+              IconButton(
+                key: const Key('livestream-server-config-btn'),
+                tooltip: 'Cài đặt IP máy chủ',
+                icon: const Icon(CupertinoIcons.gear, size: 20),
+                onPressed: _showServerConfigDialog,
+              ),
+            ],
+          ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             children: [
@@ -2309,12 +2407,67 @@ class _CreatorLivestreamStudioPageState
                       onChanged: (val) => setState(() => _isExclusive = val),
                     ),
                     if (_error != null) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        _error!,
-                        style: const TextStyle(
-                          color: Palette.red,
-                          fontSize: 13,
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Palette.red.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Palette.red.withValues(alpha: 0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  CupertinoIcons.exclamationmark_triangle_fill,
+                                  color: Palette.red,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    _error!,
+                                    style: const TextStyle(
+                                      color: Palette.red,
+                                      fontSize: 12.5,
+                                      height: 1.4,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_error!.contains('máy chủ') ||
+                                _error!.contains('kết nối') ||
+                                _error!.contains('15s')) ...[
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    foregroundColor: Palette.red,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                  ),
+                                  onPressed: _showServerConfigDialog,
+                                  icon: const Icon(CupertinoIcons.gear, size: 14),
+                                  label: const Text(
+                                    'Đổi IP máy chủ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ],
