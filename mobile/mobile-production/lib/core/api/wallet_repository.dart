@@ -33,10 +33,13 @@ class WalletRepository {
       'size': size.toString(),
     });
     final data = response['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => WalletTransactionModel.fromJson(e as Map<String, dynamic>)).toList();
     }
@@ -46,6 +49,7 @@ class WalletRepository {
   Future<String> createDeposit({required int amount}) async {
     final response = await apiClient.post('/api/v1/wallets/me/deposits', body: {
       'amount': amount,
+      'description': 'Nạp tiền vào ví Sử Ký qua Mobile',
       'orderInfo': 'Nạp tiền vào ví Sử Ký qua Mobile',
     });
     final data = response['data'] as Map<String, dynamic>;
@@ -84,6 +88,44 @@ class WalletRepository {
     final data = response['data'] as Map<String, dynamic>;
     return BankAccountData(
       id: (data['id'] as num?)?.toInt() ?? 0,
+      userId: (data['userId'] as num?)?.toInt() ?? 0,
+      bankName: data['bankName'] as String? ?? bankName,
+      accountNumber: data['accountNumber'] as String? ?? accountNumber,
+      accountHolderName: data['accountHolderName'] as String? ?? accountHolderName,
+      verified: data['verified'] as bool? ?? true,
+    );
+  }
+
+  Future<BankAccountData> getBankAccountById(int id) async {
+    final response = await apiClient.get('/api/v1/bank-accounts/$id');
+    final data = response['data'] as Map<String, dynamic>;
+    return BankAccountData(
+      id: (data['id'] as num?)?.toInt() ?? id,
+      userId: (data['userId'] as num?)?.toInt() ?? 0,
+      bankName: data['bankName'] as String? ?? '',
+      accountNumber: data['accountNumber'] as String? ?? '',
+      accountHolderName: data['accountHolderName'] as String? ?? '',
+      verified: data['verified'] as bool? ?? false,
+    );
+  }
+
+  Future<BankAccountData> updateBankAccount({
+    required int id,
+    required String bankName,
+    required String accountNumber,
+    required String accountHolderName,
+    int? userId,
+  }) async {
+    final response = await apiClient.put('/api/v1/bank-accounts/$id', body: {
+      'userId': userId,
+      'bankName': bankName.trim(),
+      'accountNumber': accountNumber.trim(),
+      'accountHolderName': accountHolderName.trim().toUpperCase(),
+      'verified': true,
+    });
+    final data = response['data'] as Map<String, dynamic>;
+    return BankAccountData(
+      id: (data['id'] as num?)?.toInt() ?? id,
       userId: (data['userId'] as num?)?.toInt() ?? 0,
       bankName: data['bankName'] as String? ?? bankName,
       accountNumber: data['accountNumber'] as String? ?? accountNumber,

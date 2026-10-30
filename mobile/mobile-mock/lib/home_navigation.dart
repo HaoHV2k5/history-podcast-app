@@ -24,7 +24,7 @@ class _RetainedHomeTabsState extends State<RetainedHomeTabs> {
     pages[widget.index] = widget.child;
     return Stack(
       fit: StackFit.expand,
-      children: List.generate(4, (i) {
+      children: List.generate(HomeTabBar.labels.length, (i) {
         final active = i == widget.index;
         return KeyedSubtree(
           key: ValueKey('home-tab-slot-$i'),
@@ -56,16 +56,14 @@ class HomeTabBar extends StatefulWidget {
   const HomeTabBar({super.key, required this.index, required this.onSelected});
   final int index;
   final ValueChanged<int> onSelected;
-  static const labels = ['Khám phá', 'Tìm kiếm', 'Thư viện', 'Cá nhân'];
+  static const labels = ['Khám phá', 'Thư viện', 'Cá nhân'];
   static const icons = [
     CupertinoIcons.compass,
-    CupertinoIcons.search,
     CupertinoIcons.bookmark,
     CupertinoIcons.person,
   ];
   static const selectedIcons = [
     CupertinoIcons.compass_fill,
-    CupertinoIcons.search,
     CupertinoIcons.bookmark_fill,
     CupertinoIcons.person_fill,
   ];
@@ -80,7 +78,7 @@ class HomeTabBar extends StatefulWidget {
   );
 
   static double heightOf(BuildContext context) {
-    final width = math.min(MediaQuery.sizeOf(context).width, 480.0) / 4 - 8;
+    final width = math.min(MediaQuery.sizeOf(context).width, 480.0) / labels.length - 8;
     var labelHeight = 0.0;
     for (final label in labels) {
       final painter = TextPainter(
@@ -153,11 +151,12 @@ class _HomeTabBarState extends State<HomeTabBar>
         height: HomeTabBar.heightOf(context),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth / 4;
+            final count = HomeTabBar.labels.length;
+            final width = constraints.maxWidth / count;
             final items = Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: List.generate(
-                4,
+                count,
                 (i) => Expanded(
                   child: Semantics(
                     button: true,
@@ -205,7 +204,7 @@ class _HomeTabBarState extends State<HomeTabBar>
                 children: [
                   Positioned(
                     top: 10,
-                    left: (width * (position.value.clamp(0.0, 3.0) + .5) - 29),
+                    left: (width * (position.value.clamp(0.0, (count - 1).toDouble()) + .5) - 29),
                     width: 58,
                     height: 38,
                     child: IgnorePointer(

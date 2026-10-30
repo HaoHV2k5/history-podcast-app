@@ -23,6 +23,13 @@ class Episode {
     this.mediaAsset = '',
     this.sources = '',
     this.channelImage = '',
+    this.channelId,
+    this.contentId,
+    this.seriesId,
+    this.seriesTitle,
+    this.remoteLikeCount,
+    this.remoteDislikeCount,
+    this.remoteCommentCount,
   });
   final String id, title, channel, image, category, description;
   final int seconds;
@@ -30,18 +37,38 @@ class Episode {
   final bool membersOnly;
   final bool isVideo;
   final String mediaAsset, sources, channelImage;
+  final int? channelId;
+  final int? contentId;
+  final int? seriesId;
+  final String? seriesTitle;
+  final int? remoteLikeCount;
+  final int? remoteDislikeCount;
+  final int? remoteCommentCount;
   String get duration =>
       seconds < 60 ? '$seconds giây' : '${seconds ~/ 60} ph\u00fat';
 }
 
 final List<Episode> publishedEpisodes = [];
-List<Episode> get allEpisodes => [
-  ...episodes,
-  ...memberEpisodes,
-  ...videoEpisodes,
-  ...audioEpisodes,
-  ...publishedEpisodes,
-];
+final List<Episode> remoteEpisodes = [];
+final List<Channel> remoteChannels = [];
+
+List<Episode> get allEpisodes {
+  final combined = remoteEpisodes.isNotEmpty
+      ? <Episode>[...remoteEpisodes, ...publishedEpisodes]
+      : <Episode>[
+          ...remoteEpisodes,
+          ...episodes,
+          ...memberEpisodes,
+          ...videoEpisodes,
+          ...audioEpisodes,
+          ...publishedEpisodes,
+        ];
+  final seen = <String>{};
+  return [
+    for (final e in combined)
+      if (seen.add(e.id)) e,
+  ];
+}
 
 Map<String, dynamic> episodeToJson(Episode e) => {
   'id': e.id,
@@ -59,6 +86,10 @@ Map<String, dynamic> episodeToJson(Episode e) => {
   'isVideo': e.isVideo,
   'mediaAsset': e.mediaAsset,
   'sources': e.sources,
+  if (e.channelId != null) 'channelId': e.channelId,
+  if (e.contentId != null) 'contentId': e.contentId,
+  if (e.seriesId != null) 'seriesId': e.seriesId,
+  if (e.seriesTitle != null) 'seriesTitle': e.seriesTitle,
 };
 Episode episodeFromJson(Map<String, dynamic> j) => Episode(
   id: j['id'] as String,
@@ -76,34 +107,101 @@ Episode episodeFromJson(Map<String, dynamic> j) => Episode(
   isVideo: j['isVideo'] == true,
   mediaAsset: j['mediaAsset'] as String? ?? '',
   sources: j['sources'] as String? ?? '',
+  channelId: (j['channelId'] as num?)?.toInt(),
+  contentId: (j['contentId'] as num?)?.toInt(),
+  seriesId: (j['seriesId'] as num?)?.toInt(),
+  seriesTitle: j['seriesTitle'] as String?,
 );
 
 class Channel {
-  const Channel(this.name, this.initial, this.image, this.description);
+  const Channel(
+    this.name,
+    this.initial,
+    this.image,
+    this.description, {
+    this.id,
+    this.coverImage = '',
+    this.monthlyPrice,
+    this.hasBackendPlan = false,
+  });
   final String name, initial, image, description;
-  List<Episode> get content =>
-      allEpisodes.where((e) => e.channel == name).toList();
-  bool get hasMembership => content.any((e) => e.membersOnly);
+  final int? id;
+  final String coverImage;
+  final double? monthlyPrice;
+  final bool hasBackendPlan;
+  List<Episode> get content => allEpisodes
+      .where((e) =>
+          e.channel.trim().toLowerCase() == name.trim().toLowerCase() ||
+          (e.channelId != null && id != null && e.channelId == id))
+      .toList();
+  bool get hasMembership =>
+      hasBackendPlan ||
+      (monthlyPrice != null && monthlyPrice! > 0) ||
+      content.any((e) => e.membersOnly);
 }
 
-List<Channel> get channels => [
-  ...baseChannels,
-  ...publishedEpisodes
-      .map((e) => e.channel)
-      .toSet()
-      .where((name) => !baseChannels.any((c) => c.name == name))
-      .map(
-        (name) => Channel(
-          name,
-          name.substring(0, 1),
-          publishedEpisodes.firstWhere((e) => e.channel == name).channelImage,
-          'Kênh đã phát hành nội dung mẫu trên thiết bị này. Chưa đồng bộ server.',
-        ),
-      ),
-];
+List<Channel> get channels {
+  final byName = <String, Channel>{};
+  for (final c in remoteChannels) {
+    byName[c.name.trim().toLowerCase()] = c;
+  }
+  for (final c in baseChannels) {
+    final key = c.name.trim().toLowerCase();
+    final existing = byName[key];
+    if (existing == null) {
+      byName[key] = c;
+    } else {
+      // Giữ lại URL Cloudinary cho avatar và ảnh bìa từ Backend nếu có
+      final avatarImg = (existing.image.startsWith('http://') || existing.image.startsWith('https://'))
+          ? existing.image
+          : (c.image.isNotEmpty ? c.image : existing.image);
+      final coverImg = (existing.coverImage.startsWith('http://') || existing.coverImage.startsWith('https://'))
+          ? existing.coverImage
+          : (c.coverImage.isNotEmpty ? c.coverImage : existing.coverImage);
+      byName[key] = Channel(
+        existing.name,
+        existing.initial,
+        avatarImg,
+        existing.description.isNotEmpty ? existing.description : c.description,
+        id: existing.id ?? c.id,
+        coverImage: coverImg,
+        monthlyPrice: existing.monthlyPrice ?? c.monthlyPrice,
+        hasBackendPlan: existing.hasBackendPlan || c.hasBackendPlan,
+      );
+    }
+  }
+  for (final e in [...remoteEpisodes, ...publishedEpisodes]) {
+    final key = e.channel.trim().toLowerCase();
+    if (!byName.containsKey(key)) {
+      byName[key] = Channel(
+        e.channel,
+        e.channel.isNotEmpty ? e.channel.substring(0, 1) : 'S',
+        e.channelImage.isNotEmpty ? e.channelImage : e.image,
+        'Kênh kể chuyện lịch sử trên nền tảng Sử Ký.',
+        id: e.channelId,
+      );
+    }
+  }
+  return byName.values.toList();
+}
 
-Channel channelByName(String name) =>
-    channels.firstWhere((c) => c.name == name);
+Channel channelByName(String name) {
+  final target = name.trim().toLowerCase();
+  for (final c in remoteChannels) {
+    if (c.name.trim().toLowerCase() == target) {
+      return c;
+    }
+  }
+  return channels.firstWhere(
+    (c) => c.name.trim().toLowerCase() == target,
+    orElse: () => Channel(
+      name,
+      name.isNotEmpty ? name.substring(0, 1) : 'S',
+      'assets/images/hue-citadel.jpg',
+      'Kênh kể chuyện lịch sử trên nền tảng Sử Ký.',
+    ),
+  );
+}
 
 String clockLabel(int seconds) =>
     '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';

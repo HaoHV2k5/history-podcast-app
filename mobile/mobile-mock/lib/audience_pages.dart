@@ -7,6 +7,8 @@ import 'design.dart';
 import 'artwork_image.dart';
 import 'artwork_state.dart';
 import 'artwork_editor.dart';
+import 'creator_state.dart';
+import 'kyc_form.dart';
 import 'episode.dart';
 import 'studio_pages.dart';
 import 'narrator_pages.dart';
@@ -774,28 +776,58 @@ class ProfileContent extends StatelessWidget {
       const Divider(),
       const SizedBox(height: 8),
       _PersonalLink(
-        key: const Key('open-workspace'),
-        icon: CupertinoIcons.pencil_outline,
-        title: 'Không gian sáng tạo',
-        subtitle: 'Dành cho người kể và người đọc',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => CreativeWorkspacePage(state: state),
+        key: const Key('open-kyc-from-profile'),
+        icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+        title: 'Đăng ký Nhà sáng tạo (KYC)',
+        subtitle: 'Xác thực định danh CCCD để mở kênh & đăng podcast',
+        onTap: () {
+          final creatorState = CreatorState(state.preferences);
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            builder: (_) => KycSheet(
+              state: creatorState,
+              onSubmitted: () => Navigator.pop(context),
+            ),
+          );
+        },
+      ),
+      if (state.isLoggedIn) ...[
+        const SizedBox(height: 20),
+        Center(
+          child: TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: Palette.red),
+            icon: const Icon(CupertinoIcons.square_arrow_right, size: 18),
+            label: const Text('Đăng xuất tài khoản'),
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: Palette.paper,
+                  title: const Text('Đăng xuất?'),
+                  content: const Text(
+                    'Bạn sẽ trở về hồ sơ người nghe trên thiết bị.',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Ở lại'),
+                    ),
+                    FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: Palette.red),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Đăng xuất'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await state.logout();
+              }
+            },
           ),
         ),
-      ),
-      _PersonalLink(
-        key: const Key('open-settings'),
-        icon: CupertinoIcons.gear,
-        title: 'Cài đặt & bản thử',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => PersonalSettingsPage(state: state),
-          ),
-        ),
-      ),
+      ],
     ],
   );
 }

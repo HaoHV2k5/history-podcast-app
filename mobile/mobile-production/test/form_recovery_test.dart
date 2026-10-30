@@ -17,13 +17,19 @@ class DelayedKyc extends CreatorState {
   @override
   Future<void> submitKyc({
     required String fullName,
-    required String idNumber,
-    required String dob,
+    String? idNumber,
+    String? dob,
     required String phone,
-    String otp = '',
-    required bool idFront,
-    required bool idBack,
-    required bool selfie,
+    String? otp,
+    bool idFront = true,
+    bool idBack = true,
+    bool selfie = true,
+    String? contactEmail,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountHolder,
+    String? portfolioUrl,
+    String? bio,
   }) {
     calls++;
     return request.future;
@@ -257,9 +263,6 @@ void main() {
       await openKyc(tester, state);
       await press(tester, find.text('Gửi OTP thử'));
       await tester.enterText(find.byType(TextFormField).at(4), '889900');
-      for (var i = 0; i < 3; i++) {
-        await press(tester, find.byType(CheckboxListTile).at(i));
-      }
       await tester.ensureVisible(find.byKey(const Key('kyc-submit')));
       await tester.tap(find.byKey(const Key('kyc-submit')));
       await tester.pump();

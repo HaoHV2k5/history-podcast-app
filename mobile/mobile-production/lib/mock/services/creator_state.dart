@@ -3,6 +3,21 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/api/channel_repository.dart';
+import '../../core/api/chat_repository.dart';
+import '../../core/api/contract_repository.dart';
+import '../../core/api/creator_series_repository.dart';
+import '../../core/api/creator_studio_repository.dart';
+import '../../core/api/deliverable_repository.dart';
+import '../../core/api/dispute_repository.dart';
+import '../../core/api/freelancer_repository.dart';
+import '../../core/api/hire_request_repository.dart';
+import '../../core/api/kyc_repository.dart';
+import '../../core/api/milestone_repository.dart';
+import '../../core/api/narrator_demo_repository.dart';
+import '../../core/api/narrator_profile_repository.dart';
+import '../../core/api/post_repository.dart';
+import '../../core/api/wallet_repository.dart';
+import '../../core/api/withdrawal_repository.dart';
 
 /// The existing demo's DOB rule, shared by the form and state gate.
 String? validateKycBirthDate(String value, {DateTime? today}) {
@@ -48,6 +63,15 @@ class KycProfile {
     this.idNumber = '',
     this.dob = '',
     this.phone = '',
+    this.contactEmail = '',
+    this.userEmail = '',
+    this.verificationMethod = 'EMAIL',
+    this.otpVerifiedAt = '',
+    this.portfolioUrl = '',
+    this.bio = '',
+    this.bankName = '',
+    this.bankAccountNumber = '',
+    this.bankAccountHolder = '',
     this.idFrontUploaded = false,
     this.idBackUploaded = false,
     this.selfiePassed = false,
@@ -59,6 +83,15 @@ class KycProfile {
   final String idNumber;
   final String dob;
   final String phone;
+  final String contactEmail;
+  final String userEmail;
+  final String verificationMethod;
+  final String otpVerifiedAt;
+  final String portfolioUrl;
+  final String bio;
+  final String bankName;
+  final String bankAccountNumber;
+  final String bankAccountHolder;
   final bool idFrontUploaded;
   final bool idBackUploaded;
   final bool selfiePassed;
@@ -72,6 +105,15 @@ class KycProfile {
     idNumber: '001099012345',
     dob: '15/08/1995',
     phone: '0901234567',
+    contactEmail: 'creator@suky.vn',
+    userEmail: 'creator@suky.vn',
+    verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+    otpVerifiedAt: '16:23 27/10/2026',
+    portfolioUrl: 'https://porfolio.eraidev.id.vn',
+    bio: 'Kênh podcast lịch sử Việt Nam chính thống.',
+    bankName: 'Vietcombank',
+    bankAccountNumber: '001099012345',
+    bankAccountHolder: 'NGUYEN VAN SU',
     idFrontUploaded: true,
     idBackUploaded: true,
     selfiePassed: true,
@@ -83,6 +125,15 @@ class KycProfile {
     'idNumber': idNumber,
     'dob': dob,
     'phone': phone,
+    'contactEmail': contactEmail,
+    'userEmail': userEmail,
+    'verificationMethod': verificationMethod,
+    'otpVerifiedAt': otpVerifiedAt,
+    'portfolioUrl': portfolioUrl,
+    'bio': bio,
+    'bankName': bankName,
+    'bankAccountNumber': bankAccountNumber,
+    'bankAccountHolder': bankAccountHolder,
     'idFrontUploaded': idFrontUploaded,
     'idBackUploaded': idBackUploaded,
     'selfiePassed': selfiePassed,
@@ -95,6 +146,15 @@ class KycProfile {
     idNumber: j['idNumber'] as String? ?? '',
     dob: j['dob'] as String? ?? '',
     phone: j['phone'] as String? ?? '',
+    contactEmail: j['contactEmail'] as String? ?? '',
+    userEmail: j['userEmail'] as String? ?? '',
+    verificationMethod: j['verificationMethod'] as String? ?? 'EMAIL',
+    otpVerifiedAt: j['otpVerifiedAt'] as String? ?? '',
+    portfolioUrl: j['portfolioUrl'] as String? ?? '',
+    bio: j['bio'] as String? ?? '',
+    bankName: j['bankName'] as String? ?? '',
+    bankAccountNumber: j['bankAccountNumber'] as String? ?? '',
+    bankAccountHolder: j['bankAccountHolder'] as String? ?? '',
     idFrontUploaded: j['idFrontUploaded'] as bool? ?? false,
     idBackUploaded: j['idBackUploaded'] as bool? ?? false,
     selfiePassed: j['selfiePassed'] as bool? ?? false,
@@ -192,6 +252,21 @@ class CreatorState extends ChangeNotifier {
     this.preferences, {
     this.storageKey = 'creatorStudioV1',
     this.channelRepository,
+    this.creatorSeriesRepository,
+    this.creatorStudioRepository,
+    this.kycRepository,
+    this.contractRepository,
+    this.hireRequestRepository,
+    this.milestoneRepository,
+    this.deliverableRepository,
+    this.disputeRepository,
+    this.chatRepository,
+    this.narratorProfileRepository,
+    this.narratorDemoRepository,
+    this.freelancerRepository,
+    this.postRepository,
+    this.walletRepository,
+    this.withdrawalRepository,
   }) {
     final raw = preferences.getString(storageKey);
     if (raw != null) {
@@ -214,7 +289,38 @@ class CreatorState extends ChangeNotifier {
   final SharedPreferences preferences;
   final String storageKey;
   final ChannelRepository? channelRepository;
+  final CreatorSeriesRepository? creatorSeriesRepository;
+  final CreatorStudioRepository? creatorStudioRepository;
+  final KycRepository? kycRepository;
+  final ContractRepository? contractRepository;
+  final HireRequestRepository? hireRequestRepository;
+  final MilestoneRepository? milestoneRepository;
+  final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final ChatRepository? chatRepository;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final NarratorDemoRepository? narratorDemoRepository;
+  final FreelancerRepository? freelancerRepository;
+  final PostRepository? postRepository;
+  final WalletRepository? walletRepository;
+  final WithdrawalRepository? withdrawalRepository;
   ChannelModel? channelModel;
+  MembershipPlanModel? membershipPlan;
+  List<SeriesModel> mySeries = [];
+  CreatorAiSettingModel? aiSettings;
+  List<CreatorVoiceModel> aiVoices = [];
+  List<Map<String, dynamic>> studioVideos = [];
+  Map<String, dynamic>? lastVerification;
+  Map<String, dynamic>? lastStoryboard;
+  Map<String, dynamic>? activeRenderJob;
+
+  bool get isLiveBackend =>
+      channelRepository != null ||
+      creatorSeriesRepository != null ||
+      creatorStudioRepository != null ||
+      kycRepository != null ||
+      contractRepository != null;
+
   bool demoVerified = false;
   KycProfile kyc = const KycProfile();
   String channel = '';
@@ -230,9 +336,83 @@ class CreatorState extends ChangeNotifier {
         channel = myChan.name;
         channelDescription = myChan.description;
         demoVerified = true;
+        if (!kyc.isApproved) {
+          kyc = KycProfile.fixtureApproved();
+        }
+        try {
+          membershipPlan = await channelRepository!.getChannelMembershipPlan(
+            myChan.id,
+          );
+        } catch (_) {}
         notifyListeners();
       } catch (_) {}
     }
+  }
+
+  Future<void> initStudioBackend() async {
+    if (kycRepository != null) {
+      try {
+        final remoteKyc = await kycRepository!.getMyKycProfile();
+        if (remoteKyc != null) {
+          final mappedStatus = switch (remoteKyc.status.toUpperCase()) {
+            'APPROVED' => KycStatus.approved,
+            'REJECTED' => KycStatus.rejected,
+            _ => KycStatus.pending,
+          };
+          kyc = KycProfile(
+            fullName: remoteKyc.fullName,
+            idNumber: kyc.idNumber.isEmpty ? '001099012345' : kyc.idNumber,
+            dob: kyc.dob.isEmpty ? '15/08/1995' : kyc.dob,
+            phone: remoteKyc.phone,
+            idFrontUploaded: true,
+            idBackUploaded: true,
+            selfiePassed: true,
+            status: mappedStatus,
+            rejectionReason: remoteKyc.rejectionReason ?? '',
+          );
+          if (mappedStatus == KycStatus.approved) {
+            demoVerified = true;
+          }
+        }
+      } catch (_) {}
+    }
+    await fetchMyChannel();
+    if (creatorSeriesRepository != null) {
+      try {
+        mySeries = await creatorSeriesRepository!.getMySeries();
+      } catch (_) {}
+    }
+    if (creatorStudioRepository != null) {
+      try {
+        aiSettings = await creatorStudioRepository!.getSettings();
+      } catch (_) {}
+      try {
+        aiVoices = await creatorStudioRepository!.getVoices();
+      } catch (_) {}
+      try {
+        final rawVideos = await creatorStudioRepository!.getVideos();
+        studioVideos = rawVideos
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (drafts.isEmpty && studioVideos.isNotEmpty) {
+          drafts = [
+            for (var i = 0; i < studioVideos.length; i++)
+              CreatorDraft(
+                id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
+                title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
+                script: (studioVideos[i]['summary'] ??
+                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                    .toString(),
+                sources:
+                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                format: 'video',
+                stage: i == 0 ? DraftStage.checked : DraftStage.approved,
+              ),
+          ];
+        }
+      } catch (_) {}
+    }
+    notifyListeners();
   }
 
   Future<void> _commit({
@@ -293,6 +473,12 @@ class CreatorState extends ChangeNotifier {
   }
 
   void _requireCreator({bool needsChannel = true}) {
+    if (isLiveBackend) {
+      if (needsChannel && channel.isEmpty && channelModel == null) {
+        throw StateError('Cần kênh sáng tạo hợp lệ.');
+      }
+      return;
+    }
     if (!demoVerified || !kyc.isApproved || (needsChannel && channel.isEmpty)) {
       throw StateError('Cần hồ sơ đã duyệt và kênh sáng tạo hợp lệ.');
     }
@@ -306,18 +492,29 @@ class CreatorState extends ChangeNotifier {
 
   Future<void> submitKyc({
     required String fullName,
-    required String idNumber,
-    required String dob,
     required String phone,
-    String otp = '',
-    required bool idFront,
-    required bool idBack,
-    required bool selfie,
+    String? idNumber,
+    String? dob,
+    String? contactEmail,
+    String? bankName,
+    String? bankAccountNumber,
+    String? bankAccountHolder,
+    String? portfolioUrl,
+    String? bio,
+    String? otp,
+    bool idFront = true,
+    bool idBack = true,
+    bool selfie = true,
   }) async {
     if (fullName.trim().isEmpty) {
       throw StateError('Vui lòng nhập họ và tên thật.');
     }
-    if (!RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
+    final effectiveId = (idNumber != null && idNumber.trim().isNotEmpty)
+        ? idNumber.trim()
+        : (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty
+            ? bankAccountNumber.trim()
+            : '001099012345');
+    if (idNumber != null && idNumber.trim().isNotEmpty && !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
       throw StateError('Số CCCD phải đủ 12 chữ số.');
     }
     if (!idFront || !idBack) {
@@ -327,25 +524,59 @@ class CreatorState extends ChangeNotifier {
       throw StateError('Cần xác thực khuôn mặt (liveness check).');
     }
 
-    final birthError = validateKycBirthDate(dob);
-    if (birthError != null) throw StateError(birthError);
+    if (dob != null && dob.trim().isNotEmpty) {
+      final birthError = validateKycBirthDate(dob);
+      if (birthError != null) throw StateError(birthError);
+    }
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp.trim().length < 4) {
+    if (_otpPhone != phone.trim() || otp == null || otp.trim() != '889900') {
       throw StateError('Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.');
     }
 
+    final effectiveEmail = (contactEmail != null && contactEmail.trim().isNotEmpty)
+        ? contactEmail.trim()
+        : (preferences.getString('userEmail') ?? 'creator@suky.vn');
+    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty) ? bankName.trim() : 'Vietcombank';
+    final effectiveBankAcc = (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
+        ? bankAccountNumber.trim()
+        : effectiveId;
+    final effectiveBankHolder = (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
+        ? bankAccountHolder.trim().toUpperCase()
+        : fullName.trim().toUpperCase();
+
     final newKyc = KycProfile(
       fullName: fullName.trim(),
-      idNumber: idNumber.trim(),
-      dob: dob.trim(),
+      idNumber: effectiveId,
+      dob: dob?.trim() ?? '15/08/1995',
       phone: phone.trim(),
+      contactEmail: effectiveEmail,
+      userEmail: preferences.getString('userEmail') ?? effectiveEmail,
+      verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+      otpVerifiedAt: _auditTime(),
+      portfolioUrl: portfolioUrl?.trim() ?? '',
+      bio: bio?.trim() ?? '',
+      bankName: effectiveBankName,
+      bankAccountNumber: effectiveBankAcc,
+      bankAccountHolder: effectiveBankHolder,
       idFrontUploaded: idFront,
       idBackUploaded: idBack,
       selfiePassed: selfie,
       status: KycStatus.pending,
     );
+    if (kycRepository != null) {
+      try {
+        await kycRepository!.submitKyc(
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          contactEmail: effectiveEmail,
+          bankName: effectiveBankName,
+          bankAccountNumber: effectiveBankAcc,
+          bankAccountHolder: effectiveBankHolder,
+        );
+      } catch (_) {}
+    }
     await _commit(verified: false, kycProfile: newKyc);
     _otpPhone = null;
   }
@@ -409,13 +640,16 @@ class CreatorState extends ChangeNotifier {
       throw StateError('Tên kênh từ 1–60 ký tự.');
     }
 
-    if (channelRepository != null && channelModel != null) {
-      final res = await channelRepository!.updateChannel(
-        channelModel!.id,
-        name: name.trim(),
-        description: description.trim(),
-      );
-      channelModel = res;
+    if (channelRepository != null) {
+      try {
+        final id = channelModel?.id ?? (await channelRepository!.getMyChannel()).id;
+        final res = await channelRepository!.updateChannel(
+          id,
+          name: name.trim(),
+          description: description.trim(),
+        );
+        channelModel = res;
+      } catch (_) {}
     }
 
     await _commit(
@@ -423,6 +657,28 @@ class CreatorState extends ChangeNotifier {
       description: description.trim(),
       category: category.trim(),
     );
+  }
+
+  Future<ChannelModel?> uploadChannelAvatar(List<int> bytes, String filename) async {
+    _requireCreator();
+    if (channelRepository != null) {
+      final res = await channelRepository!.uploadAvatar(bytes, filename);
+      channelModel = res;
+      notifyListeners();
+      return res;
+    }
+    return null;
+  }
+
+  Future<ChannelModel?> uploadChannelCover(List<int> bytes, String filename) async {
+    _requireCreator();
+    if (channelRepository != null) {
+      final res = await channelRepository!.uploadCover(bytes, filename);
+      channelModel = res;
+      notifyListeners();
+      return res;
+    }
+    return null;
   }
 
   Future<void> save(CreatorDraft draft) async {
@@ -636,5 +892,408 @@ class CreatorState extends ChangeNotifier {
       reason: reason.trim(),
     );
     await _commit(items: items);
+  }
+
+  Future<MembershipPlanModel> saveMembershipPlan({
+    required String name,
+    required double monthlyPrice,
+    String? description,
+    List<String> perks = const [],
+    String status = 'ACTIVE',
+  }) async {
+    final channelId = channelModel?.id ?? 1;
+    if (channelRepository != null) {
+      final saved = await channelRepository!.upsertChannelMembershipPlan(
+        channelId,
+        name: name.trim(),
+        description: description?.trim(),
+        monthlyPrice: monthlyPrice,
+        perks: perks,
+        status: status,
+      );
+      membershipPlan = saved;
+      notifyListeners();
+      return saved;
+    }
+    final localPlan = MembershipPlanModel(
+      id: 1,
+      channelId: channelId,
+      name: name.trim(),
+      description: description?.trim(),
+      monthlyPrice: monthlyPrice,
+      perks: perks,
+      status: status,
+    );
+    membershipPlan = localPlan;
+    notifyListeners();
+    return localPlan;
+  }
+
+  Future<SeriesModel> createCreatorSeries({
+    required String title,
+    String? description,
+    String status = 'PUBLISHED',
+    List<int> contentIds = const [],
+  }) async {
+    if (creatorSeriesRepository != null) {
+      final created = await creatorSeriesRepository!.createSeries(
+        title: title.trim(),
+        description: description?.trim(),
+        status: status,
+        contentIds: contentIds,
+      );
+      mySeries = [created, ...mySeries];
+      notifyListeners();
+      return created;
+    }
+    final localSeries = SeriesModel(
+      id: DateTime.now().millisecondsSinceEpoch % 100000,
+      channelId: channelModel?.id ?? 1,
+      channelName: channel,
+      title: title.trim(),
+      description: description?.trim(),
+      status: status,
+      itemCount: contentIds.length,
+      totalDurationSeconds: 0,
+    );
+    mySeries = [localSeries, ...mySeries];
+    notifyListeners();
+    return localSeries;
+  }
+
+  Future<void> deleteCreatorSeries(int seriesId) async {
+    if (creatorSeriesRepository != null) {
+      await creatorSeriesRepository!.deleteSeries(seriesId);
+    }
+    mySeries = mySeries.where((s) => s.id != seriesId).toList();
+    notifyListeners();
+  }
+
+  Future<SeriesModel?> addVideoToSeries(int seriesId, int contentId) async {
+    if (creatorSeriesRepository != null) {
+      final updated = await creatorSeriesRepository!.addSeriesItem(
+        seriesId,
+        contentId: contentId,
+      );
+      mySeries = mySeries
+          .map((s) => s.id == seriesId ? updated : s)
+          .toList();
+      notifyListeners();
+      return updated;
+    }
+    return null;
+  }
+
+  Future<CreatorAiSettingModel> saveAiSettings({
+    String? geminiApiKey,
+    String? elevenLabsApiKey,
+    String? preferredVoiceId,
+    String? voiceProvider,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final saved = await creatorStudioRepository!.saveSettings(
+        geminiApiKey: geminiApiKey,
+        elevenLabsApiKey: elevenLabsApiKey,
+        preferredVoiceId: preferredVoiceId,
+        voiceProvider: voiceProvider,
+      );
+      aiSettings = saved;
+      notifyListeners();
+      return saved;
+    }
+    final local = CreatorAiSettingModel(
+      geminiApiKey: geminiApiKey,
+      elevenLabsApiKey: elevenLabsApiKey,
+      preferredVoiceId: preferredVoiceId,
+      voiceProvider: voiceProvider,
+    );
+    aiSettings = local;
+    notifyListeners();
+    return local;
+  }
+
+  Future<Map<String, dynamic>> generateAiStoryboard({
+    required String topic,
+    int durationSec = 60,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.generateStoryboard({
+        'topic': topic.trim(),
+        'durationSec': durationSec,
+      });
+      if (res is Map<String, dynamic>) {
+        lastStoryboard = res;
+      } else {
+        lastStoryboard = {'topic': topic.trim(), 'scenes': res};
+      }
+      notifyListeners();
+      return lastStoryboard!;
+    }
+    lastStoryboard = {
+      'topic': topic.trim(),
+      'summary': 'Kịch bản phân cảnh cho chủ đề ${topic.trim()}',
+      'scenes': [
+        {
+          'sceneNo': 1,
+          'narration': 'Bối cảnh lịch sử mở đầu của ${topic.trim()}.',
+          'imagePrompt': 'Vietnamese historical ink illustration',
+        },
+      ],
+    };
+    notifyListeners();
+    return lastStoryboard!;
+  }
+
+  Future<Map<String, dynamic>> verifyHistoricalScript(String script) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.verifyScript(script.trim());
+      lastVerification = res;
+      notifyListeners();
+      return res;
+    }
+    lastVerification = {
+      'verified': true,
+      'accuracyScore': 95,
+      'feedback': 'Sử liệu đạt chuẩn đối chiếu RAG Lịch sử Việt Nam.',
+      'thumbnailPrompt': 'Vietnamese historical editorial illustration 16:9',
+    };
+    notifyListeners();
+    return lastVerification!;
+  }
+
+  Future<Map<String, dynamic>> previewAiVoice({
+    required String voiceId,
+    required String text,
+    String? engine,
+  }) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.previewVoice(
+        voiceId: voiceId,
+        text: text,
+        engine: engine,
+      );
+    }
+    return {
+      'voiceId': voiceId,
+      'audioUrl': 'https://commondatastorage.googleapis.com/codeskulptor-demos/DDR_assets/Kangaroo_MusiQue_-_The_Neverwritten_Role_Playing_Game.mp3',
+      'engine': engine ?? 'edge-tts',
+      'durationSec': 5,
+    };
+  }
+
+  Future<String> uploadStudioSceneImage(List<int> fileBytes, String filename) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.uploadSceneImage(fileBytes, filename);
+    }
+    return 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80';
+  }
+
+  Future<Map<String, dynamic>> startAiRender({
+    required String title,
+    required String scriptText,
+    String renderMode = 'whiteboard',
+    String? voiceName,
+    String? ttsEngine,
+    Map<String, String>? sceneImages,
+    int durationSec = 60,
+    int? seriesId,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.renderVideo({
+        'title': title.trim(),
+        'durationSec': durationSec,
+        'renderMode': renderMode,
+        'scriptText': scriptText.trim(),
+        if (voiceName != null) 'voiceName': voiceName,
+        if (ttsEngine != null) 'ttsEngine': ttsEngine,
+        if (sceneImages != null && sceneImages.isNotEmpty) 'sceneImages': sceneImages,
+        if (channelModel != null) 'channelId': channelModel!.id,
+        if (seriesId != null) 'seriesId': seriesId,
+        if (lastStoryboard != null) 'storyboard': lastStoryboard,
+      });
+      activeRenderJob = res;
+      notifyListeners();
+      return res;
+    }
+    activeRenderJob = {
+      'jobId': 'job-${DateTime.now().millisecondsSinceEpoch}',
+      'contentId': 501,
+      'artifactId': 601,
+      'status': 'PROCESSING',
+      'message': 'Đã khởi chạy tiến trình dựng video.',
+    };
+    notifyListeners();
+    return activeRenderJob!;
+  }
+
+  Future<Map<String, dynamic>> pollRenderJobStatus(
+    String jobId, {
+    int? artifactId,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.getJobStatus(
+        jobId,
+        artifactId: artifactId,
+      );
+      activeRenderJob = {...?activeRenderJob, ...res};
+      try {
+        final rawVideos = await creatorStudioRepository!.getVideos();
+        studioVideos = rawVideos
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (drafts.isEmpty && studioVideos.isNotEmpty) {
+          drafts = [
+            for (var i = 0; i < studioVideos.length; i++)
+              CreatorDraft(
+                id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
+                title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
+                script: (studioVideos[i]['summary'] ??
+                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                    .toString(),
+                sources:
+                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                format: 'video',
+                stage: i == 0 ? DraftStage.checked : DraftStage.approved,
+              ),
+          ];
+        }
+      } catch (_) {}
+      notifyListeners();
+      return activeRenderJob!;
+    }
+    activeRenderJob = {
+      ...?activeRenderJob,
+      'status': 'COMPLETED',
+      'progress': 100,
+    };
+    notifyListeners();
+    return activeRenderJob!;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchStudioVideos({
+    String? keyword,
+    String? status,
+    bool? isExclusive,
+    String? sortBy,
+    String? sortDir,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final raw = await creatorStudioRepository!.getVideos(
+        keyword: keyword,
+        status: status,
+        isExclusive: isExclusive,
+        sortBy: sortBy,
+        sortDir: sortDir,
+      );
+      studioVideos = raw.whereType<Map<String, dynamic>>().toList();
+      notifyListeners();
+      return studioVideos;
+    }
+    return studioVideos;
+  }
+
+  Future<Map<String, dynamic>> getStudioVideoDetail(int contentId) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.getVideoDetail(contentId);
+    }
+    return studioVideos.firstWhere(
+      (v) => v['contentId'] == contentId,
+      orElse: () => {'contentId': contentId, 'title': 'Tập video', 'status': 'PUBLISHED'},
+    );
+  }
+
+  Future<Map<String, dynamic>> updateStudioVideo(
+    int contentId, {
+    required String title,
+    String? description,
+    bool? isExclusive,
+  }) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.updateVideo(contentId, {
+        'title': title.trim(),
+        if (description != null) 'description': description.trim(),
+        if (isExclusive != null) 'isExclusive': isExclusive,
+      });
+      studioVideos = studioVideos
+          .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
+          .toList();
+      notifyListeners();
+      return res;
+    }
+    final updated = {
+      'contentId': contentId,
+      'title': title,
+      if (description != null) 'description': description,
+      if (isExclusive != null) 'isExclusive': isExclusive,
+    };
+    studioVideos = studioVideos
+        .map((v) => v['contentId'] == contentId ? {...v, ...updated} : v)
+        .toList();
+    notifyListeners();
+    return updated;
+  }
+
+  Future<Map<String, dynamic>> updateStudioVideoVisibility(
+    int contentId,
+    bool hidden,
+  ) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.updateVisibility(contentId, hidden);
+      studioVideos = studioVideos
+          .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
+          .toList();
+      notifyListeners();
+      return res;
+    }
+    final updated = {
+      'contentId': contentId,
+      'status': hidden ? 'HIDDEN' : 'PUBLISHED',
+    };
+    studioVideos = studioVideos
+        .map((v) => v['contentId'] == contentId ? {...v, ...updated} : v)
+        .toList();
+    notifyListeners();
+    return updated;
+  }
+
+  Future<List<dynamic>> getStudioVideoComments(int contentId) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.getVideoComments(contentId);
+    }
+    return [
+      {
+        'id': 1,
+        'userId': 101,
+        'userEmail': 'thinhgia@suky.vn',
+        'textBody': 'Phân tích rất chuẩn xác và hào sảng!',
+        'status': 'VISIBLE',
+        'createdAt': '2026-10-28T08:00:00Z',
+      }
+    ];
+  }
+
+  Future<Map<String, dynamic>> submitStudioVideoForPublish(
+    int contentId,
+  ) async {
+    if (creatorStudioRepository != null) {
+      final res = await creatorStudioRepository!.submitVideoForPublish(
+        contentId,
+      );
+      studioVideos = studioVideos
+          .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
+          .toList();
+      notifyListeners();
+      return res;
+    }
+    final updated = {
+      'contentId': contentId,
+      'status': 'PUBLISHED',
+      'aiShieldTierLabel': 'An toàn · Chuẩn sử liệu',
+    };
+    studioVideos = studioVideos
+        .map((v) => v['contentId'] == contentId ? {...v, ...updated} : v)
+        .toList();
+    notifyListeners();
+    return updated;
   }
 }

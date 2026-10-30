@@ -3,6 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'components.dart';
+import 'contract_chat_sheet.dart';
+import 'core/api/chat_repository.dart';
+import 'core/api/contract_repository.dart';
+import 'core/api/deliverable_repository.dart';
+import 'core/api/dispute_repository.dart';
+import 'core/api/freelancer_repository.dart';
+import 'core/api/hire_request_repository.dart';
+import 'core/api/kyc_repository.dart';
+import 'core/api/milestone_repository.dart';
+import 'core/api/narrator_demo_repository.dart';
+import 'core/api/narrator_profile_repository.dart';
 import 'creator_state.dart';
 import 'design.dart';
 import 'narrator_profile.dart';
@@ -18,19 +29,73 @@ const narratorDemoNote =
     'Bản thử trên thiết bị · Có thể nghe file vừa chọn trong phiên này. KYC, hồ sơ và bàn giao chỉ lưu metadata; chưa upload, chữ ký pháp lý hoặc chuyển tiền.';
 
 class NarratorHome extends StatefulWidget {
-  const NarratorHome({super.key, required this.preferences});
+  const NarratorHome({
+    super.key,
+    required this.preferences,
+    this.contractRepository,
+    this.hireRequestRepository,
+    this.milestoneRepository,
+    this.deliverableRepository,
+    this.disputeRepository,
+    this.chatRepository,
+    this.narratorProfileRepository,
+    this.narratorDemoRepository,
+    this.freelancerRepository,
+    this.kycRepository,
+  });
   final SharedPreferences preferences;
+  final ContractRepository? contractRepository;
+  final HireRequestRepository? hireRequestRepository;
+  final MilestoneRepository? milestoneRepository;
+  final DeliverableRepository? deliverableRepository;
+  final DisputeRepository? disputeRepository;
+  final ChatRepository? chatRepository;
+  final NarratorProfileRepository? narratorProfileRepository;
+  final NarratorDemoRepository? narratorDemoRepository;
+  final FreelancerRepository? freelancerRepository;
+  final KycRepository? kycRepository;
   @override
   State<NarratorHome> createState() => _NarratorHomeState();
 }
 
 class _NarratorHomeState extends State<NarratorHome> {
-  late final profile = NarratorProfileState(widget.preferences);
-  late final creator = CreatorState(widget.preferences);
+  late final profile = NarratorProfileState(
+    widget.preferences,
+    narratorProfileRepository: widget.narratorProfileRepository,
+    narratorDemoRepository: widget.narratorDemoRepository,
+    freelancerRepository: widget.freelancerRepository,
+    kycRepository: widget.kycRepository,
+  );
+  late final creator = CreatorState(
+    widget.preferences,
+    kycRepository: widget.kycRepository,
+    contractRepository: widget.contractRepository,
+    hireRequestRepository: widget.hireRequestRepository,
+    milestoneRepository: widget.milestoneRepository,
+    deliverableRepository: widget.deliverableRepository,
+    disputeRepository: widget.disputeRepository,
+    chatRepository: widget.chatRepository,
+    narratorProfileRepository: widget.narratorProfileRepository,
+    narratorDemoRepository: widget.narratorDemoRepository,
+    freelancerRepository: widget.freelancerRepository,
+  );
   late final jobs = NarratorState(creator);
   String filter = 'Lời mời';
   bool busy = false;
   String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.narratorProfileRepository != null ||
+        widget.freelancerRepository != null ||
+        widget.kycRepository != null) {
+      profile.syncFromBackend();
+    }
+    if (jobs.isLiveBackend) {
+      jobs.syncMarketplaceBackend();
+    }
+  }
   @override
   void dispose() {
     jobs.dispose();
@@ -76,7 +141,13 @@ class _NarratorHomeState extends State<NarratorHome> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: Listenable.merge([profile, jobs]),
     builder: (context, _) {
-      final own = jobs.orders.where((o) => o.narratorId == profile.id).toList();
+      final own = jobs.orders
+          .where(
+            (o) =>
+                o.narratorId == profile.id ||
+                jobs.remoteContracts.any((rc) => 'HD-${rc.id}' == o.id),
+          )
+          .toList();
       final selected = own
           .where(
             (o) => switch (filter) {
@@ -112,20 +183,130 @@ class _NarratorHomeState extends State<NarratorHome> {
             const Eyebrow('GIỌNG KỂ / NARRATOR'),
             const SizedBox(height: 12),
             Text(
-              profile.name.isEmpty
-                  ? 'Để câu chuyện có một giọng kể.'
-                  : profile.name,
+              profile.headline.isNotEmpty
+                  ? profile.headline
+                  : (profile.name.isEmpty
+                      ? 'Để câu chuyện có một giọng kể.'
+                      : profile.name),
               style: editorial(31),
             ),
             const SizedBox(height: 14),
             Text(
               profile.canReceiveJobs
-                  ? 'Giọng ${profile.region.toLowerCase()} · Lời mời và bản thu của bạn.'
-                  : 'Hoàn thiện hồ sơ để bắt đầu nhận lời mời.',
-              style: TextStyle(color: Palette.muted, height: 1.7),
+                  ? (profile.serviceTypes.isNotEmpty
+                      ? '${profile.serviceTypes} · Hồ sơ Freelancer đang hoạt động.'
+                      : 'Hồ sơ Freelancer đang hoạt động · Sẵn sàng nhận việc.')
+                  : 'Đăng ký hồ sơ Freelancer để bắt đầu nhận lời mời và ứng tuyển.',
+              style: const TextStyle(color: Palette.muted, height: 1.7),
             ),
             const SizedBox(height: 24),
-            if (profile.canReceiveJobs)
+            if (profile.canReceiveJobs) ...[
+              Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                color: Palette.paper,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Palette.line),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2E7D32).withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'FREELANCER · HOẠT ĐỘNG',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2E7D32),
+                              ),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    NarratorProfilePage(state: profile),
+                              ),
+                            ),
+                            icon: const Icon(CupertinoIcons.pencil, size: 13),
+                            label: const Text(
+                              'Cập nhật hồ sơ',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        profile.headline.isNotEmpty
+                            ? profile.headline
+                            : (profile.name.isNotEmpty
+                                ? profile.name
+                                : 'Chưa đặt tiêu đề chuyên môn'),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (profile.bio.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          profile.bio,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Palette.muted,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 6,
+                        children: [
+                          if (profile.referencePrice != null &&
+                              profile.referencePrice! > 0)
+                            Text(
+                              'Giá tham khảo: ${profile.referencePrice!.toInt()}đ/tập',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Palette.red,
+                              ),
+                            ),
+                          if (profile.serviceTypes.isNotEmpty)
+                            Text(
+                              'Dịch vụ: ${profile.serviceTypes}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Palette.muted,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               ListTile(
                 key: const Key('narrator-account'),
                 contentPadding: EdgeInsets.zero,
@@ -138,7 +319,7 @@ class _NarratorHomeState extends State<NarratorHome> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 subtitle: const Text(
-                  'Đã xác minh · Xem hồ sơ & danh tính',
+                  'Đã kích hoạt Freelancer · Xem hồ sơ & tài khoản',
                   style: TextStyle(fontSize: 12),
                 ),
                 trailing: const Icon(CupertinoIcons.chevron_right, size: 16),
@@ -148,8 +329,8 @@ class _NarratorHomeState extends State<NarratorHome> {
                     builder: (_) => NarratorAccountPage(profile: profile),
                   ),
                 ),
-              )
-            else
+              ),
+            ] else
               _NarratorSetup(profile: profile, busy: busy, kyc: kyc, run: run),
             if (error != null)
               Padding(
@@ -167,7 +348,7 @@ class _NarratorHomeState extends State<NarratorHome> {
             const SizedBox(height: 16),
             if (!profile.canReceiveJobs) ...[
               const Text(
-                'Hoàn tất KYC và duyệt hồ sơ giọng đọc để nhận việc.',
+                'Kích hoạt hồ sơ Freelancer để nhận việc và ứng tuyển.',
                 style: TextStyle(color: Palette.muted, height: 1.7),
               ),
             ] else ...[
@@ -226,12 +407,14 @@ class _NarratorHomeState extends State<NarratorHome> {
                 ),
               ],
             ],
-            const SizedBox(height: 28),
-            const Text(
-              'Bản thử · Công việc và hồ sơ lưu trên thiết bị.',
-              style: TextStyle(fontSize: 11, color: Palette.muted),
-            ),
-            _NarratorReviewTools(profile: profile, busy: busy, run: run),
+            if (!jobs.isLiveBackend && !profile.isLiveBackend) ...[
+              const SizedBox(height: 28),
+              const Text(
+                'Bản thử · Công việc và hồ sơ lưu trên thiết bị.',
+                style: TextStyle(fontSize: 11, color: Palette.muted),
+              ),
+              _NarratorReviewTools(profile: profile, busy: busy, run: run),
+            ],
           ],
         ),
       );
@@ -252,6 +435,81 @@ class _NarratorSetup extends StatelessWidget {
   final Future<void> Function(Future<void> Function()) run;
   @override
   Widget build(BuildContext context) {
+    if (profile.isLiveBackend) {
+      return Material(
+        color: Palette.soft,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Palette.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      CupertinoIcons.briefcase,
+                      color: Palette.red,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Đăng ký hồ sơ Freelancer', style: editorial(20)),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Kích hoạt vai trò Freelancer để nhận việc',
+                          style: TextStyle(fontSize: 12, color: Palette.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Thiết lập tiêu đề chuyên môn, kỹ năng, mức giá tham khảo và liên kết portfolio để bắt đầu nhận lời mời từ Nhà sáng tạo và ứng tuyển các bài đăng Booking.',
+                style: TextStyle(fontSize: 13, color: Palette.muted, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('narrator-onboard-btn'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Palette.red,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  onPressed: busy
+                      ? null
+                      : () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  NarratorProfilePage(state: profile),
+                            ),
+                          ),
+                  icon: const Icon(CupertinoIcons.person_badge_plus, size: 18),
+                  label: const Text(
+                    'Đăng ký trở thành Freelancer',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final status = profile.verification.kyc.status;
     return Material(
       color: Palette.soft,
@@ -439,16 +697,168 @@ class _NarratorAccountPageState extends State<NarratorAccountPage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.profile,
     builder: (context, _) => Scaffold(
-      appBar: AppBar(title: const Text('Hồ sơ người đọc')),
+      appBar: AppBar(title: const Text('Hồ sơ Freelancer & Giọng đọc')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          _NarratorSetup(
-            profile: widget.profile,
-            busy: busy,
-            kyc: kyc,
-            run: run,
-          ),
+          if (widget.profile.isLiveBackend) ...[
+            Material(
+              color: Palette.soft,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2E7D32).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'FREELANCER · HOẠT ĐỘNG',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2E7D32),
+                            ),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  NarratorProfilePage(state: widget.profile),
+                            ),
+                          ),
+                          icon: const Icon(CupertinoIcons.pencil, size: 14),
+                          label: const Text('Cập nhật', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      widget.profile.headline.isNotEmpty
+                          ? widget.profile.headline
+                          : (widget.profile.name.isNotEmpty
+                              ? widget.profile.name
+                              : 'Chưa đặt tiêu đề chuyên môn'),
+                      style: editorial(22),
+                    ),
+                    if (widget.profile.bio.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        widget.profile.bio,
+                        style: const TextStyle(fontSize: 14, height: 1.6),
+                      ),
+                    ],
+                    const Divider(height: 28),
+                    if (widget.profile.skills.isNotEmpty) ...[
+                      const Text(
+                        'Kỹ năng chuyên môn:',
+                        style: TextStyle(fontSize: 12, color: Palette.muted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.profile.skills,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (widget.profile.serviceTypes.isNotEmpty) ...[
+                      const Text(
+                        'Loại dịch vụ:',
+                        style: TextStyle(fontSize: 12, color: Palette.muted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.profile.serviceTypes,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (widget.profile.referencePrice != null &&
+                        widget.profile.referencePrice! > 0) ...[
+                      const Text(
+                        'Mức giá tham khảo:',
+                        style: TextStyle(fontSize: 12, color: Palette.muted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${widget.profile.referencePrice!.toInt()} VNĐ / tập',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Palette.red,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (widget.profile.voiceDemoUrl.isNotEmpty) ...[
+                      const Text(
+                        'Voice Demo URL / File:',
+                        style: TextStyle(fontSize: 12, color: Palette.muted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.profile.voiceDemoUrl,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Palette.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (widget.profile.portfolioUrl.isNotEmpty) ...[
+                      const Text(
+                        'Portfolio URL:',
+                        style: TextStyle(fontSize: 12, color: Palette.muted),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.profile.portfolioUrl,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Palette.muted,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ] else ...[
+            _NarratorSetup(
+              profile: widget.profile,
+              busy: busy,
+              kyc: kyc,
+              run: run,
+            ),
+            const SizedBox(height: 24),
+            _NarratorReviewTools(profile: widget.profile, busy: busy, run: run),
+            const SizedBox(height: 16),
+            const Text(
+              narratorDemoNote,
+              style: TextStyle(fontSize: 12, color: Palette.muted),
+            ),
+          ],
           if (error != null)
             Padding(
               padding: const EdgeInsets.only(top: 16),
@@ -457,13 +867,6 @@ class _NarratorAccountPageState extends State<NarratorAccountPage> {
                 child: Text(error!, style: const TextStyle(color: Palette.red)),
               ),
             ),
-          const SizedBox(height: 24),
-          _NarratorReviewTools(profile: widget.profile, busy: busy, run: run),
-          const SizedBox(height: 16),
-          const Text(
-            narratorDemoNote,
-            style: TextStyle(fontSize: 12, color: Palette.muted),
-          ),
         ],
       ),
     ),
@@ -479,19 +882,45 @@ class NarratorProfilePage extends StatefulWidget {
 
 class _NarratorProfilePageState extends State<NarratorProfilePage> {
   final form = GlobalKey<FormState>();
-  late final name = TextEditingController(text: widget.state.name);
+  late final headline = TextEditingController(
+    text: widget.state.headline.isNotEmpty
+        ? widget.state.headline
+        : (widget.state.name.isNotEmpty ? widget.state.name : ''),
+  );
   late final bio = TextEditingController(text: widget.state.bio);
-  late final transcript = TextEditingController(text: widget.state.transcript);
-  late String region = widget.state.region;
-  late String sample = widget.state.sample;
+  late final skills = TextEditingController(text: widget.state.skills);
+  late final serviceTypes = TextEditingController(
+    text: widget.state.serviceTypes.isNotEmpty
+        ? widget.state.serviceTypes
+        : 'VOICEOVER',
+  );
+  late final referencePrice = TextEditingController(
+    text: widget.state.referencePrice != null &&
+            widget.state.referencePrice! > 0
+        ? widget.state.referencePrice!.toInt().toString()
+        : '',
+  );
+  late final voiceDemoUrl = TextEditingController(
+    text: widget.state.voiceDemoUrl.isNotEmpty
+        ? widget.state.voiceDemoUrl
+        : widget.state.sample,
+  );
+  late final portfolioUrl = TextEditingController(
+    text: widget.state.portfolioUrl,
+  );
   LocalAudioFile? preview;
   bool dirty = false, busy = false;
   String? error;
+
   @override
   void dispose() {
-    name.dispose();
+    headline.dispose();
     bio.dispose();
-    transcript.dispose();
+    skills.dispose();
+    serviceTypes.dispose();
+    referencePrice.dispose();
+    voiceDemoUrl.dispose();
+    portfolioUrl.dispose();
     super.dispose();
   }
 
@@ -499,18 +928,28 @@ class _NarratorProfilePageState extends State<NarratorProfilePage> {
     if (!form.currentState!.validate()) return;
     setState(() => busy = true);
     try {
-      await widget.state.saveProfile(
-        name: name.text,
+      final price = double.tryParse(
+        referencePrice.text.replaceAll(RegExp(r'[^0-9.]'), ''),
+      );
+      await widget.state.saveFreelancerProfile(
+        headline: headline.text,
         bio: bio.text,
-        region: region,
-        transcript: transcript.text,
-        sample: sample,
+        skills: skills.text,
+        serviceTypes: serviceTypes.text,
+        voiceDemoUrl: voiceDemoUrl.text,
+        referencePrice: price,
+        portfolioUrl: portfolioUrl.text,
       );
       if (mounted) {
         setState(() {
           dirty = false;
           busy = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hồ sơ Freelancer đã được lưu thành công!'),
+          ),
+        );
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) Navigator.pop(context);
         });
@@ -561,7 +1000,10 @@ class _NarratorProfilePageState extends State<NarratorProfilePage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Hồ sơ giọng đọc', style: TextStyle(fontSize: 14)),
+          title: const Text(
+            'Hồ sơ Freelancer & Giọng đọc',
+            style: TextStyle(fontSize: 14),
+          ),
         ),
         body: Form(
           key: form,
@@ -569,115 +1011,119 @@ class _NarratorProfilePageState extends State<NarratorProfilePage> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              Text('Một giọng kể, một dấu ấn.', style: editorial(29)),
-              const SizedBox(height: 12),
+              Text('Hồ sơ chuyên môn & Năng lực', style: editorial(28)),
+              const SizedBox(height: 10),
               const Text(
-                'Giới thiệu cách bạn kể chuyện. File vừa chọn có thể nghe thử trên thiết bị; hồ sơ lưu tên file và trích đoạn, chưa upload audio.',
-                style: TextStyle(color: Palette.muted, height: 1.7),
+                'Thiết lập thông tin hiển thị công khai để nhận lời mời diễn đọc và ứng tuyển vào các bài đăng booking.',
+                style: TextStyle(color: Palette.muted, height: 1.6),
               ),
               const SizedBox(height: 24),
+
+              // 1. Headline (Bắt buộc)
               TextFormField(
-                controller: name,
+                controller: headline,
                 readOnly: !editable,
-                maxLength: 60,
+                maxLength: 255,
                 decoration: const InputDecoration(
-                  labelText: 'Tên hiển thị người đọc',
+                  labelText: 'Tiêu đề chuyên môn (Headline) *',
+                  hintText: 'VD: Nghệ sĩ diễn đọc lịch sử · Giọng kể truyền cảm',
                 ),
                 validator: (v) => (v?.trim().length ?? 0) < 2
-                    ? 'Nhập ít nhất 2 ký tự.'
+                    ? 'Nhập ít nhất 2 ký tự cho tiêu đề chuyên môn.'
                     : null,
               ),
               const SizedBox(height: 16),
+
+              // 2. Bio
               TextFormField(
                 controller: bio,
                 readOnly: !editable,
                 minLines: 3,
                 maxLines: 6,
-                maxLength: 600,
+                maxLength: 2000,
                 decoration: const InputDecoration(
-                  labelText: 'Giới thiệu và phong cách kể',
+                  labelText: 'Giới thiệu bản thân & phong cách kể (Bio)',
+                  hintText: 'Kinh nghiệm thu âm, các dự án lịch sử từng thực hiện...',
                 ),
-                validator: (v) => (v?.trim().length ?? 0) < 20
-                    ? 'Giới thiệu ít nhất 20 ký tự.'
-                    : null,
+                validator: (v) =>
+                    (v != null && v.isNotEmpty && v.trim().length < 5)
+                        ? 'Giới thiệu ít nhất 5 ký tự nếu có.'
+                        : null,
               ),
               const SizedBox(height: 16),
-              const Text('Giọng vùng miền'),
-              const SizedBox(height: 10),
+
+              // 3. Skills
+              TextFormField(
+                controller: skills,
+                readOnly: !editable,
+                maxLength: 500,
+                decoration: const InputDecoration(
+                  labelText: 'Kỹ năng chuyên môn (Skills)',
+                  hintText: 'VD: Diễn đọc truyền cảm, Lồng tiếng nhân vật, Thu âm podcast',
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // 4. Service Types
+              TextFormField(
+                controller: serviceTypes,
+                readOnly: !editable,
+                maxLength: 100,
+                decoration: const InputDecoration(
+                  labelText: 'Loại dịch vụ (Service Types)',
+                  hintText: 'VOICEOVER',
+                ),
+              ),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final r in ['Bắc', 'Trung', 'Nam'])
-                    ChoiceChip(
-                      label: Text(r),
-                      selected: region == r,
-                      showCheckmark: false,
-                      onSelected: editable
-                          ? (_) => setState(() {
-                              region = r;
-                              dirty = true;
-                            })
+                  for (final st in [
+                    'VOICEOVER',
+                    'AUDIO_EDITING',
+                    'PODCAST_HOST',
+                    'SCRIPT_WRITING',
+                  ])
+                    ActionChip(
+                      label: Text(st, style: const TextStyle(fontSize: 11)),
+                      onPressed: editable
+                          ? () {
+                              serviceTypes.text = st;
+                              setState(() => dirty = true);
+                            }
                           : null,
                     ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // 5. Reference Price
               TextFormField(
-                controller: transcript,
+                controller: referencePrice,
                 readOnly: !editable,
-                minLines: 3,
-                maxLines: 6,
-                maxLength: 1200,
+                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Trích đoạn demo giọng',
+                  labelText: 'Mức giá tham khảo (VNĐ/tập)',
+                  hintText: 'VD: 300000',
+                  suffixText: 'VNĐ',
                 ),
-                validator: (v) => (v?.trim().length ?? 0) < 20
-                    ? 'Trích đoạn ít nhất 20 ký tự.'
-                    : null,
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                key: ValueKey(sample),
-                initialValue: sample.isEmpty ? null : sample,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Tên bản thu mẫu'),
-                items: [
-                  if (sample.isNotEmpty &&
-                      ![
-                        'demo-tu-su.wav',
-                        'demo-bien-khao.wav',
-                      ].contains(sample))
-                    DropdownMenuItem(
-                      value: sample,
-                      child: Text(sample, overflow: TextOverflow.ellipsis),
-                    ),
-                  DropdownMenuItem(
-                    value: 'demo-tu-su.wav',
-                    child: Text('Demo tự sự · WAV'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'demo-bien-khao.wav',
-                    child: Text('Demo biên khảo · WAV'),
-                  ),
-                ],
-                onChanged: editable
-                    ? (v) => setState(() {
-                        sample = v!;
-                        preview = null;
-                        dirty = true;
-                      })
-                    : null,
-                validator: (v) => v == null ? 'Chọn bản thu mẫu.' : null,
-              ),
-              const SizedBox(height: 12),
-              if (sample.isNotEmpty)
-                Text(
-                  '$sample · Lưu metadata, không lưu file sau khi rời trang.',
-                  style: const TextStyle(color: Palette.muted, fontSize: 12),
+
+              // 6. Voice Demo URL
+              TextFormField(
+                controller: voiceDemoUrl,
+                readOnly: !editable,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  labelText: 'Đường dẫn Voice Demo (URL / File audio)',
+                  hintText: 'https://... hoặc tên file audio demo',
                 ),
+              ),
+              const SizedBox(height: 8),
               if (editable)
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: busy
                       ? null
                       : () async {
@@ -685,7 +1131,7 @@ class _NarratorProfilePageState extends State<NarratorProfilePage> {
                             final picked = await pickLocalAudio();
                             if (picked != null && mounted) {
                               setState(() {
-                                sample = picked.name;
+                                voiceDemoUrl.text = picked.name;
                                 preview = picked;
                                 dirty = true;
                               });
@@ -701,10 +1147,23 @@ class _NarratorProfilePageState extends State<NarratorProfilePage> {
                             }
                           }
                         },
-                  child: const Text('Chọn file demo và nghe thử'),
+                  icon: const Icon(CupertinoIcons.waveform, size: 16),
+                  label: const Text('Chọn file demo từ máy & nghe thử'),
                 ),
               if (preview != null)
                 LocalAudioPreview(bytes: preview!.bytes, name: preview!.name),
+              const SizedBox(height: 16),
+
+              // 7. Portfolio URL
+              TextFormField(
+                controller: portfolioUrl,
+                readOnly: !editable,
+                maxLength: 1000,
+                decoration: const InputDecoration(
+                  labelText: 'Đường dẫn Portfolio / Sản phẩm mẫu',
+                  hintText: 'VD: https://youtube.com/@channel hoặc liên kết drive',
+                ),
+              ),
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
@@ -997,6 +1456,28 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
             Text('Thù lao đề xuất: ${o.feeProposal}'),
             const SizedBox(height: 10),
             Text('Hạn bàn giao: ${jobDeadline(o.deadline)}'),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              key: const Key('narrator-open-chat-btn'),
+              onPressed: busy
+                  ? null
+                  : () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: true,
+                        backgroundColor: Palette.paper,
+                        builder: (_) => ContractChatSheet(
+                          contracts: widget.jobs,
+                          order: o,
+                          senderName: widget.profile.name.isEmpty
+                              ? o.narratorName
+                              : widget.profile.name,
+                          senderRole: 'NARRATOR',
+                        ),
+                      ),
+              icon: const Icon(CupertinoIcons.chat_bubble_2, size: 16),
+              label: const Text('Trao đổi với Người sáng tạo'),
+            ),
             const SizedBox(height: 16),
             if (o.notes.isNotEmpty)
               ExpansionTile(
@@ -1035,7 +1516,11 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
             if (awaiting) ...[
               FilledButton(
                 onPressed: busy ? null : () => act('accept'),
-                child: const Text('Chấp nhận lời mời mẫu'),
+                child: Text(
+                  widget.jobs.isLiveBackend
+                      ? 'Chấp nhận lời mời'
+                      : 'Chấp nhận lời mời mẫu',
+                ),
               ),
               const SizedBox(height: 12),
               ExpansionTile(
@@ -1048,7 +1533,11 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
                   ),
                   TextButton(
                     onPressed: busy ? null : () => act('reject'),
-                    child: const Text('Từ chối lời mời mẫu'),
+                    child: Text(
+                      widget.jobs.isLiveBackend
+                          ? 'Từ chối lời mời'
+                          : 'Từ chối lời mời mẫu',
+                    ),
                   ),
                 ],
               ),
@@ -1057,7 +1546,11 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
               if (o.creatorSigned)
                 FilledButton(
                   onPressed: busy ? null : () => act('narratorSign'),
-                  child: const Text('Người đọc: xác nhận mẫu'),
+                  child: Text(
+                    widget.jobs.isLiveBackend
+                        ? 'Người đọc: ký xác nhận'
+                        : 'Người đọc: xác nhận mẫu',
+                  ),
                 )
               else
                 const Text(
@@ -1081,53 +1574,63 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
                   preview!.name,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                const Text(
-                  'File chỉ được nghe trên thiết bị trong phiên này, chưa upload.',
-                  style: TextStyle(color: Palette.muted, fontSize: 12),
-                ),
+                if (!widget.jobs.isLiveBackend)
+                  const Text(
+                    'File chỉ được nghe trên thiết bị trong phiên này, chưa upload.',
+                    style: TextStyle(color: Palette.muted, fontSize: 12),
+                  ),
                 FilledButton(
                   onPressed: busy
                       ? null
                       : () => act('deliver', value: preview!.name),
-                  child: const Text('Bàn giao bản thu mẫu'),
+                  child: Text(
+                    widget.jobs.isLiveBackend
+                        ? 'Bàn giao bản thu'
+                        : 'Bàn giao bản thu mẫu',
+                  ),
                 ),
               ],
-              ExpansionTile(
-                tilePadding: EdgeInsets.zero,
-                title: const Text('Thử bàn giao bằng tên file'),
-                children: [
-                  const Text(
-                    'Chỉ thử trạng thái công việc, không có bản thu để nghe.',
-                  ),
-                  TextField(
-                    controller: file,
-                    enabled: !busy,
-                    decoration: const InputDecoration(
-                      labelText: 'Tên file bàn giao mẫu',
-                      hintText: 'ban-thu.wav',
+              if (!widget.jobs.isLiveBackend)
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('Thử bàn giao bằng tên file'),
+                  children: [
+                    const Text(
+                      'Chỉ thử trạng thái công việc, không có bản thu để nghe.',
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: busy
-                        ? null
-                        : () => act('deliver', value: file.text),
-                    child: const Text('Bàn giao tên file mẫu'),
-                  ),
-                ],
-              ),
+                    TextField(
+                      controller: file,
+                      enabled: !busy,
+                      decoration: const InputDecoration(
+                        labelText: 'Tên file bàn giao mẫu',
+                        hintText: 'ban-thu.wav',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: busy
+                          ? null
+                          : () => act('deliver', value: file.text),
+                      child: const Text('Bàn giao tên file mẫu'),
+                    ),
+                  ],
+                ),
             ],
             if (preview != null)
               LocalAudioPreview(bytes: preview!.bytes, name: preview!.name),
             if (o.status == ContractStatus.delivered)
               Text(
-                '${o.deliveredAudioName}\nĐã bàn giao mẫu. Chờ người sáng tạo nghiệm thu hoặc yêu cầu sửa.',
+                widget.jobs.isLiveBackend
+                    ? '${o.deliveredAudioName}\nĐã bàn giao bản thu. Chờ người sáng tạo nghiệm thu hoặc yêu cầu chỉnh sửa.'
+                    : '${o.deliveredAudioName}\nĐã bàn giao mẫu. Chờ người sáng tạo nghiệm thu hoặc yêu cầu sửa.',
                 style: const TextStyle(height: 1.8),
               ),
             if (o.status == ContractStatus.completed)
-              const Text(
-                'Đã nghiệm thu. Nếu có ký quỹ mẫu, tiền hư cấu đã vào số dư chờ giữ của Narrator. Xem Ví & rút tiền.',
-                style: TextStyle(height: 1.8),
+              Text(
+                widget.jobs.isLiveBackend
+                    ? 'Đã nghiệm thu hoàn tất. Thù lao đã được quyết toán vào Ví người đọc.'
+                    : 'Đã nghiệm thu. Nếu có ký quỹ mẫu, tiền hư cấu đã vào số dư chờ giữ của Narrator. Xem Ví & rút tiền.',
+                style: const TextStyle(height: 1.8),
               ),
             if ([
               ContractStatus.invited,
@@ -1148,14 +1651,18 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
                 children: [
                   TextButton(
                     onPressed: busy ? null : () => requestValue('dispute'),
-                    child: const Text('Gửi yêu cầu phân xử mẫu'),
+                    child: Text(
+                      widget.jobs.isLiveBackend
+                          ? 'Gửi yêu cầu phân xử'
+                          : 'Gửi yêu cầu phân xử mẫu',
+                    ),
                   ),
                 ],
               ),
             ],
             if (o.status == ContractStatus.disputed)
               Text(
-                'Chờ kết quả phân xử mẫu.\n${o.revisionNotes}',
+                '${widget.jobs.isLiveBackend ? 'Đang chờ hội đồng phân xử' : 'Chờ kết quả phân xử mẫu'}.\n${o.revisionNotes}',
                 style: const TextStyle(height: 1.7),
               ),
             if (error != null)
@@ -1188,15 +1695,25 @@ class _NarratorJobPageState extends State<NarratorJobPage> {
                             }
                           }
                         },
-                  child: const Text('Tải thỏa thuận PDF mẫu'),
+                  child: Text(
+                    widget.jobs.isLiveBackend
+                        ? 'Tải hợp đồng PDF'
+                        : 'Tải thỏa thuận PDF mẫu',
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            const Text(
-              narratorDemoNote,
-              style: TextStyle(color: Palette.muted, fontSize: 12, height: 1.7),
-            ),
+            if (!widget.jobs.isLiveBackend) ...[
+              const SizedBox(height: 24),
+              const Text(
+                narratorDemoNote,
+                style: TextStyle(
+                  color: Palette.muted,
+                  fontSize: 12,
+                  height: 1.7,
+                ),
+              ),
+            ],
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
               title: const Text('Lịch sử công việc'),

@@ -63,10 +63,10 @@ class MembershipPlanModel {
 
   factory MembershipPlanModel.fromJson(Map<String, dynamic> json) {
     return MembershipPlanModel(
-      id: (json['id'] as num).toInt(),
-      channelId: (json['channelId'] as num).toInt(),
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      channelId: (json['channelId'] as num?)?.toInt() ?? 0,
       channelName: json['channelName']?.toString(),
-      name: (json['name'] ?? '').toString(),
+      name: (json['name'] ?? json['planName'] ?? '').toString(),
       description: json['description']?.toString(),
       monthlyPrice: (json['monthlyPrice'] as num?)?.toDouble() ?? 0.0,
       perks: (json['perks'] as List?)?.map((e) => e.toString()).toList() ?? [],
@@ -74,6 +74,12 @@ class MembershipPlanModel {
       createdAt: json['createdAt']?.toString(),
     );
   }
+
+  String get planName => name;
+  bool get isActive =>
+      status == null ||
+      status!.toUpperCase() == 'ACTIVE' ||
+      status!.toUpperCase() == 'PUBLISHED';
 }
 
 class ChannelRepository {
@@ -99,6 +105,30 @@ class ChannelRepository {
     return ChannelModel.fromJson(data);
   }
 
+  /// 2. Tải ảnh đại diện kênh lên Cloudinary (POST /api/v1/channels/me/avatar)
+  Future<ChannelModel> uploadAvatar(List<int> fileBytes, String filename) async {
+    final res = await client.multipartPost(
+      '/api/v1/channels/me/avatar',
+      fileField: 'file',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
+    final data = res['data'] as Map<String, dynamic>;
+    return ChannelModel.fromJson(data);
+  }
+
+  /// 3. Tải ảnh bìa kênh lên Cloudinary (POST /api/v1/channels/me/cover)
+  Future<ChannelModel> uploadCover(List<int> fileBytes, String filename) async {
+    final res = await client.multipartPost(
+      '/api/v1/channels/me/cover',
+      fileField: 'file',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
+    final data = res['data'] as Map<String, dynamic>;
+    return ChannelModel.fromJson(data);
+  }
+
   /// 4. Lấy thông tin kênh của tôi (GET /api/v1/channels/me)
   Future<ChannelModel> getMyChannel() async {
     final res = await client.get('/api/v1/channels/me');
@@ -120,9 +150,11 @@ class ChannelRepository {
       'size': size.toString(),
     });
     final data = res['data'];
-    if (data is Map && data.containsKey('content')) {
-      final items = data['content'] as List;
-      return items.map((e) => ChannelModel.fromJson(e as Map<String, dynamic>)).toList();
+    if (data is Map) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems.map((e) => ChannelModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
     } else if (data is List) {
       return data.map((e) => ChannelModel.fromJson(e as Map<String, dynamic>)).toList();
     }

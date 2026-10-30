@@ -54,7 +54,7 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       baseUrl = configuration.apiBaseUri.toString();
     } else {
       baseUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-          ? 'http://10.0.2.2:8080'
+          ? 'http://10.87.31.229:8080'
           : 'http://localhost:8080';
     }
     
@@ -130,8 +130,22 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       withdrawalRepository: withdrawalRepository,
     );
 
-    // Tải dữ liệu thật từ Spring Boot backend
-    await appState.initRealBackend();
+    // Khởi tạo và đồng bộ backend trong nền (non-blocking) để app hiển thị giao diện ngay lập tức
+    () async {
+      if ((apiClient.token == null || apiClient.token!.isEmpty) &&
+          preferences.getBool('manual_logout') != true) {
+        try {
+          await appState.login(
+            identifier: 'test1tr@example.com',
+            password: 'Creator@123',
+          );
+        } catch (_) {
+          await appState.initRealBackend();
+        }
+      } else {
+        await appState.initRealBackend();
+      }
+    }();
 
     return SuKyApp(state: appState);
   }

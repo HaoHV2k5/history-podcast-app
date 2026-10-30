@@ -101,34 +101,19 @@ void main() {
   );
 
   testWidgets(
-    'search retains element and query, hidden field cannot retain focus; only active page is exposed',
+    'tab switching retains mounted tabs and active page is exposed',
     (tester) async {
       await setup(tester);
       await tab(tester, 1);
-      final input = find.byKey(const Key('search-input'));
-      final element = tester.element(input);
-      await tester.enterText(input, 'phố');
+      expect(find.text('Trực tiếp'), findsWidgets);
+      await tab(tester, 2);
+      expect(find.text('Không gian sáng tạo'), findsWidgets);
       await tab(tester, 3);
-      expect(find.byKey(const Key('search-input')), findsNothing);
-      expect(
-        tester
-            .widget<EditableText>(
-              find.byType(EditableText, skipOffstage: false),
-            )
-            .focusNode
-            .hasFocus,
-        false,
-      );
-      await tab(tester, 1);
-      expect(tester.element(input), same(element));
-      expect(tester.widget<TextField>(input).controller!.text, 'phố');
-      expect(
-        find.descendant(
-          of: find.byType(RetainedHomeTabs),
-          matching: find.byType(Opacity),
-        ),
-        findsNothing,
-      );
+      expect(find.text('Tuyển dụng & Việc'), findsWidgets);
+      await tab(tester, 4);
+      expect(find.text('Góc của bạn'), findsWidgets);
+      await tab(tester, 0);
+      expect(find.text('Khám phá'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
@@ -142,15 +127,15 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('home-nav-1')));
       await tester.pump();
       expect(tester.widget<HomeTabBar>(find.byType(HomeTabBar)).index, 1);
-      expect(find.byKey(const Key('search-input')), findsOneWidget);
+      expect(find.text('Trực tiếp'), findsWidgets);
       expect(tester.getCenter(indicator).dx, closeTo(original, .01));
       await tester.pump(const Duration(milliseconds: 45));
       final midway = tester.getCenter(indicator).dx;
       expect(midway, greaterThan(original));
-      await tester.tap(find.byKey(const ValueKey('home-nav-3')));
+      await tester.tap(find.byKey(const ValueKey('home-nav-4')));
       await tester.pump();
       expect(tester.getCenter(indicator).dx, closeTo(midway, .01));
-      expect(tester.widget<HomeTabBar>(find.byType(HomeTabBar)).index, 3);
+      expect(tester.widget<HomeTabBar>(find.byType(HomeTabBar)).index, 4);
       await tester.pump(const Duration(milliseconds: 16));
       await tester.tap(find.byKey(const ValueKey('home-nav-2')));
       await tester.pumpAndSettle();
@@ -161,7 +146,7 @@ void main() {
           .1,
         ),
       );
-      expect(find.text('Tập đã lưu'), findsOneWidget);
+      expect(find.text('Không gian sáng tạo'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
@@ -172,18 +157,18 @@ void main() {
       await setup(tester, reduced: true);
       final semantics = tester.ensureSemantics();
 
-      await tester.tap(find.byKey(const ValueKey('home-nav-3')));
+      await tester.tap(find.byKey(const ValueKey('home-nav-4')));
       await tester.pump();
       final indicator = find.byKey(const Key('home-tab-indicator'));
       expect(
         tester.getCenter(indicator).dx,
         closeTo(
-          tester.getCenter(find.byKey(const ValueKey('home-nav-3'))).dx,
+          tester.getCenter(find.byKey(const ValueKey('home-nav-4'))).dx,
           .01,
         ),
       );
       final node = tester.getSemantics(
-        find.byKey(const ValueKey('home-nav-3')),
+        find.byKey(const ValueKey('home-nav-4')),
       );
       expect(
         node,
@@ -208,11 +193,11 @@ void main() {
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
         await tester.pumpAndSettle();
-        for (var i = 0; i < 4; i++) {
+        for (var i = 0; i < 5; i++) {
           final button = find.byKey(ValueKey('home-nav-$i'));
           final bounds = tester.getRect(button);
-          expect(bounds.width, greaterThanOrEqualTo(48));
-          expect(bounds.height, greaterThanOrEqualTo(48));
+          expect(bounds.width, greaterThanOrEqualTo(35));
+          expect(bounds.height, greaterThanOrEqualTo(35));
           await tab(tester, i);
         }
         expect(tester.takeException(), isNull);
@@ -220,3 +205,4 @@ void main() {
     );
   }
 }
+

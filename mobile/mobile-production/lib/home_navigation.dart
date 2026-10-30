@@ -24,7 +24,7 @@ class _RetainedHomeTabsState extends State<RetainedHomeTabs> {
     pages[widget.index] = widget.child;
     return Stack(
       fit: StackFit.expand,
-      children: List.generate(4, (i) {
+      children: List.generate(HomeTabBar.labels.length, (i) {
         final active = i == widget.index;
         return KeyedSubtree(
           key: ValueKey('home-tab-slot-$i'),
@@ -56,31 +56,39 @@ class HomeTabBar extends StatefulWidget {
   const HomeTabBar({super.key, required this.index, required this.onSelected});
   final int index;
   final ValueChanged<int> onSelected;
-  static const labels = ['Khám phá', 'Tìm kiếm', 'Thư viện', 'Cá nhân'];
+  static const labels = [
+    'Khám phá',
+    'Trực tiếp',
+    'Tạo video',
+    'Tuyển dụng',
+    'Cá nhân',
+  ];
   static const icons = [
     CupertinoIcons.compass,
-    CupertinoIcons.search,
-    CupertinoIcons.bookmark,
+    CupertinoIcons.dot_radiowaves_left_right,
+    CupertinoIcons.plus,
+    CupertinoIcons.briefcase,
     CupertinoIcons.person,
   ];
   static const selectedIcons = [
     CupertinoIcons.compass_fill,
-    CupertinoIcons.search,
-    CupertinoIcons.bookmark_fill,
+    CupertinoIcons.dot_radiowaves_left_right,
+    CupertinoIcons.plus,
+    CupertinoIcons.briefcase_fill,
     CupertinoIcons.person_fill,
   ];
   static const labelStyle = TextStyle(
     inherit: false,
     fontFamily: 'BeVietnam',
-    letterSpacing: 0,
-    fontSize: 12,
-    height: 1.25,
+    letterSpacing: -0.2,
+    fontSize: 10.5,
+    height: 1.2,
     fontWeight: FontWeight.w500,
     color: Palette.ink,
   );
 
   static double heightOf(BuildContext context) {
-    final width = math.min(MediaQuery.sizeOf(context).width, 480.0) / 4 - 8;
+    final width = math.min(MediaQuery.sizeOf(context).width, 480.0) / labels.length - 8;
     var labelHeight = 0.0;
     for (final label in labels) {
       final painter = TextPainter(
@@ -91,7 +99,7 @@ class HomeTabBar extends StatefulWidget {
       labelHeight = math.max(labelHeight, painter.height);
       painter.dispose();
     }
-    return math.max(76, 18 + 22 + 6 + labelHeight + 10);
+    return math.max(74, 14 + 22 + 4 + labelHeight + 10);
   }
 
   @override
@@ -153,49 +161,90 @@ class _HomeTabBarState extends State<HomeTabBar>
         height: HomeTabBar.heightOf(context),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final width = constraints.maxWidth / 4;
+            final count = HomeTabBar.labels.length;
+            final width = constraints.maxWidth / count;
             final items = Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: List.generate(
-                4,
-                (i) => Expanded(
-                  child: Semantics(
-                    button: true,
-                    selected: widget.index == i,
-                    label: HomeTabBar.labels[i],
-                    onTap: () => widget.onSelected(i),
-                    child: ExcludeSemantics(
-                      child: InkWell(
-                        key: ValueKey('home-nav-$i'),
-                        onTap: () => widget.onSelected(i),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            children: [
-                              Icon(
-                                widget.index == i
-                                    ? HomeTabBar.selectedIcons[i]
-                                    : HomeTabBar.icons[i],
-                                size: 22,
-                                color: widget.index == i
-                                    ? Palette.red
-                                    : Palette.muted,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                HomeTabBar.labels[i],
-                                style: HomeTabBar.labelStyle,
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
+                count,
+                (i) {
+                  final isSelected = widget.index == i;
+                  return Expanded(
+                    child: Semantics(
+                      button: true,
+                      selected: isSelected,
+                      label: HomeTabBar.labels[i],
+                      onTap: () => widget.onSelected(i),
+                      child: ExcludeSemantics(
+                        child: InkWell(
+                          key: ValueKey('home-nav-$i'),
+                          onTap: () => widget.onSelected(i),
+                          borderRadius: BorderRadius.circular(14),
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(2, 12, 2, 7),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  height: 26,
+                                  child: Center(
+                                    child: i == 2
+                                        ? Container(
+                                            width: 36,
+                                            height: 24,
+                                            decoration: BoxDecoration(
+                                              color: isSelected
+                                                  ? Palette.red
+                                                  : Palette.red.withValues(alpha: 0.88),
+                                              borderRadius: BorderRadius.circular(7),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Palette.red.withValues(alpha: 0.28),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 1.5),
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(
+                                              CupertinoIcons.plus,
+                                              size: 16,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Icon(
+                                            isSelected
+                                                ? HomeTabBar.selectedIcons[i]
+                                                : HomeTabBar.icons[i],
+                                            size: 20,
+                                            color: isSelected
+                                                ? Palette.red
+                                                : Palette.muted,
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  HomeTabBar.labels[i],
+                                  style: HomeTabBar.labelStyle.copyWith(
+                                    fontWeight: isSelected
+                                        ? FontWeight.w600
+                                        : FontWeight.w500,
+                                    color: isSelected
+                                        ? Palette.red
+                                        : Palette.muted,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             );
             return AnimatedBuilder(
@@ -204,16 +253,20 @@ class _HomeTabBarState extends State<HomeTabBar>
               builder: (context, child) => Stack(
                 children: [
                   Positioned(
-                    top: 10,
-                    left: (width * (position.value.clamp(0.0, 3.0) + .5) - 29),
-                    width: 58,
-                    height: 38,
+                    top: 8,
+                    left: (width *
+                            (position.value
+                                    .clamp(0.0, (count - 1).toDouble()) +
+                                .5) -
+                        26),
+                    width: 52,
+                    height: 36,
                     child: IgnorePointer(
                       child: DecoratedBox(
                         key: const Key('home-tab-indicator'),
                         decoration: BoxDecoration(
                           color: Palette.soft,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
                     ),
@@ -227,4 +280,5 @@ class _HomeTabBarState extends State<HomeTabBar>
       ),
     ),
   );
+
 }

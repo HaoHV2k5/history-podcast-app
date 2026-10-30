@@ -71,10 +71,13 @@ class WithdrawalRepository {
     };
     final res = await client.get('/api/v1/withdrawals/me', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => WithdrawalModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => WithdrawalModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => WithdrawalModel.fromJson(e as Map<String, dynamic>)).toList();
     }
@@ -89,10 +92,13 @@ class WithdrawalRepository {
     };
     final res = await client.get('/api/v1/withdrawals/admin', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => WithdrawalModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => WithdrawalModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => WithdrawalModel.fromJson(e as Map<String, dynamic>)).toList();
     }

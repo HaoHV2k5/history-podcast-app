@@ -22,41 +22,44 @@ public interface UserMapper {
     @Mapping(target = "updatedAt", ignore = true)
     User toEntity(UserRequest request);
 
-    @Mapping(source = "role.id", target = "roleId")
-    @Mapping(source = "role.name", target = "roleName")
-    @Mapping(target = "roles", ignore = true)
-    @Mapping(target = "isCreator", ignore = true)
-    @Mapping(target = "isFreelancer", ignore = true)
-    @Mapping(target = "isAdmin", ignore = true)
-    UserResponse toResponse(User entity);
+    default UserResponse toResponse(User entity) {
+        if (entity == null) {
+            return null;
+        }
 
-    @org.mapstruct.AfterMapping
-    default void afterToResponse(User entity, @MappingTarget UserResponse response) {
-        if (entity != null && response != null) {
-            java.util.Set<com.prm.identity.entity.Role> entityRoles = entity.getRoles();
-            if (entityRoles != null && !entityRoles.isEmpty()) {
-                java.util.Set<String> roleNames = entityRoles.stream()
-                        .map(com.prm.identity.entity.Role::getName)
-                        .collect(java.util.stream.Collectors.toSet());
-                response.setRoles(roleNames);
-                response.setIsCreator(roleNames.contains("CREATOR"));
-                response.setIsFreelancer(roleNames.contains("FREELANCER"));
-                response.setIsAdmin(roleNames.contains("ADMIN"));
-
-                if (response.getRoleId() == null || response.getRoleName() == null) {
-                    com.prm.identity.entity.Role primary = entity.getRole();
-                    if (primary != null) {
-                        response.setRoleId(primary.getId());
-                        response.setRoleName(primary.getName());
-                    }
+        java.util.Set<com.prm.identity.entity.Role> entityRoles = entity.getRoles();
+        java.util.Set<String> roleNames = new java.util.HashSet<>();
+        if (entityRoles != null) {
+            for (com.prm.identity.entity.Role r : entityRoles) {
+                if (r != null && r.getName() != null) {
+                    roleNames.add(r.getName());
                 }
-            } else {
-                response.setRoles(java.util.Collections.emptySet());
-                response.setIsCreator(false);
-                response.setIsFreelancer(false);
-                response.setIsAdmin(false);
             }
         }
+        if (entity.getRole() != null && entity.getRole().getName() != null) {
+            roleNames.add(entity.getRole().getName());
+        }
+
+        Long roleId = entity.getRole() != null ? entity.getRole().getId() : null;
+        String roleName = entity.getRole() != null ? entity.getRole().getName() : (roleNames.isEmpty() ? "VIEWER" : roleNames.iterator().next());
+
+        return UserResponse.builder()
+                .id(entity.getId())
+                .roleId(roleId)
+                .roleName(roleName)
+                .roles(roleNames)
+                .isCreator(roleNames.contains("CREATOR"))
+                .isFreelancer(roleNames.contains("FREELANCER"))
+                .isAdmin(roleNames.contains("ADMIN"))
+                .email(entity.getEmail())
+                .phone(entity.getPhone())
+                .fullName(entity.getFullName())
+                .avatarUrl(entity.getAvatarUrl())
+                .bio(entity.getBio())
+                .status(entity.getStatus())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
     }
 
     @Mapping(target = "id", ignore = true)

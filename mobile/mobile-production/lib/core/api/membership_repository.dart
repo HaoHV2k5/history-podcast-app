@@ -16,8 +16,8 @@ class MembershipCheckModel {
   factory MembershipCheckModel.fromJson(Map<String, dynamic> json) {
     return MembershipCheckModel(
       channelId: (json['channelId'] as num).toInt(),
-      isMember: json['isMember'] == true,
-      expiresAt: json['expiresAt']?.toString(),
+      isMember: json['isMember'] == true || json['member'] == true,
+      expiresAt: (json['expiresAt'] ?? json['validUntil'])?.toString(),
       reason: json['reason']?.toString(),
     );
   }
@@ -40,13 +40,21 @@ class MembershipSubscribeModel {
 
   factory MembershipSubscribeModel.fromJson(Map<String, dynamic> json) {
     return MembershipSubscribeModel(
-      subscriptionId: (json['subscriptionId'] as num).toInt(),
-      channelId: (json['channelId'] as num).toInt(),
+      subscriptionId:
+          ((json['subscriptionId'] ?? json['membershipId'] ?? json['id'])
+                  as num?)
+              ?.toInt() ??
+          0,
+      channelId: (json['channelId'] as num?)?.toInt() ?? 0,
       status: (json['status'] ?? 'ACTIVE').toString(),
       amountPaid: (json['amountPaid'] as num?)?.toDouble() ?? 0.0,
-      expiresAt: (json['expiresAt'] ?? '').toString(),
+      expiresAt:
+          (json['expiresAt'] ?? json['endedAt'] ?? json['startDate'] ?? '')
+              .toString(),
     );
   }
+
+  int get id => subscriptionId;
 }
 
 class MyMembershipItem {
@@ -72,7 +80,7 @@ class MyMembershipItem {
       channelName: (json['channelName'] ?? '').toString(),
       channelAvatarUrl: json['channelAvatarUrl']?.toString(),
       startedAt: (json['startedAt'] ?? '').toString(),
-      expiresAt: (json['expiresAt'] ?? '').toString(),
+      expiresAt: (json['expiresAt'] ?? json['endedAt'] ?? '').toString(),
       status: (json['status'] ?? 'ACTIVE').toString(),
     );
   }
@@ -139,9 +147,11 @@ class MembershipRepository {
       'size': size.toString(),
     });
     final data = res['data'];
-    if (data is Map && data.containsKey('content')) {
-      final items = data['content'] as List;
-      return items.map((e) => MyMembershipItem.fromJson(e as Map<String, dynamic>)).toList();
+    if (data is Map) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems.map((e) => MyMembershipItem.fromJson(e as Map<String, dynamic>)).toList();
+      }
     } else if (data is List) {
       return data.map((e) => MyMembershipItem.fromJson(e as Map<String, dynamic>)).toList();
     }

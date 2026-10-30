@@ -66,6 +66,7 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
     step: 'BẮT ĐẦU',
     heading: 'Tìm lại tài khoản.',
     description: 'Nhập email hoặc số điện thoại bạn dùng để đăng nhập.',
+    isLiveBackend: widget.authRepository != null,
     child: Form(
       key: form,
       child: Column(
@@ -175,6 +176,7 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
     heading: 'Một mã, một bước.',
     description:
         'Mã xác thực dành cho ${widget.flow.maskedIdentifier}. Bạn có thể dán đủ 6 số vào ô bên dưới.',
+    isLiveBackend: widget.flow.authRepository != null,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -198,7 +200,9 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
               errorText: error,
               helperText: widget.flow.expired
                   ? 'Mã đã hết hạn. Gửi lại để tiếp tục.'
-                  : 'Mã mẫu có hiệu lực trong 2 phút.',
+                  : (widget.flow.authRepository != null
+                        ? 'Mã xác thực có hiệu lực trong 2 phút.'
+                        : 'Mã mẫu có hiệu lực trong 2 phút.'),
             ),
             onSubmitted: (_) => verify(),
           )
@@ -230,27 +234,29 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
           onPressed: busy ? null : () => Navigator.pop(context),
           child: const Text('Đổi email / số điện thoại'),
         ),
-        const Divider(height: 32),
-        ExpansionTile(
-          tilePadding: EdgeInsets.zero,
-          title: const Text(
-            'Điều khiển bản thử',
-            style: TextStyle(fontSize: 12),
-          ),
-          children: [
-            const Text('OTP mẫu: 889900. Không gửi email/SMS.'),
-            TextButton(
-              onPressed: busy
-                  ? null
-                  : () {
-                      widget.flow.expireForDemo();
-                      input.clear();
-                      setState(() => error = null);
-                    },
-              child: const Text('Thử mã đã hết hạn'),
+        if (widget.flow.authRepository == null) ...[
+          const Divider(height: 32),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: const Text(
+              'Điều khiển bản thử',
+              style: TextStyle(fontSize: 12),
             ),
-          ],
-        ),
+            children: [
+              const Text('OTP mẫu: 889900. Không gửi email/SMS.'),
+              TextButton(
+                onPressed: busy
+                    ? null
+                    : () {
+                        widget.flow.expireForDemo();
+                        input.clear();
+                        setState(() => error = null);
+                      },
+                child: const Text('Thử mã đã hết hạn'),
+              ),
+            ],
+          ),
+        ],
       ],
     ),
   );
@@ -309,6 +315,7 @@ class _RecoveryPasswordPageState extends State<RecoveryPasswordPage> {
     description: done
         ? 'Mật khẩu mới của bạn đã được lưu vào hệ thống. Quay về màn đăng nhập để tiếp tục.'
         : 'Nhập mật khẩu mới hai lần cho ${widget.flow.maskedIdentifier}.',
+    isLiveBackend: widget.flow.authRepository != null,
     child: done
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -342,7 +349,9 @@ class _RecoveryPasswordPageState extends State<RecoveryPasswordPage> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Mật khẩu mới',
-                    helperText: 'Tối thiểu 6 ký tự theo đăng nhập mẫu.',
+                    helperText: widget.flow.authRepository != null
+                        ? 'Tối thiểu 6 ký tự.'
+                        : 'Tối thiểu 6 ký tự theo đăng nhập mẫu.',
                     suffixIcon: IconButton(
                       tooltip: hidden ? 'Hiện mật khẩu mới' : 'Ẩn mật khẩu mới',
                       onPressed: () => setState(() => hidden = !hidden),
@@ -407,7 +416,11 @@ class _RecoveryPasswordPageState extends State<RecoveryPasswordPage> {
                   key: const Key('recovery-submit'),
                   onPressed: busy ? null : submit,
                   child: Text(
-                    busy ? 'Đang xử lý bản thử…' : 'Lưu mật khẩu mới (mẫu)',
+                    busy
+                        ? 'Đang xử lý…'
+                        : (widget.flow.authRepository != null
+                              ? 'Lưu mật khẩu mới'
+                              : 'Lưu mật khẩu mới (mẫu)'),
                   ),
                 ),
                 if (error != null)
@@ -429,9 +442,11 @@ class RecoveryScaffold extends StatelessWidget {
     required this.heading,
     required this.description,
     required this.child,
+    this.isLiveBackend = false,
   });
   final String title, step, heading, description;
   final Widget child;
+  final bool isLiveBackend;
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(title, style: const TextStyle(fontSize: 16))),
@@ -453,13 +468,15 @@ class RecoveryScaffold extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               child,
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 16),
-              const Text(
-                'Bản thử giao diện · Không gửi OTP thật, lưu mật khẩu hoặc thay đổi tài khoản server.',
-                style: TextStyle(color: Palette.muted, fontSize: 12),
-              ),
+              if (!isLiveBackend) ...[
+                const SizedBox(height: 28),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'Bản thử giao diện · Không gửi OTP thật, lưu mật khẩu hoặc thay đổi tài khoản server.',
+                  style: TextStyle(color: Palette.muted, fontSize: 12),
+                ),
+              ],
             ],
           ),
         ),

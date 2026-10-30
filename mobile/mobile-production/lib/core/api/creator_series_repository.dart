@@ -6,6 +6,9 @@ class SeriesItemModel {
   final String title;
   final int duration;
   final String? thumbnailUrl;
+  final String? mediaUrl;
+  final String? description;
+  final bool isExclusive;
   final int orderNo;
 
   SeriesItemModel({
@@ -14,20 +17,31 @@ class SeriesItemModel {
     required this.title,
     required this.duration,
     this.thumbnailUrl,
+    this.mediaUrl,
+    this.description,
+    this.isExclusive = false,
     required this.orderNo,
   });
 
+  int get durationSeconds => duration;
+
   factory SeriesItemModel.fromJson(Map<String, dynamic> json) {
     return SeriesItemModel(
-      id: (json['id'] as num).toInt(),
-      contentId: (json['contentId'] as num).toInt(),
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      contentId: (json['contentId'] as num?)?.toInt() ?? 0,
       title: (json['title'] ?? '').toString(),
-      duration: (json['duration'] as num?)?.toInt() ?? 0,
+      duration:
+          ((json['durationSeconds'] ?? json['duration']) as num?)?.toInt() ?? 0,
       thumbnailUrl: json['thumbnailUrl']?.toString(),
+      mediaUrl: (json['mediaUrl'] ?? json['fileUrl'])?.toString(),
+      description: json['description']?.toString(),
+      isExclusive: json['isExclusive'] == true,
       orderNo: (json['orderNo'] as num?)?.toInt() ?? 0,
     );
   }
 }
+
+typedef SeriesDetailModel = SeriesModel;
 
 class SeriesModel {
   final int id;

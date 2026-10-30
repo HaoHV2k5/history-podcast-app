@@ -113,36 +113,40 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final pickSource = remoteEpisodes.isNotEmpty ? remoteEpisodes : episodes;
+      final e1 = pickSource[0];
+      final e2 = pickSource[pickSource.length > 1 ? 1 : 0];
+      final e3 = pickSource[pickSource.length > 2 ? 2 : (pickSource.length > 1 ? 1 : 0)];
       final cards = [
         _Pick(
           'TUYỂN TẬP / 01',
           'Theo dấu\nnhững kinh đô.',
-          '3 câu chuyện để bắt đầu.',
+          '${pickSource.length} câu chuyện để bắt đầu.',
           'Mở tuyển tập',
-          episodes.first.image,
+          e1.image,
           Palette.red,
           Palette.white,
           widget.onCollection,
         ),
         _Pick(
-          'GỢI Ý / VĂN HÓA',
-          'Một thời\nthương cảng.',
-          'Những miền ký ức · 36 phút',
+          'GỢI Ý / ${e2.category.toUpperCase()}',
+          e2.title,
+          '${e2.channel} · ${e2.duration}',
           'Khám phá tập',
-          episodes[1].image,
+          e2.image,
           Palette.ink,
           Palette.paper,
-          () => widget.onEpisode(episodes[1]),
+          () => widget.onEpisode(e2),
         ),
         _Pick(
-          'GỢI Ý / CON NGƯỜI',
-          'Phố cũ,\nchuyện chưa cũ.',
-          'Chuyện người xưa · 24 phút',
+          'GỢI Ý / ${e3.category.toUpperCase()}',
+          e3.title,
+          '${e3.channel} · ${e3.duration}',
           'Khám phá tập',
-          episodes[2].image,
+          e3.image,
           Palette.soft,
           Palette.ink,
-          () => widget.onEpisode(episodes[2]),
+          () => widget.onEpisode(e3),
         ),
       ];
       final cardWidth = constraints.maxWidth * .97 - 8;

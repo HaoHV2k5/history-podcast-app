@@ -114,7 +114,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Trang đầu còn để ngỏ.'), findsOneWidget);
+    final emptyText = find.text('Trang đầu còn để ngỏ.');
+    if (emptyText.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(emptyText, 240);
+    }
+    expect(emptyText, findsOneWidget);
     expect(
       tester.widget<FilledButton>(find.byKey(const Key('new-draft'))).onPressed,
       isNotNull,

@@ -304,29 +304,13 @@ void main() {
       await tester.pumpWidget(
         app(
           Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => VideoUploadSttModal(
-                    onExtractComplete: (_, _, _, _, _) {},
-                  ),
-                ),
-                child: const Text('Open'),
-              ),
-            ),
+            body: AiWhiteboardPipelinePage(state: s),
           ),
         ),
       );
-      await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(
-        find.text('Tiến hành bóc tách (Speech-to-Text)'),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expect(find.text('Creator Studio — Xưởng Sáng Tạo Lịch Sử'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(app(NarratorMarketplacePage(state: s)));
       await tester.pumpAndSettle();

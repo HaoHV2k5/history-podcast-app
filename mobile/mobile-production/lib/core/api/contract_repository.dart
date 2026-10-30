@@ -83,6 +83,26 @@ class ContractModel {
   }
 }
 
+class MilestoneFinancialSummaryModel {
+  final double totalSpentOrEarned;
+  final double escrowHeldAmount;
+  final double refundedOrFeeAmount;
+
+  const MilestoneFinancialSummaryModel({
+    this.totalSpentOrEarned = 0.0,
+    this.escrowHeldAmount = 0.0,
+    this.refundedOrFeeAmount = 0.0,
+  });
+
+  factory MilestoneFinancialSummaryModel.fromJson(Map<String, dynamic> json) {
+    return MilestoneFinancialSummaryModel(
+      totalSpentOrEarned: ((json['totalSpent'] ?? json['totalEarned'] ?? 0) as num).toDouble(),
+      escrowHeldAmount: ((json['escrowHeld'] ?? json['pendingAmount'] ?? 0) as num).toDouble(),
+      refundedOrFeeAmount: ((json['totalRefunded'] ?? json['platformFeePaid'] ?? 0) as num).toDouble(),
+    );
+  }
+}
+
 class ContractRepository {
   final ApiClient client;
 
@@ -128,13 +148,48 @@ class ContractRepository {
     }
     final res = await client.get('/api/v1/contracts/me', queryParams: query);
     final data = res['data'];
-    if (data is Map && data.containsKey('content')) {
-      final items = data['content'] as List;
-      return items.map((e) => ContractModel.fromJson(e as Map<String, dynamic>)).toList();
+    if (data is Map) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems.map((e) => ContractModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
     } else if (data is List) {
       return data.map((e) => ContractModel.fromJson(e as Map<String, dynamic>)).toList();
     }
     return [];
+  }
+
+  /// 3b. Lấy danh sách milestone của tôi (GET /api/v1/contracts/my-milestones)
+  Future<List<MilestoneModel>> getMyMilestones({
+    String? status,
+    int? contractId,
+    int page = 0,
+    int size = 20,
+  }) async {
+    final query = <String, String>{
+      'page': page.toString(),
+      'size': size.toString(),
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (contractId != null) 'contractId': contractId.toString(),
+    };
+    final res = await client.get('/api/v1/contracts/my-milestones', queryParams: query);
+    final data = res['data'];
+    if (data is Map) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems.map((e) => MilestoneModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } else if (data is List) {
+      return data.map((e) => MilestoneModel.fromJson(e as Map<String, dynamic>)).toList();
+    }
+    return [];
+  }
+
+  /// 3c. Xem tổng quan tài chính milestone của tôi (GET /api/v1/contracts/me/milestone-financials)
+  Future<MilestoneFinancialSummaryModel> getMyMilestoneFinancials() async {
+    final res = await client.get('/api/v1/contracts/me/milestone-financials');
+    final data = (res['data'] as Map<String, dynamic>?) ?? const {};
+    return MilestoneFinancialSummaryModel.fromJson(data);
   }
 
   /// 4. Freelancer chấp nhận hợp đồng (POST /api/v1/contracts/{id}/accept)

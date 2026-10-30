@@ -131,14 +131,17 @@ class PostRepository {
       if (serviceType != null) 'serviceType': serviceType,
       if (minPrice != null) 'minPrice': minPrice.toString(),
       if (maxPrice != null) 'maxPrice': maxPrice.toString(),
-      if (keyword != null && keyword.trim().isNotEmpty) 'keyword': keyword.trim(),
+      'keyword': (keyword ?? '').trim(),
     };
     final res = await client.get('/api/v1/posts', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => PostModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => PostModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => PostModel.fromJson(e as Map<String, dynamic>)).toList();
     }
@@ -152,7 +155,7 @@ class PostRepository {
     required String title,
     required String description,
     required double referencePrice,
-    String? expiresAt,
+    int? expiresInDays,
   }) async {
     final payload = <String, dynamic>{
       'type': type,
@@ -160,7 +163,7 @@ class PostRepository {
       'title': title,
       'description': description,
       'referencePrice': referencePrice,
-      if (expiresAt != null) 'expiresAt': expiresAt,
+      if (expiresInDays != null) 'expiresInDays': expiresInDays,
     };
     final res = await client.post('/api/v1/posts', body: payload);
     final data = res['data'] as Map<String, dynamic>;
@@ -177,18 +180,16 @@ class PostRepository {
   /// 4. PUT /api/v1/posts/{id} (Cập nhật bài đăng)
   Future<PostModel> updatePost(
     int id, {
-    String? serviceType,
     String? title,
     String? description,
     double? referencePrice,
-    String? expiresAt,
+    String? status,
   }) async {
     final payload = <String, dynamic>{
-      if (serviceType != null) 'serviceType': serviceType,
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (referencePrice != null) 'referencePrice': referencePrice,
-      if (expiresAt != null) 'expiresAt': expiresAt,
+      if (status != null) 'status': status,
     };
     final res = await client.put('/api/v1/posts/$id', body: payload);
     final data = res['data'] as Map<String, dynamic>;
@@ -208,10 +209,13 @@ class PostRepository {
     };
     final res = await client.get('/api/v1/posts/$id/applications', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => ApplicationModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => ApplicationModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => ApplicationModel.fromJson(e as Map<String, dynamic>)).toList();
     }
@@ -248,10 +252,13 @@ class PostRepository {
     };
     final res = await client.get('/api/v1/posts/applications/me', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => ApplicationModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => ApplicationModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => ApplicationModel.fromJson(e as Map<String, dynamic>)).toList();
     }
@@ -266,10 +273,13 @@ class PostRepository {
     };
     final res = await client.get('/api/v1/posts/me', queryParams: queryParams);
     final data = res['data'];
-    if (data is Map<String, dynamic> && data['content'] is List) {
-      return (data['content'] as List)
-          .map((e) => PostModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    if (data is Map<String, dynamic>) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => PostModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
     } else if (data is List) {
       return data.map((e) => PostModel.fromJson(e as Map<String, dynamic>)).toList();
     }
