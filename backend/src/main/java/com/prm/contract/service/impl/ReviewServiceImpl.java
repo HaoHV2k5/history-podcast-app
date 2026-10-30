@@ -44,8 +44,8 @@ public class ReviewServiceImpl implements ReviewService {
             throw new AppException(ErrorCode.CONTRACT_NOT_COMPLETED, "Chỉ có thể đánh giá sau khi hợp đồng đã hoàn thành (COMPLETED)");
         }
 
-        boolean isCreator = contract.getCreator().getId().equals(reviewer.getId());
-        boolean isFreelancer = contract.getFreelancer().getId().equals(reviewer.getId());
+        boolean isCreator = contract.getCreator() != null && contract.getCreator().getId().equals(reviewer.getId());
+        boolean isFreelancer = contract.getFreelancer() != null && contract.getFreelancer().getId().equals(reviewer.getId());
         if (!isCreator && !isFreelancer) {
             throw new AppException(ErrorCode.CONTRACT_ACCESS_DENIED, "Bạn không thuộc thành viên của hợp đồng này");
         }
@@ -67,7 +67,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review saved = reviewRepository.save(review);
         log.info("Review {} created for contract {} by user {} to user {}",
-                saved.getId(), contractId, reviewer.getEmail(), reviewee.getEmail());
+                saved.getId(), contractId, reviewer.getEmail(), reviewee != null ? reviewee.getEmail() : null);
 
         return toReviewResponse(saved);
     }

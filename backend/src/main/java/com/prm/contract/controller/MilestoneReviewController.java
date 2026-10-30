@@ -24,7 +24,7 @@ public class MilestoneReviewController {
 
     @PostMapping("/api/v1/milestones/{milestoneId}/reviews")
     @Operation(summary = "Đánh giá giai đoạn Milestone",
-            description = "Creator hoặc Freelancer đánh giá (1-5 sao, nhận xét) sau khi Milestone đã được duyệt (APPROVED) hoặc giải ngân (RELEASED)")
+            description = "Creator hoặc Người đặt nội dung đánh giá (1-5 sao, nhận xét) sau khi Milestone đã được duyệt (APPROVED) hoặc giải ngân (RELEASED)")
     public ResponseEntity<ApiResponse<MilestoneReviewResponse>> createMilestoneReview(
             @PathVariable Long milestoneId,
             @Valid @RequestBody CreateMilestoneReviewRequest request

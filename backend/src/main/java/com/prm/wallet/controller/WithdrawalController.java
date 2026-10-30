@@ -22,23 +22,23 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/withdrawals")
 @RequiredArgsConstructor
-@Tag(name = "Withdrawal Management", description = "Quản lý yêu cầu rút tiền của Creator và quy trình duyệt của Admin")
+@Tag(name = "Withdrawal Management", description = "Quản lý yêu cầu rút tiền về ngân hàng chính chủ (Cam kết SLA xử lý tối đa 2 ngày làm việc)")
 public class WithdrawalController {
 
     private final WithdrawalService withdrawalService;
 
     @PostMapping
     @SecurityRequirement(name = "Bearer Authentication")
-    @Operation(summary = "1. Creator tạo yêu cầu rút tiền", description = "Yêu cầu rút tiền về tài khoản ngân hàng chính chủ. Đóng băng available_balance sang pending_balance.")
+    @Operation(summary = "1. Tạo yêu cầu rút tiền (SLA tối đa 2 ngày)", description = "Yêu cầu rút tiền về tài khoản ngân hàng chính chủ (tối thiểu 50.000 VNĐ). Hệ thống cam kết giải quyết trong tối đa 2 ngày (48h) và trả về mốc slaDueAt.")
     public ResponseEntity<ApiResponse<WithdrawalResponse>> requestWithdrawal(@Valid @RequestBody WithdrawalRequest request) {
         WithdrawalResponse response = withdrawalService.requestWithdrawal(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Tạo yêu cầu rút tiền thành công", response));
+                .body(ApiResponse.success("Tạo yêu cầu rút tiền thành công (Cam kết xử lý trong tối đa 2 ngày)", response));
     }
 
     @GetMapping("/me")
     @SecurityRequirement(name = "Bearer Authentication")
-    @Operation(summary = "2. Creator xem lịch sử rút tiền của mình", description = "Danh sách các yêu cầu rút tiền có phân trang")
+    @Operation(summary = "2. Xem lịch sử rút tiền của tôi", description = "Danh sách các yêu cầu rút tiền kèm thời hạn cam kết slaDueAt có phân trang")
     public ResponseEntity<ApiResponse<PageResponse<WithdrawalResponse>>> getMyWithdrawals(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -82,7 +82,7 @@ public class WithdrawalController {
     @PatchMapping("/admin/{id}/fail")
     @SecurityRequirement(name = "Bearer Authentication")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "6. Admin báo lỗi chuyển khoản", description = "Chuyển trạng thái sang FAILED và hoàn tiền về available_balance")
+    @Operation(summary = "6. Admin báo lỗi chuyển khoản", description = "Chuyển trạng thái sang FAILED và hoàn 100% tiền về available_balance")
     public ResponseEntity<ApiResponse<WithdrawalResponse>> failWithdrawal(
             @PathVariable Long id,
             @RequestBody(required = false) RejectWithdrawalRequest request
@@ -95,7 +95,7 @@ public class WithdrawalController {
     @PatchMapping("/admin/{id}/reject")
     @SecurityRequirement(name = "Bearer Authentication")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "7. Admin từ chối yêu cầu rút tiền", description = "Chuyển trạng thái sang REJECTED và hoàn tiền về available_balance")
+    @Operation(summary = "7. Admin từ chối yêu cầu rút tiền", description = "Chuyển trạng thái sang REJECTED và hoàn 100% tiền về available_balance")
     public ResponseEntity<ApiResponse<WithdrawalResponse>> rejectWithdrawal(
             @PathVariable Long id,
             @RequestBody(required = false) RejectWithdrawalRequest request

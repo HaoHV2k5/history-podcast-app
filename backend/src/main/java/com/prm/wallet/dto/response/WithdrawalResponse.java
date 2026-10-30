@@ -19,6 +19,8 @@ public class WithdrawalResponse {
     private BigDecimal amount;
     private String status;
     private Instant requestedAt;
+    private Instant slaDueAt;
+    private String slaPolicyNote;
     private Instant processedAt;
     private String failureReason;
 }

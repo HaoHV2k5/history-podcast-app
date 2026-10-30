@@ -72,21 +72,14 @@ public enum ErrorCode {
     ALREADY_ACTIVE_MEMBER("MEM_7002", "Bạn đã là hội viên còn hiệu lực của kênh này", HttpStatus.CONFLICT),
     CANNOT_SUBSCRIBE_OWN_CHANNEL("MEM_7003", "Chủ kênh không thể tự mua gói hội viên của chính mình", HttpStatus.BAD_REQUEST),
 
-    // Creator - Freelancer Booking & Contract Errors (8000 - 8999)
-    POST_NOT_FOUND("POST_8001", "Không tìm thấy bài đăng", HttpStatus.NOT_FOUND),
-    POST_ACCESS_DENIED("POST_8002", "Bạn không có quyền thao tác với bài đăng này", HttpStatus.FORBIDDEN),
-    POST_NOT_OPEN("POST_8003", "Bài đăng hiện không mở nhận ứng tuyển", HttpStatus.BAD_REQUEST),
-    APPLICATION_NOT_FOUND("POST_8004", "Không tìm thấy đơn ứng tuyển", HttpStatus.NOT_FOUND),
-    APPLICATION_ALREADY_EXISTS("POST_8005", "Bạn đã gửi đơn ứng tuyển cho bài đăng này", HttpStatus.CONFLICT),
-    CANNOT_APPLY_OWN_POST("POST_8006", "Không thể tự ứng tuyển vào bài đăng của chính mình", HttpStatus.BAD_REQUEST),
-    CREATOR_ROLE_REQUIRED("POST_8007", "Chỉ tài khoản Creator (đã xác thực SĐT) mới có quyền đăng bài booking hoặc tạo hợp đồng", HttpStatus.FORBIDDEN),
-    FREELANCER_ROLE_REQUIRED("POST_8008", "Chỉ tài khoản Freelancer mới có quyền đăng bài tìm việc hoặc ứng tuyển", HttpStatus.FORBIDDEN),
+    // Custom Content Commission & Contract Errors (8000 - 8999)
+    CREATOR_ROLE_REQUIRED("POST_8007", "Chỉ tài khoản Creator (đã xác thực SĐT) mới có quyền tạo báo giá hợp đồng", HttpStatus.FORBIDDEN),
     BANK_VERIFICATION_REQUIRED("POST_8009", "Cần xác thực tài khoản ngân hàng để thực hiện rút tiền", HttpStatus.FORBIDDEN),
 
     CONTRACT_NOT_FOUND("CTR_8010", "Không tìm thấy hợp đồng", HttpStatus.NOT_FOUND),
     CONTRACT_ACCESS_DENIED("CTR_8011", "Bạn không thuộc thành viên của hợp đồng này", HttpStatus.FORBIDDEN),
     CONTRACT_INVALID_STATE("CTR_8012", "Trạng thái hợp đồng không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
-    CANNOT_CONTRACT_SELF("CTR_8013", "Không thể tự tạo hợp đồng với chính mình", HttpStatus.BAD_REQUEST),
+    CANNOT_CONTRACT_SELF("CTR_8013", "Không thể tự đặt hàng hoặc tạo hợp đồng với chính mình", HttpStatus.BAD_REQUEST),
     INVALID_CONTRACT_DATA("CTR_8014", "Dữ liệu hợp đồng hoặc các milestone không hợp lệ", HttpStatus.BAD_REQUEST),
 
     MILESTONE_NOT_FOUND("MLS_8020", "Không tìm thấy milestone", HttpStatus.NOT_FOUND),
@@ -94,6 +87,9 @@ public enum ErrorCode {
     MILESTONE_NOT_TURN("MLS_8022", "Chưa tới lượt thực hiện milestone này", HttpStatus.BAD_REQUEST),
     MAX_REVISIONS_REACHED("MLS_8023", "Đã hết số lượt yêu cầu sửa đổi cho milestone này", HttpStatus.BAD_REQUEST),
     MILESTONE_NOT_OVERDUE("MLS_8024", "Milestone chưa quá hạn deadline để thực hiện thao tác hủy", HttpStatus.BAD_REQUEST),
+    MILESTONE_EDIT_NOT_ALLOWED("MLS_8025", "Chỉ có thể chỉnh sửa hoặc xóa Milestone khi hợp đồng đang chờ duyệt (PENDING) hoặc bị từ chối báo giá (REJECTED) và chưa có giai đoạn nào được nạp tiền ký quỹ", HttpStatus.BAD_REQUEST),
+    MILESTONE_MINIMUM_REQUIRED("MLS_8026", "Hợp đồng phải có tối thiểu 1 giai đoạn (Milestone), không thể xóa giai đoạn duy nhất còn lại", HttpStatus.BAD_REQUEST),
+    MILESTONE_COUNT_EXCEEDED("MLS_8027", "Số lượng giai đoạn (Milestone) vượt quá giới hạn tối đa cho phép của hệ thống", HttpStatus.BAD_REQUEST),
 
     ESCROW_PAYMENT_NOT_FOUND("ESC_8030", "Không tìm thấy khoản ký quỹ milestone", HttpStatus.NOT_FOUND),
     ESCROW_ALREADY_FUNDED("ESC_8031", "Milestone này đã được ký quỹ trước đó", HttpStatus.BAD_REQUEST),
@@ -108,6 +104,12 @@ public enum ErrorCode {
 
     DELIVERABLE_NOT_FOUND("DLV_8060", "Không tìm thấy sản phẩm giao nộp", HttpStatus.NOT_FOUND),
     DELIVERABLE_ACCESS_DENIED("DLV_8061", "Chỉ các bên liên quan của hợp đồng mới có quyền truy cập sản phẩm này", HttpStatus.FORBIDDEN),
+
+    HIRE_REQUEST_NOT_FOUND("HRQ_8070", "Không tìm thấy yêu cầu đặt làm nội dung", HttpStatus.NOT_FOUND),
+    HIRE_REQUEST_INVALID_STATE("HRQ_8071", "Trạng thái yêu cầu đặt làm nội dung không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+    ACTIVE_COMMISSION_EXISTS("HRQ_8072", "Bạn đang có một yêu cầu hoặc hợp đồng đặt làm nội dung chưa hoàn tất. Vui lòng hoàn thành hoặc hủy yêu cầu hiện tại trước khi đặt Creator khác", HttpStatus.CONFLICT),
+    INVALID_CONTENT_TYPE("HRQ_8073", "Loại nội dung đặt hàng không hợp lệ. Chỉ hỗ trợ SINGLE_VIDEO (Video/Podcast lẻ) hoặc SERIES (Chuỗi nhiều tập)", HttpStatus.BAD_REQUEST),
+    HIRE_REQUEST_ACCESS_DENIED("HRQ_8074", "Bạn không có quyền thao tác với yêu cầu đặt làm nội dung này", HttpStatus.FORBIDDEN),
 
     // Series Management Errors (4010 - 4019)
     SERIES_NOT_FOUND("SERIES_4010", "Không tìm thấy Series", HttpStatus.NOT_FOUND),

@@ -123,6 +123,10 @@ class CreatorStudioVideoSearchTest {
         lenient().when(artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(2L)).thenReturn(Optional.of(a2));
         lenient().when(artifactRepository.findFirstByContentIdOrderByCreatedAtDesc(3L)).thenReturn(Optional.of(a3));
 
+        lenient().when(artifactRepository.findMediaArtifactsByContentId(1L)).thenReturn(List.of(a1));
+        lenient().when(artifactRepository.findMediaArtifactsByContentId(2L)).thenReturn(List.of(a2));
+        lenient().when(artifactRepository.findMediaArtifactsByContentId(3L)).thenReturn(List.of(a3));
+
         // Video 1: 50 likes, 1 dislikes, 10 comments
         lenient().when(reactionRepository.countByArtifactIdAndType(11L, "LIKE")).thenReturn(50L);
         lenient().when(reactionRepository.countByArtifactIdAndType(11L, "DISLIKE")).thenReturn(1L);

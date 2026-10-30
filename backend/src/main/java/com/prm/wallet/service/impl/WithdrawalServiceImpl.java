@@ -4,6 +4,7 @@ import com.prm.common.dto.PageResponse;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
 import com.prm.common.util.SecurityUtils;
+import com.prm.contract.config.BookingEscrowProperties;
 import com.prm.identity.entity.User;
 import com.prm.identity.repository.UserRepository;
 import com.prm.wallet.dto.request.WithdrawalRequest;
@@ -24,7 +25,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Slf4j
@@ -38,12 +41,21 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     private final BankAccountRepository bankAccountRepository;
     private final UserRepository userRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final BookingEscrowProperties policyProperties;
 
     @Override
     public WithdrawalResponse requestWithdrawal(WithdrawalRequest request) {
         String email = SecurityUtils.getCurrentUserEmail();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng"));
+
+        BigDecimal minAmount = policyProperties.getWithdrawalMinAmount() != null
+                ? policyProperties.getWithdrawalMinAmount()
+                : new BigDecimal("50000");
+        if (request.getAmount() == null || request.getAmount().compareTo(minAmount) < 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Số tiền rút tối thiểu phải từ " + minAmount.toPlainString() + " VNĐ");
+        }
 
         BankAccount bankAccount;
         if (request.getBankAccountId() != null) {
@@ -58,7 +70,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         Wallet wallet = walletRepository.findByUserIdForUpdate(user.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.WALLET_NOT_FOUND, "Không tìm thấy ví người dùng"));
 
-        // Kiểm tra xem Creator có đang có lệnh rút tiền PENDING hoặc PROCESSING không
+        // Kiểm tra xem người dùng có đang có lệnh rút tiền PENDING hoặc PROCESSING không
         boolean hasPending = withdrawalRepository.existsByWalletIdAndStatusIn(wallet.getId(), List.of("PENDING", "PROCESSING"));
         if (hasPending) {
             throw new AppException(ErrorCode.PENDING_WITHDRAWAL_EXISTS, "Bạn đang có một yêu cầu rút tiền đang chờ xử lý");
@@ -75,12 +87,13 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         walletRepository.save(wallet);
 
         // Lưu bản ghi Withdrawal
+        Instant now = Instant.now();
         Withdrawal withdrawal = Withdrawal.builder()
                 .wallet(wallet)
                 .bankAccount(bankAccount)
                 .amount(request.getAmount())
                 .status("PENDING")
-                .requestedAt(Instant.now())
+                .requestedAt(now)
                 .build();
         Withdrawal saved = withdrawalRepository.save(withdrawal);
 
@@ -93,7 +106,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 .relatedId(saved.getId())
                 .status("PENDING")
                 .description("Yêu cầu rút tiền về tài khoản ngân hàng " + bankAccount.getBankName())
-                .createdAt(Instant.now())
+                .createdAt(now)
                 .build();
         walletTransactionRepository.save(tx);
 
@@ -227,6 +240,13 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
     private WithdrawalResponse toResponse(Withdrawal w) {
         BankAccount bank = w.getBankAccount();
+        int slaDays = policyProperties.getWithdrawalSlaDays() > 0
+                ? policyProperties.getWithdrawalSlaDays()
+                : 2;
+        Instant reqAt = w.getRequestedAt() != null ? w.getRequestedAt() : Instant.now();
+        Instant slaDueAt = reqAt.plus(slaDays, ChronoUnit.DAYS);
+        String slaNote = "Hệ thống cam kết thẩm định và giải quyết đơn rút tiền trong tối đa " + slaDays + " ngày làm việc (" + (slaDays * 24) + " giờ).";
+
         return WithdrawalResponse.builder()
                 .id(w.getId())
                 .walletId(w.getWallet() != null ? w.getWallet().getId() : null)
@@ -237,6 +257,8 @@ public class WithdrawalServiceImpl implements WithdrawalService {
                 .amount(w.getAmount())
                 .status(w.getStatus())
                 .requestedAt(w.getRequestedAt())
+                .slaDueAt(slaDueAt)
+                .slaPolicyNote(slaNote)
                 .processedAt(w.getProcessedAt())
                 .failureReason(w.getFailureReason())
                 .build();

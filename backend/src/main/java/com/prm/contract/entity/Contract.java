@@ -26,10 +26,6 @@ public class Contract {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id")
-    private Post post;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "creator_id")
     private User creator;
 
@@ -77,10 +73,9 @@ public class Contract {
     @Builder.Default
     private List<Milestone> milestones = new ArrayList<>();
 
-    // Legacy fields for backward compatibility
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "hire_request_id")
-    private HireRequest hireRequest;
+    private Commission hireRequest;
 
     @Column(name = "terms_text", columnDefinition = "TEXT")
     private String termsText;
