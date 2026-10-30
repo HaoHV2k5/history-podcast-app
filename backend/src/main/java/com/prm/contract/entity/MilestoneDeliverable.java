@@ -24,10 +24,6 @@ public class MilestoneDeliverable {
     private Milestone milestone;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id")
-    private Post post;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "submission_id")
     private Submission submission;
 

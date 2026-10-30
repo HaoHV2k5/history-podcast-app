@@ -181,7 +181,7 @@ public class AdminRevenueServiceImpl implements AdminRevenueService {
         int validLimit = limit <= 0 ? 5 : Math.min(limit, 100);
         Pageable pageable = PageRequest.of(0, validLimit);
 
-        boolean isFreelancer = "FREELANCER".equalsIgnoreCase(role);
+        boolean isFreelancer = "FREELANCER".equalsIgnoreCase(role) || "REQUESTER".equalsIgnoreCase(role);
         List<Object[]> rows = isFreelancer
                 ? milestoneRepository.findTopFreelancers(pageable)
                 : milestoneRepository.findTopCreators(pageable);
@@ -201,7 +201,7 @@ public class AdminRevenueServiceImpl implements AdminRevenueService {
                     .fullName(fullName)
                     .email(email)
                     .avatarUrl(avatarUrl)
-                    .role(isFreelancer ? "FREELANCER" : "CREATOR")
+                    .role(isFreelancer ? ("REQUESTER".equalsIgnoreCase(role) ? "REQUESTER" : "FREELANCER") : "CREATOR")
                     .totalAmount(totalAmount)
                     .totalPlatformFeeContributed(feeContributed)
                     .milestonesCount(count)
@@ -237,11 +237,9 @@ public class AdminRevenueServiceImpl implements AdminRevenueService {
         ).getContent();
 
         StringBuilder sb = new StringBuilder();
-        // UTF-8 BOM for Microsoft Excel compatibility
         sb.append('\uFEFF');
 
-        // CSV Header
-        sb.append("Mã Milestone,Thứ tự,Tiêu đề Milestone,Mã Hợp đồng,Tên Hợp đồng,Loại Dịch vụ,Tên Creator,Email Creator,Tên Freelancer,Email Freelancer,Tổng Tiền (VNĐ),Phí Sàn (%),Doanh Thu Sàn (VNĐ),Thực Nhận Freelancer (VNĐ),Trạng Thái,Ngày Ký Quỹ,Ngày Giải Ngân\n");
+        sb.append("Mã Milestone,Thứ tự,Tiêu đề Milestone,Mã Hợp đồng,Tên Hợp đồng,Loại Dịch vụ,Tên Creator,Email Creator,Tên Người Thuê,Email Người Thuê,Tổng Tiền (VNĐ),Phí Sàn (%),Doanh Thu Sàn (VNĐ),Thực Nhận Creator (VNĐ),Trạng Thái,Ngày Ký Quỹ,Ngày Giải Ngân\n");
 
         for (Milestone m : list) {
             Contract c = m.getContract();
@@ -280,6 +278,10 @@ public class AdminRevenueServiceImpl implements AdminRevenueService {
                 ? c.getPlatformFeePercent()
                 : BigDecimal.valueOf(5.0);
 
+        Long reqId = c != null && c.getFreelancer() != null ? c.getFreelancer().getId() : null;
+        String reqName = c != null && c.getFreelancer() != null ? c.getFreelancer().getFullName() : null;
+        String reqEmail = c != null && c.getFreelancer() != null ? c.getFreelancer().getEmail() : null;
+
         return AdminMilestoneRevenueResponse.builder()
                 .milestoneId(m.getId())
                 .milestoneOrderNo(m.getOrderNo())
@@ -290,9 +292,12 @@ public class AdminRevenueServiceImpl implements AdminRevenueService {
                 .creatorId(c != null && c.getCreator() != null ? c.getCreator().getId() : null)
                 .creatorName(c != null && c.getCreator() != null ? c.getCreator().getFullName() : null)
                 .creatorEmail(c != null && c.getCreator() != null ? c.getCreator().getEmail() : null)
-                .freelancerId(c != null && c.getFreelancer() != null ? c.getFreelancer().getId() : null)
-                .freelancerName(c != null && c.getFreelancer() != null ? c.getFreelancer().getFullName() : null)
-                .freelancerEmail(c != null && c.getFreelancer() != null ? c.getFreelancer().getEmail() : null)
+                .requesterId(reqId)
+                .requesterName(reqName)
+                .requesterEmail(reqEmail)
+                .freelancerId(reqId)
+                .freelancerName(reqName)
+                .freelancerEmail(reqEmail)
                 .grossAmount(m.getAmount())
                 .feePercent(feePercent)
                 .platformFee(m.getPlatformFee())

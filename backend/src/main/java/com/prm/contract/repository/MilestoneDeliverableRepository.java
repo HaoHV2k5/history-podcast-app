@@ -11,7 +11,5 @@ public interface MilestoneDeliverableRepository extends JpaRepository<MilestoneD
 
     List<MilestoneDeliverable> findByMilestoneIdOrderByCreatedAtDesc(Long milestoneId);
 
-    List<MilestoneDeliverable> findByPostIdOrderByCreatedAtDesc(Long postId);
-
     List<MilestoneDeliverable> findByMilestoneContractIdOrderByCreatedAtDesc(Long contractId);
 }

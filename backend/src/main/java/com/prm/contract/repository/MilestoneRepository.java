@@ -67,13 +67,13 @@ public interface MilestoneRepository extends JpaRepository<Milestone, Long> {
                    "   (m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED AND m.releasedAt >= :startDate AND m.releasedAt <= :endDate) OR " +
                    "   (m.escrowStatus != com.prm.contract.constant.EscrowStatus.RELEASED AND m.fundedAt >= :startDate AND m.fundedAt <= :endDate)" +
                    ") " +
-                   "AND (:search IS NULL OR :search = '' OR (" +
-                   "   LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "   LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "   LOWER(cr.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "   LOWER(cr.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "   LOWER(fl.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                   "   LOWER(fl.email) LIKE LOWER(CONCAT('%', :search, '%'))" +
+                   "AND (CAST(:search AS string) IS NULL OR CAST(:search AS string) = '' OR (" +
+                   "   LOWER(c.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                   "   LOWER(m.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                   "   LOWER(cr.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                   "   LOWER(cr.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                   "   LOWER(fl.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                   "   LOWER(fl.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))" +
                    "))",
            countQuery = "SELECT COUNT(m) FROM Milestone m " +
                         "JOIN m.contract c " +
@@ -86,13 +86,13 @@ public interface MilestoneRepository extends JpaRepository<Milestone, Long> {
                         "   (m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED AND m.releasedAt >= :startDate AND m.releasedAt <= :endDate) OR " +
                         "   (m.escrowStatus != com.prm.contract.constant.EscrowStatus.RELEASED AND m.fundedAt >= :startDate AND m.fundedAt <= :endDate)" +
                         ") " +
-                        "AND (:search IS NULL OR :search = '' OR (" +
-                        "   LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                        "   LOWER(m.title) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                        "   LOWER(cr.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                        "   LOWER(cr.email) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                        "   LOWER(fl.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
-                        "   LOWER(fl.email) LIKE LOWER(CONCAT('%', :search, '%'))" +
+                        "AND (CAST(:search AS string) IS NULL OR CAST(:search AS string) = '' OR (" +
+                        "   LOWER(c.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        "   LOWER(m.title) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        "   LOWER(cr.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        "   LOWER(cr.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        "   LOWER(fl.fullName) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) OR " +
+                        "   LOWER(fl.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%'))" +
                         "))")
     org.springframework.data.domain.Page<Milestone> findLedgerWithFilters(
             @Param("contractId") Long contractId,
@@ -120,18 +120,18 @@ public interface MilestoneRepository extends JpaRepository<Milestone, Long> {
            "JOIN m.contract c " +
            "WHERE m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED " +
            "GROUP BY c.freelancer.id, c.freelancer.fullName, c.freelancer.email, c.freelancer.avatarUrl " +
-           "ORDER BY SUM(m.netAmount) DESC")
+           "ORDER BY SUM(m.amount) DESC")
     List<Object[]> findTopFreelancers(org.springframework.data.domain.Pageable pageable);
 
-    // --- 5. Consolidated User Personal Financials ---
+    // --- 5. Consolidated User Personal Financials (Reversed Flow: Creator earns 95% netAmount, Requester spends 100% amount) ---
     @Query("SELECT " +
            "COALESCE(SUM(CASE WHEN m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED THEN m.netAmount ELSE 0 END), 0), " +
            "COALESCE(SUM(CASE WHEN m.escrowStatus IN (com.prm.contract.constant.EscrowStatus.HELD, com.prm.contract.constant.EscrowStatus.FROZEN) THEN m.netAmount ELSE 0 END), 0), " +
            "COALESCE(SUM(CASE WHEN m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED THEN m.platformFee ELSE 0 END), 0) " +
            "FROM Milestone m " +
            "JOIN m.contract c " +
-           "WHERE c.freelancer.id = :freelancerId")
-    Object[] getFreelancerFinancials(@Param("freelancerId") Long freelancerId);
+           "WHERE c.creator.id = :creatorId")
+    Object[] getCreatorEarnedFinancials(@Param("creatorId") Long creatorId);
 
     @Query("SELECT " +
            "COALESCE(SUM(CASE WHEN m.escrowStatus = com.prm.contract.constant.EscrowStatus.RELEASED THEN m.amount ELSE 0 END), 0), " +
@@ -139,8 +139,8 @@ public interface MilestoneRepository extends JpaRepository<Milestone, Long> {
            "COALESCE(SUM(CASE WHEN m.escrowStatus = com.prm.contract.constant.EscrowStatus.REFUNDED THEN m.amount ELSE 0 END), 0) " +
            "FROM Milestone m " +
            "JOIN m.contract c " +
-           "WHERE c.creator.id = :creatorId")
-    Object[] getCreatorFinancials(@Param("creatorId") Long creatorId);
+           "WHERE c.freelancer.id = :requesterId")
+    Object[] getRequesterSpentFinancials(@Param("requesterId") Long requesterId);
 
     // --- 6. My Milestones by User ---
     @Query(value = "SELECT m FROM Milestone m JOIN FETCH m.contract c " +

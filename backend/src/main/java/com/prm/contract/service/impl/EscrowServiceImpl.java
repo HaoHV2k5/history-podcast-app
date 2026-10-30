@@ -3,12 +3,14 @@ package com.prm.contract.service.impl;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
 import com.prm.contract.config.BookingEscrowProperties;
+import com.prm.contract.constant.CommissionStatus;
 import com.prm.contract.constant.ContractStatus;
 import com.prm.contract.constant.EscrowStatus;
 import com.prm.contract.constant.MilestoneStatus;
 import com.prm.contract.dto.response.EscrowPaymentResponse;
 import com.prm.contract.entity.Contract;
 import com.prm.contract.entity.Milestone;
+import com.prm.contract.repository.CommissionRepository;
 import com.prm.contract.repository.ContractRepository;
 import com.prm.contract.repository.MilestoneRepository;
 import com.prm.contract.service.EscrowService;
@@ -38,6 +40,7 @@ public class EscrowServiceImpl implements EscrowService {
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
     private final BookingEscrowProperties properties;
+    private final CommissionRepository commissionRepository;
 
     @Override
     public EscrowPaymentResponse releaseMilestoneEscrow(Long milestoneId) {
@@ -55,23 +58,27 @@ public class EscrowServiceImpl implements EscrowService {
         }
 
         Contract contract = milestone.getContract();
-        User freelancer = contract.getFreelancer();
+        User creator = contract.getCreator();
 
-        // 1. Khóa bi quan và cộng tiền vào ví của Freelancer (Idempotent DB Transaction)
-        Wallet freelancerWallet = getOrCreateWalletForUpdate(freelancer);
+        BigDecimal feePercent = contract.getPlatformFeePercent() != null
+                ? contract.getPlatformFeePercent()
+                : (properties.getPlatformFeePercent() != null ? properties.getPlatformFeePercent() : new BigDecimal("5.0"));
+
+        // 1. Khóa bi quan và cộng 95% (netAmount) vào ví của Creator sản xuất nội dung
+        Wallet creatorWallet = getOrCreateWalletForUpdate(creator);
         BigDecimal netAmount = milestone.getNetAmount() != null && milestone.getNetAmount().compareTo(BigDecimal.ZERO) > 0
                 ? milestone.getNetAmount()
                 : milestone.getAmount().subtract(milestone.getPlatformFee() != null ? milestone.getPlatformFee() : BigDecimal.ZERO);
 
-        freelancerWallet.setAvailableBalance(freelancerWallet.getAvailableBalance().add(netAmount));
-        walletRepository.save(freelancerWallet);
+        creatorWallet.setAvailableBalance(creatorWallet.getAvailableBalance().add(netAmount));
+        walletRepository.save(creatorWallet);
 
         String txDescription = (milestone.getPlatformFee() != null && milestone.getPlatformFee().compareTo(BigDecimal.ZERO) > 0)
-                ? "Nhận tiền giải ngân Milestone #" + milestone.getOrderNo() + " (Đã khấu trừ " + properties.getPlatformFeePercent() + "% phí nền tảng: " + milestone.getPlatformFee() + " VND)"
+                ? "Nhận tiền giải ngân Milestone #" + milestone.getOrderNo() + " (Đã khấu trừ " + feePercent + "% phí nền tảng: " + milestone.getPlatformFee() + " VND)"
                 : "Nhận tiền giải ngân Milestone #" + milestone.getOrderNo();
 
         WalletTransaction transaction = WalletTransaction.builder()
-                .wallet(freelancerWallet)
+                .wallet(creatorWallet)
                 .type("RELEASE")
                 .amount(netAmount)
                 .relatedType("MILESTONE")
@@ -82,23 +89,27 @@ public class EscrowServiceImpl implements EscrowService {
                 .build();
         walletTransactionRepository.save(transaction);
 
-        // 3. Cập nhật Escrow fields & Milestone status
+        // 2. Cập nhật Escrow fields & Milestone status
         milestone.setEscrowStatus(EscrowStatus.RELEASED);
         milestone.setReleasedAt(Instant.now());
         milestone.setStatus(MilestoneStatus.RELEASED);
         milestoneRepository.save(milestone);
 
-        // 4. Nếu là milestone cuối cùng đã được RELEASED -> Hợp đồng COMPLETED
+        // 3. Nếu tất cả milestones của hợp đồng đã được RELEASED -> Hợp đồng & HireRequest COMPLETED
         List<Milestone> allMilestones = milestoneRepository.findByContractIdOrderByOrderNoAsc(contract.getId());
         boolean allReleased = allMilestones.stream()
                 .allMatch(m -> m.getStatus() == MilestoneStatus.RELEASED);
         if (allReleased) {
             contract.setStatus(ContractStatus.COMPLETED);
             contractRepository.save(contract);
+            if (contract.getHireRequest() != null) {
+                contract.getHireRequest().setStatus(CommissionStatus.COMPLETED.name());
+                commissionRepository.save(contract.getHireRequest());
+            }
             log.info("Contract {} marked as COMPLETED after last milestone released", contract.getId());
         }
 
-        log.info("Released escrow for milestone {} to freelancer {}: net {}", milestoneId, freelancer.getEmail(), netAmount);
+        log.info("Released escrow for milestone {} to creator {}: net {}", milestoneId, creator.getEmail(), netAmount);
         return toResponse(milestone);
     }
 
@@ -117,17 +128,17 @@ public class EscrowServiceImpl implements EscrowService {
         }
 
         Contract contract = milestone.getContract();
-        User creator = contract.getCreator();
+        User requester = contract.getFreelancer();
 
-        // 1. Khóa ví Creator và hoàn trả lại toàn bộ tiền đã ký quỹ
-        Wallet creatorWallet = getOrCreateWalletForUpdate(creator);
+        // 1. Khóa ví Người đặt nội dung (Customer/Requester) và hoàn trả lại 100% tiền đã ký quỹ của milestone này
+        Wallet requesterWallet = getOrCreateWalletForUpdate(requester);
         BigDecimal refundAmount = milestone.getAmount();
-        creatorWallet.setAvailableBalance(creatorWallet.getAvailableBalance().add(refundAmount));
-        walletRepository.save(creatorWallet);
+        requesterWallet.setAvailableBalance(requesterWallet.getAvailableBalance().add(refundAmount));
+        walletRepository.save(requesterWallet);
 
-        // 2. Ghi nhận giao dịch
+        // 2. Ghi nhận giao dịch hoàn tiền
         WalletTransaction transaction = WalletTransaction.builder()
-                .wallet(creatorWallet)
+                .wallet(requesterWallet)
                 .type("REFUND")
                 .amount(refundAmount)
                 .relatedType("MILESTONE")
@@ -144,79 +155,83 @@ public class EscrowServiceImpl implements EscrowService {
         milestone.setStatus(MilestoneStatus.CANCELLED);
         milestoneRepository.save(milestone);
 
-        log.info("Refunded escrow for milestone {} to creator {}: amount {}", milestoneId, creator.getEmail(), refundAmount);
+        log.info("Refunded escrow for milestone {} to requester {}: amount {}", milestoneId, requester.getEmail(), refundAmount);
         return toResponse(milestone);
     }
 
     @Override
-    public EscrowPaymentResponse splitMilestoneEscrow(Long milestoneId, BigDecimal freelancerPercent, String reason) {
+    public EscrowPaymentResponse splitMilestoneEscrow(Long milestoneId, BigDecimal creatorPercent, String reason) {
         Milestone milestone = milestoneRepository.findById(milestoneId)
                 .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone: " + milestoneId));
 
         Contract contract = milestone.getContract();
         User creator = contract.getCreator();
-        User freelancer = contract.getFreelancer();
+        User requester = contract.getFreelancer();
 
         BigDecimal totalAmount = milestone.getAmount();
-        if (freelancerPercent == null || freelancerPercent.compareTo(BigDecimal.ZERO) < 0 || freelancerPercent.compareTo(new BigDecimal("100")) > 0) {
+        if (creatorPercent == null || creatorPercent.compareTo(BigDecimal.ZERO) < 0 || creatorPercent.compareTo(new BigDecimal("100")) > 0) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Tỉ lệ phân chia phần trăm phải từ 0% đến 100%");
         }
 
-        // Freelancer Gross = totalAmount * (freelancerPercent / 100)
-        BigDecimal freelancerGross = totalAmount.multiply(freelancerPercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        // Fee = freelancerGross * (platformFeePercent / 100)
-        BigDecimal fee = freelancerGross.multiply(properties.getPlatformFeePercent()).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        BigDecimal freelancerNet = freelancerGross.subtract(fee);
-        // Creator Refund = totalAmount - freelancerGross
-        BigDecimal creatorRefund = totalAmount.subtract(freelancerGross);
+        BigDecimal feePercent = contract.getPlatformFeePercent() != null
+                ? contract.getPlatformFeePercent()
+                : (properties.getPlatformFeePercent() != null ? properties.getPlatformFeePercent() : new BigDecimal("5.0"));
 
-        // Cộng tiền cho Freelancer nếu > 0
-        if (freelancerNet.compareTo(BigDecimal.ZERO) > 0) {
-            Wallet freelancerWallet = getOrCreateWalletForUpdate(freelancer);
-            freelancerWallet.setAvailableBalance(freelancerWallet.getAvailableBalance().add(freelancerNet));
-            walletRepository.save(freelancerWallet);
+        // Creator Gross = totalAmount * (creatorPercent / 100)
+        BigDecimal creatorGross = totalAmount.multiply(creatorPercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        // Fee = creatorGross * (feePercent / 100)
+        BigDecimal fee = creatorGross.multiply(feePercent).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+        BigDecimal creatorNet = creatorGross.subtract(fee);
+        // Requester Refund = totalAmount - creatorGross
+        BigDecimal requesterRefund = totalAmount.subtract(creatorGross);
 
-            WalletTransaction flTx = WalletTransaction.builder()
-                    .wallet(freelancerWallet)
-                    .type("RELEASE")
-                    .amount(freelancerNet)
-                    .relatedType("MILESTONE")
-                    .relatedId(milestone.getId())
-                    .status("SUCCESS")
-                    .description("Nhận phân xử tranh chấp (" + freelancerPercent + "%) cho Milestone #" + milestone.getOrderNo() + " (Đã trừ phí sàn)")
-                    .createdAt(Instant.now())
-                    .build();
-            walletTransactionRepository.save(flTx);
-        }
-
-        // Hoàn tiền cho Creator nếu > 0
-        if (creatorRefund.compareTo(BigDecimal.ZERO) > 0) {
+        // Cộng tiền cho Creator sản xuất nội dung nếu > 0
+        if (creatorNet.compareTo(BigDecimal.ZERO) > 0) {
             Wallet creatorWallet = getOrCreateWalletForUpdate(creator);
-            creatorWallet.setAvailableBalance(creatorWallet.getAvailableBalance().add(creatorRefund));
+            creatorWallet.setAvailableBalance(creatorWallet.getAvailableBalance().add(creatorNet));
             walletRepository.save(creatorWallet);
 
-            BigDecimal creatorPercent = new BigDecimal("100").subtract(freelancerPercent);
             WalletTransaction crTx = WalletTransaction.builder()
                     .wallet(creatorWallet)
-                    .type("REFUND")
-                    .amount(creatorRefund)
+                    .type("RELEASE")
+                    .amount(creatorNet)
                     .relatedType("MILESTONE")
                     .relatedId(milestone.getId())
                     .status("SUCCESS")
-                    .description("Hoàn tiền phân xử tranh chấp (" + creatorPercent + "%) cho Milestone #" + milestone.getOrderNo())
+                    .description("Nhận phân xử tranh chấp (" + creatorPercent + "%) cho Milestone #" + milestone.getOrderNo() + " (Đã trừ phí sàn)")
                     .createdAt(Instant.now())
                     .build();
             walletTransactionRepository.save(crTx);
         }
 
+        // Hoàn tiền cho Người đặt nội dung (Customer/Requester) nếu > 0
+        if (requesterRefund.compareTo(BigDecimal.ZERO) > 0) {
+            Wallet requesterWallet = getOrCreateWalletForUpdate(requester);
+            requesterWallet.setAvailableBalance(requesterWallet.getAvailableBalance().add(requesterRefund));
+            walletRepository.save(requesterWallet);
+
+            BigDecimal requesterPercent = new BigDecimal("100").subtract(creatorPercent);
+            WalletTransaction reqTx = WalletTransaction.builder()
+                    .wallet(requesterWallet)
+                    .type("REFUND")
+                    .amount(requesterRefund)
+                    .relatedType("MILESTONE")
+                    .relatedId(milestone.getId())
+                    .status("SUCCESS")
+                    .description("Hoàn tiền phân xử tranh chấp (" + requesterPercent + "%) cho Milestone #" + milestone.getOrderNo())
+                    .createdAt(Instant.now())
+                    .build();
+            walletTransactionRepository.save(reqTx);
+        }
+
         milestone.setEscrowStatus(EscrowStatus.RELEASED);
         milestone.setPlatformFee(fee);
-        milestone.setNetAmount(freelancerNet);
+        milestone.setNetAmount(creatorNet);
         milestone.setReleasedAt(Instant.now());
         milestone.setStatus(MilestoneStatus.RELEASED);
         milestoneRepository.save(milestone);
 
-        log.info("Split escrow for milestone {}: freelancer net={}, creator refund={}, fee={}", milestoneId, freelancerNet, creatorRefund, fee);
+        log.info("Split escrow for milestone {}: creator net={}, requester refund={}, fee={}", milestoneId, creatorNet, requesterRefund, fee);
         return toResponse(milestone);
     }
 
