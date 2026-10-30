@@ -26,6 +26,10 @@ public class AdminMilestoneRevenueResponse {
     private String creatorName;
     private String creatorEmail;
 
+    private Long requesterId;
+    private String requesterName;
+    private String requesterEmail;
+
     private Long freelancerId;
     private String freelancerName;
     private String freelancerEmail;

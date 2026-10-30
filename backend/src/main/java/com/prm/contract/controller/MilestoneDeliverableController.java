@@ -21,15 +21,15 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@Tag(name = "Milestone Deliverables", description = "Quản lý sản phẩm đầu ra theo từng giai đoạn Milestone & liên kết bài Post")
+@Tag(name = "Milestone Deliverables", description = "Quản lý sản phẩm đầu ra theo từng giai đoạn Milestone của hợp đồng đặt làm nội dung")
 @SecurityRequirement(name = "Bearer Authentication")
 public class MilestoneDeliverableController {
 
     private final MilestoneDeliverableService deliverableService;
 
     @PostMapping(value = "/api/v1/milestones/{milestoneId}/deliverables", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Freelancer tải lên sản phẩm đầu ra cho Milestone",
-            description = "Tải tệp sản phẩm (PDF, ZIP, tài liệu...), tự động lưu phiên bản, liên kết với Post và chuyển Milestone sang SUBMITTED")
+    @Operation(summary = "Creator tải lên sản phẩm bàn giao cho Milestone",
+            description = "Creator tải tệp sản phẩm (Audio, Video, PDF, ZIP...), tự động đánh số phiên bản (v1, v2...) và chuyển Milestone sang SUBMITTED để Người đặt nội dung nghiệm thu")
     public ResponseEntity<ApiResponse<MilestoneDeliverableResponse>> uploadDeliverable(
             @PathVariable Long milestoneId,
             @RequestParam(required = false) String title,
@@ -42,21 +42,11 @@ public class MilestoneDeliverableController {
 
     @GetMapping("/api/v1/milestones/{milestoneId}/deliverables")
     @Operation(summary = "Lấy danh sách sản phẩm đầu ra của một Milestone",
-            description = "Chỉ Creator và Freelancer của hợp đồng mới có quyền xem danh sách này")
+            description = "Chỉ Creator và Người đặt nội dung của hợp đồng mới có quyền xem danh sách này")
     public ResponseEntity<ApiResponse<List<MilestoneDeliverableResponse>>> getDeliverablesByMilestone(
             @PathVariable Long milestoneId
     ) {
         List<MilestoneDeliverableResponse> list = deliverableService.getDeliverablesByMilestone(milestoneId);
-        return ResponseEntity.ok(ApiResponse.success(list));
-    }
-
-    @GetMapping("/api/v1/posts/{postId}/deliverables")
-    @Operation(summary = "Lấy danh sách tất cả sản phẩm đầu ra của các hợp đồng thuộc bài đăng Post",
-            description = "Dành cho chủ bài đăng Post hoặc Freelancer nhận việc để theo dõi các sản phẩm đã bàn giao")
-    public ResponseEntity<ApiResponse<List<MilestoneDeliverableResponse>>> getDeliverablesByPost(
-            @PathVariable Long postId
-    ) {
-        List<MilestoneDeliverableResponse> list = deliverableService.getDeliverablesByPost(postId);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 

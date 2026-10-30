@@ -1,238 +1,139 @@
-# TÀI LIỆU TOÀN DIỆN VỀ LUỒNG MILESTONE (GIAI ĐOẠN HỢP ĐỒNG)
+# TÀI LIỆU TOÀN DIỆN VỀ LUỒNG ĐẶT LÀM NỘI DUNG & MILESTONE ESCROW
 
 ---
 
 ## 1. TỔNG QUAN & CÁC BÊN THAM GIA (ACTORS)
 
-### 1.1. Milestone là gì?
-Trong hệ thống, một hợp đồng dịch vụ / công việc (`Contract`) được chia nhỏ thành **từ 1 đến 5 giai đoạn (`Milestone`)**. Mỗi giai đoạn đại diện cho một phần khối lượng công việc, có số tiền riêng, yêu cầu riêng và thời hạn hoàn thành riêng.
+### 1.1. Luồng Đặt làm nội dung (Commission) & Milestone là gì?
+Trong hệ thống History Podcast, **Người nghe (`USER` / `VIEWER`)** có thể gửi yêu cầu đặt **Nhà sáng tạo (`CREATOR`)** sản xuất nội dung lịch sử theo yêu cầu:
+- **`SINGLE_VIDEO`**: Video / Podcast đơn lẻ.
+- **`SERIES`**: Chuỗi nhiều tập chuyên sâu (Lưu ý: Không hỗ trợ đặt `LIVESTREAM`).
 
-Cơ chế cốt lõi của Milestone là **Ký quỹ bảo chứng (Escrow)**:
-- Tiền của người thuê được chuyển vào quỹ ký quỹ trung gian an toàn do hệ thống quản lý.
-- Người làm chỉ nhận được tiền giải ngân khi sản phẩm bàn giao đạt yêu cầu và đã được người thuê nghiệm thu.
+Sau khi Creator chấp nhận yêu cầu và hai bên thống nhất qua phòng Chat 1-1, Creator sẽ lập **Hợp đồng & Lộ trình thực hiện (`Contract`)** gồm **từ 1 đến tối đa 20 giai đoạn (`Milestone`)**. Mỗi giai đoạn đại diện cho một phần khối lượng công việc (ví dụ: Đề cương kịch bản, Bản thu âm nháp, Video hoàn chỉnh Tập 1, Tập 2...), có số tiền riêng, yêu cầu bàn giao riêng và số ngày thực hiện riêng.
+
+Cơ chế bảo vệ cốt lõi của hệ thống là **Ký quỹ bảo chứng cuốn chiếu (Sequential Milestone Escrow)**:
+- **Người thuê (Listener/Viewer)** duyệt toàn bộ lộ trình 1 lần ở đầu hợp đồng, nhưng chỉ nạp tiền ký quỹ **cuốn chiếu từng giai đoạn một** vào quỹ bảo chứng trung gian (Escrow) của hệ thống.
+- **Creator** chỉ bắt đầu làm việc khi thấy giai đoạn hiện tại đã được nạp tiền ký quỹ an toàn (`IN_PROGRESS` / `HELD`) và nhận **95% giá trị giai đoạn** về ví khả dụng sau khi sản phẩm được nghiệm thu (Sàn thu **5% phí vận hành**).
 
 ### 1.2. Các bên tham gia (Actors)
-1. **Creator (Bên thuê / Người tạo việc)**:
-   - Nạp tiền ký quỹ cho từng giai đoạn vào tài khoản bảo chứng của hệ thống.
-   - Thẩm định sản phẩm do Freelancer nộp (Duyệt nghiệm thu hoặc Yêu cầu chỉnh sửa).
-   - Có quyền hủy giai đoạn và nhận lại tiền nếu Freelancer làm trễ hạn cam kết.
-2. **Freelancer (Người nhận việc / Chuyên gia)**:
-   - Thực hiện công việc sau khi thấy giai đoạn đã được nạp tiền ký quỹ an toàn.
-   - Nộp sản phẩm đầu ra (văn bản giải trình, đường dẫn sản phẩm, tệp đính kèm).
-   - Tiếp thu và chỉnh sửa sản phẩm nếu Creator có yêu cầu (trong giới hạn số lần thỏa thuận).
-   - Nhận tiền thanh toán về ví khả dụng sau khi giai đoạn được nghiệm thu.
-3. **Hệ thống tự động (System / Background Worker - `BookingEscrowScheduledService`)**:
+1. **Người thuê / Người đặt nội dung (`USER` / `VIEWER` - lưu tại `hire_requests.narrator_id` & `contracts.freelancer_id`)**:
+   - Gửi yêu cầu đặt làm nội dung (`SINGLE_VIDEO` hoặc `SERIES`) tới kênh của Creator.
+   - Áp dụng **Quy tắc 1 Đơn Đang Thực Hiện (1 Active Commission Rule)**: Tại một thời điểm chỉ được có tối đa 1 yêu cầu/hợp đồng đang hoạt động để chống spam.
+   - Duyệt hoặc từ chối lộ trình Milestone do Creator lập; nạp tiền ký quỹ (`Fund`) cho từng giai đoạn khi đến lượt.
+   - Thẩm định sản phẩm do Creator nộp: **Duyệt nghiệm thu (`Approve`)** hoặc **Yêu cầu chỉnh sửa (`Request Revision` - tối đa 2 lần/mốc)**.
+   - Có quyền **hủy ngay giai đoạn trễ hạn (`Cancel Overdue`)** và nhận lại **100% tiền ký quỹ** của giai đoạn đó nếu Creator trễ deadline bàn giao.
+2. **Nhà sáng tạo (`CREATOR` - lưu tại `hire_requests.creator_id` & `contracts.creator_id`)**:
+   - Chấp nhận (`Accept` - mở khóa phòng Chat 1-1) hoặc Từ chối (`Reject` - bắt buộc nhập lý do từ chối) yêu cầu đặt nội dung.
+   - Lập lộ trình từ `1..20` Milestone; có toàn quyền **chỉnh sửa thông tin từng Milestone hoặc xóa bớt Milestone (ví dụ gộp 2 mốc cuối thành 1 mốc)** khi đang thương lượng (`PENDING` / `REJECTED` trước khi nạp quỹ).
+   - Thực hiện sản xuất nội dung và nộp sản phẩm bàn giao (`Submit` / `Upload Deliverable`).
+   - Nhận giải ngân **95% (`netAmount`)** về ví khả dụng sau khi hoàn tất nghiệm thu.
+3. **Hệ thống tự động (`BookingEscrowScheduledService`)**:
    - Tự động đếm ngược hạn chót (deadlines).
-   - Tự động duyệt nghiệm thu (`Auto-Approve`) nếu Creator quá hạn 3 ngày không phản hồi.
-   - Tự động giải ngân tiền về ví Freelancer (`Auto-Release`) sau 3 ngày giữ tiền an toàn.
-   - Tự động hủy hợp đồng nếu Creator không nạp tiền ký quỹ đúng hạn.
+   - Tự động duyệt nghiệm thu (`Auto-Approve`) nếu Người thuê quá hạn **3 ngày** không phản hồi sau khi Creator nộp bài.
+   - Tự động giải ngân 95% về ví Creator (`Auto-Release`) sau **3 ngày giữ tiền an toàn (`releaseHoldDays = 3`)**.
+   - Tự động hủy hợp đồng nếu Người thuê không nạp tiền ký quỹ Mốc #1 trong **48 giờ** hoặc tạm dừng quá **7 ngày** ở các Mốc #2 trở đi.
 4. **Admin (Ban Quản trị nền tảng)**:
-   - Đóng vai trò trọng tài độc lập khi hai bên phát sinh khiếu nại, tranh chấp (`Dispute`).
-   - Đưa ra phán quyết cuối cùng: trả tiền cho Freelancer, hoàn tiền cho Creator, hoặc phân chia theo tỷ lệ %.
+   - Quản lý tập trung bộ **Chính sách vận hành toàn sàn (Platform Policy)** và đóng vai trò trọng tài độc lập khi phát sinh tranh chấp (`Dispute`).
 
 ---
 
-## 2. VÒNG ĐỜI TRẠNG THÁI CỦA MILESTONE
+## 2. VÒNG ĐỜI TRẠNG THÁI CỦA ĐƠN ĐẶT HÀNG & MILESTONE
 
-Một Milestone trải qua các trạng thái tuần tự như sau:
+### 2.1. Trạng thái Đơn yêu cầu đặt nội dung (`CommissionStatus`)
+- **`PENDING`**: Người nghe vừa gửi đơn, chờ Creator phản hồi (Phòng Chat 1-1 đang khóa để chống spam).
+- **`ACCEPTED`**: Creator đã chấp nhận yêu cầu $\rightarrow$ **Mở khóa phòng Chat 1-1 (`hire_request_{id}`)** để hai bên trao đổi chi tiết.
+- **`REJECTED`**: Creator từ chối đơn (kèm `rejectionReason` bắt buộc) $\rightarrow$ Giải phóng ngay lượt đặt hàng cho Người nghe đi thuê Creator khác.
+- **`CANCELLED`**: Người nghe chủ động hủy đơn (hoặc hợp đồng bị hủy) $\rightarrow$ Giải phóng lượt đặt hàng.
+- **`CONTRACT_SENT`**: Creator đã lập và gửi lộ trình Milestone (Contract dùng chung phòng chat `hire_request_{id}`).
+- **`COMPLETED`**: Toàn bộ các Milestone của hợp đồng đã hoàn thành và giải ngân xong.
+
+### 2.2. Trạng thái Giai đoạn (`MilestoneStatus`) & Tiền ký quỹ (`EscrowStatus`)
 
 | Trạng thái Milestone (`MilestoneStatus`) | Trạng thái Tiền (`EscrowStatus`) | Ý nghĩa thực tế |
 | :--- | :--- | :--- |
-| **WAITING** | `NONE` (Chưa nộp) | Giai đoạn đang xếp hàng chờ. Các giai đoạn trước chưa hoàn thành nên chưa đến lượt. |
-| **UNFUNDED** | `NONE` (Chưa nộp) | Đã đến lượt thực hiện. Hệ thống yêu cầu Creator phải nạp tiền ký quỹ trong vòng 48 giờ. |
-| **IN_PROGRESS** | `HELD` (Đang phong tỏa) | Creator đã ký quỹ thành công. Tiền bị khóa trong Escrow. Freelancer bắt đầu làm việc và hệ thống tính deadline bàn giao (`due_at`). |
-| **SUBMITTED** | `HELD` (Đang phong tỏa) | Freelancer đã nộp sản phẩm. Hệ thống đếm ngược 3 ngày để Creator kiểm tra và phản hồi. |
-| **APPROVED** | `HELD` (Đang phong tỏa) | Creator đã duyệt sản phẩm (hoặc hệ thống tự động duyệt). Hệ thống giữ tiền tiếp trong **3 ngày đệm an toàn** (`release_at`). Đồng thời kích hoạt Milestone kế tiếp sang `UNFUNDED`. |
-| **RELEASED** | `RELEASED` (Đã chuyển giao) | Hết 3 ngày giữ tiền an toàn mà không có khiếu nại, tiền được giải ngân trực tiếp vào ví khả dụng của Freelancer (đã khấu trừ 5% phí sàn). |
-| **DISPUTED** | `FROZEN` (Đóng băng) | Một trong hai bên mở khiếu nại. Toàn bộ tiền của giai đoạn này bị đóng băng, đợi Admin phân xử. |
-| **CANCELLED** | `REFUNDED` (Hoàn trả) | Giai đoạn bị hủy (do trễ hạn, không ký quỹ, hoặc Admin phân xử hoàn tiền). Tiền ký quỹ được hoàn trả lại ví Creator. |
+| **WAITING** | `NONE` (Chưa nạp) | Giai đoạn đang xếp hàng chờ. Khi hợp đồng mới tạo hoặc các giai đoạn trước chưa được duyệt nghiệm thu. |
+| **UNFUNDED** | `NONE` (Chưa nạp) | Đã mở khóa đến lượt thực hiện. Người thuê có **48 giờ** (`fundDueAt`) để nạp tiền ký quỹ. |
+| **IN_PROGRESS** | `HELD` (Đang phong tỏa) | Người thuê đã nạp tiền ký quỹ thành công. Tiền được giữ trong Escrow. Creator bắt đầu sản xuất nội dung theo hạn bàn giao (`dueAt`). |
+| **SUBMITTED** | `HELD` (Đang phong tỏa) | Creator đã nộp sản phẩm bàn giao. Hệ thống đếm ngược **3 ngày** (`reviewDueAt`) để Người thuê kiểm tra và phản hồi. |
+| **APPROVED** | `HELD` (Đang phong tỏa) | Người thuê đã duyệt sản phẩm (hoặc hệ thống tự động duyệt). Hệ thống giữ tiền **3 ngày đệm an toàn** (`releaseAt`), đồng thời **mở khóa ngay Milestone kế tiếp sang `UNFUNDED`**. |
+| **RELEASED** | `RELEASED` (Đã giải ngân) | Hết 3 ngày giữ tiền an toàn mà không có khiếu nại, **95% tiền được cộng vào ví khả dụng của Creator** (5% phí nền tảng). |
+| **DISPUTED** | `FROZEN` (Đóng băng) | Một trong hai bên mở khiếu nại. Toàn bộ tiền ký quỹ của giai đoạn này bị đóng băng chờ Admin phân xử. |
+| **CANCELLED** | `REFUNDED` (Hoàn trả 100%) | Giai đoạn bị hủy (do Creator trễ hạn hoặc Admin phân xử hoàn tiền). **100% tiền ký quỹ của giai đoạn đang chạy được hoàn trả về ví Người thuê**. |
 
 ---
 
 ## 3. TOÀN BỘ LUỒNG HOẠT ĐỘNG TỪNG BƯỚC (STEP-BY-STEP FLOW)
 
-### Bước 1: Kích hoạt Milestone đầu tiên
-- **Điều kiện**: Creator tạo hợp đồng (chứa danh sách các Milestone) và gửi cho Freelancer.
-- **Hành động**: Freelancer bấm **Chấp nhận hợp đồng (Accept Contract)**.
+### Bước 1: Gửi Yêu cầu Đặt làm Nội dung & Mở khóa Chat 1-1
+1. **Người nghe gửi yêu cầu**: Gọi `POST /api/v1/commissions` (hỗ trợ song song alias `POST /api/v1/hire-requests`) với 4 trường tinh gọn: `channelId` (hoặc `creatorId`), `contentType` (`SINGLE_VIDEO` | `SERIES`), `title`, `description`.
+2. **Creator phản hồi**:
+   - Nếu từ chối: Gọi `POST /api/v1/commissions/{id}/reject` kèm lý do (`reason`). Đơn chuyển sang `REJECTED`, người nghe được mở khóa để đặt kênh khác.
+   - Nếu đồng ý: Gọi `POST /api/v1/commissions/{id}/accept`. Đơn chuyển sang `ACCEPTED`, mở khóa phòng Chat 1-1 (`POST /api/v1/chats/conversation` với `hireRequestId`).
+
+### Bước 2: Creator lập Lộ trình Milestone & Thương lượng (Sửa / Gộp / Xóa mốc)
+1. **Creator tạo hợp đồng**: Gọi `POST /api/v1/contracts` (truyền `hireRequestId`, `title`, `description` và danh sách `1..20` milestones, mỗi mốc chỉ cần 4 trường: `title`, `requirement`, `amount`, `durationDays`).
+   - Tất cả các Milestone khởi tạo ở trạng thái `WAITING`.
+   - Hợp đồng snapshot tỷ lệ phí sàn hiện hành (`5.0%`) để đảm bảo tính bất biến lịch sử.
+2. **Thương lượng & Chỉnh sửa / Gộp / Xóa Milestone (trước khi nạp quỹ)**:
+   - Nếu Người thuê muốn điều chỉnh lộ trình (ví dụ gộp 2 mốc cuối thành 1 mốc và tăng thời gian thực hiện), Người thuê có thể nhắn qua Chat hoặc bấm `POST /api/v1/contracts/{id}/reject`.
+   - Khi hợp đồng đang ở `PENDING` hoặc `REJECTED` (chưa có mốc nào nạp tiền ký quỹ), Creator có thể:
+     - **Xóa bớt 1 Milestone**: `DELETE /api/v1/milestones/{id}` (khi hợp đồng có từ 2 mốc trở lên) $\rightarrow$ Hệ thống xóa mốc, tự động đánh lại `orderNo = 1..N` và tính lại tổng tiền hợp đồng.
+     - **Sửa thông tin 1 Milestone**: `PUT /api/v1/milestones/{id}` $\rightarrow$ Sửa `title`, `requirement`, `amount`, `durationDays` và tự động tính lại tổng tiền hợp đồng.
+     - **Cập nhật toàn bộ lộ trình**: `PUT /api/v1/contracts/{id}` $\rightarrow$ Thay thế danh sách milestone mới và gửi lại cho Người thuê duyệt.
+
+### Bước 3: Người thuê Chấp thuận Lộ trình & Mở khóa Mốc #1
+- **Hành động**: Người thuê đọc toàn bộ lộ trình `1..N` Milestone và bấm `POST /api/v1/contracts/{id}/accept`.
 - **Hệ thống xử lý**:
-  - Hợp đồng chuyển sang `ACTIVE`.
-  - **Milestone 1** tự động đổi từ `WAITING` sang `UNFUNDED`.
-  - Hệ thống đặt thời hạn ký quỹ: `fund_due_at = Hiện tại + 48 giờ`.
-  - Các Milestone từ số 2 trở đi vẫn nằm ở trạng thái chờ `WAITING`.
+  - Hợp đồng chuyển sang `ACTIVE`, khóa cấu trúc lộ trình (không ai được tự ý sửa/xóa mốc nữa).
+  - **Duy nhất Milestone #1** được mở khóa từ `WAITING` sang `UNFUNDED` (`fundDueAt = Hiện tại + 48 giờ`).
+  - Các Milestone từ #2 trở đi vẫn giữ trạng thái `WAITING`.
 
----
+### Bước 4: Người thuê Nạp tiền Ký quỹ (`Fund Milestone`)
+- **Actor thực hiện**: Người thuê (`USER` / `VIEWER`).
+- **Hành động**: Gọi `POST /api/v1/milestones/{id}/fund`.
+- **Hệ thống xử lý**:
+  - Trừ 100% số tiền của giai đoạn đó từ ví khả dụng của Người thuê chuyển vào quỹ bảo chứng Escrow (`HELD`).
+  - Chuyển trạng thái Milestone sang `IN_PROGRESS` và bắt đầu đếm ngược hạn bàn giao của Creator: `dueAt = Hiện tại + durationDays`.
 
-### Bước 2: Ký quỹ giai đoạn (Creator ký quỹ)
+### Bước 5: Creator Nộp sản phẩm bàn giao (`Submit` / `Upload Deliverable`)
 - **Actor thực hiện**: Creator.
-- **Hành động**: Creator gọi API ký quỹ (`POST /api/v1/milestones/{id}/fund`).
-- **Ràng buộc kiểm tra**:
-  - Phải đúng là Creator của hợp đồng.
-  - Milestone phải đang ở trạng thái `UNFUNDED`.
-  - Số dư khả dụng trong ví Creator phải $\ge$ số tiền của Milestone.
+- **Hành động**: Gọi `POST /api/v1/milestones/{id}/submit` hoặc tải tệp lên qua `POST /api/v1/milestones/{milestoneId}/deliverables`.
 - **Hệ thống xử lý**:
-  - Khóa số dư ví Creator và trừ tiền ngay lập tức.
-  - Tạo giao dịch ví loại `FUND_ESCROW` (ghi nhận trừ tiền).
-  - Đổi trạng thái tiền thành `HELD` (tiền nằm ở tài khoản bảo chứng).
-  - Đổi trạng thái Milestone thành `IN_PROGRESS`.
-  - **Bắt đầu tính deadline bàn giao**: `due_at = Hiện tại + duration_days` (số ngày làm việc đã cam kết).
+  - Lưu phiên bản bàn giao (`versionNo` tự tăng: v1, v2...).
+  - Chuyển Milestone sang `SUBMITTED` và đặt hạn nghiệm thu `reviewDueAt = Hiện tại + 3 ngày`.
+
+### Bước 6: Người thuê Nghiệm thu hoặc Yêu cầu Chỉnh sửa
+- **Lựa chọn A — Yêu cầu chỉnh sửa (`POST /api/v1/milestones/{id}/request-revision`)**:
+  - Áp dụng tối đa **2 lần sửa miễn phí / milestone** (`maxRevisions = 2`).
+  - Milestone quay lại `IN_PROGRESS`, cộng thêm **2 ngày** (`revisionDays = 2`) vào `dueAt` để Creator chỉnh sửa và nộp lại.
+- **Lựa chọn B — Duyệt nghiệm thu (`POST /api/v1/milestones/{id}/approve`) hoặc Tự động duyệt sau 3 ngày**:
+  - Milestone chuyển sang `APPROVED`, hẹn giờ giải ngân `releaseAt = Hiện tại + 3 ngày`.
+  - **Mở khóa ngay Milestone tiếp theo (`orderNo + 1`)** từ `WAITING` sang `UNFUNDED` để Người thuê có thể nạp tiền làm tiếp ngay mà không phải đợi hết 3 ngày giam tiền của mốc trước.
+
+### Bước 7: Giải ngân về ví Creator (95% Creator / 5% Platform)
+- Sau 3 ngày đệm an toàn (`releaseHoldDays = 3`) kể từ khi `APPROVED` mà không có tranh chấp (`Dispute`), hệ thống tự động giải ngân:
+  - Cộng **95% (`netAmount`)** vào ví khả dụng của **Creator**.
+  - Khấu trừ **5% (`platformFee`)** doanh thu vận hành nền tảng.
+  - Khi Milestone cuối cùng chuyển sang `RELEASED`, cả `Contract` và `HireRequest` tự động chuyển sang `COMPLETED`.
 
 ---
 
-### Bước 3: Freelancer làm việc và nộp sản phẩm
-- **Actor thực hiện**: Freelancer.
-- **Hành động**: Freelancer chuẩn bị bài làm và nộp qua API nộp bài (`POST /api/v1/milestones/{id}/submit`) hoặc tải tệp đính kèm (`POST /api/v1/milestones/{milestoneId}/deliverables`).
-- **Ràng buộc kiểm tra**:
-  - Phải đúng là Freelancer của hợp đồng.
-  - Milestone phải đang ở trạng thái `IN_PROGRESS`.
-- **Hệ thống xử lý**:
-  - Ghi nhận thông tin nộp bài (nội dung, link, tệp đính kèm) kèm số thứ tự phiên bản (`version_no` tự tăng: v1, v2...).
-  - Đổi trạng thái Milestone sang `SUBMITTED`.
-  - **Kích hoạt đồng hồ duyệt bài**: `review_due_at = Hiện tại + 3 ngày`. Creator có tối đa 3 ngày để xem bài và phản hồi.
+## 4. BẢNG THÔNG SỐ CHÍNH SÁCH VẬN HÀNH TOÀN SÀN HỢP NHẤT
 
----
+Toàn bộ thông số vận hành được công khai minh bạch tại API `GET /api/v1/policies/booking-escrow` và quản trị bởi Admin tại `PUT /api/v1/admin/booking-escrow/config`:
 
-### Bước 4: Kiểm tra và Yêu cầu chỉnh sửa (Nếu chưa đạt)
-- **Actor thực hiện**: Creator.
-- **Hành động**: Nếu sản phẩm chưa đạt, Creator gửi yêu cầu sửa (`POST /api/v1/milestones/{id}/request-revision`).
-- **Ràng buộc kiểm tra**:
-  - Chỉ Creator mới có quyền yêu cầu sửa.
-  - Milestone phải đang ở trạng thái `SUBMITTED`.
-  - **Ràng buộc số lần sửa**: Số lần đã sửa (`revisions_used`) phải nhỏ hơn số lần tối đa được phép (`max_revisions`, mặc định là 2 lần). Nếu đã hết lượt sửa, hệ thống chặn lại và bắt buộc Creator phải chọn **Duyệt (Approve)** hoặc **Mở khiếu nại (Dispute)**.
-- **Hệ thống xử lý**:
-  - Tăng số lần đã sửa: `revisions_used = revisions_used + 1`.
-  - Tạo một bản ghi yêu cầu chỉnh sửa kèm lý do phản hồi.
-  - Chuyển trạng thái Milestone quay ngược lại `IN_PROGRESS`.
-  - Gia hạn deadline sửa bài cho Freelancer: `due_at = Hiện tại + revision_days` (mặc định là 2 ngày).
-  - Hủy đồng hồ duyệt cũ (`review_due_at = null`).
-
----
-
-### Bước 5: Duyệt nghiệm thu (Creator duyệt hoặc Hệ thống tự duyệt)
-- **Tình huống 1: Creator chủ động duyệt**:
-  - Creator bấm duyệt (`POST /api/v1/milestones/{id}/approve`).
-- **Tình huống 2: Hệ thống tự động duyệt (Auto-Approve)**:
-  - Nếu bài nộp ở trạng thái `SUBMITTED` quá 3 ngày (`review_due_at`) mà Creator không phản hồi, hệ thống nền tự động can thiệp duyệt thay cho Creator.
-- **Hệ thống xử lý chung**:
-  - Đổi trạng thái Milestone sang `APPROVED`.
-  - **Thiết lập thời gian giam tiền bảo vệ (Release Hold)**: `release_at = Hiện tại + 3 ngày`. Mục đích là tạo khoảng đệm 3 ngày để hai bên kiểm tra lại, phòng ngừa gian lận hoặc vi phạm bản quyền trước khi tiền rời khỏi hệ thống.
-  - **Mở khóa Milestone kế tiếp**: Nếu hợp đồng còn Milestone tiếp theo (ví dụ Milestone 2), hệ thống lập tức chuyển Milestone đó từ `WAITING` sang `UNFUNDED`, đồng thời đặt hạn nạp tiền 48 giờ cho Creator.
-
----
-
-### Bước 6: Tự động giải ngân (Auto-Release Escrow)
-- **Actor thực hiện**: Hệ thống tự động (Scheduled Service chạy định kỳ mỗi giờ).
-- **Điều kiện kích hoạt**:
-  - Milestone ở trạng thái `APPROVED`.
-  - Thời điểm hiện tại $\ge$ `release_at` (đã hoàn thành 3 ngày đệm).
-  - Không có bất kỳ khiếu nại nào đang mở (`Dispute != OPEN`).
-- **Hệ thống xử lý**:
-  - Tính toán phí dịch vụ nền tảng: Cố định **5%** trên giá trị giai đoạn.
-  - Tính tiền thực nhận của Freelancer: `net_amount = amount - platform_fee`.
-  - Mở khóa ví Freelancer, cộng trực tiếp `net_amount` vào số dư khả dụng (`available_balance`).
-  - Tạo giao dịch ví loại `RELEASE` cho Freelancer.
-  - Đổi trạng thái tiền Escrow thành `RELEASED`, trạng thái Milestone thành `RELEASED`.
-  - **Kiểm tra hoàn thành hợp đồng**: Nếu đây là Milestone cuối cùng của hợp đồng và tất cả các Milestone đều đã `RELEASED`, hệ thống tự động đổi trạng thái Hợp đồng sang `COMPLETED`.
-
----
-
-## 4. CÁC LUỒNG NGOẠI LỆ & XỬ LÝ SỰ CỐ
-
-### 4.1. Creator không nạp tiền ký quỹ đúng hạn
-- **Trường hợp Milestone 1 (M1)**: Nếu sau 48h kể từ lúc Freelancer nhận việc mà Creator không ký quỹ, hệ thống tự động **HỦY HỢP ĐỒNG** (`CANCELLED`), đồng thời mở lại bài đăng tuyển (`OPEN`) để Freelancer khác có thể ứng tuyển.
-- **Trường hợp từ Milestone 2 trở đi (M2+)**: Nếu hoàn thành M1 nhưng Creator chần chừ không ký quỹ M2, hệ thống cho phép tạm dừng tối đa 7 ngày (`fundPauseMaxDays = 7`). Nếu quá 7 ngày vẫn không ký quỹ, hệ thống tự động hủy các giai đoạn còn lại và đóng hợp đồng.
-
-### 4.2. Freelancer trễ hạn bàn giao (Overdue)
-- **Điều kiện**: Milestone đang ở `IN_PROGRESS` nhưng thời gian hiện tại đã vượt quá hạn chót (`now > due_at`) mà Freelancer chưa nộp bài.
-- **Hành động của Creator**: Creator có quyền gọi API hủy milestone trễ hạn (`POST /api/v1/milestones/{id}/cancel-overdue`).
-- **Hệ thống xử lý**:
-  - Toàn bộ 100% tiền ký quỹ của Milestone này lập tức được hoàn trả về ví khả dụng của Creator.
-  - Tạo giao dịch ví loại `REFUND`.
-  - Đổi trạng thái Milestone sang `CANCELLED`.
-  - Đổi trạng thái hợp đồng sang `CANCELLED`.
-
-### 4.3. Phát sinh tranh chấp / Khiếu nại (Dispute Flow)
-Bất kỳ khi nào trong các trạng thái `IN_PROGRESS`, `SUBMITTED`, hoặc `APPROVED` (chưa giải ngân), nếu hai bên có mâu thuẫn:
-1. **Mở khiếu nại**: Creator hoặc Freelancer gọi `POST /api/v1/disputes`.
-   - Tiền ký quỹ lập tức bị chuyển sang trạng thái **`FROZEN` (Đóng băng tuyệt đối)**.
-   - Milestone chuyển sang trạng thái `DISPUTED`. Không ai được rút tiền hay tự động giải ngân.
-2. **Nộp bằng chứng đối chứng**: Bên bị khiếu nại gửi thêm giải trình và bằng chứng thông qua `POST /api/v1/disputes/{id}/counter-evidence`.
-3. **Admin phân xử (`POST /api/v1/disputes/{id}/resolve`)**:
-   Admin xem xét bằng chứng và đưa ra 1 trong 3 phán quyết:
-   - **Thắng cho Freelancer (`RELEASE_TO_FREELANCER`)**: Tiền giải ngân cho Freelancer (sau khi trừ 5% phí sàn). Milestone chuyển sang `RELEASED` và mở tiếp giai đoạn sau (nếu có).
-   - **Hoàn tiền cho Creator (`REFUND_TO_CREATOR`)**: Hoàn 100% tiền ký quỹ về ví Creator. Milestone và Hợp đồng bị hủy (`CANCELLED`).
-   - **Phân chia theo tỷ lệ (`SPLIT`)**: Admin quyết định tỷ lệ phân chia (ví dụ trả Freelancer 60% công sức, hoàn lại Creator 40%). Hệ thống tự động tính toán, trừ phí sàn trên phần của Freelancer, chia tiền về đúng 2 ví, sau đó giải phóng milestone.
-
----
-
-## 5. ĐÁNH GIÁ GIAI ĐOẠN (MILESTONE REVIEWS)
-
-Sau khi một Milestone đạt trạng thái `APPROVED` hoặc `RELEASED`, hai bên có thể đánh giá lẫn nhau:
-- **Actor**: Cả Creator và Freelancer.
-- **API**: `POST /api/v1/milestones/{milestoneId}/reviews`.
-- **Dữ liệu**: Chấm điểm từ 1 đến 5 sao và kèm lời nhận xét.
-- **Ràng buộc**: Mỗi bên chỉ được đánh giá đối phương 1 lần duy nhất cho mỗi Milestone (`uq_milestone_reviewer`).
-
----
-
-## 6. DANH MỤC CÁC API CHI TIẾT
-
-Tất cả các API dưới đây đều yêu cầu Header: `Authorization: Bearer <access_token>`.
-
-### 6.1. Nhóm API Quản lý Milestone (`/api/v1/milestones`)
-
-| Phương thức & Endpoint | Quyền gọi (Actor) | Dữ liệu đầu vào (Payload) | Mô tả tóm tắt |
-| :--- | :--- | :--- | :--- |
-| `POST /api/v1/milestones/{id}/fund` | Creator | *Không có body* | Ký quỹ tiền cho milestone. Trừ tiền ví Creator $\rightarrow$ Escrow. Chuyển sang `IN_PROGRESS`. |
-| `POST /api/v1/milestones/{id}/submit` | Freelancer | JSON: `{ "content": "string", "fileUrl": "string" }` | Nộp nội dung/link sản phẩm. Milestone sang `SUBMITTED`, hẹn giờ tự duyệt sau 3 ngày. |
-| `POST /api/v1/milestones/{id}/request-revision` | Creator | JSON: `{ "submissionId": 12, "note": "string" }` | Yêu cầu Freelancer sửa lại bài. Giảm lượt sửa, quay lại `IN_PROGRESS` (hạn sửa 2 ngày). |
-| `POST /api/v1/milestones/{id}/approve` | Creator | *Không có body* | Nghiệm thu bài làm. Milestone sang `APPROVED`, hẹn giờ giải ngân sau 3 ngày, kích hoạt milestone sau. |
-| `POST /api/v1/milestones/{id}/cancel-overdue` | Creator | *Không có body* | Hủy milestone khi Freelancer làm trễ hạn. Hoàn tiền 100% về ví Creator. |
-| `GET /api/v1/milestones/{id}` | Cả hai | Path param `{id}` | Lấy chi tiết toàn bộ thông tin của milestone (lịch sử nộp, tệp đính kèm, các lần sửa, đánh giá). |
-| `GET /api/v1/milestones/contract/{contractId}` | Cả hai | Path param `{contractId}` | Lấy danh sách tất cả các milestone thuộc hợp đồng. |
-
----
-
-### 6.2. Nhóm API Bàn giao Sản phẩm & Tệp đính kèm (`/api/v1/...`)
-
-| Phương thức & Endpoint | Quyền gọi (Actor) | Dữ liệu đầu vào (Payload) | Mô tả tóm tắt |
-| :--- | :--- | :--- | :--- |
-| `POST /api/v1/milestones/{milestoneId}/deliverables` | Freelancer | Multipart/form-data: `file`, `title`, `description` | Tải trực tiếp file sản phẩm đầu ra (PDF, ZIP, Video...). Tự động lưu phiên bản và chuyển milestone sang `SUBMITTED`. |
-| `GET /api/v1/milestones/{milestoneId}/deliverables` | Cả hai | Path param `{milestoneId}` | Lấy danh sách file đính kèm đã nộp của một milestone. |
-| `GET /api/v1/deliverables/{id}/view` | Cả hai | Path param `{id}` | Xem trước file trực tiếp trên ứng dụng / trình duyệt (Inline preview). |
-| `GET /api/v1/deliverables/{id}/download` | Cả hai | Path param `{id}` | Tải file đính kèm về thiết bị cá nhân (bảo vệ quyền truy cập theo token). |
-
----
-
-### 6.3. Nhóm API Khiếu nại & Tranh chấp (`/api/v1/disputes`)
-
-| Phương thức & Endpoint | Quyền gọi (Actor) | Dữ liệu đầu vào (Payload) | Mô tả tóm tắt |
-| :--- | :--- | :--- | :--- |
-| `POST /api/v1/disputes` | Creator / Freelancer | JSON: `{ "milestoneId": 1, "reason": "...", "evidence": "..." }` | Báo cáo vi phạm / mở khiếu nại. Lập tức đóng băng tiền (`FROZEN`) và dừng mọi luồng tự động. |
-| `POST /api/v1/disputes/{id}/counter-evidence` | Bên bị khiếu nại | JSON: `{ "counterEvidence": "..." }` | Gửi văn bản và tài liệu đối chứng cho khiếu nại. |
-| `POST /api/v1/disputes/{id}/resolve` | **Chỉ Admin** | JSON: `{ "result": "RELEASE_TO_FREELANCER" \| "REFUND_TO_CREATOR" \| "SPLIT", "splitPercent": 60.0, "resolution": "..." }` | Admin ra quyết định phân xử, tự động chia tiền hoặc hoàn tiền theo phán quyết. |
-| `GET /api/v1/disputes/{id}` | Các bên liên quan | Path param `{id}` | Xem chi tiết tiến trình giải quyết tranh chấp. |
-
----
-
-### 6.4. Nhóm API Đánh giá Giai đoạn (`/api/v1/milestones/{id}/reviews`)
-
-| Phương thức & Endpoint | Quyền gọi (Actor) | Dữ liệu đầu vào (Payload) | Mô tả tóm tắt |
-| :--- | :--- | :--- | :--- |
-| `POST /api/v1/milestones/{milestoneId}/reviews` | Cả hai | JSON: `{ "rating": 5, "comment": "Tốt" }` | Đánh giá đối phương (1 đến 5 sao) sau khi milestone đã `APPROVED` hoặc `RELEASED`. |
-| `GET /api/v1/milestones/{milestoneId}/reviews` | Cả hai | Path param `{milestoneId}` | Xem các đánh giá của một milestone. |
-
----
-
-## 7. BẢNG THAM SỐ CẤU HÌNH & QUY TẮC NGHIỆP VỤ CỐT LÕI
-
-| Tham số / Quy tắc | Giá trị mặc định | Giải thích nghiệp vụ |
+| Tham số Cấu hình | Giá trị Chuẩn | Ý nghĩa Nghiệp vụ |
 | :--- | :--- | :--- |
-| **Số milestone mỗi hợp đồng** | Tối đa 5 giai đoạn | Một công việc không được chia quá 5 giai đoạn để tránh phân mảnh giao dịch. |
-| **Thời hạn ký quỹ (`fundHours`)** | **48 giờ** | Creator có 48h để nạp tiền cho mỗi giai đoạn khi đến lượt. Quá hạn M1 sẽ bị hủy hợp đồng. |
-| **Tạm dừng tối đa giữa các giai đoạn** | **7 ngày** | Nếu xong M1 mà Creator không ký quỹ M2, sau 7 ngày hệ thống sẽ tự hủy hợp đồng. |
-| **Thời hạn thẩm định bài (`reviewDays`)** | **3 ngày** | Sau khi Freelancer nộp bài, nếu Creator không phản hồi trong 3 ngày, hệ thống tự động duyệt (`Auto-Approve`). |
-| **Thời gian giữ tiền an toàn (`releaseHoldDays`)** | **3 ngày** | Sau khi duyệt, tiền chưa được rút ngay mà nằm chờ 3 ngày để bảo vệ các bên trước khiếu nại/gian lận. |
-| **Số lần yêu cầu sửa tối đa (`maxRevisions`)** | Mặc định **2 lần** | Hết 2 lần sửa, Creator không thể ấn "Yêu cầu sửa" được nữa, chỉ có thể chọn Duyệt hoặc Khiếu nại. |
-| **Thời hạn sửa bài mỗi lần (`revisionDays`)** | **2 ngày** | Freelancer có 2 ngày để hoàn thành bản sửa sau khi nhận phản hồi từ Creator. |
-| **Phí dịch vụ nền tảng (`platformFeePercent`)** | **5.0%** | Khấu trừ tự động vào khoản tiền mà Freelancer nhận được khi giải ngân. |
-| **Nguyên tắc ký quỹ cuốn chiếu** | Tuần tự từng cái một | Không bắt Creator nạp 100% toàn bộ hợp đồng một lúc. Tiền chỉ ký quỹ cho giai đoạn đang làm; giai đoạn sau chỉ mở khi giai đoạn trước đã được duyệt. |
+| **`maxMilestones`** | **20 mốc** | Số giai đoạn tối đa cho một hợp đồng `SINGLE_VIDEO` hoặc `SERIES` (từ 1 đến 20 mốc). |
+| **`platformFeePercent`** | **5.0%** | Phí nền tảng cho luồng Đặt làm nội dung (Creator thực nhận **95%**). Được snapshot cứng vào từng hợp đồng lúc tạo. |
+| **`membershipFeePercent`** | **10.0%** | Phí nền tảng khi khán giả mua Gói Hội Viên kênh (Creator thực nhận **90%**, thời hạn gói **30 ngày**). |
+| **`contractAcceptHours`** | **48 giờ** | Thời hạn để Người thuê duyệt lộ trình Milestone kể từ lúc Creator gửi báo giá. |
+| **`fundHours`** | **48 giờ** | Thời hạn tiêu chuẩn để Người thuê nạp tiền ký quỹ khi một Milestone được mở khóa sang `UNFUNDED`. |
+| **`fundPauseMaxDays`** | **7 ngày** | Thời gian ân hạn tạm dừng tối đa giữa các giai đoạn (từ Mốc #2 trở đi) để Người thuê chuẩn bị ngân sách trước khi hệ thống tự hủy phần còn lại. |
+| **`reviewDays`** | **3 ngày** | Thời hạn để Người thuê nghiệm thu sản phẩm kể từ lúc Creator nộp bài. Quá 3 ngày không phản hồi $\rightarrow$ Tự động duyệt (`Auto-Approve`). |
+| **`maxRevisionsDefault`** | **2 lần** | Số lượt yêu cầu chỉnh sửa miễn phí tối đa cho mỗi giai đoạn. |
+| **`revisionDays`** | **2 ngày** | Số ngày cộng thêm cho Creator hoàn thành mỗi lượt chỉnh sửa. |
+| **`releaseHoldDays`** | **3 ngày** | Thời gian giữ tiền an toàn sau khi duyệt (`APPROVED`) trước khi giải ngân 95% về ví khả dụng của Creator. |
+| **`withdrawalSlaDays`** | **2 ngày (48h)** | Cam kết SLA tối đa để Admin xử lý và chuyển khoản đơn rút tiền từ ví về ngân hàng (`slaDueAt = requestedAt + 2 ngày`). |
+| **`withdrawalMinAmount`** | **50.000 VNĐ** | Số tiền rút tối thiểu mỗi lệnh rút về tài khoản ngân hàng. |
+| **`depositMinAmount`** | **10.000 VNĐ** | Số tiền nạp tối thiểu vào ví qua cổng thanh toán PayOS. |

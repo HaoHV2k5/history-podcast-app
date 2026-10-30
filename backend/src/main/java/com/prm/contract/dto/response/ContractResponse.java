@@ -16,14 +16,25 @@ import java.util.List;
 public class ContractResponse {
 
     private Long id;
-    private Long postId;
-    private String postTitle;
     private Long hireRequestId;
+    private Long channelId;
+    private String channelName;
+    private String conversationId;
 
     private Long creatorId;
     private String creatorFullName;
     private String creatorAvatarUrl;
 
+    /**
+     * Thông tin Người thuê (Listener/Viewer đặt làm nội dung)
+     */
+    private Long requesterId;
+    private String requesterFullName;
+    private String requesterAvatarUrl;
+
+    /**
+     * Tương thích ngược với FE cũ
+     */
     private Long freelancerId;
     private String freelancerFullName;
     private String freelancerAvatarUrl;

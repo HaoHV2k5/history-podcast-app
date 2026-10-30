@@ -32,7 +32,7 @@ public class DisputeController {
     private final DisputeService disputeService;
 
     @PostMapping
-    @Operation(summary = "Mở khiếu nại / tranh chấp (Report Dispute)", description = "Creator hoặc Freelancer mở khiếu nại khi milestone IN_PROGRESS/SUBMITTED/APPROVED. Khoản ký quỹ bị đóng băng (FROZEN)")
+    @Operation(summary = "Mở khiếu nại / tranh chấp (Report Dispute)", description = "Creator hoặc Người đặt nội dung mở khiếu nại khi milestone IN_PROGRESS/SUBMITTED/APPROVED. Khoản ký quỹ bị đóng băng (FROZEN)")
     public ResponseEntity<ApiResponse<DisputeResponse>> openDispute(@Valid @RequestBody OpenDisputeRequest request) {
         DisputeResponse response = disputeService.openDispute(request);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -50,7 +50,7 @@ public class DisputeController {
     }
 
     @PostMapping("/{id}/resolve")
-    @Operation(summary = "Admin phân xử tranh chấp", description = "Admin đưa ra kết quả phân xử: 100% Freelancer, 100% Creator, hoặc Chia tỉ lệ %")
+    @Operation(summary = "Admin phân xử tranh chấp", description = "Admin đưa ra kết quả phân xử: Giải ngân cho Creator (RELEASE_TO_CREATOR), Hoàn tiền 100% cho Người đặt nội dung (REFUND_TO_REQUESTER), hoặc Chia tỉ lệ % (SPLIT)")
     public ResponseEntity<ApiResponse<DisputeResponse>> resolveDispute(
             @PathVariable Long id,
             @Valid @RequestBody ResolveDisputeRequest request

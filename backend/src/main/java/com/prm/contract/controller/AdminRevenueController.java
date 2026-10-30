@@ -81,7 +81,7 @@ public class AdminRevenueController {
     }
 
     @GetMapping("/top-contributors")
-    @Operation(summary = "4. Bảng xếp hạng đối tác đóng góp doanh thu lớn nhất", description = "Lấy top Creator chi tiêu nhiều nhất hoặc Freelancer mang lại doanh thu cao nhất")
+    @Operation(summary = "4. Bảng xếp hạng đối tác đóng góp doanh thu lớn nhất", description = "Lấy top Creator mang lại doanh thu phí sàn cao nhất hoặc Người đặt nội dung (REQUESTER) chi tiêu nhiều nhất")
     public ResponseEntity<ApiResponse<List<TopRevenueContributorResponse>>> getTopContributors(
             @RequestParam(defaultValue = "CREATOR") String role,
             @RequestParam(defaultValue = "5") int limit

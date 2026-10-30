@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/chats")
 @RequiredArgsConstructor
-@Tag(name = "Chat (Narrator - Creator)", description = "Xác thực và cấp quyền mở phòng chat Firebase Firestore giữa Creator và Narrator")
+@Tag(name = "Chat 1-1 (Listener - Creator)", description = "Xác thực và cấp quyền mở phòng chat 1-1 trên Firebase Firestore giữa Người thuê (Listener) và Creator")
 @SecurityRequirement(name = "Bearer Authentication")
 public class ChatController {
 
@@ -27,8 +27,8 @@ public class ChatController {
 
     @PostMapping("/conversation")
     @PreAuthorize("isAuthenticated()")
-    @Operation(summary = "Xác thực & Lấy thông tin phòng chat", 
-               description = "Xác minh quyền truy cập theo Contract hoặc Application, trả về conversationId chuẩn định danh trên Firestore và thông tin đối tác")
+    @Operation(summary = "Xác thực & Lấy thông tin phòng chat 1-1",
+               description = "Xác minh quyền truy cập theo HireRequest (sau khi Creator đã ACCEPTED) hoặc Contract (dùng chung phòng chat với HireRequest), trả về conversationId trên Firestore kèm topicTitle và thông tin đối tác")
     public ResponseEntity<ApiResponse<ChatConversationResponse>> getOrCreateConversation(@Valid @RequestBody GetConversationRequest request) {
         ChatConversationResponse response = chatService.getOrCreateConversation(request);
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin phòng chat thành công", response));

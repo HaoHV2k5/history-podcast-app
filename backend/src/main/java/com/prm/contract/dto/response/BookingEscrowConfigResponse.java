@@ -21,8 +21,14 @@ public class BookingEscrowConfigResponse {
     private int maxMilestones;
     private int maxRevisionsDefault;
     private BigDecimal platformFeePercent;
+    private BigDecimal membershipFeePercent;
+    private int membershipDurationDays;
+    private int withdrawalSlaDays;
+    private BigDecimal withdrawalMinAmount;
+    private BigDecimal depositMinAmount;
     private int jobIntervalMinutes;
     private String termsTemplate;
+    private String renderedTerms;
 
     private Instant updatedAt;
     private Long updatedByUserId;

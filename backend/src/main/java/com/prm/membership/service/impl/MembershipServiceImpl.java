@@ -6,6 +6,7 @@ import com.prm.common.dto.PageResponse;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
 import com.prm.common.util.SecurityUtils;
+import com.prm.contract.config.BookingEscrowProperties;
 import com.prm.identity.entity.User;
 import com.prm.identity.repository.UserRepository;
 import com.prm.membership.dto.request.MembershipPlanRequest;
@@ -49,6 +50,7 @@ public class MembershipServiceImpl implements MembershipService {
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
     private final WalletTransactionRepository walletTransactionRepository;
+    private final BookingEscrowProperties policyProperties;
 
     @Override
     public MembershipPlanResponse upsertChannelPlan(Long channelId, MembershipPlanRequest request) {
@@ -151,8 +153,16 @@ public class MembershipServiceImpl implements MembershipService {
             throw new AppException(ErrorCode.INSUFFICIENT_WALLET_BALANCE, "Số dư khả dụng trong ví không đủ để đăng ký gói hội viên");
         }
 
-        // 5. Tính toán phân chia doanh thu (Rounding Rule rõ ràng)
-        BigDecimal commission = price.multiply(BigDecimal.valueOf(0.20)).setScale(0, RoundingMode.HALF_UP);
+        // 5. Tính toán phân chia doanh thu theo Policy (Mặc định: 10% phí sàn, 90% về ví Creator)
+        BigDecimal feePercent = policyProperties.getMembershipFeePercent() != null
+                ? policyProperties.getMembershipFeePercent()
+                : new BigDecimal("10.0");
+        int durationDays = policyProperties.getMembershipDurationDays() > 0
+                ? policyProperties.getMembershipDurationDays()
+                : 30;
+
+        BigDecimal commission = price.multiply(feePercent)
+                .divide(new BigDecimal("100"), 0, RoundingMode.HALF_UP);
         BigDecimal creatorEarning = price.subtract(commission);
 
         // 6. Trừ tiền Viewer & Cộng tiền Creator
@@ -162,9 +172,9 @@ public class MembershipServiceImpl implements MembershipService {
         creatorWallet.setAvailableBalance(creatorWallet.getAvailableBalance().add(creatorEarning));
         walletRepository.save(creatorWallet);
 
-        // 7. Tạo mới Membership (Thời hạn 30 ngày)
+        // 7. Tạo mới Membership (Thời hạn theo Policy: 30 ngày)
         Instant startedAt = Instant.now();
-        Instant endedAt = startedAt.plus(30, ChronoUnit.DAYS);
+        Instant endedAt = startedAt.plus(durationDays, ChronoUnit.DAYS);
 
         Membership newMembership = Membership.builder()
                 .viewer(viewer)
@@ -176,7 +186,7 @@ public class MembershipServiceImpl implements MembershipService {
                 .build();
         Membership savedMembership = membershipRepository.save(newMembership);
 
-        // 8. Lưu MembershipPayment làm Source of Truth cho doanh thu
+        // 8. Lưu MembershipPayment làm Source of Truth cho doanh thu (Snapshot cứng số tiền tại thời điểm mua)
         MembershipPayment payment = MembershipPayment.builder()
                 .membership(savedMembership)
                 .amount(price)
@@ -207,13 +217,13 @@ public class MembershipServiceImpl implements MembershipService {
                 .relatedType("MEMBERSHIP")
                 .relatedId(savedMembership.getId())
                 .status("SUCCESS")
-                .description("Nhận doanh thu hội viên từ người nghe trên kênh " + channel.getName())
+                .description("Nhận doanh thu hội viên (" + new BigDecimal("100").subtract(feePercent).stripTrailingZeros().toPlainString() + "%) từ người nghe trên kênh " + channel.getName())
                 .createdAt(startedAt)
                 .build();
         walletTransactionRepository.save(creatorTx);
 
-        log.info("Mua gói hội viên kênh thành công: viewerId={}, channelId={}, price={}, creatorEarning={}",
-                viewer.getId(), channelId, price, creatorEarning);
+        log.info("Mua gói hội viên kênh thành công: viewerId={}, channelId={}, price={}, feePercent={}%, creatorEarning={}",
+                viewer.getId(), channelId, price, feePercent, creatorEarning);
 
         return MembershipSubscribeResponse.builder()
                 .membershipId(savedMembership.getId())
