@@ -54,7 +54,7 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       baseUrl = configuration.apiBaseUri.toString();
     } else {
       baseUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-          ? 'http://192.168.1.80:8080'
+          ? 'http://192.168.1.115:8080'
           : 'http://localhost:8080';
     }
     
