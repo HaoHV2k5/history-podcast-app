@@ -1,16 +1,15 @@
 package com.prm.contract.service;
 
 import com.prm.contract.config.BookingEscrowProperties;
+import com.prm.contract.constant.CommissionStatus;
 import com.prm.contract.constant.ContractStatus;
 import com.prm.contract.constant.MilestoneStatus;
-import com.prm.contract.constant.PostStatus;
 import com.prm.contract.entity.Contract;
 import com.prm.contract.entity.Milestone;
-import com.prm.contract.entity.Post;
+import com.prm.contract.repository.CommissionRepository;
 import com.prm.contract.repository.ContractRepository;
 import com.prm.contract.repository.DisputeRepository;
 import com.prm.contract.repository.MilestoneRepository;
-import com.prm.contract.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,10 +28,10 @@ public class BookingEscrowScheduledService {
 
     private final ContractRepository contractRepository;
     private final MilestoneRepository milestoneRepository;
-    private final PostRepository postRepository;
     private final DisputeRepository disputeRepository;
     private final EscrowService escrowService;
     private final BookingEscrowProperties properties;
+    private final CommissionRepository commissionRepository;
 
     /**
      * Chạy định kỳ theo jobIntervalMinutes (mặc định mỗi 60 phút)
@@ -47,22 +46,21 @@ public class BookingEscrowScheduledService {
         handleOverdueMilestoneFunding(now);
         handleAutoApproveSubmissions(now);
         handleAutoReleaseEscrow(now);
-        handleExpiredPosts(now);
 
         log.info("Finished periodic background jobs.");
     }
 
     /**
-     * 1. Hợp đồng quá hạn accept (PENDING và now > acceptDueAt): chuyển sang REJECTED và mở lại bài đăng
+     * 1. Hợp đồng quá hạn accept (PENDING và now > acceptDueAt): chuyển sang REJECTED và trả Commission về ACCEPTED
      */
     public void handleExpiredPendingContracts(Instant now) {
         List<Contract> expiredContracts = contractRepository.findByStatusAndAcceptDueAtBefore(ContractStatus.PENDING, now);
         for (Contract contract : expiredContracts) {
             log.info("Contract {} expired pending accept time, marking REJECTED", contract.getId());
             contract.setStatus(ContractStatus.REJECTED);
-            if (contract.getPost() != null && contract.getPost().getStatus() == PostStatus.IN_CONTRACT) {
-                contract.getPost().setStatus(PostStatus.OPEN);
-                postRepository.save(contract.getPost());
+            if (contract.getHireRequest() != null) {
+                contract.getHireRequest().setStatus(CommissionStatus.ACCEPTED.name());
+                commissionRepository.save(contract.getHireRequest());
             }
             contractRepository.save(contract);
         }
@@ -70,8 +68,8 @@ public class BookingEscrowScheduledService {
 
     /**
      * 2. Quá hạn ký quỹ M1 hoặc M2+:
-     * - M1 quá hạn fundDueAt -> Hợp đồng CANCELLED
-     * - M2+ quá hạn fundDueAt + FUND_PAUSE_MAX_DAYS -> Hợp đồng CANCELLED
+     * - M1 quá hạn fundDueAt -> Hợp đồng CANCELLED & Commission CANCELLED
+     * - M2+ quá hạn fundDueAt + FUND_PAUSE_MAX_DAYS -> Hợp đồng CANCELLED & Commission CANCELLED
      */
     public void handleOverdueMilestoneFunding(Instant now) {
         List<Milestone> unfundedList = milestoneRepository.findByStatusAndFundDueAtBefore(MilestoneStatus.UNFUNDED, now);
@@ -82,15 +80,17 @@ public class BookingEscrowScheduledService {
             }
 
             if (m.getOrderNo() == 1) {
-                // Quá hạn ký quỹ M1 -> Hủy hợp đồng
                 log.info("Milestone #1 of contract {} overdue funding, cancelling contract", contract.getId());
                 m.setStatus(MilestoneStatus.CANCELLED);
                 milestoneRepository.save(m);
 
                 contract.setStatus(ContractStatus.CANCELLED);
                 contractRepository.save(contract);
+                if (contract.getHireRequest() != null) {
+                    contract.getHireRequest().setStatus(CommissionStatus.CANCELLED.name());
+                    commissionRepository.save(contract.getHireRequest());
+                }
             } else {
-                // M2+ quá hạn: kiểm tra xem đã quá FUND_PAUSE_MAX_DAYS chưa
                 Instant maxPauseTime = m.getFundDueAt().plus(properties.getFundPauseMaxDays(), ChronoUnit.DAYS);
                 if (now.isAfter(maxPauseTime)) {
                     log.info("Milestone #{} of contract {} paused past {} days, cancelling contract",
@@ -100,6 +100,10 @@ public class BookingEscrowScheduledService {
 
                     contract.setStatus(ContractStatus.CANCELLED);
                     contractRepository.save(contract);
+                    if (contract.getHireRequest() != null) {
+                        contract.getHireRequest().setStatus(CommissionStatus.CANCELLED.name());
+                        commissionRepository.save(contract.getHireRequest());
+                    }
                 }
             }
         }
@@ -111,12 +115,11 @@ public class BookingEscrowScheduledService {
     public void handleAutoApproveSubmissions(Instant now) {
         List<Milestone> submittedList = milestoneRepository.findByStatusAndReviewDueAtBefore(MilestoneStatus.SUBMITTED, now);
         for (Milestone m : submittedList) {
-            log.info("Milestone {} auto-approved (Creator did not review within {} days)", m.getId(), properties.getReviewDays());
+            log.info("Milestone {} auto-approved (Requester did not review within {} days)", m.getId(), properties.getReviewDays());
             m.setStatus(MilestoneStatus.APPROVED);
             m.setReleaseAt(now.plus(properties.getReleaseHoldDays(), ChronoUnit.DAYS));
             milestoneRepository.save(m);
 
-            // Mở milestone tiếp theo nếu có
             Optional<Milestone> nextMilestoneOpt = milestoneRepository.findByContractIdAndOrderNo(m.getContract().getId(), m.getOrderNo() + 1);
             if (nextMilestoneOpt.isPresent()) {
                 Milestone next = nextMilestoneOpt.get();
@@ -141,18 +144,6 @@ public class BookingEscrowScheduledService {
             } catch (Exception e) {
                 log.error("Failed to auto-release escrow for milestone {}: {}", m.getId(), e.getMessage(), e);
             }
-        }
-    }
-
-    /**
-     * 5. Hết hạn bài đăng OPEN (now > expiresAt) -> EXPIRED
-     */
-    public void handleExpiredPosts(Instant now) {
-        List<Post> expiredPosts = postRepository.findByStatusAndExpiresAtBefore(PostStatus.OPEN, now);
-        for (Post post : expiredPosts) {
-            log.info("Post {} expired, setting status to EXPIRED", post.getId());
-            post.setStatus(PostStatus.EXPIRED);
-            postRepository.save(post);
         }
     }
 }

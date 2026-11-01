@@ -15,8 +15,6 @@ public class MilestoneDeliverableResponse {
     private Long milestoneId;
     private Integer milestoneOrderNo;
     private String milestoneTitle;
-    private Long postId;
-    private String postTitle;
     private Long contractId;
     private String contractTitle;
     private String title;

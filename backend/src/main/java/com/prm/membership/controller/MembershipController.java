@@ -27,7 +27,7 @@ public class MembershipController {
     @PostMapping("/api/v1/channels/{channelId}/memberships/subscribe")
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(summary = "1. Đăng ký mua gói hội viên kênh",
-            description = "Viewer sử dụng số dư ví để đăng ký gói hội viên kênh (30 ngày). Phân chia doanh thu 80% cho Creator, 20% cho nền tảng.")
+            description = "Viewer sử dụng số dư ví để đăng ký gói hội viên kênh (30 ngày). Phân chia doanh thu chuẩn theo Policy hệ thống: 90% cho Creator, 10% phí nền tảng.")
     public ResponseEntity<ApiResponse<MembershipSubscribeResponse>> subscribe(@PathVariable Long channelId) {
         MembershipSubscribeResponse response = membershipService.subscribe(channelId);
         return ResponseEntity.status(HttpStatus.CREATED)

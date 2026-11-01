@@ -2,16 +2,16 @@ package com.prm.contract.service;
 
 import com.prm.common.dto.PageResponse;
 import com.prm.contract.constant.ContractStatus;
-import com.prm.contract.dto.request.ContractRequest;
 import com.prm.contract.dto.request.CreateContractRequest;
+import com.prm.contract.dto.request.UpdateContractRequest;
 import com.prm.contract.dto.response.ContractResponse;
 import org.springframework.data.domain.Pageable;
-
-import java.util.List;
 
 public interface ContractService {
 
     ContractResponse createAndSendContract(CreateContractRequest request);
+
+    ContractResponse updatePendingContract(Long contractId, UpdateContractRequest request);
 
     ContractResponse getContractById(Long id);
 
@@ -30,11 +30,4 @@ public interface ContractService {
     );
 
     com.prm.contract.dto.response.MyMilestoneFinancialResponse getMyMilestoneFinancials();
-
-    // Legacy CRUD methods for backward compatibility
-    List<ContractResponse> findAll();
-    ContractResponse findById(Long id);
-    ContractResponse create(ContractRequest request);
-    ContractResponse update(Long id, ContractRequest request);
-    void delete(Long id);
 }

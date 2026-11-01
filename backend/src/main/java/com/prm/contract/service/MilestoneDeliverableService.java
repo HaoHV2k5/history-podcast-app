@@ -13,8 +13,6 @@ public interface MilestoneDeliverableService {
 
     List<MilestoneDeliverableResponse> getDeliverablesByMilestone(Long milestoneId);
 
-    List<MilestoneDeliverableResponse> getDeliverablesByPost(Long postId);
-
     Resource downloadDeliverable(Long deliverableId);
 
     MilestoneDeliverable getDeliverableEntity(Long deliverableId);

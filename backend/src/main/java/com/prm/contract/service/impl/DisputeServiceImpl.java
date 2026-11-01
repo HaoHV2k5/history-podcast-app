@@ -5,18 +5,19 @@ import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
 import com.prm.common.util.SecurityUtils;
 import com.prm.contract.config.BookingEscrowProperties;
+import com.prm.contract.constant.CommissionStatus;
 import com.prm.contract.constant.ContractStatus;
 import com.prm.contract.constant.DisputeResult;
 import com.prm.contract.constant.DisputeStatus;
 import com.prm.contract.constant.MilestoneStatus;
 import com.prm.contract.dto.request.CounterEvidenceRequest;
-import com.prm.contract.dto.request.DisputeRequest;
 import com.prm.contract.dto.request.OpenDisputeRequest;
 import com.prm.contract.dto.request.ResolveDisputeRequest;
 import com.prm.contract.dto.response.DisputeResponse;
 import com.prm.contract.entity.Contract;
 import com.prm.contract.entity.Dispute;
 import com.prm.contract.entity.Milestone;
+import com.prm.contract.repository.CommissionRepository;
 import com.prm.contract.repository.ContractRepository;
 import com.prm.contract.repository.DisputeRepository;
 import com.prm.contract.repository.MilestoneRepository;
@@ -49,6 +50,7 @@ public class DisputeServiceImpl implements DisputeService {
     private final UserRepository userRepository;
     private final EscrowService escrowService;
     private final BookingEscrowProperties properties;
+    private final CommissionRepository commissionRepository;
 
     @Override
     public DisputeResponse openDispute(OpenDisputeRequest request) {
@@ -63,7 +65,6 @@ public class DisputeServiceImpl implements DisputeService {
             throw new AppException(ErrorCode.CONTRACT_ACCESS_DENIED, "Chỉ thành viên hợp đồng mới có quyền khiếu nại (Report)");
         }
 
-        // Kiểm tra trạng thái milestone cho phép mở dispute
         if (milestone.getStatus() != MilestoneStatus.IN_PROGRESS &&
             milestone.getStatus() != MilestoneStatus.SUBMITTED &&
             milestone.getStatus() != MilestoneStatus.APPROVED) {
@@ -134,20 +135,25 @@ public class DisputeServiceImpl implements DisputeService {
         Contract contract = dispute.getContract();
 
         // Xử lý tiền ký quỹ và trạng thái milestone/contract theo kết quả phân xử
-        if (request.getResult() == DisputeResult.RELEASE_TO_FREELANCER) {
+        if (request.getResult() == DisputeResult.RELEASE_TO_CREATOR
+                || request.getResult() == DisputeResult.RELEASE_TO_FREELANCER) {
             escrowService.releaseMilestoneEscrow(milestone.getId());
             milestone.setStatus(MilestoneStatus.RELEASED);
             milestoneRepository.save(milestone);
 
-            // Mở milestone kế tiếp nếu có
             activateNextMilestoneIfWaiting(contract, milestone);
-        } else if (request.getResult() == DisputeResult.REFUND_TO_CREATOR) {
-            escrowService.refundMilestoneEscrow(milestone.getId(), "Admin quyết định hoàn tiền 100% cho Creator: " + request.getResolution());
+        } else if (request.getResult() == DisputeResult.REFUND_TO_REQUESTER
+                || request.getResult() == DisputeResult.REFUND_TO_CREATOR) {
+            escrowService.refundMilestoneEscrow(milestone.getId(), "Admin quyết định hoàn tiền 100% cho Người đặt nội dung: " + request.getResolution());
             milestone.setStatus(MilestoneStatus.CANCELLED);
             milestoneRepository.save(milestone);
 
             contract.setStatus(ContractStatus.CANCELLED);
             contractRepository.save(contract);
+            if (contract.getHireRequest() != null) {
+                contract.getHireRequest().setStatus(CommissionStatus.CANCELLED.name());
+                commissionRepository.save(contract.getHireRequest());
+            }
         } else if (request.getResult() == DisputeResult.SPLIT) {
             escrowService.splitMilestoneEscrow(milestone.getId(), request.getSplitPercent(), "Admin phân xử chia tỉ lệ: " + request.getResolution());
             milestone.setStatus(MilestoneStatus.RELEASED);
@@ -176,6 +182,18 @@ public class DisputeServiceImpl implements DisputeService {
                 nextMilestone.setStatus(MilestoneStatus.UNFUNDED);
                 nextMilestone.setFundDueAt(Instant.now().plus(properties.getFundHours(), ChronoUnit.HOURS));
                 milestoneRepository.save(nextMilestone);
+            }
+        } else {
+            List<Milestone> allMilestones = milestoneRepository.findByContractIdOrderByOrderNoAsc(contract.getId());
+            boolean allDone = !allMilestones.isEmpty() && allMilestones.stream().allMatch(m ->
+                    m.getStatus() == MilestoneStatus.APPROVED || m.getStatus() == MilestoneStatus.RELEASED);
+            if (allDone) {
+                contract.setStatus(ContractStatus.COMPLETED);
+                contractRepository.save(contract);
+                if (contract.getHireRequest() != null) {
+                    contract.getHireRequest().setStatus(CommissionStatus.COMPLETED.name());
+                    commissionRepository.save(contract.getHireRequest());
+                }
             }
         }
     }
@@ -206,34 +224,6 @@ public class DisputeServiceImpl implements DisputeService {
                 .map(this::toDisputeResponse)
                 .toList();
         return PageResponse.of(page, content);
-    }
-
-    // --- Legacy methods for backward compatibility ---
-    @Override
-    @Transactional(readOnly = true)
-    public List<DisputeResponse> findAll() {
-        return disputeRepository.findAll().stream().map(this::toDisputeResponse).toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public DisputeResponse findById(Long id) {
-        return getDisputeById(id);
-    }
-
-    @Override
-    public DisputeResponse create(DisputeRequest request) {
-        throw new UnsupportedOperationException("Vui lòng sử dụng API openDispute");
-    }
-
-    @Override
-    public DisputeResponse update(Long id, DisputeRequest request) {
-        throw new UnsupportedOperationException("Vui lòng sử dụng API resolveDispute hoặc submitCounterEvidence");
-    }
-
-    @Override
-    public void delete(Long id) {
-        disputeRepository.deleteById(id);
     }
 
     private User getCurrentUser() {

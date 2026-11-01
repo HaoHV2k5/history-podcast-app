@@ -12,14 +12,14 @@ import java.util.List;
 @AllArgsConstructor
 public class MyMilestoneFinancialResponse {
 
-    private String role; // FREELANCER | CREATOR
+    private String role; // CREATOR | VIEWER
 
-    // Freelancer metrics
+    // Creator earnings metrics (95% net)
     private BigDecimal totalEarned;
     private BigDecimal pendingEarnings;
     private BigDecimal totalPlatformFeePaid;
 
-    // Creator metrics
+    // Customer / Requester spending metrics (100% gross)
     private BigDecimal totalSpent;
     private BigDecimal escrowLocked;
     private BigDecimal refundedAmount;

@@ -9,10 +9,8 @@ import com.prm.contract.dto.response.MilestoneDeliverableResponse;
 import com.prm.contract.entity.Contract;
 import com.prm.contract.entity.Milestone;
 import com.prm.contract.entity.MilestoneDeliverable;
-import com.prm.contract.entity.Post;
 import com.prm.contract.repository.MilestoneDeliverableRepository;
 import com.prm.contract.repository.MilestoneRepository;
-import com.prm.contract.repository.PostRepository;
 import com.prm.contract.service.impl.MilestoneDeliverableServiceImpl;
 import com.prm.identity.constant.RoleEnum;
 import com.prm.identity.entity.Role;
@@ -22,7 +20,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.io.Resource;
@@ -49,8 +46,6 @@ class MilestoneDeliverableServiceTest {
     @Mock
     private MilestoneRepository milestoneRepository;
     @Mock
-    private PostRepository postRepository;
-    @Mock
     private UserRepository userRepository;
     @Mock
     private FileStorageService fileStorageService;
@@ -59,11 +54,10 @@ class MilestoneDeliverableServiceTest {
     private MilestoneDeliverableServiceImpl deliverableService;
 
     private User creator;
-    private User freelancer;
+    private User requester;
     private User stranger;
     private Contract contract;
     private Milestone milestone;
-    private Post post;
 
     @BeforeEach
     void setUp() {
@@ -73,27 +67,23 @@ class MilestoneDeliverableServiceTest {
         deliverableService = new MilestoneDeliverableServiceImpl(
                 deliverableRepository,
                 milestoneRepository,
-                postRepository,
                 userRepository,
                 fileStorageService,
                 properties
         );
 
         Role creatorRole = Role.builder().id(1L).name(RoleEnum.CREATOR.name()).build();
-        Role freelancerRole = Role.builder().id(2L).name(RoleEnum.FREELANCER.name()).build();
+        Role viewerRole = Role.builder().id(2L).name(RoleEnum.VIEWER.name()).build();
 
         creator = User.builder().id(1L).email("creator@test.com").fullName("Creator User").roles(Set.of(creatorRole)).build();
-        freelancer = User.builder().id(2L).email("freelancer@test.com").fullName("Freelancer User").roles(Set.of(freelancerRole)).build();
-        stranger = User.builder().id(99L).email("stranger@test.com").fullName("Stranger").roles(Set.of(freelancerRole)).build();
-
-        post = Post.builder().id(100L).user(creator).title("Tuyen dung lam website ban hang").build();
+        requester = User.builder().id(2L).email("listener@test.com").fullName("Listener User").roles(Set.of(viewerRole)).build();
+        stranger = User.builder().id(99L).email("stranger@test.com").fullName("Stranger").roles(Set.of(viewerRole)).build();
 
         contract = Contract.builder()
                 .id(10L)
                 .creator(creator)
-                .freelancer(freelancer)
-                .post(post)
-                .title("Hop dong phat trien web")
+                .freelancer(requester)
+                .title("Hợp đồng sản xuất Series Lịch sử")
                 .totalAmount(BigDecimal.valueOf(10000000))
                 .build();
 
@@ -101,7 +91,7 @@ class MilestoneDeliverableServiceTest {
                 .id(50L)
                 .contract(contract)
                 .orderNo(1)
-                .title("Giai doan 1: Actor + ERD")
+                .title("Giai đoạn 1: Đề cương kịch bản")
                 .status(MilestoneStatus.IN_PROGRESS)
                 .amount(BigDecimal.valueOf(3000000))
                 .build();
@@ -114,12 +104,12 @@ class MilestoneDeliverableServiceTest {
     }
 
     @Test
-    @DisplayName("Freelancer nộp sản phẩm thành công và chuyển milestone sang SUBMITTED")
+    @DisplayName("Creator nộp tệp sản phẩm bàn giao thành công và chuyển milestone sang SUBMITTED")
     void testUploadDeliverable_Success() {
-        authenticateAs(freelancer);
+        authenticateAs(creator);
 
         when(milestoneRepository.findById(50L)).thenReturn(Optional.of(milestone));
-        when(fileStorageService.uploadRawFile(any(), anyString())).thenReturn("https://storage.cloud/deliverables/erd_v1.pdf");
+        when(fileStorageService.uploadRawFile(any(), anyString())).thenReturn("https://storage.cloud/deliverables/script_v1.pdf");
         when(deliverableRepository.findByMilestoneIdOrderByCreatedAtDesc(50L)).thenReturn(Collections.emptyList());
 
         when(deliverableRepository.save(any(MilestoneDeliverable.class))).thenAnswer(invocation -> {
@@ -128,87 +118,95 @@ class MilestoneDeliverableServiceTest {
             return d;
         });
 
-        MockMultipartFile file = new MockMultipartFile("file", "erd_v1.pdf", "application/pdf", "fake pdf content".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "script_v1.pdf", "application/pdf", "fake pdf content".getBytes());
 
-        MilestoneDeliverableResponse response = deliverableService.uploadDeliverable(50L, "Tai lieu ERD giai doan 1", "Mo ta ERD", file);
+        MilestoneDeliverableResponse response = deliverableService.uploadDeliverable(50L, "Kịch bản giai đoạn 1", "Mô tả kịch bản", file);
 
         assertNotNull(response);
         assertEquals(1001L, response.getId());
-        assertEquals("Tai lieu ERD giai doan 1", response.getTitle());
+        assertEquals("Kịch bản giai đoạn 1", response.getTitle());
         assertEquals(1, response.getVersionNo());
-        assertEquals(100L, response.getPostId());
+        assertEquals(10L, response.getContractId());
         assertEquals(MilestoneStatus.SUBMITTED, milestone.getStatus());
         verify(milestoneRepository).save(milestone);
     }
 
     @Test
-    @DisplayName("Người ngoài không có quyền nộp sản phẩm cho milestone")
-    void testUploadDeliverable_ForbiddenOutsider() {
-        authenticateAs(stranger);
-
+    @DisplayName("Người thuê (Customer) hoặc Người ngoài không được phép tải lên tệp bàn giao (chỉ Creator được nộp)")
+    void testUploadDeliverable_ForbiddenForRequesterAndOutsider() {
         when(milestoneRepository.findById(50L)).thenReturn(Optional.of(milestone));
+        MockMultipartFile file = new MockMultipartFile("file", "script_v1.pdf", "application/pdf", "content".getBytes());
 
-        MockMultipartFile file = new MockMultipartFile("file", "erd_v1.pdf", "application/pdf", "content".getBytes());
+        authenticateAs(requester);
+        AppException exReq = assertThrows(AppException.class, () ->
+                deliverableService.uploadDeliverable(50L, "Kịch bản", "Mô tả", file));
+        assertEquals(ErrorCode.CONTRACT_ACCESS_DENIED, exReq.getErrorCode());
 
-        AppException ex = assertThrows(AppException.class, () ->
-                deliverableService.uploadDeliverable(50L, "ERD", "Mo ta", file));
+        authenticateAs(stranger);
+        AppException exStranger = assertThrows(AppException.class, () ->
+                deliverableService.uploadDeliverable(50L, "Kịch bản", "Mô tả", file));
+        assertEquals(ErrorCode.CONTRACT_ACCESS_DENIED, exStranger.getErrorCode());
 
-        assertEquals(ErrorCode.CONTRACT_ACCESS_DENIED, ex.getErrorCode());
         verify(deliverableRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("Creator và Freelancer được quyền tải sản phẩm, người ngoài bị chặn 403")
-    void testDownloadDeliverable_AccessControl() {
-        MilestoneDeliverable deliverable = MilestoneDeliverable.builder()
-                .id(888L)
-                .milestone(milestone)
-                .post(post)
-                .uploadedBy(freelancer)
-                .fileName("erd_design.pdf")
-                .filePath("local_simulated_path")
-                .versionNo(1)
-                .createdAt(Instant.now())
-                .build();
+    @DisplayName("Creator và Người đặt nội dung được quyền tải sản phẩm, người ngoài bị chặn 403")
+    void testDownloadDeliverable_AccessControl() throws Exception {
+        java.nio.file.Path tempFile = java.nio.file.Files.createTempFile("deliverable_test_", ".pdf");
+        java.nio.file.Files.writeString(tempFile, "real pdf content for test");
+        try {
+            MilestoneDeliverable deliverable = MilestoneDeliverable.builder()
+                    .id(888L)
+                    .milestone(milestone)
+                    .uploadedBy(creator)
+                    .fileName("script_design.pdf")
+                    .filePath(tempFile.toAbsolutePath().toString())
+                    .versionNo(1)
+                    .createdAt(Instant.now())
+                    .build();
 
-        when(deliverableRepository.findById(888L)).thenReturn(Optional.of(deliverable));
+            when(deliverableRepository.findById(888L)).thenReturn(Optional.of(deliverable));
 
-        // 1. Creator tải thành công
-        authenticateAs(creator);
-        Resource resource = deliverableService.downloadDeliverable(888L);
-        assertNotNull(resource);
+            authenticateAs(requester);
+            Resource resource = deliverableService.downloadDeliverable(888L);
+            assertNotNull(resource);
 
-        // 2. Stranger tải bị chặn ACCESS_DENIED
-        authenticateAs(stranger);
-        AppException ex = assertThrows(AppException.class, () -> deliverableService.downloadDeliverable(888L));
-        assertEquals(ErrorCode.DELIVERABLE_ACCESS_DENIED, ex.getErrorCode());
+            authenticateAs(creator);
+            assertNotNull(deliverableService.downloadDeliverable(888L));
+
+            authenticateAs(stranger);
+            AppException ex = assertThrows(AppException.class, () -> deliverableService.downloadDeliverable(888L));
+            assertEquals(ErrorCode.DELIVERABLE_ACCESS_DENIED, ex.getErrorCode());
+        } finally {
+            java.nio.file.Files.deleteIfExists(tempFile);
+        }
     }
 
     @Test
-    @DisplayName("Lấy danh sách sản phẩm theo bài Post thành công")
-    void testGetDeliverablesByPost_Success() {
+    @DisplayName("Lấy danh sách sản phẩm theo Milestone thành công")
+    void testGetDeliverablesByMilestone_Success() {
         authenticateAs(creator);
 
-        when(postRepository.findById(100L)).thenReturn(Optional.of(post));
+        when(milestoneRepository.findById(50L)).thenReturn(Optional.of(milestone));
 
         MilestoneDeliverable d1 = MilestoneDeliverable.builder()
                 .id(1L)
                 .milestone(milestone)
-                .post(post)
-                .uploadedBy(freelancer)
-                .title("ERD Diagram")
-                .fileName("erd.pdf")
+                .uploadedBy(creator)
+                .title("Script Diagram")
+                .fileName("script.pdf")
                 .filePath("url1")
                 .versionNo(1)
                 .createdAt(Instant.now())
                 .build();
 
-        when(deliverableRepository.findByPostIdOrderByCreatedAtDesc(100L)).thenReturn(List.of(d1));
+        when(deliverableRepository.findByMilestoneIdOrderByCreatedAtDesc(50L)).thenReturn(List.of(d1));
 
-        List<MilestoneDeliverableResponse> responses = deliverableService.getDeliverablesByPost(100L);
+        List<MilestoneDeliverableResponse> responses = deliverableService.getDeliverablesByMilestone(50L);
 
         assertEquals(1, responses.size());
-        assertEquals("ERD Diagram", responses.get(0).getTitle());
-        assertEquals(100L, responses.get(0).getPostId());
+        assertEquals("Script Diagram", responses.get(0).getTitle());
+        assertEquals(10L, responses.get(0).getContractId());
     }
 }

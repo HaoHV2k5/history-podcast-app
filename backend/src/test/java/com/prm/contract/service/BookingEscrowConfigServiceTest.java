@@ -1,7 +1,9 @@
 package com.prm.contract.service;
 
+import com.prm.common.entity.SystemConfig;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
+import com.prm.common.repository.SystemConfigRepository;
 import com.prm.contract.config.BookingEscrowProperties;
 import com.prm.contract.dto.request.BookingEscrowConfigRequest;
 import com.prm.contract.dto.response.BookingEscrowConfigResponse;
@@ -39,6 +41,9 @@ class BookingEscrowConfigServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private SystemConfigRepository systemConfigRepository;
+
     private BookingEscrowProperties properties;
     private BookingEscrowConfigServiceImpl service;
 
@@ -54,9 +59,14 @@ class BookingEscrowConfigServiceTest {
         properties.setReviewDays(3);
         properties.setReleaseHoldDays(3);
         properties.setRevisionDays(2);
-        properties.setMaxMilestones(5);
+        properties.setMaxMilestones(20);
         properties.setMaxRevisionsDefault(2);
         properties.setPlatformFeePercent(new BigDecimal("5.0"));
+        properties.setMembershipFeePercent(new BigDecimal("10.0"));
+        properties.setMembershipDurationDays(30);
+        properties.setWithdrawalSlaDays(2);
+        properties.setWithdrawalMinAmount(new BigDecimal("50000"));
+        properties.setDepositMinAmount(new BigDecimal("10000"));
         properties.setJobIntervalMinutes(60);
 
         Role adminRole = Role.builder().id(1L).name(RoleEnum.ADMIN.name()).build();
@@ -65,7 +75,9 @@ class BookingEscrowConfigServiceTest {
         admin = User.builder().id(1L).email("admin@historypodcast.com").fullName("System Admin").roles(Set.of(adminRole)).build();
         normalUser = User.builder().id(2L).email("user@historypodcast.com").fullName("Normal User").roles(Set.of(userRole)).build();
 
-        service = new BookingEscrowConfigServiceImpl(configRepository, properties, userRepository);
+        service = new BookingEscrowConfigServiceImpl(configRepository, properties, userRepository, systemConfigRepository);
+        lenient().when(systemConfigRepository.findFirstByKeyOrderByIdDesc(anyString())).thenReturn(Optional.empty());
+        lenient().when(systemConfigRepository.save(any(SystemConfig.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private void authenticateAs(User user) {
@@ -76,7 +88,7 @@ class BookingEscrowConfigServiceTest {
     }
 
     @Test
-    @DisplayName("Admin lấy cấu hình mặc định hiện hành")
+    @DisplayName("Lấy cấu hình hợp nhất toàn sàn (Escrow 5%, Membership 10%, Rút tiền SLA 2 ngày, Tối đa 20 Milestones)")
     void testGetConfig() {
         when(configRepository.findAll()).thenReturn(List.of());
 
@@ -85,7 +97,15 @@ class BookingEscrowConfigServiceTest {
         assertEquals(48, res.getContractAcceptHours());
         assertEquals(48, res.getFundHours());
         assertEquals(3, res.getReviewDays());
+        assertEquals(20, res.getMaxMilestones());
         assertEquals(new BigDecimal("5.0"), res.getPlatformFeePercent());
+        assertEquals(new BigDecimal("10.0"), res.getMembershipFeePercent());
+        assertEquals(2, res.getWithdrawalSlaDays());
+        assertEquals(new BigDecimal("50000"), res.getWithdrawalMinAmount());
+        assertEquals(new BigDecimal("10000"), res.getDepositMinAmount());
+        assertNotNull(res.getRenderedTerms());
+        assertTrue(res.getRenderedTerms().contains("95.0%"));
+        assertTrue(res.getRenderedTerms().contains("2 ngày"));
     }
 
     @Test
@@ -99,21 +119,25 @@ class BookingEscrowConfigServiceTest {
                 .contractAcceptHours(72)
                 .platformFeePercent(new BigDecimal("8.5"))
                 .reviewDays(5)
-                .termsTemplate("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Hạn duyệt {reviewDays}")
+                .maxMilestones(20)
+                .membershipFeePercent(new BigDecimal("12.0"))
+                .withdrawalSlaDays(2)
+                .termsTemplate("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Creator nhận {creatorNetPercent}, Hạn duyệt {reviewDays}")
                 .build();
 
         BookingEscrowConfigResponse res = service.updateConfig(req);
         assertNotNull(res);
         assertEquals(72, res.getContractAcceptHours());
         assertEquals(new BigDecimal("8.5"), res.getPlatformFeePercent());
+        assertEquals(new BigDecimal("12.0"), res.getMembershipFeePercent());
         assertEquals(5, res.getReviewDays());
-        assertEquals("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Hạn duyệt {reviewDays}", res.getTermsTemplate());
+        assertEquals("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Creator nhận {creatorNetPercent}, Hạn duyệt {reviewDays}", res.getTermsTemplate());
+        assertTrue(res.getRenderedTerms().contains("91.5%"));
 
         // Kiểm tra bean properties cũng được cập nhật ngay lập tức
         assertEquals(72, properties.getContractAcceptHours());
         assertEquals(new BigDecimal("8.5"), properties.getPlatformFeePercent());
         assertEquals(5, properties.getReviewDays());
-        assertEquals("ĐIỀU KHOẢN TÙY BIẾN: Phí {feePercent}, Hạn duyệt {reviewDays}", properties.getTermsTemplate());
         verify(configRepository, atLeastOnce()).save(any(BookingEscrowConfig.class));
     }
 
@@ -132,23 +156,23 @@ class BookingEscrowConfigServiceTest {
     }
 
     @Test
-    @DisplayName("Admin reset cấu hình về mặc định ban đầu")
+    @DisplayName("Admin reset cấu hình về mặc định chuẩn toàn sàn")
     void testResetDefaultConfig() {
         authenticateAs(admin);
         when(configRepository.findByConfigKey(anyString())).thenReturn(Optional.empty());
         when(configRepository.save(any(BookingEscrowConfig.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Giả sử trước đó đã bị chỉnh sửa
         properties.setPlatformFeePercent(new BigDecimal("12.0"));
         properties.setContractAcceptHours(96);
+        properties.setMaxMilestones(5);
         properties.setTermsTemplate("Tùy biến cũ");
 
         BookingEscrowConfigResponse res = service.resetDefaultConfig();
         assertEquals(48, res.getContractAcceptHours());
+        assertEquals(20, res.getMaxMilestones());
         assertEquals(new BigDecimal("5.0"), res.getPlatformFeePercent());
+        assertEquals(new BigDecimal("10.0"), res.getMembershipFeePercent());
+        assertEquals(2, res.getWithdrawalSlaDays());
         assertEquals(BookingEscrowProperties.DEFAULT_TERMS_TEMPLATE, res.getTermsTemplate());
-        assertEquals(48, properties.getContractAcceptHours());
-        assertEquals(new BigDecimal("5.0"), properties.getPlatformFeePercent());
-        assertEquals(BookingEscrowProperties.DEFAULT_TERMS_TEMPLATE, properties.getTermsTemplate());
     }
 }

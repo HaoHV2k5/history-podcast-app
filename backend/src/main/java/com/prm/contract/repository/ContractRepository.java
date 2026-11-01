@@ -10,7 +10,9 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ContractRepository extends JpaRepository<Contract, Long> {
@@ -28,4 +30,8 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
     );
 
     List<Contract> findByStatusAndAcceptDueAtBefore(ContractStatus status, Instant now);
+
+    boolean existsByFreelancerIdAndStatusIn(Long freelancerId, Collection<ContractStatus> statuses);
+
+    Optional<Contract> findFirstByHireRequestIdOrderByIdDesc(Long hireRequestId);
 }

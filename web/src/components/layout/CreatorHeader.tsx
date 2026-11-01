@@ -104,7 +104,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
           className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-300/60 bg-emerald-50 text-emerald-700 text-[11px] font-medium select-none shadow-2xs"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Phòng thu Trực tuyến</span>
+          <span>Creator Studio Online</span>
         </div>
 
         {/* Switch to Admin Workspace for Dual-Role Users */}

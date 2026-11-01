@@ -1,66 +1,49 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { gsap } from 'gsap';
 import {
-  Radio,
-  Camera,
-  Image as ImageIcon,
   CheckCircle2,
   AlertCircle,
-  Save,
-  PlusCircle,
-  Calendar,
-  Upload,
   RefreshCw,
-  Crown,
+  X,
 } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useKycGate } from '@/features/kyc/useKycGate';
 import { KycGateCard } from '@/features/kyc/KycGateCard';
 import { channelsApi } from '@/services/api/channels';
 import { membershipApi } from '@/services/api/membership';
+import { creatorStudioApi } from '@/services/api/creatorStudio';
 import { ChannelItem } from '@/types/channel';
 import { MembershipPlanRequest } from '@/types/membership';
-import { formatDate } from '@/utils/formatters';
+import { CreatorVideoItem } from '@/types/creatorContent';
+import { createSafeMotionContext, MOTION_CONFIG } from '@/utils/motion';
 
-const channelCreateSchema = z.object({
-  name: z
-    .string()
-    .min(3, 'Tên kênh phải có ít nhất 3 ký tự')
-    .max(100, 'Tên kênh không được vượt quá 100 ký tự'),
-  description: z
-    .string()
-    .min(10, 'Mô tả kênh phải có ít nhất 10 ký tự')
-    .max(1000, 'Mô tả kênh không được vượt quá 1000 ký tự'),
-});
-
-const channelUpdateSchema = z.object({
-  name: z
-    .string()
-    .min(3, 'Tên kênh phải có ít nhất 3 ký tự')
-    .max(100, 'Tên kênh không được vượt quá 100 ký tự'),
-  description: z
-    .string()
-    .min(10, 'Mô tả kênh phải có ít nhất 10 ký tự')
-    .max(1000, 'Mô tả kênh không được vượt quá 1000 ký tự'),
-});
-
-type ChannelCreateFormData = z.infer<typeof channelCreateSchema>;
-type ChannelUpdateFormData = z.infer<typeof channelUpdateSchema>;
+// Compound Components
+import { ChannelHeaderBanner } from './components/ChannelHeaderBanner';
+import { ChannelShowcaseCard } from './components/ChannelShowcaseCard';
+import {
+  ChannelMetadataFormCard,
+  ChannelMetadataFormCardRef,
+  ChannelUpdateFormData,
+} from './components/ChannelMetadataFormCard';
+import { ChannelMembershipPlanCard } from './components/ChannelMembershipPlanCard';
+import { ChannelPreviewSidebarCard } from './components/ChannelPreviewSidebarCard';
+import { ChannelTipsCard } from './components/ChannelTipsCard';
+import { ChannelHelpCard } from './components/ChannelHelpCard';
+import { ChannelSupportModal } from './components/ChannelSupportModal';
+import { ChannelPlatformPreviewModal } from './components/ChannelPlatformPreviewModal';
+import { ChannelCreateView, ChannelCreateFormData } from './components/ChannelCreateView';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export const CreatorChannelPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const metadataFormRef = useRef<ChannelMetadataFormCardRef>(null);
 
-  // 1. Check KYC Gate
+  // ─── 1. Check KYC Gate ──────────────────────────────────────────────────────
   const {
     status: kycStatus,
     isApproved: isKycApproved,
@@ -71,7 +54,7 @@ export const CreatorChannelPage: React.FC = () => {
     refetch: refetchKyc,
   } = useKycGate();
 
-  // 2. Query My Channel
+  // ─── 2. Query My Channel ───────────────────────────────────────────────────
   const {
     data: channel,
     isLoading: isLoadingChannel,
@@ -102,102 +85,98 @@ export const CreatorChannelPage: React.FC = () => {
     staleTime: 60 * 1000,
   });
 
-  // Local state for media uploads
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverPreview, setCoverPreview] = useState<string | null>(null);
-  const [mediaError, setMediaError] = useState<string | null>(null);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-
-  // Forms
-  const createForm = useForm<ChannelCreateFormData>({
-    resolver: zodResolver(channelCreateSchema),
-    defaultValues: { name: '', description: '' },
-  });
-
-  const updateForm = useForm<ChannelUpdateFormData>({
-    resolver: zodResolver(channelUpdateSchema),
-    defaultValues: { name: '', description: '' },
-  });
-
-  // Pre-fill update form when channel data loads
-  useEffect(() => {
-    if (channel) {
-      updateForm.setValue('name', channel.name);
-      updateForm.setValue('description', channel.description || '');
-    }
-  }, [channel, updateForm]);
-
-  // VIP Membership Plan query & state
-  const { data: planRes, isLoading: isLoadingPlan } = useQuery({
+  // ─── 3. Query Membership Plan ──────────────────────────────────────────────
+  const { data: planRes } = useQuery({
     queryKey: ['creator-channel-plan', channel?.id],
     queryFn: () => membershipApi.getChannelPlan(channel!.id),
     enabled: Boolean(channel?.id),
     retry: 1,
   });
-  const currentPlan = planRes?.data;
+  const currentPlan = planRes?.data || null;
 
-  const [planName, setPlanName] = useState('');
-  const [planPrice, setPlanPrice] = useState<number>(50000);
-  const [planDescription, setPlanDescription] = useState('');
-  const [planPerksText, setPlanPerksText] = useState('');
-  const [planStatus, setPlanStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
-  const [planFeedback, setPlanFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-
-  useEffect(() => {
-    if (currentPlan) {
-      setPlanName(currentPlan.name || '');
-      setPlanPrice(currentPlan.monthlyPrice || 50000);
-      setPlanDescription(currentPlan.description || '');
-      setPlanPerksText(Array.isArray(currentPlan.perks) ? currentPlan.perks.join('\n') : '');
-      setPlanStatus((currentPlan.status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE');
-    }
-  }, [currentPlan]);
-
-  const upsertPlanMutation = useMutation({
-    mutationFn: (payload: MembershipPlanRequest) => {
-      if (!channel) throw new Error('Chưa có kênh');
-      return membershipApi.upsertChannelPlan(channel.id, payload);
-    },
-    onSuccess: () => {
-      setPlanFeedback({ type: 'success', message: 'Cấu hình gói hội viên kênh thành công!' });
-      queryClient.invalidateQueries({ queryKey: ['creator-channel-plan', channel?.id] });
-    },
-    onError: (err: unknown) => {
-      let msg = 'Không thể lưu gói hội viên. Vui lòng kiểm tra lại.';
-      if (axios.isAxiosError(err)) {
-        msg = err.response?.data?.message || msg;
-      }
-      setPlanFeedback({ type: 'error', message: msg });
-    },
+  // ─── 4. Query Creator Podcasts & Videos (Real Data) ────────────────────────
+  const { data: videosRes } = useQuery({
+    queryKey: ['creator-studio-videos'],
+    queryFn: () => creatorStudioApi.getVideos(),
+    enabled: Boolean(channel?.id),
+    staleTime: 30 * 1000,
   });
+  const creatorVideos: CreatorVideoItem[] = Array.isArray(videosRes?.data) ? videosRes.data : [];
 
-  // Handle toast timeout
+  // 100% Real metrics from system database (strictly zero fake data)
+  const totalEpisodes = creatorVideos.length;
+  const completedEpisodes = creatorVideos.filter(
+    (v) => v.status === 'COMPLETED' || v.status === 'PUBLISHED'
+  ).length;
+
+  // ─── 5. UI Feedback & Modal States ─────────────────────────────────────────
+  const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  // File Upload Previews (for onboarding form)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  // Auto-dismiss success toast
   useEffect(() => {
     if (!successToast) return;
-    const t = setTimeout(() => setSuccessToast(null), 5000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSuccessToast(null), 5000);
+    return () => clearTimeout(timer);
   }, [successToast]);
 
-  // Media validation helper
-  const handleFileSelect = (
+  // ─── 6. GSAP 60fps Entrance Motion ─────────────────────────────────────────
+  useEffect(() => {
+    if (!containerRef.current || isCheckingKyc || isLoadingChannel) return;
+
+    const cleanup = createSafeMotionContext(containerRef, () => {
+      const targets = containerRef.current?.querySelectorAll('[data-motion-target]');
+      if (!targets || targets.length === 0) return;
+
+      gsap.fromTo(
+        targets,
+        {
+          opacity: 0,
+          y: MOTION_CONFIG.distance.md,
+        },
+        {
+          opacity: 1,
+          y: 0,
+          duration: MOTION_CONFIG.duration.dashboardCards,
+          ease: MOTION_CONFIG.ease,
+          stagger: MOTION_CONFIG.duration.stagger,
+          clearProps: 'transform',
+        }
+      );
+    });
+
+    return cleanup;
+  }, [isCheckingKyc, isLoadingChannel, channel?.id]);
+
+  // ─── 7. File Validation Helper ─────────────────────────────────────────────
+  const validateFile = (file: File): string | null => {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      return 'Định dạng ảnh không được hỗ trợ. Vui lòng chọn file JPG, PNG hoặc WEBP.';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return 'Kích thước ảnh vượt quá 10MB. Vui lòng chọn file nhẹ hơn.';
+    }
+    return null;
+  };
+
+  const handleOnboardingFileSelect = (
     file: File | undefined,
     type: 'avatar' | 'cover'
   ) => {
-    setMediaError(null);
+    setErrorMessage(null);
     if (!file) return;
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setMediaError('Định dạng ảnh không được hỗ trợ. Vui lòng chọn file JPG, PNG hoặc WEBP.');
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setMediaError('Kích thước ảnh vượt quá 10MB. Vui lòng chọn file nhẹ hơn.');
+    const validationError = validateFile(file);
+    if (validationError) {
+      setErrorMessage(validationError);
       return;
     }
 
@@ -211,10 +190,10 @@ export const CreatorChannelPage: React.FC = () => {
     }
   };
 
-  // Mutations
+  // ─── 8. Mutations ──────────────────────────────────────────────────────────
+  // 8.1. Create Channel Mutation (Onboarding)
   const createChannelMutation = useMutation({
     mutationFn: async (data: ChannelCreateFormData) => {
-      // 1. Create channel entity
       const res = await channelsApi.createChannel({
         name: data.name,
         description: data.description,
@@ -223,7 +202,6 @@ export const CreatorChannelPage: React.FC = () => {
       let avatarFailed = false;
       let coverFailed = false;
 
-      // 2. Upload avatar if selected
       if (avatarFile) {
         try {
           await channelsApi.uploadAvatar(avatarFile);
@@ -233,7 +211,6 @@ export const CreatorChannelPage: React.FC = () => {
         }
       }
 
-      // 3. Upload cover if selected
       if (coverFile) {
         try {
           await channelsApi.uploadCover(coverFile);
@@ -248,7 +225,7 @@ export const CreatorChannelPage: React.FC = () => {
     onSuccess: (result) => {
       if (result.avatarFailed || result.coverFailed) {
         setSuccessToast(
-          'Khởi tạo kênh thành công! Tuy nhiên việc tải ảnh gặp sự cố (dịch vụ lưu trữ media chưa khả dụng). Bạn có thể tải lại ảnh đại diện/ảnh bìa bất kỳ lúc nào trong trang này.'
+          'Khởi tạo kênh thành công! Một số hình ảnh tải lên có thể cần cập nhật lại sau.'
         );
       } else {
         setSuccessToast('Khởi tạo kênh Podcast Sử Ký thành công!');
@@ -262,10 +239,11 @@ export const CreatorChannelPage: React.FC = () => {
       if (axios.isAxiosError(err)) {
         msg = err.response?.data?.message || msg;
       }
-      setMediaError(msg);
+      setErrorMessage(msg);
     },
   });
 
+  // 8.2. Update Channel Metadata Mutation
   const updateChannelMutation = useMutation({
     mutationFn: (data: ChannelUpdateFormData) => {
       if (!channel) throw new Error('Không tìm thấy kênh');
@@ -283,63 +261,109 @@ export const CreatorChannelPage: React.FC = () => {
       if (axios.isAxiosError(err)) {
         msg = err.response?.data?.message || msg;
       }
-      setMediaError(msg);
+      setErrorMessage(msg);
     },
   });
 
+  // 8.3. Upload Avatar Mutation
   const uploadAvatarMutation = useMutation({
     mutationFn: (file: File) => channelsApi.uploadAvatar(file),
     onSuccess: () => {
       setSuccessToast('Cập nhật ảnh đại diện kênh thành công!');
       queryClient.invalidateQueries({ queryKey: ['creator', 'my-channel'] });
-      setAvatarFile(null);
-      setAvatarPreview(null);
     },
     onError: (err: unknown) => {
       let msg = 'Tải ảnh đại diện thất bại.';
       if (axios.isAxiosError(err)) {
         msg = err.response?.data?.message || msg;
       }
-      setMediaError(msg);
+      setErrorMessage(msg);
     },
   });
 
+  // 8.4. Upload Cover Mutation
   const uploadCoverMutation = useMutation({
     mutationFn: (file: File) => channelsApi.uploadCover(file),
     onSuccess: () => {
       setSuccessToast('Cập nhật ảnh bìa kênh thành công!');
       queryClient.invalidateQueries({ queryKey: ['creator', 'my-channel'] });
-      setCoverFile(null);
-      setCoverPreview(null);
     },
     onError: (err: unknown) => {
       let msg = 'Tải ảnh bìa thất bại.';
       if (axios.isAxiosError(err)) {
         msg = err.response?.data?.message || msg;
       }
-      setMediaError(msg);
+      setErrorMessage(msg);
     },
   });
 
-  // 1. Loading State
+  // 8.5. Upsert Membership Plan Mutation
+  const upsertPlanMutation = useMutation({
+    mutationFn: (payload: MembershipPlanRequest) => {
+      if (!channel) throw new Error('Chưa có kênh podcast');
+      return membershipApi.upsertChannelPlan(channel.id, payload);
+    },
+    onSuccess: (res) => {
+      setSuccessToast('Lưu cấu hình gói hội viên VIP thành công!');
+      if (res?.data) {
+        queryClient.setQueryData(['creator-channel-plan', channel?.id], res);
+      }
+      queryClient.invalidateQueries({ queryKey: ['creator-channel-plan', channel?.id] });
+    },
+    onError: (err: unknown) => {
+      let msg = 'Không thể lưu gói hội viên. Vui lòng kiểm tra lại.';
+      if (axios.isAxiosError(err)) {
+        msg = err.response?.data?.message || msg;
+      }
+      setErrorMessage(msg);
+    },
+  });
+
+  // File selection handlers for existing channel
+  const handleDirectAvatarUpload = (file: File) => {
+    const err = validateFile(file);
+    if (err) {
+      setErrorMessage(err);
+      return;
+    }
+    uploadAvatarMutation.mutate(file);
+  };
+
+  const handleDirectCoverUpload = (file: File) => {
+    const err = validateFile(file);
+    if (err) {
+      setErrorMessage(err);
+      return;
+    }
+    uploadCoverMutation.mutate(file);
+  };
+
+  // ─── 9. Render Guards ──────────────────────────────────────────────────────
+  // 9.1. Loading Skeleton
   if (isCheckingKyc || (isKycApproved && isLoadingChannel)) {
     return (
-      <div className="space-y-6 animate-pulse max-w-4xl">
-        <div className="h-20 bg-surface rounded-xl border border-border" />
-        <div className="h-96 bg-surface rounded-xl border border-border" />
+      <div className="space-y-6 animate-pulse max-w-7xl mx-auto">
+        <div className="h-28 bg-[#FAF8F5] rounded-2xl border border-[#EBE4D8]" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="h-44 bg-white rounded-2xl border border-[#EBE4D8]" />
+            <div className="h-64 bg-white rounded-2xl border border-[#EBE4D8]" />
+            <div className="h-80 bg-white rounded-2xl border border-[#EBE4D8]" />
+          </div>
+          <div className="lg:col-span-4 space-y-6">
+            <div className="h-80 bg-white rounded-2xl border border-[#EBE4D8]" />
+            <div className="h-44 bg-[#FFFBF7] rounded-2xl border border-[#F5E8DC]" />
+          </div>
+        </div>
       </div>
     );
   }
 
-  // 2. KYC Error State
+  // 9.2. KYC Error State
   if (isKycError) {
     return (
-      <div className="max-w-4xl space-y-6">
-        <div className="border-b border-border pb-6">
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">
-            Quản Lý Kênh Podcast
-          </h1>
-        </div>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <ChannelHeaderBanner status="LỖI HỒ SƠ" />
         <KycGateCard
           status="ERROR"
           errorMessage={kycErrorMessage}
@@ -349,24 +373,11 @@ export const CreatorChannelPage: React.FC = () => {
     );
   }
 
-  // 3. KYC Gating Barrier (If not APPROVED)
+  // 9.3. KYC Gating Barrier (If not APPROVED)
   if (!isKycApproved) {
     return (
-      <div className="space-y-8 max-w-4xl">
-        <div className="border-b border-border pb-6">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent mb-2">
-            <Radio className="h-4 w-4" />
-            <span>Kênh Podcast Sử Ký</span>
-          </div>
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">
-            Thiết Lập & Quản Lý Kênh
-          </h1>
-          <p className="mt-2 text-sm text-muted">
-            Quản lý thương hiệu nhà sáng tạo, thông tin mô tả và nhận diện hình ảnh của kênh podcast lịch sử.
-          </p>
-        </div>
-
-        {/* Gating Gate Card */}
+      <div className="max-w-4xl mx-auto space-y-6">
+        <ChannelHeaderBanner status={kycStatus} />
         <KycGateCard
           status={kycStatus}
           rejectionReason={rejectionReason}
@@ -376,7 +387,7 @@ export const CreatorChannelPage: React.FC = () => {
     );
   }
 
-  // 4. Channel Error State (when approved but channel endpoint fails with non-404 error)
+  // 9.4. Channel API Error State (When approved but endpoint fails with non-404)
   if (isChannelError) {
     const errorMsg =
       axios.isAxiosError(channelError)
@@ -384,639 +395,163 @@ export const CreatorChannelPage: React.FC = () => {
         : 'Đã xảy ra lỗi khi kết nối máy chủ';
 
     return (
-      <div className="max-w-4xl space-y-6">
-        <div className="border-b border-border pb-6">
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">
-            Quản Lý Kênh Podcast
-          </h1>
-        </div>
-        <div className="rounded-xl border border-status-error-text/30 bg-surface p-6 shadow-xs flex items-start gap-4">
-          <AlertCircle className="h-6 w-6 text-status-error-text shrink-0 mt-0.5" />
+      <div className="max-w-4xl mx-auto space-y-6">
+        <ChannelHeaderBanner status="LỖI KẾT NỐI" />
+        <div className="rounded-2xl border border-[#FCA5A5] bg-white p-6 shadow-2xs flex items-start gap-4">
+          <AlertCircle className="h-6 w-6 text-[#DC2626] shrink-0 mt-0.5" />
           <div className="space-y-2 flex-1">
-            <h3 className="font-serif text-lg font-bold text-ink">
+            <h3 className="font-serif text-lg font-bold text-[#1F1A19]">
               Lỗi tải dữ liệu kênh
             </h3>
-            <p className="text-sm text-muted">{errorMsg}</p>
-            <Button
-              variant="outline"
-              size="sm"
+            <p className="text-xs text-[#786D66]">{errorMsg}</p>
+            <button
+              type="button"
               onClick={() => refetchChannel()}
-              className="gap-2 mt-2"
+              className="inline-flex items-center gap-2 rounded-lg border border-[#E5E0D8] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#38302E] hover:bg-[#FAF8F5] cursor-pointer mt-2"
             >
               <RefreshCw className="h-4 w-4" />
               <span>Thử lại</span>
-            </Button>
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
-  // 5. NO CHANNEL YET: RENDER CREATE CHANNEL FORM
+  // ─── 10. Empty Channel State: Onboarding Create View ────────────────────────
   if (!channel) {
     return (
-      <div className="space-y-8 max-w-4xl">
-        {/* Header */}
-        <div className="border-b border-border pb-6">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent mb-2">
-            <Radio className="h-4 w-4" />
-            <span>Khởi Tạo Thương Hiệu Tác Giả</span>
-          </div>
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">
-            Khởi Tạo Kênh Podcast Mới
-          </h1>
-          <p className="mt-2 text-sm text-muted max-w-2xl leading-relaxed">
-            Hồ sơ KYC của bạn đã được phê duyệt. Hãy thiết lập kênh podcast đầu tiên của bạn trên Sử Ký để bắt đầu phát hành các tác phẩm lịch sử.
-          </p>
-        </div>
-
-        {/* KYC Approved Confirmation Badge */}
-        <div className="rounded-lg border border-status-success-text/30 bg-status-success-bg/40 p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 className="h-5 w-5 text-status-success-text shrink-0" />
-            <div className="text-xs">
-              <span className="font-semibold text-status-success-text block">
-                Đủ điều kiện tạo kênh (KYC Verified)
-              </span>
-              <span className="text-status-success-text/80">
-                Mỗi nhà sáng tạo được tạo 1 kênh podcast chính thức gắn liền với tài khoản tác giả.
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Global Error Banner */}
-        {mediaError && (
-          <div className="rounded-lg p-4 bg-status-error-bg text-status-error-text border border-status-error-text/30 text-xs flex items-start gap-2.5">
-            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-            <span className="leading-relaxed">{mediaError}</span>
-          </div>
-        )}
-
-        {/* Create Channel Form */}
-        <form
-          onSubmit={createForm.handleSubmit((data) => createChannelMutation.mutate(data))}
-          className="space-y-8"
-        >
-          <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-6">
-            <h3 className="font-serif text-base font-bold text-ink flex items-center gap-2 border-b border-border pb-3">
-              <Radio className="h-4 w-4 text-accent" />
-              <span>Thông tin nhận diện Kênh</span>
-            </h3>
-
-            {/* Channel Name */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-ink block">
-                Tên Kênh Podcast <span className="text-accent">*</span>
-              </label>
-              <Input
-                {...createForm.register('name')}
-                placeholder="Ví dụ: Đại Việt Hào Khí, Sử Ký Trầm Luân..."
-                error={Boolean(createForm.formState.errors.name)}
-                leftIcon={<Radio className="h-4 w-4" />}
-              />
-              <p className="text-[11px] text-muted">
-                Từ 3 đến 100 ký tự. Tên kênh phải là duy nhất trên toàn hệ thống Sử Ký.
-              </p>
-              {createForm.formState.errors.name && (
-                <p className="text-[11px] text-status-error-text">
-                  {createForm.formState.errors.name.message}
-                </p>
-              )}
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-ink block">
-                Mô tả tôn chỉ & định hướng của kênh <span className="text-accent">*</span>
-              </label>
-              <Textarea
-                {...createForm.register('description')}
-                placeholder="Giới thiệu về mục tiêu, các chủ đề lịch sử chính mà kênh sẽ khai thác (triều đại, danh tướng, các trận đánh lịch sử)..."
-                rows={4}
-                error={Boolean(createForm.formState.errors.description)}
-              />
-              <p className="text-[11px] text-muted">Tối đa 1000 ký tự.</p>
-              {createForm.formState.errors.description && (
-                <p className="text-[11px] text-status-error-text">
-                  {createForm.formState.errors.description.message}
-                </p>
-              )}
-            </div>
-
-            {/* Visual Media Selection (Optional on creation, can be uploaded immediately) */}
-            <div className="pt-4 border-t border-border space-y-4">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
-                  Hình ảnh nhận diện kênh (Tùy chọn)
-                </h4>
-                <p className="text-xs text-muted mt-1">
-                  Bạn có thể chọn ảnh đại diện và ảnh bìa ngay bây giờ hoặc tải lên sau khi tạo kênh. Hỗ trợ JPG, PNG, WEBP (tối đa 10MB).
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                {/* Avatar Picker */}
-                <div className="space-y-3">
-                  <span className="text-xs font-medium text-ink block">
-                    Ảnh đại diện Kênh (Avatar)
-                  </span>
-                  <div className="flex items-center gap-4">
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-border bg-surface-subtle flex items-center justify-center">
-                      {avatarPreview ? (
-                        <img
-                          src={avatarPreview}
-                          alt="Avatar Preview"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Radio className="h-8 w-8 text-muted" />
-                      )}
-                    </div>
-                    <div className="space-y-1.5 flex-1">
-                      <input
-                        type="file"
-                        ref={avatarInputRef}
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleFileSelect(e.target.files?.[0], 'avatar')
-                        }
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => avatarInputRef.current?.click()}
-                        className="gap-2"
-                      >
-                        <Camera className="h-4 w-4" />
-                        <span>{avatarFile ? 'Đổi ảnh đại diện' : 'Chọn ảnh đại diện'}</span>
-                      </Button>
-                      <p className="text-[11px] text-muted">Khuyến nghị tỉ lệ 1:1</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Cover Picker */}
-                <div className="space-y-3">
-                  <span className="text-xs font-medium text-ink block">
-                    Ảnh bìa Kênh (Cover Banner)
-                  </span>
-                  <div className="space-y-2">
-                    <div className="relative h-20 w-full overflow-hidden rounded-xl border border-border bg-surface-subtle flex items-center justify-center">
-                      {coverPreview ? (
-                        <img
-                          src={coverPreview}
-                          alt="Cover Preview"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 text-muted text-xs">
-                          <ImageIcon className="h-5 w-5" />
-                          <span>Chưa chọn ảnh bìa</span>
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      type="file"
-                      ref={coverInputRef}
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={(e) =>
-                        handleFileSelect(e.target.files?.[0], 'cover')
-                      }
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => coverInputRef.current?.click()}
-                      className="gap-2"
-                    >
-                      <Upload className="h-4 w-4" />
-                      <span>{coverFile ? 'Đổi ảnh bìa' : 'Chọn ảnh bìa'}</span>
-                    </Button>
-                    <p className="text-[11px] text-muted">Khuyến nghị tỉ lệ 16:9</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <div className="pt-4 border-t border-border flex justify-end">
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                disabled={createChannelMutation.isPending}
-                isLoading={createChannelMutation.isPending}
-                className="gap-2 shadow-sm min-w-[180px]"
-              >
-                <PlusCircle className="h-4 w-4" />
-                <span>Hoàn tất & Tạo Kênh</span>
-              </Button>
-            </div>
-          </div>
-        </form>
+      <div ref={containerRef} className="space-y-6 max-w-7xl mx-auto">
+        <ChannelHeaderBanner status="CHƯA KHỞI TẠO" />
+        <ChannelCreateView
+          onSubmit={(data) => createChannelMutation.mutate(data)}
+          isSubmitting={createChannelMutation.isPending}
+          avatarFile={avatarFile}
+          avatarPreview={avatarPreview}
+          coverFile={coverFile}
+          coverPreview={coverPreview}
+          onFileSelect={handleOnboardingFileSelect}
+          error={errorMessage}
+        />
       </div>
     );
   }
 
-  // 6. CHANNEL EXISTS: RENDER CHANNEL MANAGEMENT VIEW
+  // ─── 11. Channel Exists: Full Dashboard Management View ─────────────────────
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div ref={containerRef} className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Toast Feedback */}
       {successToast && (
-        <div className="rounded-lg p-4 bg-status-success-bg text-status-success-text border border-status-success-text/30 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="h-5 w-5" />
-            <span className="font-medium">{successToast}</span>
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-6 right-6 z-50 flex items-center justify-between gap-3 rounded-xl border border-[#A6E9B9] bg-[#EDFDF2] px-4 py-3 text-xs font-semibold text-[#168A4E] shadow-lg animate-in slide-in-from-top-4 duration-200 select-none max-w-md"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4.5 w-4.5 shrink-0" />
+            <span>{successToast}</span>
           </div>
           <button
+            type="button"
             onClick={() => setSuccessToast(null)}
-            className="text-status-success-text hover:underline text-[11px]"
+            className="p-1 hover:text-[#0E5832] transition-colors cursor-pointer"
+            aria-label="Đóng thông báo"
           >
-            Đóng
+            <X className="h-4 w-4" />
           </button>
         </div>
       )}
 
       {/* Global Error Banner */}
-      {mediaError && (
-        <div className="rounded-lg p-4 bg-status-error-bg text-status-error-text border border-status-error-text/30 text-xs flex items-start gap-2.5">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <span className="leading-relaxed flex-1">{mediaError}</span>
+      {errorMessage && (
+        <div
+          role="alert"
+          className="rounded-xl p-4 bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5] text-xs flex items-center justify-between shadow-2xs"
+        >
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="h-4.5 w-4.5 shrink-0" />
+            <span className="leading-relaxed font-medium">{errorMessage}</span>
+          </div>
           <button
-            onClick={() => setMediaError(null)}
-            className="text-status-error-text hover:underline text-[11px]"
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-[#DC2626] hover:underline text-[11px] font-semibold cursor-pointer"
           >
             Đóng
           </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="border-b border-border pb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-accent mb-2">
-            <Radio className="h-4 w-4" />
-            <span>Kênh Podcast Chính Thức</span>
-          </div>
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-ink">
-            Quản Lý Kênh Podcast
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Thiết lập nhận diện, chỉnh sửa thông tin mô tả và cập nhật hình ảnh của kênh.
-          </p>
-        </div>
+      {/* Page Hero Header Banner with Historical Artwork */}
+      <ChannelHeaderBanner status={channel.status} />
 
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-status-success-bg px-3 py-1 text-xs font-bold text-status-success-text border border-status-success-text/30">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            KÊNH HOẠT ĐỘNG ({channel.status})
-          </span>
-        </div>
+      {/* Main 2-Column Responsive Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: 8 cols (approx 68% width) */}
+        <main className="lg:col-span-8 space-y-6">
+          {/* Card 1: Channel Identity Showcase Card */}
+          <ChannelShowcaseCard
+            channel={channel}
+            onSelectAvatar={handleDirectAvatarUpload}
+            onSelectCover={handleDirectCoverUpload}
+            isUploadingAvatar={uploadAvatarMutation.isPending}
+            isUploadingCover={uploadCoverMutation.isPending}
+            onEditClick={() => metadataFormRef.current?.focusNameInput()}
+          />
+
+          {/* Card 2: Edit Channel Information */}
+          <ChannelMetadataFormCard
+            ref={metadataFormRef}
+            channel={channel}
+            onSubmit={(data) => updateChannelMutation.mutate(data)}
+            isSubmitting={updateChannelMutation.isPending}
+          />
+
+          {/* Card 3: Configure VIP Membership Plan */}
+          <ChannelMembershipPlanCard
+            currentPlan={currentPlan}
+            onSubmit={(payload) => upsertPlanMutation.mutate(payload)}
+            isSubmitting={upsertPlanMutation.isPending}
+          />
+        </main>
+
+        {/* Right Sidebar Column: 4 cols (approx 32% width) */}
+        <aside className="lg:col-span-4 space-y-6">
+          {/* Widget 1: Live Platform Channel Preview */}
+          <ChannelPreviewSidebarCard
+            channel={channel}
+            totalEpisodes={totalEpisodes}
+            completedEpisodes={completedEpisodes}
+            onPreviewClick={() => setIsPreviewModalOpen(true)}
+            onListenClick={() => setIsPreviewModalOpen(true)}
+          />
+
+          {/* Widget 2: Channel Optimization Tips */}
+          <ChannelTipsCard />
+
+          {/* Widget 3: Need Support Card */}
+          <ChannelHelpCard onContactClick={() => setIsSupportModalOpen(true)} />
+        </aside>
       </div>
 
-      {/* Channel Showcase Card */}
-      <div className="rounded-xl border border-border bg-surface overflow-hidden shadow-xs">
-        {/* Cover Banner */}
-        <div className="relative h-44 sm:h-56 w-full bg-surface-subtle border-b border-border overflow-hidden">
-          {channel.coverUrl ? (
-            <img
-              src={channel.coverUrl}
-              alt={channel.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-r from-accent/25 via-surface-subtle to-accent/15 flex items-center justify-center">
-              <span className="font-serif text-sm tracking-wider uppercase text-muted font-bold opacity-60">
-                Sử Ký Podcast Platform • Banner 16:9
-              </span>
-            </div>
-          )}
+      {/* Interactive Support Modal */}
+      <ChannelSupportModal
+        isOpen={isSupportModalOpen}
+        onClose={() => setIsSupportModalOpen(false)}
+      />
 
-          {/* Cover upload button overlay */}
-          <div className="absolute top-4 right-4">
-            <input
-              type="file"
-              ref={coverInputRef}
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) {
-                  handleFileSelect(f, 'cover');
-                  uploadCoverMutation.mutate(f);
-                }
-              }}
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => coverInputRef.current?.click()}
-              disabled={uploadCoverMutation.isPending}
-              isLoading={uploadCoverMutation.isPending}
-              className="gap-2 bg-surface/90 backdrop-blur-xs border border-border shadow-xs"
-            >
-              <Upload className="h-4 w-4" />
-              <span>Đổi ảnh bìa</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* Avatar & Channel Header Details */}
-        <div className="px-6 pb-6 pt-0 relative">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5 -mt-12 sm:-mt-14 mb-4">
-            {/* Avatar with upload button */}
-            <div className="relative group shrink-0">
-              <div className="h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border-4 border-surface bg-surface-subtle overflow-hidden shadow-sm flex items-center justify-center">
-                {channel.avatarUrl ? (
-                  <img
-                    src={channel.avatarUrl}
-                    alt={channel.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Radio className="h-12 w-12 text-muted" />
-                )}
-              </div>
-              <input
-                type="file"
-                ref={avatarInputRef}
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) {
-                    handleFileSelect(f, 'avatar');
-                    uploadAvatarMutation.mutate(f);
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={uploadAvatarMutation.isPending}
-                aria-label="Cập nhật ảnh đại diện kênh"
-                className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-medium transition-opacity cursor-pointer m-1"
-              >
-                <Camera className="h-5 w-5 mb-0.5" />
-                <span>Đổi ảnh</span>
-              </button>
-            </div>
-
-            <div className="flex-1 space-y-1">
-              <h2 className="font-serif text-2xl font-bold tracking-tight text-ink">
-                {channel.name}
-              </h2>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-                <span className="font-mono">Mã kênh: #{channel.id}</span>
-                <span>•</span>
-                <span className="font-mono">Tác giả ID: #{channel.creatorId}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  Ngày tạo: {formatDate(channel.createdAt)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-sm text-ink/80 leading-relaxed max-w-3xl pt-2">
-            {channel.description || 'Chưa có mô tả cho kênh này.'}
-          </p>
-        </div>
-      </div>
-
-      {/* Edit Channel Metadata Form */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-6">
-        <div className="flex items-center justify-between border-b border-border pb-4">
-          <h3 className="font-serif text-base font-bold text-ink flex items-center gap-2">
-            <Radio className="h-4 w-4 text-accent" />
-            <span>Chỉnh sửa thông tin Kênh</span>
-          </h3>
-          <span className="text-xs text-muted">
-            Cập nhật lần cuối: {formatDate(channel.updatedAt || channel.createdAt)}
-          </span>
-        </div>
-
-        <form
-          onSubmit={updateForm.handleSubmit((data) => updateChannelMutation.mutate(data))}
-          className="space-y-5"
-        >
-          {/* Channel Name */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-ink block">
-              Tên Kênh Podcast <span className="text-accent">*</span>
-            </label>
-            <Input
-              {...updateForm.register('name')}
-              placeholder="Tên kênh podcast..."
-              error={Boolean(updateForm.formState.errors.name)}
-              leftIcon={<Radio className="h-4 w-4" />}
-            />
-            {updateForm.formState.errors.name && (
-              <p className="text-[11px] text-status-error-text">
-                {updateForm.formState.errors.name.message}
-              </p>
-            )}
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-ink block">
-              Mô tả Kênh <span className="text-accent">*</span>
-            </label>
-            <Textarea
-              {...updateForm.register('description')}
-              rows={4}
-              placeholder="Mô tả tôn chỉ và chủ đề kênh..."
-              error={Boolean(updateForm.formState.errors.description)}
-            />
-            {updateForm.formState.errors.description && (
-              <p className="text-[11px] text-status-error-text">
-                {updateForm.formState.errors.description.message}
-              </p>
-            )}
-          </div>
-
-          <div className="pt-2 flex justify-end">
-            <Button
-              type="submit"
-              variant="primary"
-              size="default"
-              disabled={updateChannelMutation.isPending}
-              isLoading={updateChannelMutation.isPending}
-              className="gap-2 shadow-sm min-w-[140px]"
-            >
-              <Save className="h-4 w-4" />
-              <span>Lưu thay đổi</span>
-            </Button>
-          </div>
-        </form>
-      </div>
-
-      {/* Configure VIP Membership Plan Card */}
-      <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-6">
-        <div className="flex items-center justify-between border-b border-border pb-4">
-          <div className="space-y-1">
-            <h3 className="font-serif text-base font-bold text-ink flex items-center gap-2">
-              <Crown className="h-4 w-4 text-accent" />
-              <span>Cấu hình Gói Hội Viên VIP của Kênh</span>
-            </h3>
-            <p className="text-xs text-muted">
-              Thiết lập tên gói, mức giá tháng và các đặc quyền dành riêng cho thính giả trung thành.
-            </p>
-          </div>
-          {currentPlan && (
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                currentPlan.status === 'ACTIVE'
-                  ? 'bg-status-success-bg text-status-success-text'
-                  : 'bg-surface-subtle text-muted'
-              }`}
-            >
-              {currentPlan.status === 'ACTIVE' ? 'Đang kích hoạt' : 'Tạm tắt'}
-            </span>
-          )}
-        </div>
-
-        {planFeedback && (
-          <div
-            className={`rounded-lg p-3 text-xs flex items-center gap-2 ${
-              planFeedback.type === 'success'
-                ? 'bg-status-success-bg text-status-success-text border border-status-success-text/30'
-                : 'bg-status-error-bg text-status-error-text border border-status-error-text/30'
-            }`}
-          >
-            {planFeedback.type === 'success' ? (
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-            ) : (
-              <AlertCircle className="h-4 w-4 shrink-0" />
-            )}
-            <span>{planFeedback.message}</span>
-          </div>
-        )}
-
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!planName.trim()) {
-              setPlanFeedback({ type: 'error', message: 'Tên gói hội viên không được để trống' });
-              return;
-            }
-            if (planPrice < 1000) {
-              setPlanFeedback({ type: 'error', message: 'Mức giá tối thiểu là 1.000 VNĐ/tháng' });
-              return;
-            }
-            const perks = planPerksText
-              .split('\n')
-              .map((p) => p.trim())
-              .filter(Boolean);
-
-            upsertPlanMutation.mutate({
-              name: planName.trim(),
-              description: planDescription.trim() || undefined,
-              monthlyPrice: planPrice,
-              perks: perks.length > 0 ? perks : undefined,
-              status: planStatus,
-            });
-          }}
-          className="space-y-5"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-ink block">
-                Tên gói hội viên <span className="text-accent">*</span>
-              </label>
-              <Input
-                value={planName}
-                onChange={(e) => setPlanName(e.target.value)}
-                placeholder="Ví dụ: Hội Viên Sử Việt Hào Khí"
-                required
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-ink block">
-                Mức giá hàng tháng (VNĐ) <span className="text-accent">*</span>
-              </label>
-              <Input
-                type="number"
-                min={1000}
-                step={5000}
-                value={planPrice}
-                onChange={(e) => setPlanPrice(parseInt(e.target.value, 10) || 0)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-ink block">Mô tả gói</label>
-            <Textarea
-              rows={2}
-              value={planDescription}
-              onChange={(e) => setPlanDescription(e.target.value)}
-              placeholder="Giới thiệu mục tiêu của gói hội viên và lời cảm ơn đến thính giả..."
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-ink block">
-              Danh sách đặc quyền (Mỗi dòng một đặc quyền)
-            </label>
-            <Textarea
-              rows={3}
-              value={planPerksText}
-              onChange={(e) => setPlanPerksText(e.target.value)}
-              placeholder={`Nghe trước các tập podcast độc quyền\nXem video hoạt họa chất lượng cao không quảng cáo\nHuy hiệu Hội viên nổi bật trong phần bình luận`}
-            />
-            <p className="text-[11px] text-muted">
-              Nhập các đặc quyền thính giả sẽ nhận được khi tham gia gói hội viên VIP.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-ink block">Trạng thái gói</label>
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant={planStatus === 'ACTIVE' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setPlanStatus('ACTIVE')}
-              >
-                Kích hoạt (ACTIVE)
-              </Button>
-              <Button
-                type="button"
-                variant={planStatus === 'INACTIVE' ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => setPlanStatus('INACTIVE')}
-              >
-                Tạm dừng (INACTIVE)
-              </Button>
-            </div>
-          </div>
-
-          <div className="pt-2 flex justify-end">
-            <Button
-              type="submit"
-              variant="primary"
-              size="default"
-              disabled={upsertPlanMutation.isPending || isLoadingPlan}
-              isLoading={upsertPlanMutation.isPending}
-              className="gap-2 shadow-sm min-w-[140px]"
-            >
-              <Save className="h-4 w-4" />
-              <span>Lưu gói hội viên</span>
-            </Button>
-          </div>
-        </form>
-      </div>
+      {/* Interactive Platform Preview Modal */}
+      <ChannelPlatformPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => setIsPreviewModalOpen(false)}
+        channel={channel}
+        plan={currentPlan}
+        videos={creatorVideos}
+        onPlayEpisode={(vid) => {
+          // Play episode interaction feedback
+          setSuccessToast(`Đang phát: ${vid.title}`);
+        }}
+      />
     </div>
   );
 };

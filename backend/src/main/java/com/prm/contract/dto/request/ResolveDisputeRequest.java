@@ -14,9 +14,9 @@ import java.math.BigDecimal;
 public class ResolveDisputeRequest {
 
     @NotNull(message = "Kết quả phân xử (result) không được để trống")
-    private DisputeResult result; // RELEASE_TO_FREELANCER | REFUND_TO_CREATOR | SPLIT
+    private DisputeResult result; // RELEASE_TO_CREATOR | REFUND_TO_REQUESTER | SPLIT
 
-    private BigDecimal splitPercent; // Áp dụng khi result = SPLIT, tỉ lệ % cho Freelancer (ví dụ 60.0)
+    private BigDecimal splitPercent; // Áp dụng khi result = SPLIT, tỉ lệ % giải ngân cho Creator (ví dụ 60.0)
 
     private String resolution; // Ghi chú kết luận của Admin
 }
