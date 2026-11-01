@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:camera/camera.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'audience_pages.dart';
@@ -370,6 +372,56 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
   int _lastChatTimestamp = 0;
   bool _isFullscreen = false;
 
+  List<CameraDescription> _cameras = [];
+  CameraController? _cameraController;
+  bool _cameraInitialized = false;
+  bool _isCameraInitializing = false;
+
+  Future<void> _initRealCamera({bool? front}) async {
+    if (kIsWeb) return;
+    if (_isCameraInitializing) return;
+    _isCameraInitializing = true;
+    try {
+      if (_cameras.isEmpty) {
+        _cameras = await availableCameras();
+      }
+      if (_cameras.isEmpty) {
+        _isCameraInitializing = false;
+        return;
+      }
+      final media = widget.state.getLivestreamMediaState(widget.session.id);
+      final useFront = front ?? media.isFrontCamera;
+      final targetLens = useFront ? CameraLensDirection.front : CameraLensDirection.back;
+      final camera = _cameras.firstWhere(
+        (c) => c.lensDirection == targetLens,
+        orElse: () => _cameras.first,
+      );
+
+      final oldController = _cameraController;
+      _cameraController = null;
+      await oldController?.dispose();
+
+      final controller = CameraController(
+        camera,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+      await controller.initialize();
+      if (mounted) {
+        setState(() {
+          _cameraController = controller;
+          _cameraInitialized = true;
+        });
+      } else {
+        await controller.dispose();
+      }
+    } catch (e) {
+      debugPrint('Real camera init error (fallback to avatar): $e');
+    } finally {
+      _isCameraInitializing = false;
+    }
+  }
+
   LivestreamSessionModel get _currentSession {
     final idx = widget.state.activeLivestreams.indexWhere(
       (s) => s.id == widget.session.id,
@@ -381,6 +433,9 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
   void initState() {
     super.initState();
     _enterRoom();
+    if (widget.isHost) {
+      _initRealCamera();
+    }
   }
 
   Future<void> _enterRoom() async {
@@ -460,10 +515,14 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
 
   void _toggleCamera() {
     final media = widget.state.getLivestreamMediaState(widget.session.id);
+    final next = !media.isCameraOn;
     widget.state.updateLivestreamMediaState(
       widget.session.id,
-      isCameraOn: !media.isCameraOn,
+      isCameraOn: next,
     );
+    if (next && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+      _initRealCamera();
+    }
   }
 
   void _toggleScreenShare() {
@@ -485,10 +544,12 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
 
   void _toggleCameraFlip() {
     final media = widget.state.getLivestreamMediaState(widget.session.id);
+    final nextFront = !media.isFrontCamera;
     widget.state.updateLivestreamMediaState(
       widget.session.id,
-      isFrontCamera: !media.isFrontCamera,
+      isFrontCamera: nextFront,
     );
+    _initRealCamera(front: nextFront);
   }
 
   void _prevSlide() {
@@ -709,6 +770,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
 
   @override
   void dispose() {
+    _cameraController?.dispose();
     _chatPollTimer?.cancel();
     _chatCtrl.dispose();
     if (_joinedServer) {
@@ -1444,82 +1506,101 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
         fit: StackFit.expand,
         children: [
           if (mediaState.isCameraOn) ...[
-            Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF334155), Color(0xFF0F172A)],
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: mediaState.isMicOn
-                          ? const Color(0xFF22C55E)
-                          : Colors.white54,
-                      width: 2,
-                    ),
-                    color: Palette.paper,
+            if (_cameraController != null && _cameraController!.value.isInitialized)
+              Positioned.fill(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _cameraController!.value.previewSize?.height ?? 1920,
+                    height: _cameraController!.value.previewSize?.width ?? 1080,
+                    child: CameraPreview(_cameraController!),
                   ),
-                  child: Center(
-                    child: Text(
-                      (session.creatorName?.isNotEmpty == true
-                              ? session.creatorName!
-                              : widget.state.displayName)
-                          .characters
-                          .take(1)
-                          .toString()
-                          .toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Palette.ink,
+                ),
+              )
+            else
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF334155), Color(0xFF0F172A)],
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: mediaState.isMicOn
+                            ? const Color(0xFF22C55E)
+                            : Colors.white54,
+                        width: 2,
+                      ),
+                      color: Palette.paper,
+                    ),
+                    child: Center(
+                      child: Text(
+                        (session.creatorName?.isNotEmpty == true
+                                ? session.creatorName!
+                                : widget.state.displayName)
+                            .characters
+                            .take(1)
+                            .toString()
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Palette.ink,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
             Positioned(
               bottom: 3,
               left: 4,
               right: 4,
-              child: Row(
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 3),
-                  Expanded(
-                    child: Text(
-                      session.creatorName ?? widget.state.displayName,
-                      style: const TextStyle(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF22C55E),
+                        shape: BoxShape.circle,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  Icon(
-                    mediaState.isMicOn
-                        ? CupertinoIcons.mic_fill
-                        : CupertinoIcons.mic_slash_fill,
-                    size: 8,
-                    color: mediaState.isMicOn ? Colors.white : Palette.red,
-                  ),
-                ],
+                    const SizedBox(width: 3),
+                    Expanded(
+                      child: Text(
+                        session.creatorName ?? widget.state.displayName,
+                        style: const TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Icon(
+                      mediaState.isMicOn
+                          ? CupertinoIcons.mic_fill
+                          : CupertinoIcons.mic_slash_fill,
+                      size: 8,
+                      color: mediaState.isMicOn ? Colors.white : Palette.red,
+                    ),
+                  ],
+                ),
               ),
             ),
           ] else ...[
@@ -1743,9 +1824,14 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
     LivestreamSessionModel session,
     String channelName,
   ) {
+    final isRealCameraActive = _cameraController != null &&
+        _cameraController!.value.isInitialized &&
+        mediaState.isCameraOn;
+
     return Container(
       key: const Key('livestream-camera-view'),
       decoration: const BoxDecoration(
+        color: Colors.black,
         gradient: RadialGradient(
           center: Alignment.center,
           radius: 1.0,
@@ -1758,72 +1844,129 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 76,
-                      height: 76,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: mediaState.isMicOn
-                              ? const Color(0xFF22C55E).withValues(alpha: 0.6)
-                              : Colors.white24,
-                          width: 2.5,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Color(0xFF3F3F46),
-                      ),
-                      child: Center(
-                        child: Text(
-                          (session.creatorName?.isNotEmpty == true
-                                  ? session.creatorName!
-                                  : widget.state.displayName)
-                              .characters
-                              .take(1)
-                              .toString()
-                              .toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+          if (isRealCameraActive)
+            Positioned.fill(
+              child: ClipRect(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _cameraController!.value.previewSize?.height ?? 1920,
+                    height: _cameraController!.value.previewSize?.width ?? 1080,
+                    child: CameraPreview(_cameraController!),
+                  ),
+                ),
+              ),
+            )
+          else
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: mediaState.isMicOn
+                                ? const Color(0xFF22C55E).withValues(alpha: 0.6)
+                                : Colors.white24,
+                            width: 2.5,
                           ),
                         ),
+                      ),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0xFF3F3F46),
+                        ),
+                        child: Center(
+                          child: Text(
+                            (session.creatorName?.isNotEmpty == true
+                                    ? session.creatorName!
+                                    : widget.state.displayName)
+                                .characters
+                                .take(1)
+                                .toString()
+                                .toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    session.creatorName ?? widget.state.displayName,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Kênh $channelName · Người kể chuyện',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white60,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (isRealCameraActive)
+            Positioned(
+              bottom: 12,
+              left: 28,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF22C55E),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      session.creatorName ?? widget.state.displayName,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '· $channelName',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        color: Colors.white70,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  session.creatorName ?? widget.state.displayName,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Kênh $channelName · Người kể chuyện',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white60,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
           Positioned(
             top: 14,
             left: 14,

@@ -44,6 +44,7 @@ dependencies:
   crop_your_image: 2.0.1
   image: ^4.10.1
   http: ^1.2.2
+  camera: ^0.12.2
 
 dev_dependencies:
   flutter_test:
