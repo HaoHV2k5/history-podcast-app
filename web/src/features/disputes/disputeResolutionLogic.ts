@@ -130,7 +130,13 @@ export function validateResolutionForm(values: ResolutionFormValues): {
   if (!values.result) {
     errors.result = 'Vui lòng chọn kết quả phân xử';
   } else if (
-    !['RELEASE_TO_FREELANCER', 'REFUND_TO_CREATOR', 'SPLIT'].includes(values.result)
+    ![
+      'RELEASE_TO_CREATOR',
+      'REFUND_TO_REQUESTER',
+      'RELEASE_TO_FREELANCER',
+      'REFUND_TO_CREATOR',
+      'SPLIT',
+    ].includes(values.result)
   ) {
     errors.result = 'Hình thức phân xử không hợp lệ';
   }
@@ -254,6 +260,18 @@ export function formatDisputeResult(result?: string | null): ResultPresentation 
   const normalized = result.toUpperCase();
 
   switch (normalized) {
+    case 'RELEASE_TO_CREATOR':
+      return {
+        label: 'Giải ngân cho Nhà sáng tạo (Creator)',
+        description: 'Giải ngân 100% tiền bảo chứng (sau khấu trừ 5% phí sàn) cho Nhà sáng tạo',
+        variant: 'success',
+      };
+    case 'REFUND_TO_REQUESTER':
+      return {
+        label: 'Hoàn tiền cho Người đặt nội dung (Requester)',
+        description: 'Hoàn trả 100% tiền bảo chứng vào ví Người đặt nội dung, hợp đồng bị hủy',
+        variant: 'pending',
+      };
     case 'RELEASE_TO_FREELANCER':
       return {
         label: 'Giải ngân cho Thuyết minh viên',

@@ -46,7 +46,7 @@ import {
   StepTransitionModalState,
 } from './components/StepTransitionConfirmationDialog';
 import { gsap } from 'gsap';
-import { isReducedMotion, MOTION_CONFIG } from '@/utils/motion';
+import { isReducedMotion } from '@/utils/motion';
 
 // Sample historical script for testing / demonstration
 const SAMPLE_HISTORICAL_SCRIPT = `Mùa thu tháng 7 năm Canh Tuất 1010, vua Lý Thái Tổ khởi sự dời đô từ cố đô Hoa Lư ra thành Đại La.

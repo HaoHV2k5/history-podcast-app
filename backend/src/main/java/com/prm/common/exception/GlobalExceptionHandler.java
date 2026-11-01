@@ -123,6 +123,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(
                         ErrorCode.INTERNAL_SERVER_ERROR.getCode(),
-                        ErrorCode.INTERNAL_SERVER_ERROR.getDefaultMessage()));
+                        ErrorCode.INTERNAL_SERVER_ERROR.getMessage()));
     }
 }
