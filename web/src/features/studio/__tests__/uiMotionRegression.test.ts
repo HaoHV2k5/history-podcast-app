@@ -26,6 +26,7 @@ const CREATOR_EXPECTED_LABELS = [
   'Tạo nội dung mới',
   'Tuyển tập tác phẩm',
   'Phát trực tiếp',
+  'Đơn đặt hàng & Hợp đồng',
   'Xác thực KYC',
   'Quản lý Kênh',
   'Ví & Thu nhập',
@@ -112,10 +113,10 @@ describe('UI & Motion Regression Specifications (M18-A5)', () => {
     assert.equal(currentState.activeTab, 'script');
   });
 
-  // 6. Verification of all 14 Admin navigation items and 8 Creator navigation items
-  test('6. Complete sidebar coverage: exactly 14 Admin items and 8 Creator items', () => {
+  // 6. Verification of all 14 Admin navigation items and 9 Creator navigation items
+  test('6. Complete sidebar coverage: exactly 14 Admin items and 9 Creator items', () => {
     assert.equal(ADMIN_EXPECTED_LABELS.length, 14, 'Admin sidebar must contain exactly 14 navigation entries');
-    assert.equal(CREATOR_EXPECTED_LABELS.length, 8, 'Creator sidebar must contain exactly 8 navigation entries');
+    assert.equal(CREATOR_EXPECTED_LABELS.length, 9, 'Creator sidebar must contain exactly 9 navigation entries');
   });
 
   // 7. Creator Studio verified tab order matches M17 specification: script -> storyboard -> voices -> render

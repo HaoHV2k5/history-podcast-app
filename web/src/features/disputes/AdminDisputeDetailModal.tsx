@@ -51,7 +51,7 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
   const queryClient = useQueryClient();
 
   // Form states
-  const [selectedResult, setSelectedResult] = useState<DisputeResult>('RELEASE_TO_FREELANCER');
+  const [selectedResult, setSelectedResult] = useState<DisputeResult>('RELEASE_TO_CREATOR');
   const [splitPercentInput, setSplitPercentInput] = useState<string>('50');
   const [resolutionNote, setResolutionNote] = useState<string>('');
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -211,31 +211,31 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
                 {/* Creator */}
                 <div className="flex items-start gap-2">
                   <User className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-muted block uppercase font-semibold">
                       Nhà sáng tạo (Creator)
                     </span>
-                    <span className="font-semibold text-ink">
+                    <span className="font-semibold text-ink truncate block" title={contract?.creatorFullName}>
                       {contract?.creatorFullName || 'Chưa có dữ liệu'}
                     </span>
                     <span className="text-[10px] text-muted block font-mono">
-                      User #{contract?.creatorId || '—'}
+                      {contract?.channelName ? `Kênh: ${contract.channelName}` : `ID: #${contract?.creatorId || '—'}`}
                     </span>
                   </div>
                 </div>
 
-                {/* Freelancer */}
+                {/* Requester / Customer */}
                 <div className="flex items-start gap-2">
                   <User className="h-4 w-4 text-status-processing-text shrink-0 mt-0.5" />
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-muted block uppercase font-semibold">
-                      Thuyết minh viên (Freelancer)
+                      Khách đặt làm (Requester)
                     </span>
-                    <span className="font-semibold text-ink">
-                      {contract?.freelancerFullName || 'Chưa có dữ liệu'}
+                    <span className="font-semibold text-ink truncate block" title={contract?.requesterFullName || contract?.freelancerFullName}>
+                      {contract?.requesterFullName || contract?.freelancerFullName || 'Chưa có dữ liệu'}
                     </span>
                     <span className="text-[10px] text-muted block font-mono">
-                      User #{contract?.freelancerId || '—'}
+                      ID: #{contract?.requesterId || contract?.freelancerId || '—'}
                     </span>
                   </div>
                 </div>
@@ -243,15 +243,15 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
                 {/* Raised By */}
                 <div className="flex items-start gap-2">
                   <ShieldAlert className="h-4 w-4 text-status-error-text shrink-0 mt-0.5" />
-                  <div>
+                  <div className="min-w-0">
                     <span className="text-[10px] text-muted block uppercase font-semibold">
                       Bên khởi tạo khiếu nại
                     </span>
-                    <span className="font-semibold text-status-error-text">
+                    <span className="font-semibold text-status-error-text truncate block">
                       {activeDispute.raisedByUserFullName || `User #${activeDispute.raisedByUserId}`}
                     </span>
                     <span className="text-[10px] text-muted block font-mono">
-                      Người khiếu nại
+                      ID: #{activeDispute.raisedByUserId}
                     </span>
                   </div>
                 </div>
@@ -469,70 +469,70 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
 
                 {/* 3 Resolution Options */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {/* Option 1: Release to Freelancer */}
+                  {/* Option 1: Release to Creator */}
                   <label
-                    onClick={() => setSelectedResult('RELEASE_TO_FREELANCER')}
-                    className={`cursor-pointer rounded-lg border p-3 flex flex-col justify-between space-y-2 transition-all ${
-                      selectedResult === 'RELEASE_TO_FREELANCER'
+                    onClick={() => setSelectedResult('RELEASE_TO_CREATOR')}
+                    className={`cursor-pointer rounded-lg border p-3 flex flex-col justify-between space-y-2 transition-all active:scale-[0.98] ${
+                      selectedResult === 'RELEASE_TO_CREATOR' || selectedResult === 'RELEASE_TO_FREELANCER'
                         ? 'border-status-success-text bg-status-success-bg/40 shadow-xs'
                         : 'border-border bg-surface hover:border-border/80'
                     }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-ink">Giải ngân cho Thuyết minh</span>
+                        <span className="font-bold text-xs text-ink">Giải ngân cho Creator</span>
                         <input
                           type="radio"
                           name="disputeResult"
-                          value="RELEASE_TO_FREELANCER"
-                          checked={selectedResult === 'RELEASE_TO_FREELANCER'}
-                          onChange={() => setSelectedResult('RELEASE_TO_FREELANCER')}
+                          value="RELEASE_TO_CREATOR"
+                          checked={selectedResult === 'RELEASE_TO_CREATOR' || selectedResult === 'RELEASE_TO_FREELANCER'}
+                          onChange={() => setSelectedResult('RELEASE_TO_CREATOR')}
                           className="accent-accent"
                         />
                       </div>
                       <p className="text-[11px] text-muted leading-relaxed">
-                        Chuyển 100% tiền bảo chứng (sau khấu trừ phí sàn theo hợp đồng) vào ví Thuyết minh viên.
+                        Chuyển tiền bảo chứng (sau trừ 5% phí sàn) vào ví Creator và kích hoạt mốc tiếp theo.
                       </p>
                     </div>
                     <span className="text-[10px] font-mono font-semibold text-status-success-text">
-                      RELEASE_TO_FREELANCER
+                      RELEASE_TO_CREATOR
                     </span>
                   </label>
 
-                  {/* Option 2: Refund to Creator */}
+                  {/* Option 2: Refund to Requester */}
                   <label
-                    onClick={() => setSelectedResult('REFUND_TO_CREATOR')}
-                    className={`cursor-pointer rounded-lg border p-3 flex flex-col justify-between space-y-2 transition-all ${
-                      selectedResult === 'REFUND_TO_CREATOR'
+                    onClick={() => setSelectedResult('REFUND_TO_REQUESTER')}
+                    className={`cursor-pointer rounded-lg border p-3 flex flex-col justify-between space-y-2 transition-all active:scale-[0.98] ${
+                      selectedResult === 'REFUND_TO_REQUESTER' || selectedResult === 'REFUND_TO_CREATOR'
                         ? 'border-status-pending-text bg-status-pending-bg/40 shadow-xs'
                         : 'border-border bg-surface hover:border-border/80'
                     }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-ink">Hoàn tiền cho Creator</span>
+                        <span className="font-bold text-xs text-ink">Hoàn tiền cho Khách</span>
                         <input
                           type="radio"
                           name="disputeResult"
-                          value="REFUND_TO_CREATOR"
-                          checked={selectedResult === 'REFUND_TO_CREATOR'}
-                          onChange={() => setSelectedResult('REFUND_TO_CREATOR')}
+                          value="REFUND_TO_REQUESTER"
+                          checked={selectedResult === 'REFUND_TO_REQUESTER' || selectedResult === 'REFUND_TO_CREATOR'}
+                          onChange={() => setSelectedResult('REFUND_TO_REQUESTER')}
                           className="accent-accent"
                         />
                       </div>
                       <p className="text-[11px] text-muted leading-relaxed">
-                        Hoàn lại 100% số tiền bảo chứng vào ví Creator. Hợp đồng sẽ chuyển sang trạng thái ĐÃ HỦY.
+                        Hoàn lại 100% tiền bảo chứng vào ví Khách hàng. Hợp đồng chuyển sang trạng thái ĐÃ HỦY.
                       </p>
                     </div>
                     <span className="text-[10px] font-mono font-semibold text-status-pending-text">
-                      REFUND_TO_CREATOR
+                      REFUND_TO_REQUESTER
                     </span>
                   </label>
 
                   {/* Option 3: Split */}
                   <label
                     onClick={() => setSelectedResult('SPLIT')}
-                    className={`cursor-pointer rounded-lg border p-3 flex flex-col justify-between space-y-2 transition-all ${
+                    className={`cursor-pointer rounded-lg border p-3 flex flex-col justify-between space-y-2 transition-all active:scale-[0.98] ${
                       selectedResult === 'SPLIT'
                         ? isSplitBlocked
                           ? 'border-status-error-text/60 bg-status-error-bg/30 shadow-xs'

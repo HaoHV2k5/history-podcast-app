@@ -48,6 +48,7 @@ import { CreatorKycPage } from '@/features/kyc/CreatorKycPage';
 import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
 import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
 import { CreatorLivestreamPage } from '@/features/livestream/CreatorLivestreamPage';
+import { CreatorCommissionsPage } from '@/features/creator/CreatorCommissionsPage';
 
 // Lazy-load CreatorLivestreamStudioPage to isolate Agora RTC Web SDK from initial bundle
 const CreatorLivestreamStudioPage = React.lazy(() =>
@@ -129,6 +130,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="kyc" element={<CreatorKycPage />} />
         <Route path="channel" element={<CreatorChannelPage />} />
         <Route path="wallet" element={<CreatorFinancePage />} />
+        <Route path="commissions" element={<CreatorCommissionsPage />} />
+        <Route path="contracts" element={<Navigate to="/creator/commissions" replace />} />
       </Route>
       <Route path="/creator/dashboard" element={<Navigate to="/creator" replace />} />
 

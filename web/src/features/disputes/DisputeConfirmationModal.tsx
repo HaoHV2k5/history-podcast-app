@@ -85,7 +85,7 @@ export const DisputeConfirmationModal: React.FC<DisputeConfirmationModalProps> =
               <div className="flex items-center justify-between font-mono">
                 <span className="text-[11px] text-muted">Tỷ lệ phân chia:</span>
                 <span className="font-semibold text-ink">
-                  Thuyết minh {splitPercent}% / Nhà sáng tạo {100 - splitPercent}%
+                  Creator {splitPercent}% / Khách hàng {100 - splitPercent}%
                 </span>
               </div>
             )}

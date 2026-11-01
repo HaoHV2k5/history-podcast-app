@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Mic, Play, Volume2, Globe } from 'lucide-react';
+import { Mic, Play, Volume2, Globe, Info } from 'lucide-react';
 import { PageHeader } from '@/components/common/PageHeader';
 import { DataTable, Column } from '@/components/common/DataTable';
 import { FilterToolbar } from '@/components/common/FilterToolbar';
@@ -148,6 +148,16 @@ export const NarratorsListPage: React.FC = () => {
         title="Danh bạ Thuyết minh viên"
         description="Tra cứu danh bạ nghệ sĩ giọng đọc và thẩm định các tệp demo ghi âm phục vụ sản xuất nội dung"
       />
+
+      <div className="rounded-xl border border-border bg-surface-subtle p-3.5 text-xs text-muted flex items-start gap-2.5">
+        <Info className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <span className="font-semibold text-ink block">Quy chuẩn vận hành Hệ thống (Milestone Escrow Flow):</span>
+          <p className="leading-relaxed">
+            Hệ thống đã nâng cấp toàn diện sang quy trình Đặt hàng theo Lộ trình Milestone (Commission & Milestone Escrow Flow). Các hợp đồng dịch vụ nội dung và giọng đọc được quản lý và đối soát tập trung tại mục <strong>Hợp đồng thu âm</strong> và <strong>Ký quỹ Escrow</strong>.
+          </p>
+        </div>
+      </div>
 
       <FilterToolbar
         searchPlaceholder="Tìm theo mã hồ sơ, mã user, giọng đọc, ngôn ngữ..."

@@ -51,7 +51,7 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'VẬN HÀNH THUYẾT MINH',
+    title: 'HỢP ĐỒNG & KÝ QUỸ MILESTONE',
     items: [
       { id: '08', label: 'Hồ sơ Thuyết minh', to: '/admin/narrators', icon: Mic },
       { id: '09', label: 'Hợp đồng thu âm', to: '/admin/contracts', icon: FileText },
