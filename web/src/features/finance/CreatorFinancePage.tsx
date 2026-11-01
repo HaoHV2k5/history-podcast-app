@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react';
 import { walletApi } from '@/services/api/wallet';
+import { contractsApi } from '@/services/api/contracts';
 import {
   CreateBankAccountRequest,
   CreateWithdrawalRequest,
@@ -18,6 +19,7 @@ import { createSafeMotionContext, isReducedMotion } from '@/utils/motion';
 // Compound Components
 import { WalletHeroBanner } from './components/WalletHeroBanner';
 import { WalletBalanceCards } from './components/WalletBalanceCards';
+import { CreatorMilestoneEarningsBanner } from './components/CreatorMilestoneEarningsBanner';
 import { WalletHistoryTabs } from './components/WalletHistoryTabs';
 import { WalletRecentTransactionsCard } from './components/WalletRecentTransactionsCard';
 
@@ -110,6 +112,17 @@ export const CreatorFinancePage: React.FC = () => {
     ? rawW
     : rawW?.items || rawW?.content || [];
 
+  // Milestone financials query (Reversed Commission & Escrow Flow)
+  const {
+    data: milestoneFinancialsRes,
+    isLoading: isLoadingMilestones,
+    refetch: refetchMilestones,
+  } = useQuery({
+    queryKey: ['creator-milestone-financials'],
+    queryFn: () => contractsApi.getMyMilestoneFinancials(),
+  });
+  const milestoneFinancials = milestoneFinancialsRes?.data;
+
   // ─── 3. Mutations ──────────────────────────────────────────────────────────
   // 3.1. Request Withdrawal
   const withdrawMutation = useMutation({
@@ -183,6 +196,7 @@ export const CreatorFinancePage: React.FC = () => {
       refetchTx(),
       refetchBanks(),
       refetchWithdrawals(),
+      refetchMilestones(),
     ]);
     setSuccessToast('Đã cập nhật số dư và lịch sử giao dịch mới nhất.');
   };
@@ -370,6 +384,12 @@ export const CreatorFinancePage: React.FC = () => {
           setDepositOpen(true);
         }}
         onOpenAddBank={() => setAddBankOpen(true)}
+      />
+
+      {/* ─── 2.5. MILESTONE ESCROW FINANCIALS BANNER ─── */}
+      <CreatorMilestoneEarningsBanner
+        financials={milestoneFinancials}
+        isLoading={isLoadingMilestones}
       />
 
       {/* ─── 3. TABS: TRANSACTIONS / WITHDRAWALS / LINKED BANKS ─── */}

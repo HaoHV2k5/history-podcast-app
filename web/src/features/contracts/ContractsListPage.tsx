@@ -89,7 +89,9 @@ export const ContractsListPage: React.FC = () => {
           (c.title && c.title.toLowerCase().includes(search.toLowerCase())) ||
           (c.termsText && c.termsText.toLowerCase().includes(search.toLowerCase())) ||
           (c.creatorFullName && c.creatorFullName.toLowerCase().includes(search.toLowerCase())) ||
-          (c.freelancerFullName && c.freelancerFullName.toLowerCase().includes(search.toLowerCase()))
+          (c.requesterFullName && c.requesterFullName.toLowerCase().includes(search.toLowerCase())) ||
+          (c.freelancerFullName && c.freelancerFullName.toLowerCase().includes(search.toLowerCase())) ||
+          (c.channelName && c.channelName.toLowerCase().includes(search.toLowerCase()))
       )
     : rawItems;
 
@@ -144,40 +146,40 @@ export const ContractsListPage: React.FC = () => {
     },
     {
       key: 'signingStatus',
-      header: 'Chữ ký các bên',
+      header: 'Tiến độ ký & Duyệt',
       render: (item) => (
         <div className="flex flex-col text-[11px] space-y-1">
           <div className="flex items-center gap-1.5">
-            {item.creatorSignedAt || item.acceptedAt ? (
+            {item.creatorSignedAt || item.acceptedAt || item.createdAt ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text" />
             ) : (
               <Clock className="h-3.5 w-3.5 text-muted" />
             )}
             <span
               className={
-                item.creatorSignedAt || item.acceptedAt
+                item.creatorSignedAt || item.acceptedAt || item.createdAt
                   ? 'text-status-success-text'
                   : 'text-muted'
               }
             >
-              Creator {item.creatorSignedAt || item.acceptedAt ? 'đã ký' : 'chưa ký'}
+              Creator {item.creatorSignedAt || item.acceptedAt || item.createdAt ? 'đã gửi lộ trình' : 'chưa gửi'}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            {item.narratorSignedAt || item.acceptedAt ? (
+            {item.acceptedAt ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-status-success-text" />
             ) : (
               <Clock className="h-3.5 w-3.5 text-muted" />
             )}
             <span
               className={
-                item.narratorSignedAt || item.acceptedAt
+                item.acceptedAt
                   ? 'text-status-success-text'
                   : 'text-muted'
               }
             >
-              Thuyết minh {item.narratorSignedAt || item.acceptedAt ? 'đã ký' : 'chưa ký'}
+              Khách hàng {item.acceptedAt ? 'đã duyệt lộ trình' : 'chờ duyệt'}
             </span>
           </div>
         </div>
@@ -298,18 +300,23 @@ export const ContractsListPage: React.FC = () => {
                 <User className="h-4 w-4 text-accent shrink-0" />
                 <div className="truncate">
                   <span className="text-[10px] text-muted block uppercase">Creator (Nhà sáng tạo)</span>
-                  <span className="font-semibold text-ink">
+                  <span className="font-semibold text-ink truncate block" title={activeContract.creatorFullName}>
                     {activeContract.creatorFullName || `ID #${activeContract.creatorId ?? '—'}`}
                   </span>
+                  {activeContract.channelName && (
+                    <span className="text-[10px] text-muted block truncate font-mono">
+                      Kênh: {activeContract.channelName}
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-status-processing-text shrink-0" />
                 <div className="truncate">
-                  <span className="text-[10px] text-muted block uppercase">Thuyết minh viên</span>
-                  <span className="font-semibold text-ink">
-                    {activeContract.freelancerFullName || `ID #${activeContract.freelancerId ?? '—'}`}
+                  <span className="text-[10px] text-muted block uppercase">Khách đặt làm (Requester)</span>
+                  <span className="font-semibold text-ink truncate block" title={activeContract.requesterFullName || activeContract.freelancerFullName}>
+                    {activeContract.requesterFullName || activeContract.freelancerFullName || `ID #${activeContract.requesterId || activeContract.freelancerId || '—'}`}
                   </span>
                 </div>
               </div>
@@ -317,9 +324,9 @@ export const ContractsListPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Coins className="h-4 w-4 text-status-success-text shrink-0" />
                 <div>
-                  <span className="text-[10px] text-muted block uppercase">Phí sàn / Thực nhận</span>
-                  <span className="font-mono text-ink">
-                    {activeContract.platformFee != null ? formatVND(activeContract.platformFee) : (activeContract.platformFeePercent != null ? `${activeContract.platformFeePercent}%` : 'Theo HĐ')} / {activeContract.netAmount != null ? formatVND(activeContract.netAmount) : 'Chưa tất toán'}
+                  <span className="text-[10px] text-muted block uppercase">Phí sàn (5%) / Thực nhận (95%)</span>
+                  <span className="font-mono text-ink text-[11px] block">
+                    {activeContract.platformFee != null ? formatVND(activeContract.platformFee) : (activeContract.platformFeePercent != null ? `${activeContract.platformFeePercent}%` : '5%')} / {activeContract.netAmount != null ? formatVND(activeContract.netAmount) : 'Tất toán theo mốc'}
                   </span>
                 </div>
               </div>

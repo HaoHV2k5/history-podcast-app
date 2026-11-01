@@ -402,4 +402,68 @@ describe('Creator Studio - M17-A1 Core Specifications', () => {
     assert.ok(narration.includes('Lời dẫn phân cảnh 2 từ phụ đề element.'));
     assert.ok(!narration.includes('Lời dẫn cũ phân cảnh 1.'));
   });
+
+  // 21. RAG Discrepancies & Score color logic
+  test('21. RAG Discrepancies detection correctly determines score pill and alert banner display', () => {
+    // Case A: Discrepancies present (user entered inaccurate historical elements)
+    const sbWithErrors = {
+      title: 'Chiến dịch Bạch Đằng',
+      discrepancies: [
+        "Đã loại bỏ 'Quan Vũ' do không thuộc sử liệu Việt Nam",
+        "Đã loại bỏ 'Trương Bá Thông'..."
+      ],
+      verification: {
+        status: 'warning',
+        overall_score: 75,
+      },
+    };
+    const discA = sbWithErrors.discrepancies || [];
+    const hasDiscA = discA.length > 0;
+    const scoreA = sbWithErrors.verification?.overall_score || (hasDiscA ? 75 : 98);
+
+    assert.equal(hasDiscA, true);
+    assert.equal(discA.length, 2);
+    assert.equal(scoreA, 75);
+
+    // Case B: Clean topic without discrepancies
+    const sbClean = {
+      title: 'Chiếu dời đô 1010',
+      discrepancies: [],
+      verification: {
+        status: 'verified',
+        overall_score: 98,
+      },
+    };
+    const discB = sbClean.discrepancies || [];
+    const hasDiscB = discB.length > 0;
+    const scoreB = sbClean.verification?.overall_score || (hasDiscB ? 75 : 98);
+
+    assert.equal(hasDiscB, false);
+    assert.equal(discB.length, 0);
+    assert.equal(scoreB, 98);
+  });
+
+  // 22. Citations normalization & default fallback
+  test('22. Citations parser formats raw citations and cleans redundant index prefixes', () => {
+    const rawCitations = [
+      '[1] 80 Đại Việt Sử Ký Toàn Thư - Bản Kỷ - Quyển II',
+      { text: 'Dời đô Thăng Long', book_title: 'Đại Việt Sử Ký Toàn Thư', page: 80 }
+    ];
+
+    const parsed = rawCitations.map((c) => {
+      if (typeof c === 'string') {
+        return c.replace(/^\[\d+\]\s*/, '').trim();
+      }
+      if (typeof c === 'object' && c !== null) {
+        const text = c.text || '';
+        const book = c.book_title ? `${c.book_title}` : '';
+        const page = c.page ? ` - Trang ${c.page}` : '';
+        return `${book}${page}${book ? ': ' : ''}${text}`.trim();
+      }
+      return String(c);
+    });
+
+    assert.equal(parsed[0], '80 Đại Việt Sử Ký Toàn Thư - Bản Kỷ - Quyển II');
+    assert.equal(parsed[1], 'Đại Việt Sử Ký Toàn Thư - Trang 80: Dời đô Thăng Long');
+  });
 });

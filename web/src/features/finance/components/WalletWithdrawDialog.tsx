@@ -205,13 +205,13 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
           <div className="rounded-xl bg-[#FAF8F5] border border-[#EBE4D8] p-3 space-y-1 text-[11px] text-[#786D66]">
             <div className="flex items-center gap-1.5 font-semibold text-[#1F1A19]">
               <ShieldCheck className="h-3.5 w-3.5 text-[#059669]" />
-              <span>Chính sách đối soát và phí giao dịch</span>
+              <span>Chính sách Nền tảng &amp; Cam kết SLA Rút Tiền</span>
             </div>
             <p>
-              • Miễn phí 100% phí rút tiền qua cổng Napas 24/7.
+              • Miễn phí 100% phí rút tiền (0% phí sàn), hạn mức rút tối thiểu 50.000 VNĐ.
             </p>
             <p>
-              • Thời gian xử lý: Từ 1 đến 24 giờ làm việc theo quy trình bảo mật Sử Ký.
+              • Thời gian xử lý &amp; đối soát: Tối đa 2 ngày làm việc theo cam kết SLA nền tảng Sử Ký.
             </p>
           </div>
 

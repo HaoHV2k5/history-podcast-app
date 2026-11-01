@@ -77,14 +77,25 @@ export interface StoryboardResponse {
   thumbnail_prompt?: string;
   estimated_duration_sec?: number;
   scenes: StoryboardScene[];
-  citations?: Array<{
-    id: number;
-    book_title: string;
-    page: number;
-    similarity?: number;
-    text: string;
-    file_name?: string;
-  }>;
+  citations?: Array<
+    | {
+        id?: number;
+        book_title?: string;
+        page?: number;
+        similarity?: number;
+        text?: string;
+        file_name?: string;
+        title?: string;
+      }
+    | string
+  >;
+  discrepancies?: string[];
+  verification?: {
+    status?: string;
+    overall_score?: number;
+    summary?: string;
+    discrepancies?: string[];
+  };
 }
 
 export interface VerifyScriptRequest {
