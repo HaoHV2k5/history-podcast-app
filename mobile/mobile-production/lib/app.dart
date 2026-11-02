@@ -70,6 +70,8 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
   String libraryFilter = 'Đã lưu';
+  bool showAllEpisodes = false;
+  bool showAllChannels = false;
 
   @override
   void initState() {
@@ -360,27 +362,169 @@ class _HomeShellState extends State<HomeShell> {
           const SizedBox(height: 28),
           SectionTitle(
             title: 'Tập mới xuất bản',
-            trailing: Text(
-              '${remoteEpisodes.length} tập',
-              style: const TextStyle(fontSize: 12, color: Palette.muted),
-            ),
+            trailing: remoteEpisodes.length > 3
+                ? InkWell(
+                    key: const Key('toggle-all-episodes-btn'),
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => setState(() => showAllEpisodes = !showAllEpisodes),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            showAllEpisodes
+                                ? 'Thu gọn'
+                                : 'Xem tất cả (${remoteEpisodes.length})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Palette.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(
+                            showAllEpisodes
+                                ? CupertinoIcons.chevron_up
+                                : CupertinoIcons.chevron_right,
+                            size: 13,
+                            color: Palette.red,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Text(
+                    '${remoteEpisodes.length} tập',
+                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
           ),
           const SizedBox(height: 12),
-          ...remoteEpisodes.map(
+          ...(showAllEpisodes ? remoteEpisodes : remoteEpisodes.take(3)).map(
             (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
           ),
+          if (remoteEpisodes.length > 3) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              child: OutlinedButton.icon(
+                key: const Key('expand-all-episodes-bottom-btn'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Palette.red,
+                  side: BorderSide(color: Palette.red.withValues(alpha: 0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                ),
+                onPressed: () =>
+                    setState(() => showAllEpisodes = !showAllEpisodes),
+                icon: Icon(
+                  showAllEpisodes
+                      ? CupertinoIcons.chevron_up
+                      : CupertinoIcons.chevron_down,
+                  size: 15,
+                  color: Palette.red,
+                ),
+                label: Text(
+                  showAllEpisodes
+                      ? 'Thu gọn danh sách tập'
+                      : 'Xem toàn bộ ${remoteEpisodes.length} tập mới nhất',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Palette.red,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
         if (remoteChannels.isNotEmpty) ...[
           const SizedBox(height: 24),
-          const SectionTitle(title: 'Kênh kể chuyện'),
+          SectionTitle(
+            title: 'Kênh kể chuyện',
+            trailing: remoteChannels.length > 3
+                ? InkWell(
+                    key: const Key('toggle-all-channels-btn'),
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => setState(() => showAllChannels = !showAllChannels),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            showAllChannels
+                                ? 'Thu gọn'
+                                : 'Xem tất cả (${remoteChannels.length})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Palette.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(
+                            showAllChannels
+                                ? CupertinoIcons.chevron_up
+                                : CupertinoIcons.chevron_right,
+                            size: 13,
+                            color: Palette.red,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Text(
+                    '${remoteChannels.length} kênh',
+                    style: const TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+          ),
           const SizedBox(height: 8),
-          ...remoteChannels.map(
+          ...(showAllChannels ? remoteChannels : remoteChannels.take(3)).map(
             (c) => ChannelListItem(
               channel: c,
               subtitle: '${c.content.length} câu chuyện',
               onTap: () => openChannel(context, c, widget.state),
             ),
           ),
+          if (remoteChannels.length > 3) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
+              child: OutlinedButton.icon(
+                key: const Key('expand-all-channels-bottom-btn'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Palette.red,
+                  side: BorderSide(color: Palette.red.withValues(alpha: 0.3)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                ),
+                onPressed: () =>
+                    setState(() => showAllChannels = !showAllChannels),
+                icon: Icon(
+                  showAllChannels
+                      ? CupertinoIcons.chevron_up
+                      : CupertinoIcons.chevron_down,
+                  size: 15,
+                  color: Palette.red,
+                ),
+                label: Text(
+                  showAllChannels
+                      ? 'Thu gọn danh sách kênh'
+                      : 'Xem toàn bộ ${remoteChannels.length} kênh kể chuyện',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Palette.red,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
         const SizedBox(height: 28),
         Builder(
@@ -853,6 +997,35 @@ class CollectionPage extends StatelessWidget {
   }
 }
 
+class _VideoMetaRow extends StatelessWidget {
+  const _VideoMetaRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Palette.muted),
+        const SizedBox(width: 8),
+        Text('$label: ', style: const TextStyle(fontSize: 12, color: Palette.muted)),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Palette.ink),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class EpisodePage extends StatefulWidget {
   const EpisodePage({super.key, required this.episode, required this.state});
   final Episode episode;
@@ -1097,8 +1270,60 @@ class _EpisodePageState extends State<EpisodePage> {
                     const Divider(),
                     const SizedBox(height: 20),
                     if (tab == 0) ...[
+                      if (e.isVideo) ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Palette.soft,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Palette.line),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(CupertinoIcons.film, size: 16, color: Palette.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Thông tin tác phẩm video',
+                                      style: editorial(15),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Palette.red.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'AI Bảng trắng',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Palette.red,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              _VideoMetaRow(icon: CupertinoIcons.person_2, label: 'Kênh sản xuất', value: e.channel),
+                              const SizedBox(height: 6),
+                              _VideoMetaRow(icon: CupertinoIcons.time, label: 'Thời lượng', value: e.duration),
+                              const SizedBox(height: 6),
+                              _VideoMetaRow(icon: CupertinoIcons.tag, label: 'Thể loại', value: e.category),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text('Mô tả nội dung video', style: editorial(16)),
+                        const SizedBox(height: 8),
+                      ],
                       Text(
-                        e.description,
+                        cleanEpisodeDescription(e.description, title: e.title, channel: e.channel),
+                        key: const Key('episode-description-text'),
                         style: const TextStyle(
                           fontSize: 14,
                           height: 1.8,
@@ -1106,15 +1331,20 @@ class _EpisodePageState extends State<EpisodePage> {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      const SectionTitle(title: 'Trong tập này'),
+                      SectionTitle(
+                        title: e.isVideo ? 'Phân cảnh trong video' : 'Trong tập này',
+                      ),
                       const SizedBox(height: 12),
                       ...e.chapters.map(
                         (c) => ListTile(
                           contentPadding: EdgeInsets.zero,
                           onTap: () => openPlayer(at: c.seconds),
+                          leading: e.isVideo
+                              ? const Icon(CupertinoIcons.play_circle, size: 20, color: Palette.red)
+                              : null,
                           title: Text(
                             c.title,
-                            style: const TextStyle(fontSize: 13),
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                           ),
                           trailing: Text(
                             clockLabel(c.seconds),
@@ -1168,9 +1398,23 @@ class _EpisodePageState extends State<EpisodePage> {
                     ] else if (tab == 2) ...[
                       EpisodeCommentsSection(episode: e, state: widget.state),
                     ] else ...[
-                      const Text(
-                        'Bản chép lời (Transcript)',
-                        style: TextStyle(fontWeight: FontWeight.w500),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Bản chép lời & Kịch bản (Transcript)',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          if (e.isVideo)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Palette.line,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Kịch bản thoại', style: TextStyle(fontSize: 10, color: Palette.muted)),
+                            ),
+                        ],
                       ),
                       const SizedBox(height: 12),
                       Container(
@@ -1184,9 +1428,11 @@ class _EpisodePageState extends State<EpisodePage> {
                         child: Text(
                           transcript.isNotEmpty
                               ? transcript
-                              : (e.description.isNotEmpty
-                                    ? e.description
-                                    : 'Bản chép lời chi tiết cho tập này đang được cập nhật.'),
+                              : ((e.rawScript != null && e.rawScript!.isNotEmpty)
+                                    ? e.rawScript!
+                                    : (e.description.isNotEmpty
+                                          ? e.description
+                                          : 'Bản chép lời chi tiết cho tập này đang được cập nhật.')),
                           key: const Key('episode-transcript-text'),
                           style: const TextStyle(
                             fontFamily: 'NotoSerif',
@@ -1581,9 +1827,11 @@ class _PlayerPageState extends State<PlayerPage> {
     final hasTranscript = transcript.trim().isNotEmpty;
     final displayContent = hasTranscript
         ? transcript
-        : (e.description.isNotEmpty
-            ? e.description
-            : chapter.title);
+        : ((e.rawScript != null && e.rawScript!.isNotEmpty)
+            ? e.rawScript!
+            : (e.description.isNotEmpty
+                ? cleanEpisodeDescription(e.description, title: e.title, channel: e.channel)
+                : chapter.title));
 
     showModalBottomSheet<void>(
       context: context,
@@ -1663,7 +1911,7 @@ class _PlayerPageState extends State<PlayerPage> {
                 Text('Tóm tắt & Giới thiệu tập', style: editorial(17)),
                 const SizedBox(height: 6),
                 SelectableText(
-                  e.description,
+                  cleanEpisodeDescription(e.description, title: e.title, channel: e.channel),
                   style: const TextStyle(
                     fontSize: 13.5,
                     height: 1.6,

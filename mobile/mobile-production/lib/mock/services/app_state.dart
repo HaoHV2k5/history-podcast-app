@@ -727,6 +727,8 @@ class AppState extends ChangeNotifier {
           final isVid =
               media.toLowerCase().endsWith('.mp4') ||
               media.toLowerCase().endsWith('.webm');
+          final rawDesc = item.description ?? detail.description ?? '';
+          final sec = item.durationSeconds > 0 ? item.durationSeconds : 300;
           remoteEpisodes.add(
             Episode(
               id: epId,
@@ -737,9 +739,10 @@ class AppState extends ChangeNotifier {
                   ? item.thumbnailUrl!
                   : (detail.coverUrl ?? 'assets/images/hue-citadel.jpg'),
               category: detail.title,
-              seconds: item.durationSeconds > 0 ? item.durationSeconds : 300,
-              description: item.description ?? detail.description ?? '',
-              chapters: const [Chapter('Mở đầu', 0)],
+              seconds: sec,
+              description: cleanEpisodeDescription(rawDesc, title: item.title, channel: detail.channelName),
+              rawScript: rawDesc,
+              chapters: parseChaptersFromScript(rawDesc, sec),
               membersOnly: item.isExclusive,
               isVideo: isVid,
               mediaAsset: media,
