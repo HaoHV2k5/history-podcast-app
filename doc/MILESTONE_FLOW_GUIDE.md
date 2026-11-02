@@ -145,9 +145,11 @@ Khách hàng truy cập trang Kênh của Creator và bấm nút **"Đặt làm 
 
 ---
 
-### Phase 2: Mở Phòng Chat 1-1 Thương lượng Yêu cầu & Giá
+### Phase 2: Mở Phòng Chat 1-1 Firebase Firestore, Gửi Ảnh & Phân trang Tin nhắn
 
-Sau khi đơn ở trạng thái `ACCEPTED` (hoặc khi đã có `Contract`), cả hai bên mở phòng Chat 1-1:
+Sau khi đơn ở trạng thái `ACCEPTED` (hoặc khi đã có `Contract`), **Creator** và **Viewer (Khách hàng)** trao đổi trực tiếp qua **Firebase Firestore** theo kiến trúc chuẩn sau:
+
+#### Bước 2.1: Xác thực & Lấy mã phòng chat (`POST /api/v1/chats/conversation`)
 * **Endpoint:** `POST /api/v1/chats/conversation`
 * **Request Body:**
 ```json
@@ -155,15 +157,70 @@ Sau khi đơn ở trạng thái `ACCEPTED` (hoặc khi đã có `Contract`), c�
   "hireRequestId": 45
 }
 ```
-*(Hoặc truyền `{"contractId": 102}` nếu mở từ màn hình Chi tiết Hợp đồng — cả hai đều trả về chung một phòng chat `hire_request_45`).*
-* **Response:** Trả về `conversationId`, `topicTitle`, thông tin đối tác (`partnerId`, `partnerName`, `partnerAvatar`) để kết nối thẳng vào collection `conversations/{conversationId}/messages` trên Firebase Firestore.
+*(Hoặc truyền `{"contractId": 102}` nếu mở từ màn hình Chi tiết Hợp đồng — cả hai đều trả về chung một phòng chat `hire_request_45`, hoặc fallback `contract_{contractId}` nếu hợp đồng không gắn đơn).*
+* **Response:** Trả về `conversationId`, `topicTitle`, thông tin đối tác (`partnerId`, `partnerName`, `partnerAvatar`).
+
+#### Bước 2.2: Lắng nghe Realtime & Cấu trúc Document trên Firebase Firestore
+* **Đường dẫn Collection:** `conversations/{conversationId}/messages`
+* **Truy vấn Realtime (`onSnapshot` / `.snapshots()`):** Sắp xếp theo `orderBy("createdAt", "asc")`.
+* **Cấu trúc Document Tin nhắn (`Message Schema` chuẩn dùng chung cho Web & Mobile Flutter):**
+```json
+{
+  "senderId": 12,
+  "senderEmail": "creator@example.com",
+  "senderName": "Sử Việt Ký",
+  "senderRole": "CREATOR",
+  "text": "Mình gửi bạn bản phác thảo sơ đồ trận Bạch Đằng nhé!",
+  "imageUrl": "https://pub-xxx.r2.dev/images/xxxx.png",
+  "type": "IMAGE",
+  "createdAt": "<Firestore serverTimestamp()>",
+  "createdAtMillis": 1730550000000
+}
+```
+* **Quy ước trường dữ liệu:**
+  * `senderRole`: `"CREATOR"` hoặc `"VIEWER"` (hoặc `"CUSTOMER"`).
+  * `type`: `"TEXT"` (nếu chỉ gửi chữ) hoặc `"IMAGE"` (nếu có đính kèm ảnh `imageUrl != null`).
+  * `createdAtMillis`: Số nguyên epoch milliseconds (`Date.now()`) dùng làm fallback hiển thị giờ gửi ngay lập tức trong lúc chờ `serverTimestamp()` đồng bộ.
+
+#### Bước 2.3: Luồng Gửi Ảnh trong Khung Chat (`POST /api/v1/creator/studio/upload-image`)
+* **Nguyên tắc Phân tách Chat (Văn bản + Ảnh) vs Nộp Sản phẩm Milestone (PDF/DOC/Audio/Video/ZIP):**
+  * Phòng Chat 1-1 **chỉ cho phép gửi Văn bản (`TEXT`) và Hình ảnh (`IMAGE`: `.jpg`, `.jpeg`, `.png`, `.webp`, tối đa `10MB`)** để hai bên trao đổi nhanh ảnh phác thảo, bản đồ tham khảo, ảnh chụp màn hình góp ý.
+  * **Tuyệt đối không gửi file kịch bản `.pdf/.docx` hay file `.mp3/.mp4` thành phẩm qua khung Chat**, bởi gửi qua Chat sẽ không chuyển trạng thái Milestone sang `SUBMITTED`, không kích hoạt bộ đếm tự động nghiệm thu 3 ngày (`reviewDueAt`) và không lưu bằng chứng pháp lý bảo vệ tiền Escrow khi xảy ra tranh chấp. Mọi file bàn giao chính thức bắt buộc nộp tại mục **Nộp sản phẩm Milestone (`POST /api/v1/milestones/{milestoneId}/deliverables`)**.
+* **Quy trình gửi ảnh trong khung Chat (dùng chung cho cả Creator & Viewer):**
+  1. **Xem trước trước khi gửi (`Pending Image Preview`):** Khi người dùng chọn ảnh từ thiết bị, hiển thị ảnh thu nhỏ ngay phía trên ô nhập tin nhắn (có nút `✕` để bỏ chọn) và cho phép nhập kèm chú thích `text` (hoặc gửi riêng ảnh không cần chữ).
+  2. **Upload ảnh lên Cloudinary qua Backend (tự động chia thư mục theo từng phòng chat):**
+     * **Endpoint:** `POST /api/v1/creator/studio/upload-image` (`Content-Type: multipart/form-data`, mở cho cả `VIEWER` và `CREATOR` đã đăng nhập `@PreAuthorize("isAuthenticated()")`).
+     * **Form Data:**
+       * `file`: File ảnh đã chọn (`.jpg`, `.jpeg`, `.png`, `.webp`, tối đa `10MB`).
+       * `folder`: Truyền `"chats/{conversationId}"` (ví dụ: `"chats/hire_request_4"` hoặc `"chats/messages"`) -> Backend tự động lưu vào đúng thư mục Cloudinary `history-podcast/chats/{conversationId}`.
+     * **Response:** Trích xuất đường dẫn ảnh từ `data.url` (hoặc `data.secureUrl`).
+  3. **Ghi Document vào Firestore:** Sau khi nhận được `imageUrl`, gọi `addDoc` vào `conversations/{conversationId}/messages` với `imageUrl` và `type: "IMAGE"`.
+  4. **Xem phóng to ảnh (`Lightbox`):** Khi bấm vào ảnh trong bong bóng chat, mở Modal Lightbox xem ảnh kích thước đầy đủ kèm nút đóng.
+
+#### Bước 2.4: Phân trang Lười khi Cuộn Lên (`Lazy Scroll-Up Pagination`)
+Để khung chat luôn mượt mà ngay cả khi hai bên nhắn hàng trăm tin nhắn:
+* Mặc định khi mở phòng chat chỉ render **`15` tin nhắn mới nhất** (`INITIAL_PAGE_SIZE = 15`) và tự động cuộn xuống đáy.
+* Khi người dùng **cuộn lên chạm đỉnh khung chat** (`scrollTop <= 28px`), tự động mở rộng hiển thị thêm **`+15` tin nhắn cũ hơn** (`PAGE_STEP = 15`) và giữ nguyên vị trí điểm nhìn (`scrollTop = newScrollHeight - prevScrollHeight`) để màn hình không bị giật nhảy.
+
+#### Bước 2.5: Ma trận Quyền Chat theo Trạng thái & Chế độ Lưu trữ Chỉ đọc (`Read-Only Archive Mode`)
+Quyền mở phòng chat và gửi tin nhắn/hình ảnh mới của cả **Viewer (Khách hàng)** lẫn **Creator** được kiểm soát chặt chẽ theo vòng đời của Đơn đặt hàng (`Commission`) và Hợp đồng (`Contract`):
+
+| Trạng thái Đơn / Hợp đồng | Quyền Xem Lịch sử Chat | Quyền Gửi Tin nhắn / Ảnh Mới | Hành vi Giao diện (Creator & Viewer) |
+| :--- | :--- | :--- | :--- |
+| **`Commission = PENDING` \| `REJECTED`**<br>*(Chưa có Hợp đồng)* | ❌ **Khóa** | ❌ **Khóa** | Không hiển thị trong danh sách hội thoại vì Creator chưa chấp nhận đơn (`chatUnlocked = false`). |
+| **`Commission = ACCEPTED` \| `CONTRACT_SENT`**<br>**`Contract = PENDING` \| `ACTIVE` \| `REJECTED`** | ✅ **Mở** | ✅ **Mở 100%** | Cho phép nhắn tin văn bản và gửi ảnh bình thường.<br>*(Lưu ý: Khi `Contract = REJECTED` nghĩa là Viewer từ chối bản thảo lộ trình Milestone để yêu cầu sửa lại giá/chia lại mốc, lúc này bắt buộc mở chat để hai bên đàm phán lại).* |
+| **`Contract = CANCELLED` \| `COMPLETED`**<br>**`Commission = CANCELLED` \| `COMPLETED`** | ✅ **Mở (Chỉ đọc)** | 🔒 **Khóa gửi mới** | **Chế độ Lưu trữ Chỉ đọc (`Read-Only Archive`):**<br>- Vẫn hiển thị đầy đủ lịch sử tin nhắn & ảnh cũ (hỗ trợ cuộn lên xem tin cũ, bấm xem ảnh phóng to).<br>- **Ẩn/Khóa thanh nhập tin nhắn & nút gửi ảnh ở đáy**, thay bằng thanh thông báo trạng thái:<br>  + **Phía Creator:** *"Hợp đồng này đã [hoàn tất / đã hủy] — Chế độ lưu trữ chỉ đọc."* (Nếu khách đó đang có hợp đồng khác đang chạy thì hiện nút chuyển nhanh sang hợp đồng đang chạy).<br>  + **Phía Viewer (Mobile):** *"Hợp đồng này đã [hoàn tất / đã hủy] — Chế độ lưu trữ chỉ đọc"*, kèm nút hành động **"Đặt làm nội dung mới"** dẫn về trang Kênh của Creator. |
 
 ---
 
 ### Phase 3: TẦNG 1 — Creator Lập Lộ trình Milestone Tổng & Khách hàng Duyệt Lộ trình
 
 #### Bước 3.1: Creator lập & gửi Lộ trình Milestone Tổng (`POST /api/v1/contracts`)
-Sau khi thống nhất trong phòng chat, Creator mở form **"Tạo lộ trình Milestone"** (từ `1` đến tối đa `20` giai đoạn):
+Sau khi thống nhất trong phòng chat, Creator mở form **"Tạo lộ trình Milestone"** (từ `1` đến tối đa `20` giai đoạn).
+* **Quy tắc Định giá theo Từng Milestone (Không nhập 1 cục tổng giá rồi chia đều):**
+  * Creator **trực tiếp đề xuất mức giá riêng (`amount`) cho từng giai đoạn Milestone** (`#1..#N`, tối thiểu `10.000đ`/mốc) tùy theo khối lượng công việc thực tế của chặng đó.
+  * **Tổng giá trị hợp đồng (`totalAmount`) được tính tự động bằng tổng cộng giá của tất cả các Milestone:**
+    $$\text{totalAmount} = \sum_{i=1}^{N} \text{milestone}_i.\text{amount}$$
 * **Endpoint:** `POST /api/v1/contracts`
 * **Request Body:**
 ```json
@@ -471,6 +528,87 @@ Không hardcode các con số chính sách trên FE/Mobile. Hãy gọi API công
 
 ---
 
+### 6.4. Các Lưu ý Kỹ thuật & Quy chuẩn UI/UX Quan trọng cho Mobile (Flutter)
+
+Dưới đây là các quy chuẩn thiết kế và xử lý nghiệp vụ quan trọng khi triển khai trên **Mobile App (Flutter)** cho cả hai vai trò **Viewer (Khách đặt nội dung)** và **Creator**:
+
+#### 1. Cơ chế Định giá từng Milestone & Tổng giá Hợp đồng (`totalAmount`)
+* Khi lập lộ trình Milestone (`POST /api/v1/contracts`), **không có ô nhập một cục "Tổng giá trị hợp đồng"**, mà Creator nhập mức giá riêng (`amount`) cho từng giai đoạn `#1..#N` (tối thiểu `10.000đ`/mốc).
+* Tổng giá trị hợp đồng (`totalAmount`), phí nền tảng (`platformFee = 5%`) và số tiền thực nhận (`netAmount = 95%`) phải được tính tự động theo thời gian thực bằng tổng các Milestone:
+  $$\text{totalAmount} = \sum_{i=1}^{N} \text{milestone}_i.\text{amount}$$
+* Khi chỉnh sửa lẻ 1 mốc (`PUT /api/v1/milestones/{id}`) hoặc xóa mốc (`DELETE /api/v1/milestones/{id}`), tổng giá trị hợp đồng tự động cập nhật lại.
+
+#### 2. Phân biệt Rõ 4 Giai đoạn Trạng thái Hợp đồng & Điều kiện Khóa Nút Sửa / Hủy (`isNegotiating` Rule)
+* Mobile App cần phân biệt chính xác 4 giai đoạn trạng thái của Hợp đồng (`contract.status`) và Milestone để hiển thị nhãn trạng thái (`Badge`) đúng bản chất nghiệp vụ, tuyệt đối không hiển thị nhầm `"Chờ khách ký quỹ"` hoặc `"Đang ở Mốc #1"` khi khách hàng chưa bấm chấp thuận lộ trình tổng:
+
+| Giai đoạn | `contract.status` | `milestone.status` | Nhãn Badge Hợp đồng chuẩn | Nhãn Tiến độ / Mốc hiện tại | Quyền `Sửa lộ trình` / `Sửa-Xóa mốc` / `Hủy HĐ` (Phía Creator) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Chờ khách duyệt lộ trình** | `PENDING` | Tất cả `WAITING` (`escrowStatus = UNFUNDED`) | `Chờ khách duyệt lộ trình` | `Chưa bắt đầu — Chờ khách chấp thuận lộ trình` (Không gắn nhãn `Đang ở mốc này` lên Mốc #1) | **Cho phép** (`isNegotiating = true`) |
+| **2. Khách yêu cầu sửa lộ trình** | `REJECTED` | Tất cả `WAITING` (`escrowStatus = UNFUNDED`) | `Khách yêu cầu sửa lộ trình` | `Khách yêu cầu sửa — Chờ cập nhật & gửi lại lộ trình` | **Cho phép** (`isNegotiating = true`) |
+| **3. Khách đã duyệt, chờ nạp cọc** | `ACTIVE` | Mốc hiện tại `#i` là `UNFUNDED` (các mốc sau là `WAITING`) | `Khách đã duyệt • Chờ ký quỹ Mốc #i` | `Đang ở Mốc #i/N: <Tên mốc> (Chờ khách nạp cọc)` | **Khóa / Ẩn hoàn toàn** (`isNegotiating = false`) |
+| **4. Đang sản xuất / Nghiệm thu** | `ACTIVE` | Mốc hiện tại `#i` là `IN_PROGRESS` hoặc `SUBMITTED` (`escrowStatus = HELD`) | `Đang thực hiện` | `Đang ở Mốc #i/N: <Tên mốc> (Đang thực hiện / Chờ khách nghiệm thu)` | **Khóa / Ẩn hoàn toàn** (`isNegotiating = false`) |
+
+* Điều kiện hiển thị các nút **Sửa toàn bộ lộ trình (`PUT /api/v1/contracts/{id}`)**, **Sửa lẻ 1 mốc (`PUT /api/v1/milestones/{id}`)**, **Xóa mốc (`DELETE /api/v1/milestones/{id}`)** và **Hủy hợp đồng (`POST /api/v1/contracts/{id}/cancel`)**:
+  1. `contract.status == 'PENDING' || contract.status == 'REJECTED'`
+  2. Tất cả các Milestone trong hợp đồng đều chưa nạp cọc (`WAITING` hoặc `UNFUNDED`, `escrowStatus == 'UNFUNDED'`).
+* Ngay khi Viewer đã chấp thuận lộ trình (`contract.status == 'ACTIVE'`), phải **ẩn hoàn toàn** các nút sửa lộ trình, sửa/xóa mốc và hủy hợp đồng.
+
+#### 3. Các Định dạng Tệp Bàn giao Được Phép, Lưu trữ Riêng tư & Xem Lịch sử Phiên bản (`v1, v2...`)
+* **Hỗ trợ đa định dạng tệp bàn giao (`POST /api/v1/milestones/{milestoneId}/deliverables`, tối đa `25MB`/file):**
+  * Hệ thống cho phép Creator nộp đầy đủ các định dạng theo tính chất từng mốc:
+    * **Video & Audio thành phẩm (`.mp4`, `.mov`, `.webm`, `.mp3`, `.wav`, `.m4a`):** Phát trực tiếp ngay trong ứng dụng qua luồng bảo mật `/api/v1/deliverables/{id}/view` kèm nút **Tải về**.
+    * **Tài liệu kịch bản / đề cương `.pdf` & Ảnh (`.jpg`, `.png`, `.webp`):** Hiển thị trực tiếp bằng trình xem PDF / Ảnh tích hợp ngay trong popup kèm nút **Tải về**.
+    * **Tài liệu `.doc`, `.docx`, `.txt` hoặc tệp nén `.zip`, `.rar`:** Hiển thị thẻ thông tin tệp kèm nút **"Tải tệp về máy"** (`/api/v1/deliverables/{id}/download`) để lưu về thiết bị và mở bằng ứng dụng đọc tài liệu.
+* **Cấu trúc Phân tách Thư mục Lưu trữ trên Cloudinary (`Cloudinary Folder Hierarchy`):**
+  * Hệ thống phân chia thư mục lưu trữ trên Cloudinary tách biệt rõ ràng theo từng Hợp đồng, từng Milestone và từng Phòng Chat:
+    * **File bàn giao Milestone (`POST /api/v1/milestones/{milestoneId}/deliverables`):** Tự động lưu vào `history-podcast/contracts/{contractId}/milestones/{milestoneId}` (kèm quản lý phiên bản `v1, v2...` trong bảng `milestone_deliverables`).
+    * **Ảnh gửi trong Phòng Chat 1-1 (`POST /api/v1/creator/studio/upload-image` với `folder="chats/{conversationId}"`):** Tự động lưu vào `history-podcast/chats/{conversationId}` (ví dụ: `history-podcast/chats/hire_request_4`).
+* **Bàn giao riêng tư 1-1 (Tách biệt hoàn toàn với Tuyển tập Series công khai trên kênh):**
+  * Mọi tệp nộp trong Milestone là **tài sản bàn giao riêng tư giữa Creator và Khách đặt hàng** (`MilestoneDeliverable`), **không tự động tạo Series hay đăng công khai lên kênh của Creator**.
+  * Do đó, trong màn hình Chi tiết Đơn đặt hàng / Hợp đồng không gắn nút điều hướng sang trang *"Quản lý Tuyển tập Series của kênh"* để tránh gây hiểu nhầm quy trình. Chỉ khi Khách hàng cho phép sử dụng tác phẩm làm nội dung công khai trên kênh thì sau khi hoàn tất hợp đồng, Creator mới tự đăng tải riêng ở mục Quản lý Kênh.
+* **Xem lịch sử các phiên bản đã nộp (`v1, v2...`):**
+  * Khi một Milestone đã có file bàn giao, cả màn hình **"Tệp bàn giao"** lẫn màn hình **"Nộp sản phẩm bàn giao"** đều cần gọi `GET /api/v1/milestones/{milestoneId}/deliverables` để hiển thị danh sách tất cả các phiên bản đã nộp (`Phiên bản v1`, `v2`...) kèm nút **"Xem sản phẩm / Nghe thử"** và **"Tải về"**.
+  * Nhờ đó, Creator và Viewer luôn xem lại được sản phẩm cũ trước khi quyết định tải lên bản mới `v{N+1}` (cho phép nộp bản mới khi `milestone.status == 'IN_PROGRESS' || milestone.status == 'SUBMITTED'`). Khi mốc đã `APPROVED` hoặc `RELEASED` thì khóa nút nộp thêm và chỉ cho xem/tải lịch sử.
+
+#### 4. Bố cục Thẻ Yêu cầu / Hợp đồng Gọn Gàng, Thanh Tiến trình 100% Chiều ngang & Thu gọn Mặc định (`Smart Collapse`)
+* **Không dùng ảnh Thumbnail giả (`Mock Image`) và không đặt Hộp vuông lớn bên trái Thẻ:**
+  * Bảng `hire_requests` (Đơn đặt làm nội dung) và `contracts` (Hợp đồng Milestone) trong Database không có trường ảnh bìa (`thumbnailUrl`). Tuyệt đối **không gắn ảnh minh họa mẫu lặp lại (mock image)** hay đặt hộp vuông lớn bên trái (`MÃ ĐƠN ĐẶT` / `MÃ HỢP ĐỒNG`) làm thẻ bị cao quá mức (2 thẻ đã kín màn hình).
+  * Thay vào đó, thiết kế thẻ gọn chiều dọc (`padding: 12px 16px`, hiển thị được 3–4 thẻ trên một màn hình), đưa các Badge định danh lên cùng 1 hàng ngang phía trên tiêu đề: `[SERIES NHIỀU TẬP / VIDEO LẺ]` + `[ĐƠN #id]` + `[Đã lập HĐ #id]` (đối với thẻ Đơn đặt hàng) hoặc `[HỢP ĐỒNG #id]` + `[LỘ TRÌNH N MỐC]` (đối với thẻ Hợp đồng).
+* **Thanh tiến trình Milestone trên Thẻ Hợp đồng luôn rộng 100% (`Full-Width Progress Bar`):**
+  * Thiết kế Thẻ Hợp đồng (`ContractCard`) theo **bố cục 3 tầng ngang**:
+    1. **Tầng 1 (Header):** Bên trái là cụm Badge + Tiêu đề hợp đồng | Bên phải là Số tiền nhận (95%) / Tổng giá trị + Badge trạng thái.
+    2. **Tầng 2 (Progress Bar `width: double.infinity`, cao `28px`):** Đặt Thanh tiến trình Milestone nằm riêng 1 tầng mảnh trải rộng 100% chiều ngang thẻ (gồm nhãn tiến độ bên trái, thanh tiến trình ở giữa và `done/total mốc (%)` bên phải) để thanh tiến trình của mọi hợp đồng luôn dài bằng nhau tuyệt đối, không bị co ngắn hay giãn dài phụ thuộc vào số lượng nút bấm ở dưới.
+    3. **Tầng 3 (Footer):** Bên trái là Avatar + Tên khách hàng + Ngày tạo | Bên phải là Cụm nút hành động gọn (`Mở chat` / `Xem lịch sử chat`, `Sửa lộ trình`, `Chi tiết & Tiến độ`).
+* **Chỉ báo vị trí hiện tại (`Current Milestone Indicator`) & Stepper Bar:**
+  * Cả trên **Thẻ Hợp đồng (`ContractCard`)** ngoài danh sách lẫn bên trong màn hình **Chi tiết Hợp đồng** cần hiển thị rõ hợp đồng đang ở chặng nào theo đúng bảng 4 giai đoạn ở mục `6.4.2`.
+  * Khi hợp đồng có từ 2 mốc trở lên (`milestones.length > 1`), hiển thị thêm **Thanh tiến độ ngang (`Stepper Bar`)** (`Mốc #1 ── Mốc #2 ── Mốc #3`) để người dùng chạm vào mốc nào là mở rộng và cuộn tới đúng mốc đó.
+* **Thu gọn thông minh khi mở Chi tiết Hợp đồng (`Smart Collapse by Default`):**
+  * Mặc định thu gọn tất cả các mốc đã hoàn thành (`APPROVED`, `RELEASED`, `CANCELLED`) và các mốc đang chờ mở khóa (`WAITING`, `UNFUNDED`) thành **1 dòng tóm tắt gọn** (`Mốc #i`, Tên mốc, Số tiền, Trạng thái).
+  * **Chỉ tự động bung chi tiết duy nhất 1 mốc đang thực hiện hiện tại (`IN_PROGRESS` hoặc `SUBMITTED`)**, kèm nút `Mở rộng chi tiết / Thu gọn tất cả` ở góc phải.
+
+#### 5. Thu gọn Ghi chú & Thỏa thuận Hợp đồng Nhiều Dòng (`description`)
+* Trường `contract.description` có thể dài nhiều dòng. Mặc định chỉ hiển thị tối đa **2 dòng (`maxLines: 2, overflow: TextOverflow.ellipsis`)** kèm nút **`Xem đầy đủ ▾` / `Thu gọn ▴`** (có vùng cuộn dọc khi mở rộng) để không đẩy danh sách Milestone xuống quá sâu trên màn hình điện thoại.
+
+#### 6. Quy chuẩn Màn hình Chat 1-1 Firebase Firestore (Cho cả Viewer & Creator)
+* **Màn hình Chat độc lập & Đồng bộ `conversationId`:**
+  * Tách màn hình Chat 1-1 riêng biệt; trong Chi tiết Hợp đồng và Thẻ Hợp đồng đặt nút **"Mở chat với khách hàng"** (hoặc **"Xem lịch sử chat"** nếu hợp đồng đã `CANCELLED` / `COMPLETED`) để điều hướng thẳng sang phòng chat và tự động chọn đúng hội thoại + hợp đồng đó.
+  * Luôn gọi `POST /api/v1/chats/conversation` (`{"hireRequestId": id}` hoặc `{"contractId": id}`) để lấy `conversationId` chính thức (quy ước chuẩn: `hire_request_{commissionId}` nếu hợp đồng gắn với đơn đặt hàng, hoặc `contract_{contractId}` nếu không gắn đơn).
+* **Danh sách hội thoại gọn gàng & Thanh lọc 4 Tab vừa khít 1 dòng (Không có thanh cuộn ngang):**
+  * Thanh lọc hội thoại gồm 4 tab (`Tất cả`, `Theo khách`, `Đang chạy`, `Kết thúc`) chia đều chiều rộng (`Expanded` / `flex: 1`) vừa khít trên **1 hàng ngang duy nhất**, tuyệt đối không để xuất hiện thanh cuộn ngang (`horizontal scrollbar`).
+  * Trên mỗi dòng hội thoại trong danh sách Tin nhắn chỉ hiển thị: **Tên đối tác**, **Ngày cập nhật**, **Mã `HĐ #id` / `Đơn #id` + Tiêu đề**, và **Badge trạng thái** (`Đang thực hiện`, `Chờ khách duyệt lộ trình`, `Đã hủy`...). **Không hiển thị số tiền hợp đồng (`50.000 đ`) ngay trên dòng danh sách chat** để tránh rối mắt và tránh hiểu nhầm khi lọc theo khách hàng; số tiền hợp đồng chỉ hiển thị trong thanh ngữ cảnh bên trong phòng chat và trong Chi tiết Hợp đồng.
+  * Không hiển thị chấm xanh hay nhãn `"Đang kết nối"` tĩnh.
+  * Hỗ trợ tab lọc **`Theo khách`** (gom các đơn/hợp đồng của cùng 1 đối tác vào 1 dòng) và **Cuộn vô hạn (`Infinite Scroll`, `15` hội thoại/lượt)**.
+  * Nếu hai bên có nhiều hợp đồng với nhau, thanh chuyển đổi hợp đồng ở đầu phòng chat phải cố định trên **1 dòng duy nhất** (ưu tiên hợp đồng `ACTIVE`/`PENDING` lên đầu, hiển thị tối đa 2 nút và gom các hợp đồng còn lại vào menu **`+N hợp đồng khác ▾`**).
+  * **Thanh ngữ cảnh Hợp đồng thu gọn 1 dòng (`Collapsible 1-Line Context Strip`):** Ngay dưới header phòng chat, hiển thị thanh tóm tắt hợp đồng thu gọn trên 1 dòng (`HĐ #id`, tiến độ `done/total mốc`, Tổng giá trị, Thực nhận 95%, nút `Chi tiết ▾ / Thu gọn ▴`) để nhường tối đa diện tích cho khung tin nhắn.
+* **Khóa gửi tin nhắn mới khi Hợp đồng Đã hủy / Đã hoàn tất (`Read-Only Archive Mode`):**
+  * Khi `contract.status == 'CANCELLED' || contract.status == 'COMPLETED'` (hoặc đơn lẻ `commission.status == 'CANCELLED' || 'COMPLETED'`), vẫn cho phép xem toàn bộ lịch sử tin nhắn và ảnh cũ nhưng **ẩn/khóa ô nhập tin nhắn & nút gửi ảnh**, thay bằng thanh thông báo chế độ lưu trữ chỉ đọc (trên app Viewer có thể đặt nút **"Đặt làm nội dung mới"** dẫn về kênh Creator).
+  * Riêng khi `contract.status == 'REJECTED'` (Viewer từ chối bản thảo lộ trình để yêu cầu sửa lại giá/số mốc), phòng chat **vẫn mở bình thường** để hai bên thương lượng lại.
+
+#### 7. Quản lý Tầng Hiển thị Hộp thoại (`Navigator / Modal Stack`)
+* Khi mở các BottomSheet hoặc Dialog con từ bên trong màn hình/popup Chi tiết Hợp đồng (như `Danh sách tệp bàn giao`, `Trình phát Video/Audio/PDF`, `Nộp sản phẩm`, `Đánh giá`, `Khiếu nại`), luôn đảm bảo hộp thoại con nằm ở tầng trên cùng (`useRootNavigator: true` trên Flutter) để không bị lớp nền mờ (`barrier`) của màn hình cha che khuất.
+
+---
+
 ## 7. Bảng Tổng hợp Toàn bộ API Endpoints (Complete API Reference)
 
 ### 7.1. Đơn Đặt làm Nội dung (`CommissionController`)
@@ -486,10 +624,11 @@ Không hardcode các con số chính sách trên FE/Mobile. Hãy gọi API công
 | `POST` | `/api/v1/commissions/{id}/reject` | Creator | Creator từ chối đơn (bắt buộc truyền `rejectionReason`) -> Giải phóng slot cho Khách. |
 | `POST` | `/api/v1/commissions/{id}/cancel` | Customer | Khách hàng chủ động hủy đơn khi chưa có hợp đồng chạy (`CANCELLED`). |
 
-### 7.2. Phòng Chat 1-1 (`ChatController`)
+### 7.2. Phòng Chat 1-1 Firebase Firestore & Upload Ảnh Chat (`ChatController` & `CreatorStudioController`)
 | Method | Endpoint | Quyền hạn | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/chats/conversation` | Customer / Creator | Xác thực quyền & lấy `conversationId` Firestore (`{"hireRequestId": id}` hoặc `{"contractId": id}`). |
+| `POST` | `/api/v1/creator/studio/upload-image` | Authenticated (`Customer` & `Creator`) | Upload ảnh đính kèm trong khung chat (`multipart/form-data`: `file`, `folder="chats/{conversationId}"`, tối đa `10MB`) -> Lưu vào Cloudinary `history-podcast/chats/{conversationId}` và trả về `data.url` để ghi vào document Firestore `conversations/{conversationId}/messages`. |
 
 ### 7.3. Tầng 1 — Quản lý Hợp đồng & Duyệt Lộ trình Milestone Tổng (`ContractController`)
 | Method | Endpoint | Quyền hạn | Mô tả |
