@@ -317,7 +317,8 @@ const ActivityThumbnailPreview: React.FC<{
   thumbnailUrl?: string | null;
   fileUrl?: string | null;
   title: string;
-}> = ({ thumbnailUrl, fileUrl, title }) => {
+  onClick?: () => void;
+}> = ({ thumbnailUrl, fileUrl, title, onClick }) => {
   const [imageError, setImageError] = React.useState(false);
   const resolvedUrl = React.useMemo(() => {
     return resolveHistoricalThumbnail(title, thumbnailUrl, fileUrl);
@@ -329,14 +330,24 @@ const ActivityThumbnailPreview: React.FC<{
       <img
         src={resolvedUrl}
         alt={title}
-        className="h-10 w-10 rounded-md object-cover border border-stone-200 shrink-0 shadow-2xs"
+        onClick={onClick}
+        className={cn(
+          'h-10 w-10 rounded-md object-cover border border-stone-200 shrink-0 shadow-2xs transition-transform duration-200',
+          onClick && 'cursor-pointer hover:scale-105 hover:border-accent/40'
+        )}
         onError={() => setImageError(true)}
       />
     );
   }
 
   return (
-    <div className="h-10 w-10 rounded-md bg-stone-900 border border-stone-800 flex items-center justify-center text-stone-400 shrink-0 shadow-2xs">
+    <div
+      onClick={onClick}
+      className={cn(
+        'h-10 w-10 rounded-md bg-stone-900 border border-stone-800 flex items-center justify-center text-stone-400 shrink-0 shadow-2xs transition-colors',
+        onClick && 'cursor-pointer hover:bg-stone-800'
+      )}
+    >
       <Video className="h-4 w-4 text-stone-300" />
     </div>
   );
@@ -1108,6 +1119,7 @@ export const CreatorWorkspaceHome: React.FC = () => {
                       thumbnailUrl={act.video.thumbnailUrl}
                       fileUrl={act.video.fileUrl}
                       title={act.video.title}
+                      onClick={() => navigate(`/creator/content/${act.video.contentId}`)}
                     />
 
                     <div className="min-w-0 flex-1 space-y-0.5">

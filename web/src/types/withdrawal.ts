@@ -5,6 +5,7 @@ export interface WithdrawalItem {
   bankName: string;
   accountNumber: string;
   accountHolderName: string;
+  creatorAvatar?: string;
   amount: number;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | string;
   requestedAt: string;

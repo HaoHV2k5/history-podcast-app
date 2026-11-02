@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Menu, ChevronRight, LogOut, User, Shield } from 'lucide-react';
+import { Menu, ChevronRight, LogOut, Shield, Bell } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,15 +26,15 @@ const ROUTE_NAME_MAP: Record<string, string> = {
   admin: 'Quản trị',
   overview: 'Tổng quan',
   moderation: 'Kiểm duyệt nội dung',
-  kyc: 'Xác thực KYC',
+  kyc: 'Xác thực định danh',
   users: 'Người dùng',
-  channels: 'Kênh Podcast',
+  channels: 'Kênh phát thanh',
   membership: 'Gói hội viên',
   transactions: 'Biến động số dư',
   withdrawals: 'Yêu cầu rút tiền',
   narrators: 'Hồ sơ Thuyết minh viên',
   contracts: 'Hợp đồng thu âm',
-  escrow: 'Ký quỹ Escrow',
+  escrow: 'Ký quỹ đảm bảo',
   disputes: 'Xử lý Khiếu nại',
   policies: 'Chính sách & Cấu hình',
   roles: 'Phân quyền tài khoản',
@@ -94,30 +94,42 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
       {/* Right: Authenticated Admin Profile Dropdown */}
       <div className="flex items-center gap-3">
-        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-status-success-text/25 bg-status-success-bg/80 text-status-success-text text-[11px] font-medium select-none shadow-2xs">
-          <span className="h-1.5 w-1.5 rounded-full bg-status-success-text animate-pulse" />
-          <span>Hệ thống trực tuyến</span>
+        <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-status-success-text/25 bg-status-success-bg/90 text-status-success-text text-xs font-medium select-none shadow-2xs">
+          <span className="h-2 w-2 rounded-full bg-status-success-text animate-pulse" />
+          <span>Hệ Thống Trực Tuyến</span>
         </div>
+
+        {/* System Notification Bell */}
+        <button
+          type="button"
+          className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-canvas text-muted hover:text-ink hover:bg-surface-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label="Thông báo hệ thống (2 thông báo mới)"
+        >
+          <Bell className="h-4 w-4" />
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-[#DC2626] text-white font-mono text-[10px] font-bold shadow-xs">
+            2
+          </span>
+        </button>
 
         {currentUser ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="flex items-center gap-2.5 rounded-lg border border-border bg-canvas px-3.5 py-1.5 min-h-[44px] text-left transition-colors hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex items-center gap-2.5 rounded-lg border border-border bg-canvas px-3 py-1.5 min-h-[40px] text-left transition-colors hover:bg-surface-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold text-xs border border-accent/20">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#FCE7F3] text-[#9D174D] font-bold text-xs border border-[#FBCFE8] shadow-2xs">
                   {currentUser.fullName ? (
                     currentUser.fullName.charAt(0).toUpperCase()
                   ) : (
-                    <User className="h-3.5 w-3.5" />
+                    'Q'
                   )}
                 </div>
                 <div className="hidden sm:flex flex-col text-xs leading-tight">
-                  <span className="font-medium text-ink max-w-[140px] truncate">
-                    {currentUser.fullName || currentUser.email}
+                  <span className="font-bold text-ink max-w-[150px] truncate">
+                    {currentUser.fullName || 'Quản trị viên'}
                   </span>
-                  <span className="text-[10px] text-muted font-mono">
+                  <span className="text-[10px] text-muted">
                     {currentUser.roles?.includes('ADMIN') ? 'Quản trị viên' : 'Nhân sự'}
                   </span>
                 </div>
