@@ -46,7 +46,11 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
   @override
   Future<Widget> createApplication(RuntimeConfiguration configuration) async {
     final preferences = await SharedPreferences.getInstance();
-    final savedBaseUrl = preferences.getString('custom_api_base_url')?.trim();
+    var savedBaseUrl = preferences.getString('custom_api_base_url')?.trim();
+    if (savedBaseUrl != null && savedBaseUrl.contains('192.168.1.115')) {
+      savedBaseUrl = savedBaseUrl.replaceAll('192.168.1.115', '192.168.1.123');
+      await preferences.setString('custom_api_base_url', savedBaseUrl);
+    }
     String baseUrl;
     if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
       baseUrl = savedBaseUrl;
@@ -54,7 +58,7 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       baseUrl = configuration.apiBaseUri.toString();
     } else {
       baseUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-          ? 'http://192.168.1.115:8080'
+          ? 'http://192.168.1.123:8080'
           : 'http://localhost:8080';
     }
     

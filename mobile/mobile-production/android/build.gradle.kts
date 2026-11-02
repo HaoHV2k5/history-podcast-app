@@ -22,7 +22,10 @@ subprojects {
 subprojects {
     tasks.configureEach {
         if (name.contains("AarMetadata", ignoreCase = true)) {
-            enabled = false
+            actions.clear()
+            doLast {
+                outputs.files.forEach { it.mkdirs() }
+            }
         }
     }
 }

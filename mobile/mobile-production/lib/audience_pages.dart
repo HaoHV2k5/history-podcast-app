@@ -1867,6 +1867,84 @@ class _AuthSheetState extends State<AuthSheet> {
     super.dispose();
   }
 
+  void _showServerConfig() {
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
+    final controller = TextEditingController(text: currentUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Palette.paper,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cấu hình máy chủ API', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Nhập địa chỉ IP máy chủ backend Sử Ký (Spring Boot):',
+              style: TextStyle(fontSize: 13, color: Palette.muted),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Palette.soft,
+                hintText: 'http://192.168.1.123:8080',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Gợi ý kết nối nhanh:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('Wi-Fi máy tính (192.168.1.123)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://192.168.1.123:8080',
+                ),
+                ActionChip(
+                  label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://10.0.2.2:8080',
+                ),
+                ActionChip(
+                  label: const Text('Localhost (localhost:8080)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://localhost:8080',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Palette.red),
+            onPressed: () async {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                await widget.state.updateApiBaseUrl(newUrl);
+                if (mounted) {
+                  setState(() {
+                    error = null;
+                  });
+                }
+              }
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Lưu & Kết nối'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> submit() async {
     if (!formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -1895,12 +1973,23 @@ class _AuthSheetState extends State<AuthSheet> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          busy = false;
-          error = e
-              .toString()
+        final raw = e.toString();
+        String displayError;
+        final currentUrl = widget.state.apiClient?.baseUrl ?? 'máy chủ';
+        if (raw.contains('TimeoutException') || raw.toLowerCase().contains('timed out')) {
+          displayError = 'Quá thời gian chờ kết nối (15s) tới $currentUrl.\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
+        } else if (raw.contains('SocketException') ||
+            raw.contains('Connection refused') ||
+            raw.contains('Failed host lookup')) {
+          displayError = 'Không thể kết nối đến máy chủ backend ($currentUrl).\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
+        } else {
+          displayError = raw
               .replaceFirst('Exception: ', '')
               .replaceFirst('ArgumentError: ', '');
+        }
+        setState(() {
+          busy = false;
+          error = displayError;
         });
       }
     }
@@ -1930,7 +2019,43 @@ class _AuthSheetState extends State<AuthSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Eyebrow('TÀI KHOẢN NGƯỜI NGHE · UC-06'),
+            Row(
+              children: [
+                const Expanded(
+                  child: Eyebrow('TÀI KHOẢN NGƯỜI NGHE · UC-06'),
+                ),
+                InkWell(
+                  key: const Key('auth-server-badge-btn'),
+                  onTap: _showServerConfig,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Palette.soft,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Palette.line),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 12, color: Palette.muted),
+                        const SizedBox(width: 4),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 110),
+                          child: Text(
+                            widget.state.apiClient?.baseUrl.replaceFirst('http://', '').replaceFirst('https://', '') ?? 'Máy chủ',
+                            style: const TextStyle(fontSize: 11, color: Palette.muted, fontWeight: FontWeight.w600),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 3),
+                        const Icon(CupertinoIcons.pencil, size: 10, color: Palette.muted),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Text(
               tab == 0 ? 'Đăng nhập Sử Ký' : 'Đăng ký tài khoản',
@@ -2059,9 +2184,46 @@ class _AuthSheetState extends State<AuthSheet> {
               ),
             if (error != null) ...[
               const SizedBox(height: 12),
-              Text(
-                error!,
-                style: const TextStyle(color: Palette.red, fontSize: 13),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Palette.red.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Palette.red.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      error!,
+                      style: const TextStyle(color: Palette.red, fontSize: 13, height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      key: const Key('auth-error-config-server-btn'),
+                      onTap: _showServerConfig,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(CupertinoIcons.gear_alt, size: 14, color: Palette.red),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Đổi địa chỉ IP máy chủ backend',
+                              style: TextStyle(
+                                color: Palette.red,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 24),

@@ -652,10 +652,10 @@ class AppState extends ChangeNotifier {
       final currentBase = apiClient!.baseUrl;
       String? fallbackUrl;
       if (currentBase.contains('10.0.2.2')) {
-        fallbackUrl = 'http://192.168.1.115:8080';
-      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229') || currentBase.contains('192.168.1.80')) {
-        fallbackUrl = 'http://192.168.1.115:8080';
-      } else if (currentBase.contains('192.168.1.115')) {
+        fallbackUrl = 'http://192.168.1.123:8080';
+      } else if (currentBase.contains('192.168.1.115') || currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229') || currentBase.contains('192.168.1.80')) {
+        fallbackUrl = 'http://192.168.1.123:8080';
+      } else if (currentBase.contains('192.168.1.123')) {
         fallbackUrl = 'http://10.0.2.2:8080';
       }
       if (fallbackUrl != null) {
@@ -1348,63 +1348,61 @@ class AppState extends ChangeNotifier {
       await preferences.setBool('isCreator', isCreator);
       await preferences.setBool('isFreelancer', isFreelancer);
 
-      if (userRepository != null) {
-        try {
-          final profile = await userRepository!
+      // Fetch thông tin profile, freelancer, kyc song song (parallel) để đăng nhập hoàn tất tức thì
+      await Future.wait([
+        if (userRepository != null)
+          userRepository!
               .getMyProfile()
-              .timeout(const Duration(seconds: 4));
-          currentUserId = profile.id;
-          await preferences.setInt('currentUserId', profile.id);
-          if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
-            userAvatarUrl = profile.avatarUrl;
-            await preferences.setString('userAvatarUrl', userAvatarUrl!);
-          }
-          if (profile.fullName.trim().isNotEmpty) {
-            displayName = profile.fullName.trim();
-          }
-          if (profile.roles.isNotEmpty) {
-            initialRoles.addAll(profile.roles);
-          }
-          if (profile.isCreator) initialRoles.add('CREATOR');
-          if (profile.isFreelancer) initialRoles.add('FREELANCER');
-          userRoles = initialRoles.toList();
-          isCreator = userRoles.contains('CREATOR');
-          isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
-          await preferences.setStringList('userRoles', userRoles);
-          await preferences.setBool('isCreator', isCreator);
-          await preferences.setBool('isFreelancer', isFreelancer);
-        } catch (_) {}
-      }
-
-      if (freelancerRepository != null) {
-        try {
-          final f = await freelancerRepository!
-              .getMyProfile()
-              .timeout(const Duration(seconds: 4));
-          if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
-            initialRoles.add('FREELANCER');
+              .timeout(const Duration(seconds: 4))
+              .then((profile) async {
+            currentUserId = profile.id;
+            await preferences.setInt('currentUserId', profile.id);
+            if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+              userAvatarUrl = profile.avatarUrl;
+              await preferences.setString('userAvatarUrl', userAvatarUrl!);
+            }
+            if (profile.fullName.trim().isNotEmpty) {
+              displayName = profile.fullName.trim();
+            }
+            if (profile.roles.isNotEmpty) {
+              initialRoles.addAll(profile.roles);
+            }
+            if (profile.isCreator) initialRoles.add('CREATOR');
+            if (profile.isFreelancer) initialRoles.add('FREELANCER');
             userRoles = initialRoles.toList();
-            isFreelancer = true;
+            isCreator = userRoles.contains('CREATOR');
+            isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
             await preferences.setStringList('userRoles', userRoles);
-            await preferences.setBool('isFreelancer', true);
-          }
-        } catch (_) {}
-      }
-
-      if (kycRepository != null) {
-        try {
-          final kyc = await kycRepository!
+            await preferences.setBool('isCreator', isCreator);
+            await preferences.setBool('isFreelancer', isFreelancer);
+          }).catchError((_) {}),
+        if (freelancerRepository != null)
+          freelancerRepository!
+              .getMyProfile()
+              .timeout(const Duration(seconds: 4))
+              .then((f) async {
+            if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+              initialRoles.add('FREELANCER');
+              userRoles = initialRoles.toList();
+              isFreelancer = true;
+              await preferences.setStringList('userRoles', userRoles);
+              await preferences.setBool('isFreelancer', true);
+            }
+          }).catchError((_) {}),
+        if (kycRepository != null)
+          kycRepository!
               .getMyKycProfile()
-              .timeout(const Duration(seconds: 4));
-          if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
-            initialRoles.add('CREATOR');
-            userRoles = initialRoles.toList();
-            isCreator = true;
-            await preferences.setStringList('userRoles', userRoles);
-            await preferences.setBool('isCreator', true);
-          }
-        } catch (_) {}
-      }
+              .timeout(const Duration(seconds: 4))
+              .then((kyc) async {
+            if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
+              initialRoles.add('CREATOR');
+              userRoles = initialRoles.toList();
+              isCreator = true;
+              await preferences.setStringList('userRoles', userRoles);
+              await preferences.setBool('isCreator', true);
+            }
+          }).catchError((_) {}),
+      ]);
 
       await preferences.setBool('isLoggedIn', true);
       await preferences.remove('manual_logout');
