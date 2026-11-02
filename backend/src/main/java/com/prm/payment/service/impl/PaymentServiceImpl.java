@@ -87,7 +87,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PaymentReturnResponse handleReturn(Map<String, String> queryParams) {
         boolean isValid = paymentGatewayPort.verifyIpn(queryParams);
         String txnRef = queryParams.get("vnp_TxnRef");
@@ -114,6 +114,11 @@ public class PaymentServiceImpl implements PaymentService {
                     .status("FAILED")
                     .message("Không tìm thấy thông tin đơn giao dịch")
                     .build();
+        }
+
+        if ("PENDING".equalsIgnoreCase(tx.getStatus())) {
+            handleIpn(queryParams);
+            tx = walletTransactionRepository.findByMerchantTxnRef(txnRef).orElse(tx);
         }
 
         String message = "00".equals(responseCode)

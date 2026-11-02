@@ -19,6 +19,7 @@ import 'narrator_marketplace.dart';
 import 'paper_surface.dart';
 import 'listening_widgets.dart';
 import 'video_surface.dart';
+import 'wallet_page.dart';
 
 void openChannel(BuildContext context, Channel channel, AppState state) {
   Navigator.of(context).push(
@@ -68,6 +69,37 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int index = 0;
   String libraryFilter = 'Đã lưu';
+
+  @override
+  void initState() {
+    super.initState();
+    final returnToWallet =
+        widget.state.preferences.getBool('return_to_wallet_after_vnpay') ==
+            true ||
+        Uri.base.queryParameters['view'] == 'wallet';
+    if (returnToWallet) {
+      index = 4;
+      widget.state.preferences.remove('return_to_wallet_after_vnpay');
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        if (widget.state.isLiveBackend) {
+          await widget.state.refreshWalletBalance();
+        }
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => WalletPage(
+              preferences: widget.state.preferences,
+              walletRepository: widget.state.walletRepository,
+              withdrawalRepository: widget.state.withdrawalRepository,
+              contractRepository: widget.state.contractRepository,
+              kycRepository: widget.state.kycRepository,
+            ),
+          ),
+        );
+      });
+    }
+  }
 
   void detail(Episode e) {
     Navigator.of(context).push(
@@ -168,9 +200,14 @@ class _HomeShellState extends State<HomeShell> {
                 MediaQuery.paddingOf(context).bottom,
           ),
           child: RetainedHomeTabs(
+            key: ValueKey(
+              'session-tabs-${widget.state.isLoggedIn}-${widget.state.currentUserId}-${widget.state.userEmail}',
+            ),
             index: index,
             child: KeyedSubtree(
-              key: ValueKey(index),
+              key: ValueKey(
+                'tab-$index-${widget.state.isLoggedIn}-${widget.state.currentUserId}-${widget.state.userEmail}',
+              ),
               child: switch (index) {
                 0 => discover(),
                 1 => LivestreamExploreView(state: widget.state),
