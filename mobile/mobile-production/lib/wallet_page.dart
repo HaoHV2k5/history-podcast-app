@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'components.dart';
 import 'contract_chat_sheet.dart';
 import 'core/api/contract_repository.dart';
 import 'core/api/kyc_repository.dart';
@@ -36,7 +35,7 @@ class WalletPage extends StatefulWidget {
   State<WalletPage> createState() => _WalletPageState();
 }
 
-class _WalletPageState extends State<WalletPage> {
+class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
   late final ledger = WalletState(
     widget.preferences,
     walletRepository: widget.walletRepository,
@@ -67,7 +66,15 @@ class _WalletPageState extends State<WalletPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refreshAll();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _refreshAll();
+    }
   }
 
   Future<void> _refreshAll() async {
@@ -88,6 +95,7 @@ class _WalletPageState extends State<WalletPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     ledger.dispose();
     creator.dispose();
     narrator.dispose();
@@ -198,6 +206,16 @@ class _WalletPageState extends State<WalletPage> {
       final withdrawals = ledger.remoteWithdrawals;
       final bankAccounts = ledger.remoteBanks;
       final bankCount = bankAccounts.isNotEmpty ? bankAccounts.length : (bank != null ? 1 : 0);
+      final canWithdraw = ledger.isLiveBackend
+          ? (!busy && (bank != null || bankAccounts.isNotEmpty) && availableBal >= 50000)
+          : (!busy && kyc.isApproved && bank != null && !pending && availableBal >= 100000);
+      final canLinkBank = ledger.isLiveBackend
+          ? !busy
+          : (!busy && kyc.isApproved && !pending);
+      final mf = ledger.milestoneFinancials;
+      final isFreelancerRole =
+          (widget.preferences.getString('userRole') ?? '').toUpperCase() ==
+          'FREELANCER';
 
       return Scaffold(
         backgroundColor: Palette.paper,
@@ -236,9 +254,9 @@ class _WalletPageState extends State<WalletPage> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Palette.red.withValues(alpha: 0.25)),
                     ),
-                    child: const Text(
-                      'Creator Wallet',
-                      style: TextStyle(
+                    child: Text(
+                      isFreelancerRole ? 'Freelancer Wallet' : 'Creator Wallet',
+                      style: const TextStyle(
                         fontSize: 10.5,
                         color: Palette.red,
                         fontWeight: FontWeight.w600,
@@ -320,9 +338,7 @@ class _WalletPageState extends State<WalletPage> {
                               padding: const EdgeInsets.symmetric(vertical: 11),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            onPressed: (busy || !kyc.isApproved || bank == null || pending || availableBal < 100000)
-                                ? null
-                                : withdrawForm,
+                            onPressed: canWithdraw ? withdrawForm : null,
                             icon: const Icon(CupertinoIcons.arrow_up_right, size: 15),
                             label: const Text('Rút tiền', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
@@ -479,7 +495,7 @@ class _WalletPageState extends State<WalletPage> {
                                   side: const BorderSide(color: Palette.line),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
-                                onPressed: (busy || !kyc.isApproved || pending) ? null : bankForm,
+                                onPressed: canLinkBank ? bankForm : null,
                                 icon: const Icon(CupertinoIcons.plus_circle, size: 13, color: Palette.ink),
                                 label: Text(
                                   bankCount == 0 ? 'Thêm mới' : 'Đổi ngân hàng',
@@ -495,6 +511,92 @@ class _WalletPageState extends State<WalletPage> {
                   ],
                 ),
               ),
+
+              if (mf != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Palette.soft,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Palette.line),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Đối soát Ký quỹ & Hợp đồng (Escrow)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.ink),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isFreelancerRole ? 'Đã nhận' : 'Đã chi tiêu',
+                                  style: const TextStyle(fontSize: 10.5, color: Palette.muted),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  money(mf.totalSpentOrEarned.round()),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: [ui.FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isFreelancerRole ? 'Chờ giải ngân' : 'Đang giữ Escrow',
+                                  style: const TextStyle(fontSize: 10.5, color: Palette.muted),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  money(mf.escrowHeldAmount.round()),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: [ui.FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isFreelancerRole ? 'Phí nền tảng' : 'Đã hoàn tiền',
+                                  style: const TextStyle(fontSize: 10.5, color: Palette.muted),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  money(mf.refundedOrFeeAmount.round()),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    fontFeatures: [ui.FontFeature.tabularFigures()],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 24),
 
@@ -575,7 +677,7 @@ class _WalletPageState extends State<WalletPage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Tài khoản đã liên kết (${bankCount})', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text('Tài khoản đã liên kết ($bankCount)', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     TextButton.icon(
                       onPressed: busy ? null : bankForm,
                       icon: const Icon(CupertinoIcons.plus_circle, size: 16, color: Palette.red),
@@ -699,7 +801,10 @@ class _WalletPageState extends State<WalletPage> {
   }
 
   Widget _transactionCard(WalletTransactionModel tx) {
-    final isPositive = tx.type == 'DEPOSIT' || tx.type == 'MEMBERSHIP_FEE' || tx.type == 'REFUND';
+    final isPositive = tx.type == 'DEPOSIT' ||
+        tx.type == 'MEMBERSHIP_FEE' ||
+        tx.type == 'REFUND' ||
+        tx.type == 'ESCROW_RELEASE';
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),

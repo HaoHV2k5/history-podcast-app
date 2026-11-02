@@ -19,6 +19,7 @@ import 'narrator_marketplace.dart';
 import 'paper_surface.dart';
 import 'listening_widgets.dart';
 import 'video_surface.dart';
+import 'wallet_page.dart';
 
 void openChannel(BuildContext context, Channel channel, AppState state) {
   Navigator.of(context).push(
@@ -69,6 +70,37 @@ class _HomeShellState extends State<HomeShell> {
   int index = 0;
   String libraryFilter = 'Đã lưu';
 
+  @override
+  void initState() {
+    super.initState();
+    final returnToWallet =
+        widget.state.preferences.getBool('return_to_wallet_after_vnpay') ==
+            true ||
+        Uri.base.queryParameters['view'] == 'wallet';
+    if (returnToWallet) {
+      index = 4;
+      widget.state.preferences.remove('return_to_wallet_after_vnpay');
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        if (widget.state.isLiveBackend) {
+          await widget.state.refreshWalletBalance();
+        }
+        if (!mounted) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => WalletPage(
+              preferences: widget.state.preferences,
+              walletRepository: widget.state.walletRepository,
+              withdrawalRepository: widget.state.withdrawalRepository,
+              contractRepository: widget.state.contractRepository,
+              kycRepository: widget.state.kycRepository,
+            ),
+          ),
+        );
+      });
+    }
+  }
+
   void detail(Episode e) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -84,7 +116,7 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _showServerConfigDialog() {
-    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://10.87.31.229:8080';
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://172.18.1.206:8080';
     final controller = TextEditingController(text: currentUrl);
     showDialog(
       context: context,
@@ -106,7 +138,7 @@ class _HomeShellState extends State<HomeShell> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Palette.soft,
-                hintText: 'http://10.87.31.229:8080',
+                hintText: 'http://172.18.1.206:8080',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -118,11 +150,11 @@ class _HomeShellState extends State<HomeShell> {
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Máy tính Wi-Fi (10.87.31.229)', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://10.87.31.229:8080',
+                  label: const Text('Máy tính Wi-Fi', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://172.18.1.206:8080',
                 ),
                 ActionChip(
-                  label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                  label: const Text('Giả lập Android', style: TextStyle(fontSize: 11)),
                   onPressed: () => controller.text = 'http://10.0.2.2:8080',
                 ),
                 ActionChip(
@@ -168,9 +200,14 @@ class _HomeShellState extends State<HomeShell> {
                 MediaQuery.paddingOf(context).bottom,
           ),
           child: RetainedHomeTabs(
+            key: ValueKey(
+              'session-tabs-${widget.state.isLoggedIn}-${widget.state.currentUserId}-${widget.state.userEmail}',
+            ),
             index: index,
             child: KeyedSubtree(
-              key: ValueKey(index),
+              key: ValueKey(
+                'tab-$index-${widget.state.isLoggedIn}-${widget.state.currentUserId}-${widget.state.userEmail}',
+              ),
               child: switch (index) {
                 0 => discover(),
                 1 => LivestreamExploreView(state: widget.state),
