@@ -1024,11 +1024,18 @@ class CreatorState extends ChangeNotifier {
   Future<Map<String, dynamic>> generateAiStoryboard({
     required String topic,
     int durationSec = 60,
+    String? geminiApiKey,
+    bool? keepOriginalScript,
   }) async {
     if (creatorStudioRepository != null) {
+      final effectiveGeminiKey = geminiApiKey ?? aiSettings?.geminiApiKey;
       final res = await creatorStudioRepository!.generateStoryboard({
         'topic': topic.trim(),
         'durationSec': durationSec,
+        if (effectiveGeminiKey != null && effectiveGeminiKey.trim().isNotEmpty)
+          'geminiApiKey': effectiveGeminiKey.trim(),
+        if (keepOriginalScript != null)
+          'keepOriginalScript': keepOriginalScript,
       });
       if (res is Map<String, dynamic>) {
         lastStoryboard = res;
@@ -1106,8 +1113,12 @@ class CreatorState extends ChangeNotifier {
     Map<String, String>? sceneImages,
     int durationSec = 60,
     int? seriesId,
+    String? coverImage,
+    String? thumbnailUrl,
+    Map<String, dynamic>? storyboard,
   }) async {
     if (creatorStudioRepository != null) {
+      final effectiveStoryboard = storyboard ?? lastStoryboard;
       final res = await creatorStudioRepository!.renderVideo({
         'title': title.trim(),
         'durationSec': durationSec,
@@ -1116,9 +1127,11 @@ class CreatorState extends ChangeNotifier {
         if (voiceName != null) 'voiceName': voiceName,
         if (ttsEngine != null) 'ttsEngine': ttsEngine,
         if (sceneImages != null && sceneImages.isNotEmpty) 'sceneImages': sceneImages,
+        if (coverImage != null && coverImage.trim().isNotEmpty) 'coverImage': coverImage.trim(),
+        if (thumbnailUrl != null && thumbnailUrl.trim().isNotEmpty) 'thumbnailUrl': thumbnailUrl.trim(),
         if (channelModel != null) 'channelId': channelModel!.id,
         if (seriesId != null) 'seriesId': seriesId,
-        if (lastStoryboard != null) 'storyboard': lastStoryboard,
+        if (effectiveStoryboard != null) 'storyboard': effectiveStoryboard,
       });
       activeRenderJob = res;
       notifyListeners();

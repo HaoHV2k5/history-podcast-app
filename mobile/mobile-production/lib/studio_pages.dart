@@ -1236,7 +1236,7 @@ class _CreatorStudioState extends State<CreatorStudio> {
                             ),
                           ),
                   icon: const Icon(CupertinoIcons.sparkles, size: 15),
-                  label: const Text('Xưởng AI Studio 6 bước'),
+                  label: const Text('Tạo nội dung mới (AI Studio)'),
                 ),
                 OutlinedButton.icon(
                   key: const Key('open-series-manager-btn'),
