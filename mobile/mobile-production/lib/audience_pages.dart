@@ -71,23 +71,31 @@ class _ChannelPageState extends State<ChannelPage> {
     final remoteMatch = remoteChannels.firstWhere(
       (rc) =>
           (widget.channel.id != null && rc.id == widget.channel.id) ||
-          rc.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+          rc.name.trim().toLowerCase() ==
+              widget.channel.name.trim().toLowerCase(),
       orElse: () => widget.channel,
     );
     final baseC = channelByName(widget.channel.name);
     int? chId = remoteMatch.id ?? widget.channel.id ?? baseC.id;
-    int? crId = remoteMatch.creatorId ?? widget.channel.creatorId ?? baseC.creatorId;
+    int? crId =
+        remoteMatch.creatorId ?? widget.channel.creatorId ?? baseC.creatorId;
 
     if (widget.state.channelRepository != null) {
       try {
         if (chId != null && crId == null) {
-          final detail = await widget.state.channelRepository!.getChannelById(chId);
+          final detail = await widget.state.channelRepository!.getChannelById(
+            chId,
+          );
           chId = detail.id;
           crId = detail.creatorId;
         } else if (chId == null) {
-          final all = await widget.state.channelRepository!.getAllChannels(size: 50);
+          final all = await widget.state.channelRepository!.getAllChannels(
+            size: 50,
+          );
           final found = all.where(
-            (m) => m.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+            (m) =>
+                m.name.trim().toLowerCase() ==
+                widget.channel.name.trim().toLowerCase(),
           );
           if (found.isNotEmpty) {
             chId = found.first.id;
@@ -139,49 +147,75 @@ class _ChannelPageState extends State<ChannelPage> {
       final remoteMatch = remoteChannels.firstWhere(
         (rc) =>
             (widget.channel.id != null && rc.id == widget.channel.id) ||
-            rc.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+            rc.name.trim().toLowerCase() ==
+                widget.channel.name.trim().toLowerCase(),
         orElse: () => widget.channel,
       );
 
-      final String bannerImage = (widget.channel.coverImage.startsWith('http://') ||
+      final String bannerImage =
+          (widget.channel.coverImage.startsWith('http://') ||
               widget.channel.coverImage.startsWith('https://'))
           ? widget.channel.coverImage
           : ((remoteMatch.coverImage.startsWith('http://') ||
-                  remoteMatch.coverImage.startsWith('https://'))
-              ? remoteMatch.coverImage
-              : (remoteMatch.coverImage.isNotEmpty
-                  ? remoteMatch.coverImage
-                  : (widget.channel.coverImage.isNotEmpty
-                      ? widget.channel.coverImage
-                      : (remoteMatch.image.isNotEmpty ? remoteMatch.image : widget.channel.image))));
+                    remoteMatch.coverImage.startsWith('https://'))
+                ? remoteMatch.coverImage
+                : (remoteMatch.coverImage.isNotEmpty
+                      ? remoteMatch.coverImage
+                      : (widget.channel.coverImage.isNotEmpty
+                            ? widget.channel.coverImage
+                            : (remoteMatch.image.isNotEmpty
+                                  ? remoteMatch.image
+                                  : widget.channel.image))));
 
-      final String avatarImage = (widget.channel.image.startsWith('http://') ||
+      final String avatarImage =
+          (widget.channel.image.startsWith('http://') ||
               widget.channel.image.startsWith('https://'))
           ? widget.channel.image
           : ((remoteMatch.image.startsWith('http://') ||
-                  remoteMatch.image.startsWith('https://'))
-              ? remoteMatch.image
-              : (remoteMatch.image.isNotEmpty ? remoteMatch.image : widget.channel.image));
+                    remoteMatch.image.startsWith('https://'))
+                ? remoteMatch.image
+                : (remoteMatch.image.isNotEmpty
+                      ? remoteMatch.image
+                      : widget.channel.image));
 
       final baseC = channelByName(widget.channel.name);
 
       final c = Channel(
         remoteMatch.name.isNotEmpty ? remoteMatch.name : widget.channel.name,
-        remoteMatch.initial.isNotEmpty ? remoteMatch.initial : widget.channel.initial,
+        remoteMatch.initial.isNotEmpty
+            ? remoteMatch.initial
+            : widget.channel.initial,
         avatarImage.isNotEmpty ? avatarImage : baseC.image,
-        remoteMatch.description.isNotEmpty ? remoteMatch.description : baseC.description,
-        id: _resolvedChannelId ?? remoteMatch.id ?? widget.channel.id ?? baseC.id,
-        creatorId: _resolvedCreatorId ?? remoteMatch.creatorId ?? widget.channel.creatorId ?? baseC.creatorId,
+        remoteMatch.description.isNotEmpty
+            ? remoteMatch.description
+            : baseC.description,
+        id:
+            _resolvedChannelId ??
+            remoteMatch.id ??
+            widget.channel.id ??
+            baseC.id,
+        creatorId:
+            _resolvedCreatorId ??
+            remoteMatch.creatorId ??
+            widget.channel.creatorId ??
+            baseC.creatorId,
         coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
-        monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
-        hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
+        monthlyPrice:
+            remoteMatch.monthlyPrice ??
+            widget.channel.monthlyPrice ??
+            baseC.monthlyPrice,
+        hasBackendPlan:
+            remoteMatch.hasBackendPlan ||
+            widget.channel.hasBackendPlan ||
+            baseC.hasBackendPlan,
       );
 
       final followed = widget.state.followed.contains(c.name);
       final member = widget.state.memberships.contains(c.name);
       final seriesList = widget.state.getChannelSeries(c.name);
       final plan = widget.state.getChannelPlan(c.name);
-      final isOwnChannel = widget.state.currentUserId != null &&
+      final isOwnChannel =
+          widget.state.currentUserId != null &&
           c.creatorId != null &&
           widget.state.currentUserId == c.creatorId;
       final items = c.content.where((e) {
@@ -245,7 +279,9 @@ class _ChannelPageState extends State<ChannelPage> {
                   child: OutlinedButton.icon(
                     onPressed: () => widget.state.toggleFollow(c.name),
                     icon: Icon(
-                      followed ? CupertinoIcons.check_mark : CupertinoIcons.plus,
+                      followed
+                          ? CupertinoIcons.check_mark
+                          : CupertinoIcons.plus,
                       size: 18,
                     ),
                     label: Text(followed ? 'Đang theo dõi' : 'Theo dõi kênh'),
@@ -256,7 +292,9 @@ class _ChannelPageState extends State<ChannelPage> {
                   Expanded(
                     child: FilledButton.icon(
                       key: const Key('open-commission-form-btn'),
-                      style: FilledButton.styleFrom(backgroundColor: Palette.red),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Palette.red,
+                      ),
                       onPressed: () => _openCommissionSheet(c),
                       icon: const Icon(CupertinoIcons.sparkles, size: 16),
                       label: const Text('Đặt làm nội dung'),
@@ -279,24 +317,37 @@ class _ChannelPageState extends State<ChannelPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(CupertinoIcons.star_fill, size: 15, color: Color(0xFFD97706)),
+                        const Icon(
+                          CupertinoIcons.star_fill,
+                          size: 15,
+                          color: Color(0xFFD97706),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Đánh giá uy tín từ Hợp đồng đã hoàn thành (${_creatorReviews.length})',
-                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
-                    ..._creatorReviews.take(3).map(
-                      (r) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(
-                          '★ ${r.rating}/5 · ${r.reviewerFullName ?? 'Khách hàng'}: "${r.comment ?? 'Hoàn thành đúng tiến độ và chất lượng.'}"',
-                          style: const TextStyle(fontSize: 12, color: Palette.muted, height: 1.4),
+                    ..._creatorReviews
+                        .take(3)
+                        .map(
+                          (r) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Text(
+                              '★ ${r.rating}/5 · ${r.reviewerFullName ?? 'Khách hàng'}: "${r.comment ?? 'Hoàn thành đúng tiến độ và chất lượng.'}"',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Palette.muted,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -357,9 +408,7 @@ class _ChannelPageState extends State<ChannelPage> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                member
-                                    ? 'Quản lý quyền truy cập của kênh'
-                                    : 'Khám phá những tập dành riêng cho hội viên',
+                                member ? 'Quản lý quyền truy cập của kênh' : 'Khám phá những tập dành riêng cho hội viên',
                                 style: const TextStyle(
                                   color: Palette.muted,
                                   fontSize: 12,
@@ -560,7 +609,8 @@ class _CustomCommissionRequestSheetState
     final desc = _descCtrl.text.trim();
     if (title.isEmpty || desc.isEmpty) {
       setState(() {
-        _error = 'Vui lòng nhập đầy đủ tiêu đề đề tài và mô tả chi tiết mong muốn.';
+        _error =
+            'Vui lòng nhập đầy đủ tiêu đề đề tài và mô tả chi tiết mong muốn.';
       });
       return;
     }
@@ -574,9 +624,12 @@ class _CustomCommissionRequestSheetState
       int resolvedChannelId = widget.channelId;
       int resolvedCreatorId = widget.creatorId;
 
-      if (widget.commissionId == null && widget.state.channelRepository != null) {
+      if (widget.commissionId == null &&
+          widget.state.channelRepository != null) {
         try {
-          final detail = await widget.state.channelRepository!.getChannelById(resolvedChannelId);
+          final detail = await widget.state.channelRepository!.getChannelById(
+            resolvedChannelId,
+          );
           resolvedChannelId = detail.id;
           if (detail.creatorId != null) {
             resolvedCreatorId = detail.creatorId!;
@@ -728,7 +781,8 @@ class _CustomCommissionRequestSheetState
                             ? Palette.red
                             : Palette.line,
                       ),
-                      onSelected: (_) => setState(() => _contentType = 'SERIES'),
+                      onSelected: (_) =>
+                          setState(() => _contentType = 'SERIES'),
                     ),
                   ),
                 ],
@@ -745,9 +799,11 @@ class _CustomCommissionRequestSheetState
                 key: const Key('commission-title-input'),
                 controller: _titleCtrl,
                 decoration: InputDecoration(
-                  hintText:
-                      'VD: Trận Bạch Đằng năm 938 dưới góc nhìn chiến thuật thủy chiến',
-                  hintStyle: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                  hintText: 'VD: Trận Bạch Đằng năm 938 dưới góc nhìn chiến thuật thủy chiến',
+                  hintStyle: const TextStyle(
+                    fontSize: 12.5,
+                    color: Palette.muted,
+                  ),
                   filled: true,
                   fillColor: Palette.soft,
                   border: OutlineInputBorder(
@@ -769,9 +825,11 @@ class _CustomCommissionRequestSheetState
                 controller: _descCtrl,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  hintText:
-                      'VD: Mong muốn giọng kể hào hùng, thời lượng khoảng 20 phút, tập trung phân tích bãi cọc ngầm và thời điểm thủy triều rút...',
-                  hintStyle: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                  hintText: 'VD: Mong muốn giọng kể hào hùng, thời lượng khoảng 20 phút, tập trung phân tích bãi cọc ngầm và thời điểm thủy triều rút...',
+                  hintStyle: const TextStyle(
+                    fontSize: 12.5,
+                    color: Palette.muted,
+                  ),
                   filled: true,
                   fillColor: Palette.soft,
                   border: OutlineInputBorder(
@@ -889,8 +947,7 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
     builder: (context, _) {
       final detail = widget.state.seriesDetails[widget.series.id];
       final seriesEpisodes = widget.state.episodesForSeries(widget.series);
-      final cover =
-          (detail?.coverUrl != null && detail!.coverUrl!.isNotEmpty)
+      final cover = (detail?.coverUrl != null && detail!.coverUrl!.isNotEmpty)
           ? detail.coverUrl!
           : (widget.series.coverUrl != null &&
                 widget.series.coverUrl!.isNotEmpty)
@@ -899,10 +956,7 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
 
       return Scaffold(
         appBar: AppBar(
-          title: const Text(
-            'Series chuyên đề',
-            style: TextStyle(fontSize: 14),
-          ),
+          title: const Text('Series chuyên đề', style: TextStyle(fontSize: 14)),
         ),
         body: ListView(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
@@ -923,7 +977,8 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
             const SizedBox(height: 10),
             Text(detail?.title ?? widget.series.title, style: editorial(30)),
             const SizedBox(height: 12),
-            if ((detail?.description ?? widget.series.description)?.isNotEmpty ==
+            if ((detail?.description ?? widget.series.description)
+                    ?.isNotEmpty ==
                 true)
               Text(
                 (detail?.description ?? widget.series.description)!,
@@ -983,10 +1038,8 @@ class _SeriesDetailPageState extends State<SeriesDetailPage> {
               const SectionTitle(title: 'Danh sách tập theo thứ tự'),
               const SizedBox(height: 12),
               ...seriesEpisodes.map(
-                (ep) => EpisodeRow(
-                  episode: ep,
-                  onTap: () => widget.onEpisode(ep),
-                ),
+                (ep) =>
+                    EpisodeRow(episode: ep, onTap: () => widget.onEpisode(ep)),
               ),
             ],
           ],
@@ -1329,8 +1382,7 @@ class _MembershipPageState extends State<MembershipPage> {
             const Benefit(
               icon: CupertinoIcons.person_2,
               title: 'Theo từng kênh',
-              detail:
-                  'Quyền hội viên của kênh này không mở nội dung riêng ở kênh khác.',
+              detail: 'Quyền hội viên của kênh này không mở nội dung riêng ở kênh khác.',
             ),
             const SizedBox(height: 22),
             const Divider(),
@@ -1685,7 +1737,8 @@ class _ProfileContentState extends State<ProfileContent> {
     );
 
     // 2. CREATOR (khi tài khoản có vai trò CREATOR, có kênh sáng tạo hoặc KYC approved)
-    final hasCreator = state.isCreator ||
+    final hasCreator =
+        state.isCreator ||
         state.userRoles.any((r) => r.toUpperCase() == 'CREATOR') ||
         state.kycStatus == 'APPROVED' ||
         state.creatorState.channel.isNotEmpty;
@@ -1703,9 +1756,12 @@ class _ProfileContentState extends State<ProfileContent> {
     }
 
     // 3. FREELANCER (khi tài khoản có vai trò FREELANCER / NARRATOR)
-    final hasFreelancer = state.isFreelancer ||
-        state.userRoles.any((r) =>
-            r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR') ||
+    final hasFreelancer =
+        state.isFreelancer ||
+        state.userRoles.any(
+          (r) =>
+              r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR',
+        ) ||
         state.preferences.getBool('isFreelancer') == true ||
         state.preferences.getBool('isFreelancerActiveV1') == true ||
         state.preferences.getString('narratorFreelancerProfileV1') != null;
@@ -1777,243 +1833,254 @@ class _ProfileContentState extends State<ProfileContent> {
       child: ListView(
         key: const PageStorageKey('profile-scroll'),
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(24, 4, 24, state.current == null ? 28 : 118),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          4,
+          24,
+          state.current == null ? 28 : 118,
+        ),
         children: [
-      Text('Góc của bạn', style: editorial(31)),
-      const SizedBox(height: 24),
-      Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: ArtworkImage(
-              (state.userAvatarUrl != null && state.userAvatarUrl!.isNotEmpty)
-                  ? state.userAvatarUrl!
-                  : artworkReference('avatar'),
-              width: 56,
-              height: 56,
-              semanticLabel: 'Ảnh đại diện của bạn',
-              fallback: ColoredBox(
-                color: Palette.soft,
-                child: Center(
-                  child: Text(
-                    state.displayName.trim().isEmpty
-                        ? '?'
-                        : String.fromCharCode(state.displayName.runes.first)
-                              .toUpperCase(),
-                    style: editorial(28),
+          Text('Góc của bạn', style: editorial(31)),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: ArtworkImage(
+                  (state.userAvatarUrl != null &&
+                          state.userAvatarUrl!.isNotEmpty)
+                      ? state.userAvatarUrl!
+                      : artworkReference('avatar'),
+                  width: 56,
+                  height: 56,
+                  semanticLabel: 'Ảnh đại diện của bạn',
+                  fallback: ColoredBox(
+                    color: Palette.soft,
+                    child: Center(
+                      child: Text(
+                        state.displayName.trim().isEmpty
+                            ? '?'
+                            : String.fromCharCode(state.displayName.runes.first)
+                                  .toUpperCase(),
+                        style: editorial(28),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => showModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                showDragHandle: true,
-                builder: (_) => EditNameSheet(state: state),
+              const SizedBox(width: 16),
+              Expanded(
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    showDragHandle: true,
+                    builder: (_) => EditNameSheet(state: state),
+                  ),
+                  child: Tooltip(
+                    message: 'Sửa tên hiển thị',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          state.displayName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          state.isLoggedIn
+                              ? (state.userEmail ??
+                                    state.userPhone ??
+                                    (state.isLiveBackend
+                                        ? 'Đã đăng nhập'
+                                        : 'Đã đăng nhập (Mô phỏng)'))
+                              : 'Hồ sơ trên thiết bị này',
+                          style: const TextStyle(
+                            color: Palette.muted,
+                            fontSize: 12,
+                          ),
+                        ),
+                        if (state.isLoggedIn) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: _buildRoleBadges(context, state),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              child: Tooltip(
-                message: 'Sửa tên hiển thị',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      state.displayName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (!state.isLoggedIn)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Palette.soft,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Palette.line),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(
+                        CupertinoIcons.person_crop_circle_badge_checkmark,
+                        size: 20,
+                        color: Palette.red,
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      state.isLoggedIn
-                          ? (state.userEmail ??
-                                state.userPhone ??
-                                (state.isLiveBackend
-                                    ? 'Đã đăng nhập'
-                                    : 'Đã đăng nhập (Mô phỏng)'))
-                          : 'Hồ sơ trên thiết bị này',
-                      style: const TextStyle(color: Palette.muted, fontSize: 12),
-                    ),
-                    if (state.isLoggedIn) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: _buildRoleBadges(context, state),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Tài khoản người nghe',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ],
-                  ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Lưu câu chuyện, bình luận và theo dõi kênh yêu thích.',
+                    style: TextStyle(
+                      color: Palette.muted,
+                      fontSize: 12,
+                      height: 1.6,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          key: const Key('open-login-btn'),
+                          onPressed: () => _openAuth(context),
+                          child: const Text(
+                            'Đăng nhập / Đăng ký',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 8),
+          _PersonalLink(
+            key: const Key('open-updates'),
+            icon: CupertinoIcons.bell,
+            title: 'Cập nhật',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => NotificationPage(state: state),
+              ),
+            ),
+          ),
+          _PersonalLink(
+            key: const Key('open-tx-history'),
+            icon: CupertinoIcons.tickets,
+            title: 'Hội viên & giao dịch',
+            subtitle: state.memberships.isEmpty
+                ? null
+                : '${state.memberships.length} kênh hội viên',
+            onTap: () => showModalBottomSheet<void>(
+              context: context,
+              isScrollControlled: true,
+              showDragHandle: true,
+              builder: (_) => TransactionHistorySheet(state: state),
+            ),
+          ),
+          _PersonalLink(
+            key: const Key('open-profile-wallet'),
+            icon: CupertinoIcons.creditcard,
+            title: 'Ví Sử Ký & Nạp / Rút tiền',
+            subtitle: state.isLiveBackend
+                ? 'Số dư khả dụng: ${_formatVndPrice(state.walletAvailableBalance.toDouble())}'
+                : 'Số dư và lịch sử giao dịch',
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => WalletPage(
+                    preferences: state.preferences,
+                    walletRepository: state.walletRepository,
+                    withdrawalRepository: state.withdrawalRepository,
+                    contractRepository: state.contractRepository,
+                    kycRepository: state.kycRepository,
+                  ),
                 ),
+              );
+              await state.refreshWalletBalance();
+            },
+          ),
+          _PersonalLink(
+            key: const Key('open-profile-kyc'),
+            icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+            title: 'Xác thực KYC',
+            subtitle: state.isLiveBackend
+                ? (state.kycStatus == 'APPROVED'
+                      ? 'Hồ sơ đã duyệt (APPROVED)'
+                      : (state.kycStatus == 'PENDING'
+                            ? 'Đang chờ thẩm định'
+                            : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
+                : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => KycManagementPage(appState: state),
+                ),
+              );
+              await state.refreshProfile();
+            },
+          ),
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 8),
+          _PersonalLink(
+            key: const Key('open-workspace'),
+            icon: CupertinoIcons.pencil_outline,
+            title: 'Không gian sáng tạo',
+            subtitle: 'Dành cho người kể và người đọc',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => CreativeWorkspacePage(state: state),
+              ),
+            ),
+          ),
+          _PersonalLink(
+            key: const Key('open-settings'),
+            icon: CupertinoIcons.gear,
+            title: state.isLiveBackend
+                ? 'Cài đặt tài khoản'
+                : 'Cài đặt & bản thử',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => PersonalSettingsPage(state: state),
               ),
             ),
           ),
         ],
       ),
-      const SizedBox(height: 16),
-      if (!state.isLoggedIn)
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Palette.soft,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Palette.line),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Icon(
-                    CupertinoIcons.person_crop_circle_badge_checkmark,
-                    size: 20,
-                    color: Palette.red,
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Tài khoản người nghe',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Lưu câu chuyện, bình luận và theo dõi kênh yêu thích.',
-                style: TextStyle(
-                  color: Palette.muted,
-                  fontSize: 12,
-                  height: 1.6,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      key: const Key('open-login-btn'),
-                      onPressed: () => _openAuth(context),
-                      child: const Text(
-                        'Đăng nhập / Đăng ký',
-                        style: TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      const SizedBox(height: 24),
-      const Divider(),
-      const SizedBox(height: 8),
-      _PersonalLink(
-        key: const Key('open-updates'),
-        icon: CupertinoIcons.bell,
-        title: 'Cập nhật',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => NotificationPage(state: state),
-          ),
-        ),
-      ),
-      _PersonalLink(
-        key: const Key('open-tx-history'),
-        icon: CupertinoIcons.tickets,
-        title: 'Hội viên & giao dịch',
-        subtitle: state.memberships.isEmpty
-            ? null
-            : '${state.memberships.length} kênh hội viên',
-        onTap: () => showModalBottomSheet<void>(
-          context: context,
-          isScrollControlled: true,
-          showDragHandle: true,
-          builder: (_) => TransactionHistorySheet(state: state),
-        ),
-      ),
-      _PersonalLink(
-        key: const Key('open-profile-wallet'),
-        icon: CupertinoIcons.creditcard,
-        title: 'Ví Sử Ký & Nạp / Rút tiền',
-        subtitle: state.isLiveBackend
-            ? 'Số dư khả dụng: ${_formatVndPrice(state.walletAvailableBalance.toDouble())}'
-            : 'Số dư và lịch sử giao dịch',
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => WalletPage(
-                preferences: state.preferences,
-                walletRepository: state.walletRepository,
-                withdrawalRepository: state.withdrawalRepository,
-                contractRepository: state.contractRepository,
-                kycRepository: state.kycRepository,
-              ),
-            ),
-          );
-          await state.refreshWalletBalance();
-        },
-      ),
-      _PersonalLink(
-        key: const Key('open-profile-kyc'),
-        icon: CupertinoIcons.person_crop_circle_badge_checkmark,
-        title: 'Xác thực KYC',
-        subtitle: state.isLiveBackend
-            ? (state.kycStatus == 'APPROVED'
-                ? 'Hồ sơ đã duyệt (APPROVED)'
-                : (state.kycStatus == 'PENDING'
-                    ? 'Đang chờ thẩm định'
-                    : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
-            : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute<void>(
-              builder: (_) => KycManagementPage(appState: state),
-            ),
-          );
-          await state.refreshProfile();
-        },
-      ),
-      const SizedBox(height: 20),
-      const Divider(),
-      const SizedBox(height: 8),
-      _PersonalLink(
-        key: const Key('open-workspace'),
-        icon: CupertinoIcons.pencil_outline,
-        title: 'Không gian sáng tạo',
-        subtitle: 'Dành cho người kể và người đọc',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => CreativeWorkspacePage(state: state),
-          ),
-        ),
-      ),
-      _PersonalLink(
-        key: const Key('open-settings'),
-        icon: CupertinoIcons.gear,
-        title: state.isLiveBackend ? 'Cài đặt tài khoản' : 'Cài đặt & bản thử',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => PersonalSettingsPage(state: state),
-          ),
-        ),
-      ),
-    ],
-  ),
-);
-}
+    );
+  }
 }
 
 class _PersonalLink extends StatelessWidget {
@@ -2159,10 +2226,10 @@ class CreativeWorkspacePage extends StatelessWidget {
           title: 'Xác thực KYC',
           subtitle: state.isLiveBackend
               ? (state.kycStatus == 'APPROVED'
-                  ? 'Hồ sơ đã duyệt (APPROVED)'
-                  : (state.kycStatus == 'PENDING'
-                      ? 'Đang chờ thẩm định'
-                      : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
+                    ? 'Hồ sơ đã duyệt (APPROVED)'
+                    : (state.kycStatus == 'PENDING'
+                          ? 'Đang chờ thẩm định'
+                          : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
               : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
           onTap: () async {
             await Navigator.push(
@@ -2351,14 +2418,18 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   void _showServerConfig() {
-    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
+    final currentUrl =
+        widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
     final controller = TextEditingController(text: currentUrl);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Palette.paper,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Cấu hình máy chủ API', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Cấu hình máy chủ API',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2374,26 +2445,41 @@ class _AuthSheetState extends State<AuthSheet> {
                 filled: true,
                 fillColor: Palette.soft,
                 hintText: 'http://192.168.1.123:8080',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
             const SizedBox(height: 12),
-            const Text('Gợi ý kết nối nhanh:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const Text(
+              'Gợi ý kết nối nhanh:',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Wi-Fi máy tính (192.168.1.123)', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://192.168.1.123:8080',
+                  label: const Text(
+                    'Wi-Fi máy tính (192.168.1.123)',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  onPressed: () =>
+                      controller.text = 'http://192.168.1.123:8080',
                 ),
                 ActionChip(
-                  label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Giả lập Android (10.0.2.2)',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   onPressed: () => controller.text = 'http://10.0.2.2:8080',
                 ),
                 ActionChip(
-                  label: const Text('Localhost (localhost:8080)', style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Localhost (localhost:8080)',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   onPressed: () => controller.text = 'http://localhost:8080',
                 ),
               ],
@@ -2459,12 +2545,15 @@ class _AuthSheetState extends State<AuthSheet> {
         final raw = e.toString();
         String displayError;
         final currentUrl = widget.state.apiClient?.baseUrl ?? 'máy chủ';
-        if (raw.contains('TimeoutException') || raw.toLowerCase().contains('timed out')) {
-          displayError = 'Quá thời gian chờ kết nối (15s) tới $currentUrl.\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
+        if (raw.contains('TimeoutException') ||
+            raw.toLowerCase().contains('timed out')) {
+          displayError =
+              'Quá thời gian chờ kết nối (15s) tới $currentUrl.\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
         } else if (raw.contains('SocketException') ||
             raw.contains('Connection refused') ||
             raw.contains('Failed host lookup')) {
-          displayError = 'Không thể kết nối đến máy chủ backend ($currentUrl).\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
+          displayError =
+              'Không thể kết nối đến máy chủ backend ($currentUrl).\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
         } else {
           displayError = raw
               .replaceFirst('Exception: ', '')
@@ -2488,260 +2577,296 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        12,
-        24,
-        MediaQuery.viewInsetsOf(context).bottom + 24,
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Eyebrow('TÀI KHOẢN NGƯỜI NGHE · UC-06'),
-                ),
-                InkWell(
-                  key: const Key('auth-server-badge-btn'),
-                  onTap: _showServerConfig,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Palette.soft,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Palette.line),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 12, color: Palette.muted),
-                        const SizedBox(width: 4),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 110),
-                          child: Text(
-                            widget.state.apiClient?.baseUrl.replaceFirst('http://', '').replaceFirst('https://', '') ?? 'Máy chủ',
-                            style: const TextStyle(fontSize: 11, color: Palette.muted, fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 3),
-                        const Icon(CupertinoIcons.pencil, size: 10, color: Palette.muted),
-                      ],
-                    ),
+  Widget build(BuildContext context) => Material(
+    color: Palette.paper,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    clipBehavior: Clip.antiAlias,
+    child: SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.viewInsetsOf(context).bottom + 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Eyebrow('TÀI KHOẢN NGƯỜI NGHE · UC-06'),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              tab == 0 ? 'Đăng nhập Sử Ký' : 'Đăng ký tài khoản',
-              style: editorial(26),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('Đăng nhập'),
-                  selected: tab == 0,
-                  onSelected: (_) => setState(() {
-                    tab = 0;
-                    error = null;
-                  }),
-                  selectedColor: Palette.soft,
-                  backgroundColor: Palette.paper,
-                  side: BorderSide(
-                    color: tab == 0 ? Palette.ink : Palette.line,
-                  ),
-                ),
-                ChoiceChip(
-                  label: const Text('Đăng ký mới'),
-                  selected: tab == 1,
-                  onSelected: (_) => setState(() {
-                    tab = 1;
-                    error = null;
-                  }),
-                  selectedColor: Palette.soft,
-                  backgroundColor: Palette.paper,
-                  side: BorderSide(
-                    color: tab == 1 ? Palette.ink : Palette.line,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (tab == 1) ...[
-              TextFormField(
-                key: const Key('auth-name'),
-                controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Họ và tên hiển thị',
-                  hintText: 'Nguyễn Văn A',
-                ),
-                validator: (v) => v == null || v.trim().isEmpty
-                    ? 'Nhập họ tên của bạn'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-            ],
-            TextFormField(
-              key: const Key('auth-identifier'),
-              controller: identifierCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Email hoặc số điện thoại',
-                hintText: 'nghechuyen@suky.vn hoặc 0901234567',
-              ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Nhập email hoặc SĐT' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              key: const Key('auth-password'),
-              controller: passwordCtrl,
-              obscureText: obscurePassword,
-              decoration: InputDecoration(
-                labelText: 'Mật khẩu',
-                helperText: 'Tối thiểu 6 ký tự',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    obscurePassword
-                        ? CupertinoIcons.eye_slash
-                        : CupertinoIcons.eye,
-                    size: 20,
-                  ),
-                  onPressed: () => setState(() => obscurePassword = !obscurePassword),
-                ),
-              ),
-              validator: (v) => v == null || v.length < 6
-                  ? 'Mật khẩu từ 6 ký tự trở lên'
-                  : null,
-            ),
-            if (tab == 1) ...[
-              const SizedBox(height: 16),
-              TextFormField(
-                key: const Key('auth-confirm-password'),
-                controller: confirmPasswordCtrl,
-                obscureText: obscureConfirmPassword,
-                decoration: InputDecoration(
-                  labelText: 'Xác nhận mật khẩu',
-                  helperText: 'Nhập lại chính xác mật khẩu ở trên',
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscureConfirmPassword
-                          ? CupertinoIcons.eye_slash
-                          : CupertinoIcons.eye,
-                      size: 20,
-                    ),
-                    onPressed: () => setState(() => obscureConfirmPassword = !obscureConfirmPassword),
-                  ),
-                ),
-                validator: (v) {
-                  if (tab == 1) {
-                    if (v == null || v.isEmpty) {
-                      return 'Nhập lại mật khẩu để xác nhận';
-                    }
-                    if (v != passwordCtrl.text) {
-                      return 'Mật khẩu xác nhận không khớp';
-                    }
-                  }
-                  return null;
-                },
-              ),
-            ],
-            if (tab == 0)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  key: const Key('auth-forgot'),
-                  onPressed: busy ? null : recoverPassword,
-                  child: const Text('Quên mật khẩu?'),
-                ),
-              ),
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Palette.red.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Palette.red.withOpacity(0.3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      error!,
-                      style: const TextStyle(color: Palette.red, fontSize: 13, height: 1.4),
-                    ),
-                    const SizedBox(height: 8),
-                    InkWell(
-                      key: const Key('auth-error-config-server-btn'),
-                      onTap: _showServerConfig,
-                      child: const Row(
+                  InkWell(
+                    key: const Key('auth-server-badge-btn'),
+                    onTap: _showServerConfig,
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Palette.soft,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Palette.line),
+                      ),
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(CupertinoIcons.gear_alt, size: 14, color: Palette.red),
-                          SizedBox(width: 6),
-                          Flexible(
+                          const Icon(
+                            CupertinoIcons.antenna_radiowaves_left_right,
+                            size: 12,
+                            color: Palette.muted,
+                          ),
+                          const SizedBox(width: 4),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 110),
                             child: Text(
-                              'Đổi địa chỉ IP máy chủ backend',
-                              style: TextStyle(
-                                color: Palette.red,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
+                              widget.state.apiClient?.baseUrl
+                                      .replaceFirst('http://', '')
+                                      .replaceFirst('https://', '') ??
+                                  'Máy chủ',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Palette.muted,
+                                fontWeight: FontWeight.w600,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
+                          ),
+                          const SizedBox(width: 3),
+                          const Icon(
+                            CupertinoIcons.pencil,
+                            size: 10,
+                            color: Palette.muted,
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                key: const Key('auth-submit-btn'),
-                onPressed: busy ? null : submit,
-                child: Text(
-                  busy
-                      ? 'Đang xử lý…'
-                      : (tab == 0 ? 'Đăng nhập' : 'Tạo tài khoản'),
-                ),
-              ),
-            ),
-            if (!widget.state.isLiveBackend) ...[
               const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: busy ? null : guestLogin,
-                  child: const Text('Dùng tài khoản khách thử nghiệm'),
-                ),
+              Text(
+                tab == 0 ? 'Đăng nhập Sử Ký' : 'Đăng ký tài khoản',
+                style: editorial(26),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Lưu ý: Xác thực tài khoản mô phỏng theo Use Case UC-06 trong tài liệu. Chưa kết nối OAuth/SMS Gateway thực tế.',
-                style: TextStyle(
-                  color: Palette.muted,
-                  fontSize: 11,
-                  height: 1.5,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Đăng nhập'),
+                    selected: tab == 0,
+                    onSelected: (_) => setState(() {
+                      tab = 0;
+                      error = null;
+                    }),
+                    selectedColor: Palette.soft,
+                    backgroundColor: Palette.paper,
+                    side: BorderSide(
+                      color: tab == 0 ? Palette.ink : Palette.line,
+                    ),
+                  ),
+                  ChoiceChip(
+                    label: const Text('Đăng ký mới'),
+                    selected: tab == 1,
+                    onSelected: (_) => setState(() {
+                      tab = 1;
+                      error = null;
+                    }),
+                    selectedColor: Palette.soft,
+                    backgroundColor: Palette.paper,
+                    side: BorderSide(
+                      color: tab == 1 ? Palette.ink : Palette.line,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (tab == 1) ...[
+                TextFormField(
+                  key: const Key('auth-name'),
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Họ và tên hiển thị',
+                    hintText: 'Nguyễn Văn A',
+                  ),
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Nhập họ tên của bạn'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+              ],
+              TextFormField(
+                key: const Key('auth-identifier'),
+                controller: identifierCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email hoặc số điện thoại',
+                  hintText: 'nghechuyen@suky.vn hoặc 0901234567',
+                ),
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Nhập email hoặc SĐT'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                key: const Key('auth-password'),
+                controller: passwordCtrl,
+                obscureText: obscurePassword,
+                decoration: InputDecoration(
+                  labelText: 'Mật khẩu',
+                  helperText: 'Tối thiểu 6 ký tự',
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      obscurePassword
+                          ? CupertinoIcons.eye_slash
+                          : CupertinoIcons.eye,
+                      size: 20,
+                    ),
+                    onPressed: () =>
+                        setState(() => obscurePassword = !obscurePassword),
+                  ),
+                ),
+                validator: (v) => v == null || v.length < 6
+                    ? 'Mật khẩu từ 6 ký tự trở lên'
+                    : null,
+              ),
+              if (tab == 1) ...[
+                const SizedBox(height: 16),
+                TextFormField(
+                  key: const Key('auth-confirm-password'),
+                  controller: confirmPasswordCtrl,
+                  obscureText: obscureConfirmPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Xác nhận mật khẩu',
+                    helperText: 'Nhập lại chính xác mật khẩu ở trên',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscureConfirmPassword
+                            ? CupertinoIcons.eye_slash
+                            : CupertinoIcons.eye,
+                        size: 20,
+                      ),
+                      onPressed: () => setState(
+                        () => obscureConfirmPassword = !obscureConfirmPassword,
+                      ),
+                    ),
+                  ),
+                  validator: (v) {
+                    if (tab == 1) {
+                      if (v == null || v.isEmpty) {
+                        return 'Nhập lại mật khẩu để xác nhận';
+                      }
+                      if (v != passwordCtrl.text) {
+                        return 'Mật khẩu xác nhận không khớp';
+                      }
+                    }
+                    return null;
+                  },
+                ),
+              ],
+              if (tab == 0)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    key: const Key('auth-forgot'),
+                    onPressed: busy ? null : recoverPassword,
+                    child: const Text('Quên mật khẩu?'),
+                  ),
+                ),
+              if (error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Palette.red.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Palette.red.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        error!,
+                        style: const TextStyle(
+                          color: Palette.red,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        key: const Key('auth-error-config-server-btn'),
+                        onTap: _showServerConfig,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.gear_alt,
+                              size: 14,
+                              color: Palette.red,
+                            ),
+                            SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Đổi địa chỉ IP máy chủ backend',
+                                style: TextStyle(
+                                  color: Palette.red,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  key: const Key('auth-submit-btn'),
+                  onPressed: busy ? null : submit,
+                  child: Text(
+                    busy
+                        ? 'Đang xử lý…'
+                        : (tab == 0 ? 'Đăng nhập' : 'Tạo tài khoản'),
+                  ),
                 ),
               ),
+              if (!widget.state.isLiveBackend) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: busy ? null : guestLogin,
+                    child: const Text('Dùng tài khoản khách thử nghiệm'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Lưu ý: Xác thực tài khoản mô phỏng theo Use Case UC-06 trong tài liệu. Chưa kết nối OAuth/SMS Gateway thực tế.',
+                  style: TextStyle(
+                    color: Palette.muted,
+                    fontSize: 11,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     ),
@@ -2934,57 +3059,63 @@ class _EditNameSheetState extends State<EditNameSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        12,
-        24,
-        MediaQuery.viewInsetsOf(context).bottom + 24,
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ArtworkEditor(
-              preferences: widget.state.preferences,
-              target: 'avatar',
-              kind: ArtworkKind.avatar,
-              label: 'Ảnh đại diện',
-            ),
-            const SizedBox(height: 24),
-            Text('Bạn muốn được gọi là gì?', style: editorial(24)),
-            const SizedBox(height: 20),
-            TextFormField(
-              key: const Key('profile-name'),
-              controller: controller,
-              autofocus: true,
-              maxLength: 40,
-              decoration: const InputDecoration(
-                labelText: 'Tên hiển thị',
-                helperText: 'Được đồng bộ trực tiếp với tài khoản hệ thống.',
+  Widget build(BuildContext context) => Material(
+    color: Palette.paper,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    clipBehavior: Clip.antiAlias,
+    child: SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.viewInsetsOf(context).bottom + 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ArtworkEditor(
+                preferences: widget.state.preferences,
+                target: 'avatar',
+                kind: ArtworkKind.avatar,
+                label: 'Ảnh đại diện',
               ),
-              validator: (value) => value == null || value.trim().isEmpty
-                  ? 'Nhập tên hiển thị của bạn.'
-                  : null,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) {
-                if (!busy) save();
-              },
-            ),
-            if (error != null)
-              Text(error!, style: const TextStyle(color: Palette.red)),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: busy ? null : save,
-                child: Text(busy ? 'Đang lưu…' : 'Lưu tên'),
+              const SizedBox(height: 24),
+              Text('Bạn muốn được gọi là gì?', style: editorial(24)),
+              const SizedBox(height: 20),
+              TextFormField(
+                key: const Key('profile-name'),
+                controller: controller,
+                autofocus: true,
+                maxLength: 40,
+                decoration: const InputDecoration(
+                  labelText: 'Tên hiển thị',
+                  helperText: 'Được đồng bộ trực tiếp với tài khoản hệ thống.',
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Nhập tên hiển thị của bạn.'
+                    : null,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) {
+                  if (!busy) save();
+                },
               ),
-            ),
-          ],
+              if (error != null)
+                Text(error!, style: const TextStyle(color: Palette.red)),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: busy ? null : save,
+                  child: Text(busy ? 'Đang lưu…' : 'Lưu tên'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -3004,7 +3135,8 @@ class ChannelMark extends StatelessWidget {
         color: Palette.soft,
         borderRadius: BorderRadius.circular(5),
       ),
-      child: (channel.image.startsWith('local-artwork:') ||
+      child:
+          (channel.image.startsWith('local-artwork:') ||
               channel.image.startsWith('http://') ||
               channel.image.startsWith('https://'))
           ? ClipRRect(

@@ -17,7 +17,10 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    SharedPreferences.setMockInitialValues({'onboardingDone': true});
+    SharedPreferences.setMockInitialValues({
+      'onboardingDone': true,
+      'isLoggedIn': true,
+    });
     final prefs = await SharedPreferences.getInstance();
     final apiClient = ApiClient(baseUrl: 'http://192.168.1.123:8080', preferences: prefs);
     final state = AppState(prefs, apiClient: apiClient);
