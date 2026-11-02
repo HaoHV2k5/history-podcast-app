@@ -1005,6 +1005,7 @@ class AppState extends ChangeNotifier {
     required String channelName,
     required String title,
     String? description,
+    String? thumbnailUrl,
     bool isExclusive = false,
   }) async {
     if (livestreamRepository != null) {
@@ -1012,6 +1013,7 @@ class AppState extends ChangeNotifier {
         channelId: channelId,
         title: title.trim(),
         description: description?.trim(),
+        thumbnailUrl: thumbnailUrl?.trim(),
         isExclusive: isExclusive,
       );
       final enriched = created.channelName.isNotEmpty
@@ -1019,6 +1021,7 @@ class AppState extends ChangeNotifier {
           : created.copyWith(
               channelName: channelName,
               creatorName: displayName,
+              thumbnailUrl: thumbnailUrl?.trim(),
             );
       activeLivestreams.removeWhere(
         (s) => s.channelId == channelId || s.channelName == channelName,
@@ -1036,6 +1039,7 @@ class AppState extends ChangeNotifier {
       creatorName: displayName,
       title: title.trim(),
       description: description?.trim(),
+      thumbnailUrl: thumbnailUrl?.trim(),
       agoraChannelName: 'prm_live_${channelId}_$nowMs',
       status: 'LIVE',
       isExclusive: isExclusive,
@@ -1048,6 +1052,13 @@ class AppState extends ChangeNotifier {
     activeLivestreams.insert(0, localSession);
     notifyListeners();
     return localSession;
+  }
+
+  Future<String> uploadThumbnailImage(List<int> bytes, String filename) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.uploadSceneImage(bytes, filename);
+    }
+    return creatorState.uploadStudioSceneImage(bytes, filename);
   }
 
   Future<void> endLivestreamSession(int sessionId) async {
