@@ -231,15 +231,27 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
             "whiteboard/thumbnails",
             "whiteboard/covers",
             "podcasts/covers",
-            "series/covers"
+            "series/covers",
+            "chats/messages"
     );
+
+    private boolean isAllowedUploadFolder(String folder) {
+        if (!StringUtils.hasText(folder)) {
+            return false;
+        }
+        String trimmed = folder.trim();
+        if (ALLOWED_UPLOAD_FOLDERS.contains(trimmed)) {
+            return true;
+        }
+        return trimmed.matches("^chats/[a-zA-Z0-9_-]{1,64}$");
+    }
 
     @Override
     public CreatorUploadImageResponse uploadSceneImage(MultipartFile file, String folder) {
         if (file == null || file.isEmpty()) {
             throw new AppException(ErrorCode.FILE_EMPTY, "Vui lòng chọn hình ảnh để tải lên");
         }
-        String targetFolder = (StringUtils.hasText(folder) && ALLOWED_UPLOAD_FOLDERS.contains(folder.trim()))
+        String targetFolder = isAllowedUploadFolder(folder)
                 ? folder.trim()
                 : "whiteboard/scenes";
         log.info("Uploading creator image ({} bytes) to Cloudinary folder '{}'...", file.getSize(), targetFolder);

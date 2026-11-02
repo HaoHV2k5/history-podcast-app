@@ -8,23 +8,25 @@ import {
   Check,
   Copy,
   ExternalLink,
-  Eye,
+  FileText,
+  MessageSquare,
 } from 'lucide-react';
 import { ContractItem } from '@/types/contract';
 import { formatDate, formatVND } from '@/utils/formatters';
-import { resolveCommissionThumbnail } from '../utils/thumbnailResolver';
 import { cn } from '@/utils/cn';
 
 interface ContractCardProps {
   contract: ContractItem;
   onViewDetail: (contractId: number) => void;
   onEditRoadmap?: (contract: ContractItem) => void;
+  onOpenChat?: (contract: ContractItem) => void;
 }
 
 export const ContractCard: React.FC<ContractCardProps> = ({
   contract,
   onViewDetail,
   onEditRoadmap,
+  onOpenChat,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -36,9 +38,45 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   ).length;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  // Identify which milestone the contract is currently on
+  const currentMilestone =
+    milestones.find((m) => m.status === 'IN_PROGRESS' || m.status === 'SUBMITTED') ||
+    milestones.find((m) => m.status === 'UNFUNDED' || m.status === 'WAITING') ||
+    milestones[milestones.length - 1] ||
+    null;
+
+  const isWaitingCustomerFunding =
+    contract.status === 'ACTIVE' &&
+    !milestones.some((m) => m.status === 'IN_PROGRESS' || m.status === 'SUBMITTED') &&
+    milestones.some((m) => m.status === 'UNFUNDED');
+
+  const currentStageLabel = (() => {
+    if (!currentMilestone || totalCount === 0) return 'Chưa có mốc bàn giao';
+    if (contract.status === 'COMPLETED' || completedCount === totalCount) {
+      return `Đã hoàn tất toàn bộ (${totalCount}/${totalCount} mốc)`;
+    }
+    if (contract.status === 'PENDING') {
+      return `Chưa bắt đầu — Chờ khách chấp thuận lộ trình (${totalCount} mốc)`;
+    }
+    if (contract.status === 'REJECTED') {
+      return 'Khách yêu cầu sửa lộ trình — Chờ cập nhật & gửi lại';
+    }
+    if (contract.status === 'CANCELLED') {
+      return `Hợp đồng đã hủy (${completedCount}/${totalCount} mốc hoàn tất)`;
+    }
+    if (currentMilestone.status === 'SUBMITTED') {
+      return `Đang ở Mốc #${currentMilestone.orderNo}/${totalCount}: ${currentMilestone.title} (Chờ khách nghiệm thu)`;
+    }
+    if (currentMilestone.status === 'IN_PROGRESS') {
+      return `Đang ở Mốc #${currentMilestone.orderNo}/${totalCount}: ${currentMilestone.title} (Đang thực hiện)`;
+    }
+    return `Đang ở Mốc #${currentMilestone.orderNo}/${totalCount}: ${currentMilestone.title} (Chờ khách nạp cọc)`;
+  })();
+
   const requesterName = contract.requesterFullName || contract.freelancerFullName || 'Khán giả';
   const requesterInitial = requesterName[0].toUpperCase();
-  const thumbnailUrl = resolveCommissionThumbnail(contract.title, contract.contentType);
+  const isArchivedChat =
+    contract.status === 'CANCELLED' || contract.status === 'COMPLETED';
 
   const netEarned = contract.netAmount || Math.round((contract.totalAmount || 0) * 0.95);
 
@@ -53,54 +91,20 @@ export const ContractCard: React.FC<ContractCardProps> = ({
 
   return (
     <article
-      className="rounded-2xl border border-[#EBE4D8] bg-white p-4 sm:p-5 shadow-2xs hover:border-[#D5CFC5] hover:shadow-xs transition-all duration-200 group flex flex-col sm:flex-row gap-4 sm:gap-5 items-stretch"
+      className="rounded-xl border border-[#EBE4D8] bg-white px-4 py-3 shadow-2xs hover:border-[#D5CFC5] hover:shadow-xs transition-all duration-200 group flex flex-col gap-2"
       aria-label={`Hợp đồng #${contract.id}: ${contract.title || 'Sản xuất nội dung'}`}
     >
-      {/* 1. Left: 16:9 Thumbnail Image with Contract ID badge */}
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onViewDetail(contract.id)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onViewDetail(contract.id);
-          }
-        }}
-        title={`Xem chi tiết & tiến độ hợp đồng #${contract.id}: ${contract.title || 'Sản xuất nội dung'}`}
-        className="w-full sm:w-48 md:w-52 h-36 sm:h-28 rounded-xl overflow-hidden shrink-0 border border-stone-200/80 relative bg-stone-100 select-none cursor-pointer group/thumb focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D24]"
-      >
-        <img
-          src={thumbnailUrl}
-          alt={contract.title || 'Hợp đồng'}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105 group-hover:scale-105"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/assets/studio/topic-bach-dang-938.png';
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
-        <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-black/60 text-white backdrop-blur-xs">
-          HỢP ĐỒNG #{contract.id}
-        </span>
-
-        {/* Hover Cue: "Xem tiến độ" */}
-        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-xs text-white text-[11px] font-medium border border-white/20 shadow-md">
-            <Eye className="h-3.5 w-3.5 text-rose-300" />
-            <span>Xem tiến độ</span>
+      {/* 1. Top Row (Single Line): Badges + Title on Left | Financials + Status Badge on Right */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-[#A31D24] border border-rose-200/60 font-sans shrink-0">
+            <FileText className="h-3 w-3 shrink-0" />
+            <span>HĐ #{contract.id}</span>
           </span>
-        </div>
-      </div>
-
-      {/* 2. Middle: Content & Progress */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5 space-y-2">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-[#A31D24] border border-rose-200/60 font-sans">
-              <Layers className="h-3 w-3 shrink-0" />
-              <span>LỘ TRÌNH MILESTONE</span>
-            </span>
-          </div>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-[#FAF8F4] text-[#685D4F] border border-[#EBE4D8] font-sans shrink-0">
+            <Layers className="h-3 w-3 text-[#A31D24] shrink-0" />
+            <span>{totalCount} MỐC</span>
+          </span>
 
           <h3
             role="button"
@@ -113,38 +117,99 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               }
             }}
             title={`Xem chi tiết & tiến độ hợp đồng #${contract.id}: ${contract.title || 'Sản xuất nội dung'}`}
-            className="text-sm sm:text-base font-bold text-stone-900 hover:text-[#A31D24] group-hover:text-[#A31D24] transition-colors line-clamp-1 break-words font-sans cursor-pointer focus:outline-none focus-visible:underline text-left"
+            className="text-sm font-bold text-stone-900 hover:text-[#A31D24] group-hover:text-[#A31D24] transition-colors truncate font-sans cursor-pointer focus:outline-none focus-visible:underline text-left min-w-0"
           >
             {contract.title || 'Hợp đồng sản xuất nội dung'}
           </h3>
         </div>
 
-        {/* Milestone Progress Bar */}
-        <div className="space-y-1.5 bg-[#FAF8F5] p-2.5 rounded-xl border border-[#EBE4D8]/80">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-stone-600 font-medium text-[11px] font-sans">
-              Tiến độ bàn giao:
+        {/* Financials + Status Badge Inline */}
+        <div className="shrink-0 flex items-center justify-between sm:justify-end gap-2.5 flex-wrap">
+          <div className="font-sans flex items-baseline gap-1.5 text-xs">
+            <span className="text-stone-500">
+              Nhận (95%):{' '}
+              <strong className="font-mono text-emerald-700 font-bold text-xs sm:text-sm tabular-nums">
+                {formatVND(netEarned)}
+              </strong>
             </span>
-            <span className="font-mono font-bold text-stone-800 text-[11px]">
-              {completedCount}/{totalCount} mốc ({progressPercent}%)
+            <span className="text-[11px] text-stone-400 font-mono tabular-nums">
+              / {formatVND(contract.totalAmount || 0)}
             </span>
           </div>
 
-          <div className="w-full h-1.5 rounded-full bg-stone-200/80 overflow-hidden">
+          <div>
+            {contract.status === 'ACTIVE' && !isWaitingCustomerFunding && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span>Đang thực hiện</span>
+              </span>
+            )}
+
+            {contract.status === 'ACTIVE' && isWaitingCustomerFunding && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/70 font-sans">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                <span>Đã duyệt • Chờ ký quỹ</span>
+              </span>
+            )}
+
+            {contract.status === 'PENDING' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/70 font-sans">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                <span>Chờ khách duyệt lộ trình</span>
+              </span>
+            )}
+
+            {contract.status === 'COMPLETED' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                <span>Đã hoàn tất</span>
+              </span>
+            )}
+
+            {contract.status === 'REJECTED' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200/70 font-sans">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                <span>Khách yêu cầu sửa lộ trình</span>
+              </span>
+            )}
+
+            {contract.status === 'CANCELLED' && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-600 border border-stone-200 font-sans">
+                <span className="h-1.5 w-1.5 rounded-full bg-stone-400 shrink-0" />
+                <span>Đã hủy</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Middle Row (Single Slim Line): Full-Width 100% Milestone Progress Strip */}
+      <div className="w-full flex items-center justify-between gap-3 bg-[#FAF8F5] px-3 py-1.5 rounded-lg border border-[#EBE4D8]/80">
+        <span className="text-stone-700 font-semibold text-[11px] font-sans truncate min-w-0">
+          {currentStageLabel}
+        </span>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="w-24 sm:w-36 h-1.5 rounded-full bg-stone-200/80 overflow-hidden">
             <div
               className="h-full bg-emerald-600 transition-all duration-300 rounded-full"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
+          <span className="font-mono font-bold text-stone-800 text-[11px] tabular-nums">
+            {completedCount}/{totalCount} mốc ({progressPercent}%)
+          </span>
         </div>
+      </div>
 
-        {/* Requester & Timestamp Meta Row */}
-        <div className="flex items-center gap-4 text-xs text-stone-500 pt-0.5">
+      {/* 3. Bottom Row (Single Line): Customer & Timestamp on Left | Compact Action Buttons on Right */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-3 text-xs text-stone-500 min-w-0">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="h-5 w-5 rounded-full bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0 text-[10px] font-bold text-stone-700 overflow-hidden font-sans">
               <span>{requesterInitial}</span>
             </div>
-            <span className="font-medium text-stone-700 truncate max-w-[150px] font-sans">
+            <span className="font-medium text-stone-700 truncate max-w-[180px] font-sans">
               {requesterName}
             </span>
           </div>
@@ -154,68 +219,28 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             <span>Tạo {formatDate(contract.createdAt)}</span>
           </div>
         </div>
-      </div>
-
-      {/* 3. Right: Status, Financials & Actions */}
-      <div className="shrink-0 flex flex-col justify-between items-start sm:items-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-stone-100">
-        {/* Status Badge */}
-        <div className="self-start sm:self-end">
-          {contract.status === 'ACTIVE' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-              <span>Đang thực hiện</span>
-            </span>
-          )}
-
-          {contract.status === 'PENDING' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/70 font-sans">
-              <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" />
-              <span>Chờ khách duyệt</span>
-            </span>
-          )}
-
-          {contract.status === 'COMPLETED' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-              <span>Đã hoàn tất</span>
-            </span>
-          )}
-
-          {contract.status === 'REJECTED' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-200/70 font-sans">
-              <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
-              <span>Khách từ chối</span>
-            </span>
-          )}
-
-          {contract.status === 'CANCELLED' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-600 border border-stone-200 font-sans">
-              <span className="h-2 w-2 rounded-full bg-stone-400 shrink-0" />
-              <span>Đã hủy</span>
-            </span>
-          )}
-        </div>
-
-        {/* Financial info */}
-        <div className="text-left sm:text-right space-y-0.5 font-sans">
-          <div className="text-xs text-stone-500">
-            Bạn nhận (95%):{' '}
-            <strong className="font-mono text-emerald-700 font-bold text-sm">
-              {formatVND(netEarned)}
-            </strong>
-          </div>
-          <div className="text-[11px] text-stone-400 font-mono">
-            Tổng giá trị: {formatVND(contract.totalAmount || 0)}
-          </div>
-        </div>
 
         {/* Action Buttons Row */}
-        <div className="flex items-center gap-2 shrink-0 flex-nowrap w-full sm:w-auto justify-end">
+        <div className="flex items-center gap-1.5 shrink-0 flex-nowrap w-full sm:w-auto justify-end">
+          {onOpenChat && (
+            <button
+              type="button"
+              onClick={() => onOpenChat(contract)}
+              className="h-8 px-3 text-xs font-semibold rounded-lg border border-[#E5E0D8] bg-white text-stone-700 hover:bg-stone-50 hover:border-stone-300 flex items-center gap-1.5 active:scale-[0.98] transition-all shadow-2xs whitespace-nowrap shrink-0 cursor-pointer font-sans"
+              title="Mở chat với khách hàng của hợp đồng này"
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-[#A31D24] shrink-0" />
+              <span className="whitespace-nowrap">
+                {isArchivedChat ? 'Xem lịch sử chat' : 'Mở chat với khách hàng'}
+              </span>
+            </button>
+          )}
+
           {onEditRoadmap && (contract.status === 'PENDING' || contract.status === 'REJECTED') && (
             <button
               type="button"
               onClick={() => onEditRoadmap(contract)}
-              className="h-9 px-3.5 text-xs font-semibold rounded-xl border border-stone-200 bg-white text-[#A31D24] hover:bg-rose-50 hover:border-rose-200 flex items-center gap-1.5 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer font-sans"
+              className="h-8 px-3 text-xs font-semibold rounded-lg border border-stone-200 bg-white text-[#A31D24] hover:bg-rose-50 hover:border-rose-200 flex items-center gap-1.5 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer font-sans"
             >
               <Edit3 className="h-3.5 w-3.5 shrink-0" />
               <span className="whitespace-nowrap">Sửa lộ trình</span>
@@ -225,7 +250,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           <button
             type="button"
             onClick={() => onViewDetail(contract.id)}
-            className="h-9 px-3.5 text-xs font-semibold rounded-xl bg-[#A31D24] text-white hover:bg-[#8F181E] shadow-xs flex items-center gap-1.5 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer font-sans"
+            className="h-8 px-3 text-xs font-semibold rounded-lg bg-[#A31D24] text-white hover:bg-[#8F181E] shadow-xs flex items-center gap-1 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer font-sans"
           >
             <span className="whitespace-nowrap">Chi tiết &amp; Tiến độ</span>
             <ChevronRight className="h-3.5 w-3.5 shrink-0" />
@@ -238,7 +263,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               onClick={() => setMenuOpen(!menuOpen)}
               aria-label="Tùy chọn khác"
               className={cn(
-                'h-9 w-9 rounded-xl border border-[#E5E0D8] bg-white text-stone-500 hover:text-stone-800 hover:bg-stone-50 hover:border-stone-300 flex items-center justify-center transition-all active:scale-[0.98] cursor-pointer shrink-0',
+                'h-8 w-8 rounded-lg border border-[#E5E0D8] bg-white text-stone-500 hover:text-stone-800 hover:bg-stone-50 hover:border-stone-300 flex items-center justify-center transition-all active:scale-[0.98] cursor-pointer shrink-0',
                 menuOpen && 'bg-stone-100 text-stone-800'
               )}
             >
@@ -247,7 +272,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
 
             {menuOpen && (
               <div
-                className="absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-1 sm:mb-0 sm:mt-1 z-30 w-44 rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150 font-sans"
+                className="absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-1 sm:mb-0 sm:mt-1 z-30 w-48 rounded-xl border border-stone-200 bg-white p-1.5 shadow-lg text-xs space-y-1 animate-in fade-in zoom-in-95 duration-150 font-sans"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -262,6 +287,20 @@ export const ContractCard: React.FC<ContractCardProps> = ({
                   )}
                   <span>{copied ? 'Đã sao chép!' : `Mã HĐ #${contract.id}`}</span>
                 </button>
+
+                {onOpenChat && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onOpenChat(contract);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-stone-700 hover:bg-stone-50 text-left transition-colors whitespace-nowrap"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5 text-stone-400 shrink-0" />
+                    <span>Mở chat với khách hàng</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

@@ -44,7 +44,8 @@ public class CreatorStudioController {
         return ApiResponse.success("Lưu cấu hình AI thành công", response);
     }
 
-    @Operation(summary = "Tải ảnh minh họa cảnh lên Cloudinary", description = "Upload file ảnh cảnh vẽ tay lên Cloudinary, trả về link HTTPS an toàn để lưu vào hệ thống")
+    @Operation(summary = "Tải ảnh minh họa cảnh hoặc ảnh Chat lên Cloudinary", description = "Upload file ảnh lên Cloudinary theo folder (whiteboard/scenes, chats/messages, chats/{conversationId}...), trả về link HTTPS an toàn")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/upload-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<CreatorUploadImageResponse> uploadSceneImage(
             @RequestParam("file") MultipartFile file,

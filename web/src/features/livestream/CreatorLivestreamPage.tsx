@@ -17,10 +17,7 @@ import { channelsApi } from '@/services/api/channels';
 import { useAuthStore } from '@/store/authStore';
 import { LivestreamSession } from '@/types/livestream';
 import { ChannelItem } from '@/types/channel';
-import {
-  normalizeLivestreamList,
-  formatLivestreamViewerCount,
-} from './livestreamLogic';
+import { normalizeLivestreamList } from './livestreamLogic';
 
 // Compound Components
 import { LivestreamHeaderBanner } from './components/LivestreamHeaderBanner';
@@ -79,7 +76,7 @@ export const CreatorLivestreamPage: React.FC = () => {
       ? (rawChannel as { data: ChannelItem | null }).data ?? null
       : ((rawChannel as unknown as ChannelItem) ?? null);
 
-  // 2. Fetch livestreams list
+  // 2. Fetch livestreams list (strictly scoped to the logged-in creator's channel)
   const {
     data: livestreamsRes,
     isLoading: isLoadingSessions,
@@ -88,11 +85,20 @@ export const CreatorLivestreamPage: React.FC = () => {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ['creator-livestreams'],
-    queryFn: () => livestreamApi.getLivestreams({ size: 50 }),
+    queryKey: ['creator-livestreams', myChannel?.id],
+    queryFn: () => livestreamApi.getLivestreams({ channelId: myChannel!.id, size: 50 }),
+    enabled: !isLoadingChannel && Boolean(myChannel?.id),
   });
 
-  const allSessions = useMemo(() => normalizeLivestreamList(livestreamsRes), [livestreamsRes]);
+  const allSessions = useMemo(() => {
+    if (!myChannel?.id) return [];
+    const list = normalizeLivestreamList(livestreamsRes);
+    return list.filter(
+      (s) =>
+        s.channelId === myChannel.id ||
+        (user?.id && s.creatorId === Number(user.id))
+    );
+  }, [livestreamsRes, myChannel?.id, user?.id]);
 
   // Metrics counts
   const liveCount = useMemo(() => allSessions.filter((s) => s.status === 'LIVE').length, [allSessions]);
