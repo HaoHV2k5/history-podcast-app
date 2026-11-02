@@ -10,6 +10,8 @@ import {
   MoreVertical,
   Check,
   Copy,
+  Eye,
+  Play,
 } from 'lucide-react';
 import { CommissionItem } from '@/types/commission';
 import { formatDateTime } from '@/utils/formatters';
@@ -23,6 +25,7 @@ interface CommissionCardProps {
   onOpenChat: (commission: CommissionItem) => void;
   onOpenRoadmap: (commission: CommissionItem) => void;
   onViewContract: (contractId: number) => void;
+  onViewDetail?: (commission: CommissionItem) => void;
   isAccepting?: boolean;
 }
 
@@ -33,6 +36,7 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
   onOpenChat,
   onOpenRoadmap,
   onViewContract,
+  onViewDetail,
   isAccepting,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -57,16 +61,51 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
       aria-label={`Yêu cầu đặt nội dung #${commission.id}: ${commission.title}`}
     >
       {/* 1. Left: 16:9 Thumbnail Image */}
-      <div className="w-full sm:w-48 md:w-52 h-36 sm:h-28 rounded-xl overflow-hidden shrink-0 border border-stone-200/80 relative bg-stone-100 select-none">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onViewDetail?.(commission)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onViewDetail?.(commission);
+          }
+        }}
+        title={`Xem chi tiết ${commission.contentType === 'SERIES' ? 'series' : 'video'}: ${commission.title}`}
+        className="w-full sm:w-48 md:w-52 h-36 sm:h-28 rounded-xl overflow-hidden shrink-0 border border-stone-200/80 relative bg-stone-100 select-none cursor-pointer group/thumb focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D24]"
+      >
         <img
           src={thumbnailUrl}
           alt={commission.title}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105 group-hover:scale-105"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = '/assets/studio/topic-bach-dang-938.png';
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent pointer-events-none" />
+
+        {/* Hover Cue: "Xem chi tiết" indicator */}
+        <div className="absolute inset-0 bg-black/35 opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-xs text-white text-[11px] font-medium border border-white/20 shadow-md">
+            <Eye className="h-3.5 w-3.5 text-rose-300" />
+            <span>Xem chi tiết</span>
+          </span>
+        </div>
+
+        {/* Duration / Episode indicator on thumbnail */}
+        <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-black/70 text-white backdrop-blur-xs flex items-center gap-1 pointer-events-none">
+          {commission.contentType === 'SERIES' ? (
+            <>
+              <Layers className="h-2.5 w-2.5" />
+              <span>Series</span>
+            </>
+          ) : (
+            <>
+              <Play className="h-2.5 w-2.5 fill-current" />
+              <span>01:00</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 2. Middle: Content & Metadata */}
@@ -88,7 +127,19 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
           </div>
 
           {/* Unified Sans Title matching Platform Design System */}
-          <h3 className="text-sm sm:text-base font-bold text-stone-900 group-hover:text-[#A31D24] transition-colors line-clamp-1 break-words font-sans">
+          <h3
+            role="button"
+            tabIndex={0}
+            onClick={() => onViewDetail?.(commission)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onViewDetail?.(commission);
+              }
+            }}
+            title={`Xem chi tiết ${commission.contentType === 'SERIES' ? 'series' : 'video'}: ${commission.title}`}
+            className="text-sm sm:text-base font-bold text-stone-900 hover:text-[#A31D24] group-hover:text-[#A31D24] transition-colors line-clamp-1 break-words font-sans cursor-pointer focus:outline-none focus-visible:underline text-left"
+          >
             {commission.title}
           </h3>
 
@@ -278,6 +329,18 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
                     <Copy className="h-3.5 w-3.5 text-stone-400 shrink-0" />
                   )}
                   <span>{copied ? 'Đã sao chép mã!' : `Mã đơn #${commission.id}`}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onViewDetail?.(commission);
+                  }}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-stone-700 hover:bg-stone-50 text-left transition-colors whitespace-nowrap"
+                >
+                  <Eye className="h-3.5 w-3.5 text-stone-400 shrink-0" />
+                  <span>Xem chi tiết yêu cầu</span>
                 </button>
 
                 <button

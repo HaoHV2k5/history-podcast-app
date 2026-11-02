@@ -28,6 +28,7 @@ import { CreatorRejectCommissionModal } from './components/CreatorRejectCommissi
 import { CreatorMilestoneRoadmapModal } from './components/CreatorMilestoneRoadmapModal';
 import { CreatorContractDetailDrawer } from './components/CreatorContractDetailDrawer';
 import { CreatorCommissionChatModal } from './components/CreatorCommissionChatModal';
+import { CreatorCommissionDetailModal } from './components/CreatorCommissionDetailModal';
 
 export const CreatorCommissionsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -52,6 +53,8 @@ export const CreatorCommissionsPage: React.FC = () => {
   const [selectedCommissionForReject, setSelectedCommissionForReject] =
     useState<CommissionItem | null>(null);
   const [selectedCommissionForRoadmap, setSelectedCommissionForRoadmap] =
+    useState<CommissionItem | null>(null);
+  const [selectedCommissionForDetail, setSelectedCommissionForDetail] =
     useState<CommissionItem | null>(null);
   const [selectedContractId, setSelectedContractId] = useState<number | null>(null);
   const [activeChatCommission, setActiveChatCommission] = useState<CommissionItem | null>(null);
@@ -460,6 +463,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                     onOpenChat={(c) => setActiveChatCommission(c)}
                     onOpenRoadmap={(c) => setSelectedCommissionForRoadmap(c)}
                     onViewContract={(contractId) => setSelectedContractId(contractId)}
+                    onViewDetail={(c) => setSelectedCommissionForDetail(c)}
                     isAccepting={acceptMutation.isPending}
                   />
                 ))}
@@ -659,6 +663,33 @@ export const CreatorCommissionsPage: React.FC = () => {
           }}
         />
       )}
+
+      {/* 5. Modal Chi tiết Yêu cầu đặt làm nội dung (Xem chi tiết Series / Video) */}
+      <CreatorCommissionDetailModal
+        commission={selectedCommissionForDetail}
+        isOpen={Boolean(selectedCommissionForDetail)}
+        onClose={() => setSelectedCommissionForDetail(null)}
+        onOpenChat={(comm) => {
+          setSelectedCommissionForDetail(null);
+          setActiveChatCommission(comm);
+        }}
+        onOpenRoadmap={(comm) => {
+          setSelectedCommissionForDetail(null);
+          setSelectedCommissionForRoadmap(comm);
+        }}
+        onViewContract={(contractId) => {
+          setSelectedCommissionForDetail(null);
+          setSelectedContractId(contractId);
+        }}
+        onAccept={(id) => {
+          setSelectedCommissionForDetail(null);
+          acceptMutation.mutate(id);
+        }}
+        onReject={(comm) => {
+          setSelectedCommissionForDetail(null);
+          setSelectedCommissionForReject(comm);
+        }}
+      />
     </div>
   );
 };
