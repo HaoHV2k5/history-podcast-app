@@ -930,12 +930,21 @@ class AppState extends ChangeNotifier {
   Future<LivestreamTokenModel> joinLivestream(
     LivestreamSessionModel session, {
     bool isHost = false,
+    int? clientUid,
   }) async {
     if (!isHost && session.isExclusive && !canJoinLivestream(session)) {
       throw StateError('LIVESTREAM_MEMBER_REQUIRED');
     }
+    final effectiveUid = clientUid ??
+        (isHost
+            ? null
+            : ((currentUserId ?? 1) * 1000 +
+                (DateTime.now().millisecondsSinceEpoch % 899 + 100)));
     if (livestreamRepository != null) {
-      final token = await livestreamRepository!.getJoinToken(session.id);
+      final token = await livestreamRepository!.getJoinToken(
+        session.id,
+        clientUid: effectiveUid,
+      );
       final idx = activeLivestreams.indexWhere((s) => s.id == session.id);
       if (idx >= 0 && !isHost) {
         final current = activeLivestreams[idx];

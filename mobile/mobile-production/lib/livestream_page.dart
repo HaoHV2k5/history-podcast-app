@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:camera/camera.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'audience_pages.dart';
 import 'components.dart';
@@ -405,6 +407,14 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
   int _lastChatTimestamp = 0;
   bool _isFullscreen = false;
 
+  // Agora RTC Engine State
+  RtcEngine? _agoraEngine;
+  bool _isAgoraInitialized = false;
+  bool _isAgoraJoined = false;
+  int? _remoteHostUid;
+  bool _remoteVideoMuted = false;
+  bool _isViewerAudioMuted = false;
+
   List<CameraDescription> _cameras = [];
   CameraController? _cameraController;
   bool _cameraInitialized = false;
@@ -517,6 +527,9 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
           );
         }
       }
+
+      // Khởi tạo và kết nối Agora RTC Engine
+      await _initAgora(token);
     } catch (e) {
       final msg = e.toString();
       final isVipError = msg.contains('LIVESTREAM_MEMBER_REQUIRED') ||
@@ -536,6 +549,140 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
     }
   }
 
+  Future<void> _initAgora(LivestreamTokenModel token) async {
+    if (kIsWeb) return;
+    if (token.appId.isEmpty || token.token.isEmpty) {
+      debugPrint('[Agora] Empty token or appId, skipping Agora initialization');
+      return;
+    }
+    try {
+      if (widget.isHost) {
+        try {
+          await [Permission.camera, Permission.microphone].request();
+        } catch (e) {
+          debugPrint('[Agora] Permission request warning: $e');
+        }
+      }
+
+      final engine = createAgoraRtcEngine();
+      await engine.initialize(RtcEngineContext(
+        appId: token.appId,
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+      ));
+
+      if (widget.isHost) {
+        engine.registerEventHandler(
+          RtcEngineEventHandler(
+            onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+              debugPrint('[Agora Host] Joined channel: ${connection.channelId} uid: ${connection.localUid}');
+              if (mounted) setState(() => _isAgoraJoined = true);
+            },
+            onLeaveChannel: (RtcConnection connection, RtcStats stats) {
+              debugPrint('[Agora Host] Left channel');
+              if (mounted) setState(() => _isAgoraJoined = false);
+            },
+            onError: (ErrorCodeType err, String msg) {
+              debugPrint('[Agora Host Error] $err: $msg');
+            },
+          ),
+        );
+
+        await engine.enableVideo();
+        await engine.enableAudio();
+        await engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
+        await engine.startPreview();
+
+        await engine.joinChannel(
+          token: token.token,
+          channelId: token.agoraChannelName,
+          uid: token.uid,
+          options: const ChannelMediaOptions(
+            clientRoleType: ClientRoleType.clientRoleBroadcaster,
+            publishCameraTrack: true,
+            publishMicrophoneTrack: true,
+            autoSubscribeAudio: false,
+            autoSubscribeVideo: false,
+          ),
+        );
+      } else {
+        engine.registerEventHandler(
+          RtcEngineEventHandler(
+            onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+              debugPrint('[Agora Viewer] Joined channel: ${connection.channelId}');
+              if (mounted) setState(() => _isAgoraJoined = true);
+            },
+            onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+              debugPrint('[Agora Viewer] Host joined: $remoteUid');
+              if (mounted) {
+                setState(() {
+                  _remoteHostUid = remoteUid;
+                  _remoteVideoMuted = false;
+                });
+              }
+            },
+            onUserOffline: (RtcConnection connection, int remoteUid, UserOfflineReasonType reason) {
+              debugPrint('[Agora Viewer] Host left: $remoteUid');
+              if (mounted && _remoteHostUid == remoteUid) {
+                setState(() => _remoteHostUid = null);
+              }
+            },
+            onUserMuteVideo: (RtcConnection connection, int remoteUid, bool muted) {
+              if (mounted && (_remoteHostUid == remoteUid || _remoteHostUid == null)) {
+                setState(() => _remoteVideoMuted = muted);
+              }
+            },
+            onError: (ErrorCodeType err, String msg) {
+              debugPrint('[Agora Viewer Error] $err: $msg');
+            },
+          ),
+        );
+
+        await engine.enableVideo();
+        await engine.enableAudio();
+        await engine.setClientRole(role: ClientRoleType.clientRoleAudience);
+
+        await engine.joinChannel(
+          token: token.token,
+          channelId: token.agoraChannelName,
+          uid: token.uid,
+          options: const ChannelMediaOptions(
+            clientRoleType: ClientRoleType.clientRoleAudience,
+            autoSubscribeAudio: true,
+            autoSubscribeVideo: true,
+          ),
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _agoraEngine = engine;
+          _isAgoraInitialized = true;
+        });
+      } else {
+        await engine.leaveChannel();
+        await engine.release();
+      }
+    } catch (e) {
+      debugPrint('[Agora] Failed to init Agora engine (fallback active): $e');
+      if (widget.isHost && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+        _initRealCamera();
+      }
+    }
+  }
+
+  Future<void> _cleanupAgora() async {
+    final engine = _agoraEngine;
+    _agoraEngine = null;
+    if (engine != null) {
+      try {
+        await engine.leaveChannel();
+        await engine.release();
+      } catch (e) {
+        debugPrint('[Agora] Cleanup warning: $e');
+      }
+    }
+  }
+
   void _toggleMic() {
     final media = widget.state.getLivestreamMediaState(widget.session.id);
     final next = !media.isMicOn;
@@ -544,6 +691,13 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       widget.session.id,
       isMicOn: next,
     );
+    if (_agoraEngine != null) {
+      try {
+        _agoraEngine!.muteLocalAudioStream(!next);
+      } catch (e) {
+        debugPrint('[Agora] muteLocalAudioStream warning: $e');
+      }
+    }
   }
 
   void _toggleCamera() {
@@ -553,7 +707,18 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       widget.session.id,
       isCameraOn: next,
     );
-    if (next && (_cameraController == null || !_cameraController!.value.isInitialized)) {
+    if (_agoraEngine != null) {
+      try {
+        _agoraEngine!.enableLocalVideo(next);
+        if (next) {
+          _agoraEngine!.startPreview();
+        } else {
+          _agoraEngine!.stopPreview();
+        }
+      } catch (e) {
+        debugPrint('[Agora] enableLocalVideo warning: $e');
+      }
+    } else if (next && (_cameraController == null || !_cameraController!.value.isInitialized)) {
       _initRealCamera();
     }
   }
@@ -575,6 +740,18 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
     }
   }
 
+  void _toggleViewerAudio() {
+    final next = !_isViewerAudioMuted;
+    setState(() => _isViewerAudioMuted = next);
+    if (_agoraEngine != null) {
+      try {
+        _agoraEngine!.muteAllRemoteAudioStreams(next);
+      } catch (e) {
+        debugPrint('[Agora] mute remote audio warning: $e');
+      }
+    }
+  }
+
   void _toggleCameraFlip() {
     final media = widget.state.getLivestreamMediaState(widget.session.id);
     final nextFront = !media.isFrontCamera;
@@ -582,7 +759,15 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       widget.session.id,
       isFrontCamera: nextFront,
     );
-    _initRealCamera(front: nextFront);
+    if (_agoraEngine != null) {
+      try {
+        _agoraEngine!.switchCamera();
+      } catch (e) {
+        debugPrint('[Agora] switchCamera warning: $e');
+      }
+    } else {
+      _initRealCamera(front: nextFront);
+    }
   }
 
   void _prevSlide() {
@@ -803,6 +988,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
 
   @override
   void dispose() {
+    _cleanupAgora();
     _cameraController?.dispose();
     _chatPollTimer?.cancel();
     _chatCtrl.dispose();
@@ -1465,6 +1651,24 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
               right: 6,
               child: Row(
                 children: [
+                  if (!widget.isHost) ...[
+                    IconButton(
+                      key: const Key('viewer-audio-toggle'),
+                      icon: Icon(
+                        _isViewerAudioMuted
+                            ? CupertinoIcons.volume_off
+                            : CupertinoIcons.volume_up,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 28, minHeight: 28),
+                      tooltip: _isViewerAudioMuted ? 'Bật âm thanh' : 'Tắt âm thanh',
+                      onPressed: _toggleViewerAudio,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1472,9 +1676,9 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                       color: Colors.black.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'HD 60FPS',
-                      style: TextStyle(
+                    child: Text(
+                      _isAgoraJoined ? 'AGORA RTC · HD' : 'HD 60FPS',
+                      style: const TextStyle(
                         fontSize: 9,
                         color: Colors.white70,
                         fontWeight: FontWeight.w500,
@@ -1515,6 +1719,21 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
     LivestreamMediaState mediaState,
     LivestreamSessionModel session,
   ) {
+    final isAgoraHostActive = widget.isHost &&
+        _agoraEngine != null &&
+        _isAgoraJoined &&
+        mediaState.isCameraOn;
+
+    final isRealCameraActive = _cameraController != null &&
+        _cameraController!.value.isInitialized &&
+        mediaState.isCameraOn;
+
+    final isAgoraRemoteActive = !widget.isHost &&
+        _agoraEngine != null &&
+        _isAgoraJoined &&
+        _remoteHostUid != null &&
+        !_remoteVideoMuted;
+
     return Container(
       key: const Key('livestream-pip-camera'),
       width: 116,
@@ -1523,7 +1742,9 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: mediaState.isCameraOn ? const Color(0xFF38BDF8) : Palette.line,
+          color: (isAgoraHostActive || isAgoraRemoteActive || mediaState.isCameraOn)
+              ? const Color(0xFF38BDF8)
+              : Palette.line,
           width: 1.5,
         ),
         boxShadow: [
@@ -1538,8 +1759,31 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (mediaState.isCameraOn) ...[
-            if (_cameraController != null && _cameraController!.value.isInitialized)
+          if (isAgoraHostActive)
+            AgoraVideoView(
+              controller: VideoViewController(
+                rtcEngine: _agoraEngine!,
+                canvas: const VideoCanvas(
+                  uid: 0,
+                  renderMode: RenderModeType.renderModeHidden,
+                ),
+              ),
+            )
+          else if (isAgoraRemoteActive)
+            AgoraVideoView(
+              controller: VideoViewController.remote(
+                rtcEngine: _agoraEngine!,
+                canvas: VideoCanvas(
+                  uid: _remoteHostUid!,
+                  renderMode: RenderModeType.renderModeHidden,
+                ),
+                connection: RtcConnection(
+                  channelId: _token?.agoraChannelName ?? session.agoraChannelName,
+                ),
+              ),
+            )
+          else if (mediaState.isCameraOn) ...[
+            if (isRealCameraActive)
               Positioned.fill(
                 child: FittedBox(
                   fit: BoxFit.cover,
@@ -1857,9 +2101,20 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
     LivestreamSessionModel session,
     String channelName,
   ) {
+    final isAgoraHostActive = widget.isHost &&
+        _agoraEngine != null &&
+        _isAgoraJoined &&
+        mediaState.isCameraOn;
+
     final isRealCameraActive = _cameraController != null &&
         _cameraController!.value.isInitialized &&
         mediaState.isCameraOn;
+
+    final isAgoraRemoteActive = !widget.isHost &&
+        _agoraEngine != null &&
+        _isAgoraJoined &&
+        _remoteHostUid != null &&
+        !_remoteVideoMuted;
 
     return Container(
       key: const Key('livestream-camera-view'),
@@ -1877,7 +2132,34 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (isRealCameraActive)
+          if (isAgoraHostActive)
+            Positioned.fill(
+              child: AgoraVideoView(
+                controller: VideoViewController(
+                  rtcEngine: _agoraEngine!,
+                  canvas: const VideoCanvas(
+                    uid: 0,
+                    renderMode: RenderModeType.renderModeHidden,
+                  ),
+                ),
+              ),
+            )
+          else if (isAgoraRemoteActive)
+            Positioned.fill(
+              child: AgoraVideoView(
+                controller: VideoViewController.remote(
+                  rtcEngine: _agoraEngine!,
+                  canvas: VideoCanvas(
+                    uid: _remoteHostUid!,
+                    renderMode: RenderModeType.renderModeHidden,
+                  ),
+                  connection: RtcConnection(
+                    channelId: _token?.agoraChannelName ?? session.agoraChannelName,
+                  ),
+                ),
+              ),
+            )
+          else if (isRealCameraActive)
             Positioned.fill(
               child: ClipRect(
                 child: FittedBox(
@@ -1954,10 +2236,52 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                       color: Colors.white60,
                     ),
                   ),
+                  if (!widget.isHost) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _isAgoraJoined
+                                  ? (_remoteHostUid != null
+                                      ? const Color(0xFF22C55E)
+                                      : Colors.amber)
+                                  : Colors.orange,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _isAgoraJoined
+                                ? (_remoteHostUid != null
+                                    ? (_remoteVideoMuted
+                                        ? 'Creator tạm tắt camera · Đang phát tiếng'
+                                        : 'Đang kết nối luồng phát sóng')
+                                    : 'Đang chờ Creator bật luồng phát...')
+                                : 'Đang kết nối Agora RTC...',
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-          if (isRealCameraActive)
+          if (isAgoraHostActive || isRealCameraActive || isAgoraRemoteActive)
             Positioned(
               bottom: 12,
               left: 28,
@@ -1981,7 +2305,9 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      session.creatorName ?? widget.state.displayName,
+                      widget.isHost
+                          ? (widget.state.displayName.isNotEmpty ? widget.state.displayName : 'Host')
+                          : (session.creatorName ?? channelName),
                       style: const TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
