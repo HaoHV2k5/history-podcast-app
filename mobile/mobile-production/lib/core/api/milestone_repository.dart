@@ -58,7 +58,7 @@ class MilestoneDeliverableModel {
       fileName: (json['fileName'] ?? 'file').toString(),
       fileSize: (json['fileSize'] as num?)?.toInt(),
       contentType: json['contentType']?.toString(),
-      versionNo: (json['versionNo'] as num?)?.toInt(),
+      versionNo: ((json['versionNo'] ?? json['versionNumber']) as num?)?.toInt(),
       uploadedById: (json['uploadedById'] as num?)?.toInt(),
       uploadedByFullName: json['uploadedByFullName']?.toString(),
       downloadUrl: json['downloadUrl']?.toString(),
@@ -124,6 +124,32 @@ class MilestoneReviewModel {
   }
 }
 
+class RevisionRequestItemModel {
+  final int id;
+  final int? milestoneId;
+  final int? submissionId;
+  final String note;
+  final String? createdAt;
+
+  RevisionRequestItemModel({
+    required this.id,
+    this.milestoneId,
+    this.submissionId,
+    required this.note,
+    this.createdAt,
+  });
+
+  factory RevisionRequestItemModel.fromJson(Map<String, dynamic> json) {
+    return RevisionRequestItemModel(
+      id: (json['id'] as num).toInt(),
+      milestoneId: (json['milestoneId'] as num?)?.toInt(),
+      submissionId: (json['submissionId'] as num?)?.toInt(),
+      note: (json['note'] ?? '').toString(),
+      createdAt: json['createdAt']?.toString(),
+    );
+  }
+}
+
 class MilestoneModel {
   final int id;
   final int? contractId;
@@ -148,6 +174,7 @@ class MilestoneModel {
   final String? refundedAt;
   final List<MilestoneDeliverableModel> deliverables;
   final List<MilestoneReviewModel> reviews;
+  final List<RevisionRequestItemModel> revisionRequests;
   final String? createdAt;
   final String? updatedAt;
 
@@ -175,6 +202,7 @@ class MilestoneModel {
     this.refundedAt,
     this.deliverables = const [],
     this.reviews = const [],
+    this.revisionRequests = const [],
     this.createdAt,
     this.updatedAt,
   });
@@ -182,6 +210,7 @@ class MilestoneModel {
   factory MilestoneModel.fromJson(Map<String, dynamic> json) {
     var rawDeliverables = json['deliverables'];
     var rawReviews = json['reviews'];
+    var rawRevisionRequests = json['revisionRequests'];
 
     return MilestoneModel(
       id: (json['id'] as num).toInt(),
@@ -211,6 +240,11 @@ class MilestoneModel {
       reviews: (rawReviews is List)
           ? rawReviews.map((e) => MilestoneReviewModel.fromJson(e as Map<String, dynamic>)).toList()
           : [],
+      revisionRequests: (rawRevisionRequests is List)
+          ? rawRevisionRequests
+              .map((e) => RevisionRequestItemModel.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : [],
       createdAt: json['createdAt']?.toString(),
       updatedAt: json['updatedAt']?.toString(),
     );
@@ -234,6 +268,16 @@ class MilestoneRepository {
   /// GET /api/v1/deliverables/{id}/view
   String getDeliverablePreviewUrl(int id) {
     return '${client.baseUrl}/api/v1/deliverables/$id/view';
+  }
+
+  /// Tải dữ liệu nhị phân của Deliverable kèm JWT Bearer Token (GET /api/v1/deliverables/{id}/view hoặc /download)
+  Future<({List<int> bytes, String contentType, String? filename})> fetchDeliverableBytes(
+    int id, {
+    bool download = false,
+  }) async {
+    return client.getBytes(
+      '/api/v1/deliverables/$id/${download ? "download" : "view"}',
+    );
   }
 
   /// GET /api/v1/milestones/{milestoneId}/deliverables
@@ -269,19 +313,34 @@ class MilestoneRepository {
     return MilestoneDeliverableModel.fromJson(data);
   }
 
-  /// GET /api/v1/posts/{postId}/deliverables
-  Future<List<MilestoneDeliverableModel>> getDeliverablesByPost(int postId) async {
-    final res = await client.get('/api/v1/posts/$postId/deliverables');
-    final data = res['data'];
-    if (data is List) {
-      return data.map((e) => MilestoneDeliverableModel.fromJson(e as Map<String, dynamic>)).toList();
-    }
-    return [];
+  // ==========================================
+  // 2. Milestone Management (9 endpoints)
+  // ==========================================
+
+  /// PUT /api/v1/milestones/{id} (Creator chỉnh sửa 1 Milestone khi đang thương lượng)
+  Future<MilestoneModel> updateMilestone(
+    int id, {
+    required String title,
+    required String requirement,
+    required double amount,
+    required int durationDays,
+  }) async {
+    final payload = <String, dynamic>{
+      'title': title,
+      'requirement': requirement,
+      'amount': amount,
+      'durationDays': durationDays,
+    };
+    final res = await client.put('/api/v1/milestones/$id', body: payload);
+    final data = res['data'] as Map<String, dynamic>;
+    return MilestoneModel.fromJson(data);
   }
 
-  // ==========================================
-  // 2. Milestone Management (7 endpoints)
-  // ==========================================
+  /// DELETE /api/v1/milestones/{id} (Creator xóa/gộp 1 Milestone khi hợp đồng có >= 2 mốc)
+  Future<Map<String, dynamic>> deleteMilestone(int id) async {
+    final res = await client.delete('/api/v1/milestones/$id');
+    return (res['data'] as Map<String, dynamic>?) ?? const {};
+  }
 
   /// GET /api/v1/milestones/{id}
   Future<MilestoneModel> getMilestoneById(int id) async {

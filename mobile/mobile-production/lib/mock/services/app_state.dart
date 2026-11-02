@@ -509,6 +509,7 @@ class AppState extends ChangeNotifier {
                     ? m.description
                     : 'Kênh kể chuyện lịch sử trên nền tảng Sử Ký.',
                 id: m.id,
+                creatorId: m.creatorId,
                 coverImage: m.coverUrl ?? '',
                 monthlyPrice: plan?.monthlyPrice,
                 hasBackendPlan: plan != null && plan.isActive,

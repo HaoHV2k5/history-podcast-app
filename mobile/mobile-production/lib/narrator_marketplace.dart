@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,9 @@ import 'audio_playback.dart';
 import 'local_file.dart';
 
 import 'core/api/post_repository.dart';
+import 'core/api/contract_repository.dart';
+import 'core/api/hire_request_repository.dart';
+import 'commission_milestone_workspace.dart';
 import 'app_state.dart';
 
 part 'mock/fixtures/narrators.dart';
@@ -920,7 +925,7 @@ class _RecruitmentMarketplaceViewState
   );
 
   int activeTab =
-      0; // 0: Tin tuyển dụng & Tìm việc, 1: Tin của tôi & Đơn ứng tuyển
+      2; // 2: Yêu cầu đặt làm nội dung, 3: Hợp đồng & Lộ trình Milestone
   String selectedRegion = 'Tất cả';
   String voiceQuery = '';
   String _searchKeyword = '';
@@ -935,6 +940,95 @@ class _RecruitmentMarketplaceViewState
   List<ApplicationModel> _myApplications = [];
   bool _loadingMyApplications = false;
   int _myPostSubTab = 0; // 0: Bài đăng của tôi, 1: Đơn đã nộp
+
+  List<HireRequestModel> _mySentCommissions = [];
+  List<HireRequestModel> _myReceivedCommissions = [];
+  bool _loadingCommissions = false;
+  List<ContractModel> _myMilestoneContracts = [];
+  MilestoneFinancialSummaryModel? _milestoneFinancials;
+  bool _loadingMilestoneContracts = false;
+  Timer? _pollTimer;
+  int? _lastUserId;
+
+  bool get _isTestBinding =>
+      WidgetsBinding.instance.runtimeType.toString().contains('Test');
+
+  void _onAppStateChanged() {
+    if (!mounted) return;
+    final currentUid = widget.state.currentUserId;
+    if (currentUid != _lastUserId) {
+      _lastUserId = currentUid;
+      _loadCommissionsAndMilestoneContracts(silent: true);
+    }
+  }
+
+  void _openContractRoadmapById(int contractId) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Palette.paper,
+      builder: (_) => ContractMilestoneRoadmapSheet(
+        state: widget.state,
+        contractId: contractId,
+        onChanged: () => _loadCommissionsAndMilestoneContracts(silent: true),
+      ),
+    );
+  }
+
+  Future<void> _loadCommissionsAndMilestoneContracts({bool silent = false}) async {
+    final hireRepo =
+        widget.state.hireRequestRepository ?? creatorState.hireRequestRepository;
+    final contractRepo =
+        widget.state.contractRepository ?? creatorState.contractRepository;
+
+    final showCommSpinner =
+        !silent && _mySentCommissions.isEmpty && _myReceivedCommissions.isEmpty;
+    final showContractSpinner = !silent && _myMilestoneContracts.isEmpty;
+
+    if (hireRepo != null) {
+      if (showCommSpinner && mounted) {
+        setState(() => _loadingCommissions = true);
+      }
+      try {
+        final results = await Future.wait([
+          hireRepo.getMySent(),
+          hireRepo.getMyReceived(),
+        ]);
+        if (mounted) {
+          setState(() {
+            _mySentCommissions = results[0];
+            _myReceivedCommissions = results[1];
+            _loadingCommissions = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _loadingCommissions = false);
+      }
+    }
+
+    if (contractRepo != null) {
+      if (showContractSpinner && mounted) {
+        setState(() => _loadingMilestoneContracts = true);
+      }
+      try {
+        final contractsList = await contractRepo.getMyContracts();
+        MilestoneFinancialSummaryModel? fin;
+        try {
+          fin = await contractRepo.getMyMilestoneFinancials();
+        } catch (_) {}
+        if (mounted) {
+          setState(() {
+            _myMilestoneContracts = contractsList;
+            _milestoneFinancials = fin;
+            _loadingMilestoneContracts = false;
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _loadingMilestoneContracts = false);
+      }
+    }
+  }
 
   String _formatCurrency(num amount) {
     final intVal = amount.round();
@@ -1277,16 +1371,24 @@ class _RecruitmentMarketplaceViewState
   @override
   void initState() {
     super.initState();
+    _lastUserId = widget.state.currentUserId;
+    widget.state.addListener(_onAppStateChanged);
     if (contracts.isLiveBackend) {
       contracts.syncMarketplaceBackend();
     }
-    _loadPosts();
-    _loadMyPosts();
-    _loadMyApplications();
+    _loadCommissionsAndMilestoneContracts();
+    if (!_isTestBinding) {
+      _pollTimer = Timer.periodic(
+        const Duration(seconds: 4),
+        (_) => _loadCommissionsAndMilestoneContracts(silent: true),
+      );
+    }
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
+    widget.state.removeListener(_onAppStateChanged);
     contracts.dispose();
     profile.dispose();
     creatorState.dispose();
@@ -1303,13 +1405,17 @@ class _RecruitmentMarketplaceViewState
       builder: (_) => CreatorFreelancerChatHubSheet(
         chatRepository: widget.state.chatRepository ?? creatorState.chatRepository,
         contractRepository: widget.state.contractRepository ?? creatorState.contractRepository,
+        hireRequestRepository: widget.state.hireRequestRepository ?? creatorState.hireRequestRepository,
         postRepository: widget.state.postRepository ?? creatorState.postRepository,
         myPosts: _myPosts,
         myApplications: _myApplications,
+        sentCommissions: _mySentCommissions,
+        receivedCommissions: _myReceivedCommissions,
         contractOrders: contracts.orders,
         preferences: widget.state.preferences,
         isCreator: creatorState.channel.isNotEmpty || !profile.canReceiveJobs,
         currentUserName: widget.state.displayName.isNotEmpty ? widget.state.displayName : 'Tôi',
+        onOpenContractRoadmap: _openContractRoadmapById,
       ),
     );
   }
@@ -2421,6 +2527,7 @@ class _RecruitmentMarketplaceViewState
               _loadPosts(),
               _loadMyPosts(),
               _loadMyApplications(),
+              _loadCommissionsAndMilestoneContracts(),
             ]);
           },
           child: ListView(
@@ -2442,17 +2549,45 @@ class _RecruitmentMarketplaceViewState
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Tuyển dụng & Việc', style: editorial(31)),
+                      Text('Đơn đặt hàng & Lộ trình Milestone', style: editorial(28)),
                       const SizedBox(height: 4),
                       const Text(
-                        'Quản lý bài đăng Booking (Creator) và Tìm việc (Freelancer), ứng tuyển',
+                        'Tiếp nhận yêu cầu làm nội dung từ khán giả, thương lượng qua Chat 1-1, lập lộ trình ký quỹ cuốn chiếu và bàn giao nghiệm thu',
                         style: TextStyle(fontSize: 13, color: Palette.muted),
                       ),
                     ],
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
+                      OutlinedButton.icon(
+                        key: const Key('refresh-commissions-contracts-btn'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Palette.ink,
+                          side: const BorderSide(color: Palette.line),
+                          backgroundColor: Palette.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: () =>
+                            _loadCommissionsAndMilestoneContracts(silent: false),
+                        icon: const Icon(
+                          CupertinoIcons.arrow_2_circlepath,
+                          size: 14,
+                          color: Palette.ink,
+                        ),
+                        label: const Text(
+                          'Làm mới',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                       OutlinedButton.icon(
                         key: const Key('open-chat-hub-btn'),
                         style: OutlinedButton.styleFrom(
@@ -2472,16 +2607,15 @@ class _RecruitmentMarketplaceViewState
                           color: Palette.red,
                         ),
                         label: const Text(
-                          'Trò chuyện',
+                          'Trò chuyện 1-1',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
                       FilledButton.icon(
-                        key: const Key('open-post-job-btn'),
+                        key: const Key('open-commission-channel-picker-btn'),
                         style: FilledButton.styleFrom(
                           backgroundColor: Palette.red,
                           padding: const EdgeInsets.symmetric(
@@ -2490,10 +2624,24 @@ class _RecruitmentMarketplaceViewState
                           ),
                           visualDensity: VisualDensity.compact,
                         ),
-                        onPressed: openPostJobSheet,
-                        icon: const Icon(CupertinoIcons.plus_circle, size: 14),
+                        onPressed: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            useSafeArea: true,
+                            backgroundColor: Palette.paper,
+                            builder: (_) => SelectChannelForCommissionSheet(
+                              state: widget.state,
+                              onCommissionCreated: () {
+                                setState(() => activeTab = 2);
+                                _loadCommissionsAndMilestoneContracts();
+                              },
+                            ),
+                          );
+                        },
+                        icon: const Icon(CupertinoIcons.sparkles, size: 14),
                         label: const Text(
-                          'Đăng tin',
+                          'Đặt làm nội dung',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2504,38 +2652,185 @@ class _RecruitmentMarketplaceViewState
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              // Navigation Tabs (Chỉ 2 Tab chuyên biệt của Post Management)
-              Row(
-                children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: Center(
-                        child: Text(
-                          'Tin tuyển dụng & Tìm việc (${_remotePosts.length})',
-                          overflow: TextOverflow.ellipsis,
+              // Banner Trung tâm Đặt làm Nội dung & Lộ trình Ký quỹ 2 Tầng (Milestone Escrow)
+              Container(
+                key: const Key('commission-milestone-hero-banner'),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E7),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE6C27A)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.sparkles,
+                          size: 16,
+                          color: Color(0xFFB45309),
+                        ),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Đặt làm Nội dung theo yêu cầu & Ký quỹ Milestone 2 Tầng',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF78350F),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Khách đặt đề tài với kênh -> Creator mở Chat 1-1 -> Lập lộ trình 1..20 mốc (Tầng 1) -> Đóng cọc & nghiệm thu cuốn chiếu từng mốc (Tầng 2).',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF78350F),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Navigation Tabs — Segmented Control 1 hàng ngang 50/50 (Không bao giờ rớt dòng hay khuất chữ)
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        key: const Key('tab-commissions'),
+                        borderRadius: BorderRadius.circular(7),
+                        onTap: () {
+                          setState(() => activeTab = 2);
+                          _loadCommissionsAndMilestoneContracts(silent: true);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: activeTab == 2
+                                ? Palette.red
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(7),
+                            boxShadow: activeTab == 2
+                                ? [
+                                    BoxShadow(
+                                      color: Palette.red.withValues(alpha: 0.22),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                CupertinoIcons.doc_text_fill,
+                                size: 13.5,
+                                color: activeTab == 2
+                                    ? Palette.white
+                                    : Palette.muted,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Đơn đặt nội dung (${_mySentCommissions.length + _myReceivedCommissions.length})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: activeTab == 2
+                                        ? Palette.white
+                                        : Palette.ink,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      selected: activeTab == 0,
-                      onSelected: (_) => setState(() => activeTab = 0),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ChoiceChip(
-                      key: const Key('tab-my-posts'),
-                      label: Center(
-                        child: Text(
-                          'Tin của tôi (${_myPosts.length})',
-                          overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: InkWell(
+                        key: const Key('tab-milestone-contracts'),
+                        borderRadius: BorderRadius.circular(7),
+                        onTap: () {
+                          setState(() => activeTab = 3);
+                          _loadCommissionsAndMilestoneContracts(silent: true);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 160),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: activeTab == 3
+                                ? Palette.red
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(7),
+                            boxShadow: activeTab == 3
+                                ? [
+                                    BoxShadow(
+                                      color: Palette.red.withValues(alpha: 0.22),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                CupertinoIcons.layers_alt_fill,
+                                size: 13.5,
+                                color: activeTab == 3
+                                    ? Palette.white
+                                    : Palette.muted,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Hợp đồng Milestone (${_myMilestoneContracts.length})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: activeTab == 3
+                                        ? Palette.white
+                                        : Palette.ink,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      selected: activeTab == 1,
-                      onSelected: (_) => setState(() => activeTab = 1),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               const SizedBox(height: 16),
@@ -3266,6 +3561,35 @@ class _RecruitmentMarketplaceViewState
                     ],
                   ],
                 ],
+              ],
+
+              // TAB 2: ĐẶT LÀM NỘI DUNG (COMMISSIONS SENT & RECEIVED)
+              if (activeTab == 2) ...[
+                CommissionManagementSection(
+                  state: widget.state,
+                  sentCommissions: _mySentCommissions,
+                  receivedCommissions: _myReceivedCommissions,
+                  contracts: _myMilestoneContracts,
+                  loading: _loadingCommissions,
+                  onRefresh: () =>
+                      _loadCommissionsAndMilestoneContracts(silent: true),
+                  onSwitchToContractsTab: () {
+                    setState(() => activeTab = 3);
+                    _loadCommissionsAndMilestoneContracts(silent: true);
+                  },
+                ),
+              ],
+
+              // TAB 3: HỢP ĐỒNG & TIẾN ĐỘ MILESTONE 2 TẦNG (MILESTONE ESCROW)
+              if (activeTab == 3) ...[
+                MilestoneContractsSection(
+                  state: widget.state,
+                  contracts: _myMilestoneContracts,
+                  financials: _milestoneFinancials,
+                  loading: _loadingMilestoneContracts,
+                  onRefresh: () =>
+                      _loadCommissionsAndMilestoneContracts(silent: true),
+                ),
               ],
             ],
           ),
