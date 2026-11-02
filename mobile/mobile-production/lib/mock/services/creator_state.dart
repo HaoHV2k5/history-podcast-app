@@ -993,6 +993,17 @@ class CreatorState extends ChangeNotifier {
     return null;
   }
 
+  Future<CreatorAiSettingModel?> fetchAiSettings() async {
+    if (creatorStudioRepository != null) {
+      try {
+        aiSettings = await creatorStudioRepository!.getSettings();
+        notifyListeners();
+        return aiSettings;
+      } catch (_) {}
+    }
+    return aiSettings;
+  }
+
   Future<CreatorAiSettingModel> saveAiSettings({
     String? geminiApiKey,
     String? elevenLabsApiKey,
@@ -1081,12 +1092,15 @@ class CreatorState extends ChangeNotifier {
     required String voiceId,
     required String text,
     String? engine,
+    String? elevenlabsApiKey,
   }) async {
     if (creatorStudioRepository != null) {
+      final effectiveKey = elevenlabsApiKey ?? aiSettings?.elevenLabsApiKey;
       return await creatorStudioRepository!.previewVoice(
         voiceId: voiceId,
         text: text,
         engine: engine,
+        elevenlabsApiKey: effectiveKey,
       );
     }
     return {

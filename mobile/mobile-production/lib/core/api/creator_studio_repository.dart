@@ -228,11 +228,14 @@ class CreatorStudioRepository {
     required String text,
     String? engine,
     String? provider,
+    String? elevenlabsApiKey,
   }) async {
     final payload = {
       'voiceId': voiceId,
       'text': text,
       'engine': engine ?? provider ?? (voiceId.startsWith('vi-VN') ? 'edge-tts' : 'elevenlabs'),
+      if (elevenlabsApiKey != null && elevenlabsApiKey.trim().isNotEmpty)
+        'elevenlabsApiKey': elevenlabsApiKey.trim(),
     };
     final res = await client.post('/api/v1/creator/studio/voices/preview', body: payload);
     return (res['data'] as Map<String, dynamic>?) ?? {};

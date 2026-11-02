@@ -571,6 +571,14 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
             : 'vi-VN-NamMinhNeural');
     _ttsEngine = widget.state.aiSettings?.ttsEngine ?? 'edge-tts';
     _renderTitleCtrl.text = _topicCtrl.text;
+    widget.state.fetchAiSettings().then((s) {
+      if (mounted && s != null) {
+        setState(() {
+          if (s.ttsEngine != null) _ttsEngine = s.ttsEngine!;
+          if (s.preferredVoiceId != null) _selectedVoiceId = s.preferredVoiceId!;
+        });
+      }
+    });
   }
 
   @override
