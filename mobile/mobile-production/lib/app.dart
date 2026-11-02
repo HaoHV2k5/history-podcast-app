@@ -73,15 +73,30 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
+    final qp = Uri.base.queryParameters;
+    final hasVnpayReturn =
+        qp.containsKey('vnp_TxnRef') ||
+        Uri.base.path.contains('vnpay-return');
     final returnToWallet =
+        hasVnpayReturn ||
         widget.state.preferences.getBool('return_to_wallet_after_vnpay') ==
             true ||
-        Uri.base.queryParameters['view'] == 'wallet';
+        qp['view'] == 'wallet';
     if (returnToWallet) {
       index = 4;
       widget.state.preferences.remove('return_to_wallet_after_vnpay');
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
+        if (hasVnpayReturn &&
+            qp.containsKey('vnp_TxnRef') &&
+            widget.state.walletRepository != null) {
+          try {
+            await widget.state.walletRepository!.handleVnpayIpn(qp);
+          } catch (_) {}
+          try {
+            await widget.state.walletRepository!.handleVnpayReturn(qp);
+          } catch (_) {}
+        }
         if (widget.state.isLiveBackend) {
           await widget.state.refreshWalletBalance();
         }
