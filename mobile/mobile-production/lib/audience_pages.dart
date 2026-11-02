@@ -21,6 +21,7 @@ import 'publication_page.dart';
 import 'notification_page.dart';
 import 'password_recovery.dart';
 import 'kyc_form.dart';
+import 'kyc_management_page.dart';
 
 String _formatVndPrice(double amount) {
   final intVal = amount.round();
@@ -1479,6 +1480,27 @@ class _ProfileContentState extends State<ProfileContent> {
           await state.refreshWalletBalance();
         },
       ),
+      _PersonalLink(
+        key: const Key('open-profile-kyc'),
+        icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+        title: 'Xác thực KYC',
+        subtitle: state.isLiveBackend
+            ? (state.kycStatus == 'APPROVED'
+                ? 'Hồ sơ đã duyệt (APPROVED)'
+                : (state.kycStatus == 'PENDING'
+                    ? 'Đang chờ thẩm định'
+                    : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
+            : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => KycManagementPage(appState: state),
+            ),
+          );
+          await state.refreshProfile();
+        },
+      ),
       const SizedBox(height: 20),
       const Divider(),
       const SizedBox(height: 8),
@@ -1647,6 +1669,27 @@ class CreativeWorkspacePage extends StatelessWidget {
               ),
             ),
           ),
+        ),
+        _PersonalLink(
+          key: const Key('open-workspace-kyc'),
+          icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+          title: 'Xác thực KYC',
+          subtitle: state.isLiveBackend
+              ? (state.kycStatus == 'APPROVED'
+                  ? 'Hồ sơ đã duyệt (APPROVED)'
+                  : (state.kycStatus == 'PENDING'
+                      ? 'Đang chờ thẩm định'
+                      : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
+              : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => KycManagementPage(appState: state),
+              ),
+            );
+            await state.refreshProfile();
+          },
         ),
       ],
     ),
