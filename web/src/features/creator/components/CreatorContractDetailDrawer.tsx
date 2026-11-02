@@ -19,8 +19,8 @@ import {
   ShieldAlert,
   ChevronDown,
   X,
-  Send,
-  Radio,
+  Calendar,
+  ArrowUpRight,
 } from 'lucide-react';
 import {
   Dialog,
@@ -33,7 +33,6 @@ import { Badge } from '@/components/ui/badge';
 import { contractsApi } from '@/services/api/contracts';
 import { milestonesApi } from '@/services/api/milestones';
 import { disputesApi } from '@/services/api/disputes';
-import { chatsApi, ChatConversationItem } from '@/services/api/chats';
 import { ContractItem, MilestoneItem } from '@/types/contract';
 import { DisputeItem } from '@/types/dispute';
 import { formatDateTime, formatDate, formatVND } from '@/utils/formatters';
@@ -57,6 +56,70 @@ interface CreatorContractDetailDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onMilestoneActionSuccess?: () => void;
+  onOpenCustomerChat?: (contract: ContractItem) => void;
+}
+
+function getContractStatusPresentation(
+  status?: string,
+  milestones?: MilestoneItem[]
+): {
+  label: string;
+  className: string;
+  dotColor: string;
+} {
+  switch ((status || '').toUpperCase()) {
+    case 'ACTIVE':
+    case 'IN_PROGRESS': {
+      const hasActiveWork = milestones?.some(
+        (m) => m.status === 'IN_PROGRESS' || m.status === 'SUBMITTED'
+      );
+      const unfundedStage = !hasActiveWork
+        ? milestones?.find((m) => m.status === 'UNFUNDED')
+        : undefined;
+      if (unfundedStage) {
+        return {
+          label: `Khách đã duyệt • Chờ ký quỹ Mốc #${unfundedStage.orderNo}`,
+          className: 'bg-amber-50 text-amber-800 border-amber-200',
+          dotColor: 'bg-amber-500',
+        };
+      }
+      return {
+        label: 'Đang thực hiện',
+        className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+        dotColor: 'bg-emerald-500',
+      };
+    }
+    case 'PENDING':
+      return {
+        label: 'Chờ khách duyệt lộ trình',
+        className: 'bg-amber-50 text-amber-800 border-amber-200',
+        dotColor: 'bg-amber-500',
+      };
+    case 'COMPLETED':
+      return {
+        label: 'Đã hoàn tất',
+        className: 'bg-sky-50 text-sky-800 border-sky-200',
+        dotColor: 'bg-sky-500',
+      };
+    case 'REJECTED':
+      return {
+        label: 'Khách yêu cầu sửa lộ trình',
+        className: 'bg-rose-50 text-rose-800 border-rose-200',
+        dotColor: 'bg-rose-500',
+      };
+    case 'CANCELLED':
+      return {
+        label: 'Đã hủy',
+        className: 'bg-stone-100 text-stone-700 border-stone-200/90',
+        dotColor: 'bg-stone-400',
+      };
+    default:
+      return {
+        label: status || 'Đang xử lý',
+        className: 'bg-stone-100 text-stone-700 border-stone-200',
+        dotColor: 'bg-stone-400',
+      };
+  }
 }
 
 export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerProps> = ({
@@ -64,6 +127,7 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
   isOpen,
   onClose,
   onMilestoneActionSuccess,
+  onOpenCustomerChat,
 }) => {
   const queryClient = useQueryClient();
 
@@ -82,28 +146,9 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
     useState<DisputeItem | null>(null);
   const [openEditRoadmap, setOpenEditRoadmap] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isNoteExpanded, setIsNoteExpanded] = useState(false);
 
-  // Chat 1-1 toggle state (User requirement: mặc định đóng, click vào mới mở ra)
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatInputText, setChatInputText] = useState('');
-  const [localMessages, setLocalMessages] = useState<
-    { id: string; sender: 'me' | 'partner'; text: string; time: string }[]
-  >([
-    {
-      id: 'init-1',
-      sender: 'partner',
-      text: 'Chào bạn! Mình vừa gửi yêu cầu đặt sản xuất nội dung này, rất mong được kênh hỗ trợ.',
-      time: '21:30',
-    },
-    {
-      id: 'init-2',
-      sender: 'me',
-      text: 'Cảm ơn bạn! Mình đã nhận được yêu cầu và đang lên lộ trình chi tiết. Mình sẽ gửi bảng Milestone sớm nhất cho bạn ạ.',
-      time: '21:36',
-    },
-  ]);
-
-  // Collapsible Milestones: In-progress stage is expanded by default, others collapsed
+  // Collapsible Milestones: Only an actively running stage (IN_PROGRESS/SUBMITTED) opens by default; all others start collapsed
   const [collapsedMilestones, setCollapsedMilestones] = useState<Set<number>>(new Set());
 
   const toggleMilestoneCollapse = (milestoneId: number) => {
@@ -143,40 +188,39 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
     enabled: Boolean(contractId) && isOpen,
   });
 
-  // Fetch Conversation Info for Chat 1-1
-  const { data: chatRes } = useQuery({
-    queryKey: ['chat-conversation', contractId],
-    queryFn: () =>
-      chatsApi.getOrCreateConversation({
-        contractId: contractId || undefined,
-      }),
-    enabled: Boolean(contractId) && isOpen,
-  });
-
   const contract: ContractItem | null = response?.data || null;
   const milestones: MilestoneItem[] = contract?.milestones || [];
   const rawDisputes = disputesRes?.data;
   const disputes: DisputeItem[] = Array.isArray(rawDisputes) ? rawDisputes : [];
-  const conversation: ChatConversationItem | null = chatRes?.data || null;
 
-  // Set default collapsed milestones once data arrives
+  // Determine which milestone the contract is currently on (only when contract is ACTIVE/IN_PROGRESS)
+  const isContractActive =
+    contract?.status === 'ACTIVE' || contract?.status === 'IN_PROGRESS';
+  const currentStageMilestone = isContractActive
+    ? milestones.find((m) => m.status === 'IN_PROGRESS' || m.status === 'SUBMITTED') ||
+      milestones.find((m) => m.status === 'UNFUNDED' || m.status === 'WAITING') ||
+      null
+    : null;
+
+  // Set default collapsed milestones once contract & milestones arrive:
+  // Collapse all milestones by default EXCEPT a single actively worked-on milestone (IN_PROGRESS / SUBMITTED)
   useEffect(() => {
+    setIsNoteExpanded(false);
     if (milestones.length > 0) {
+      const activeWorkMilestone =
+        contract?.status === 'ACTIVE' || contract?.status === 'IN_PROGRESS'
+          ? milestones.find((m) => m.status === 'IN_PROGRESS' || m.status === 'SUBMITTED')
+          : undefined;
+
       const initialCollapsed = new Set<number>();
-      let hasFoundActive = false;
       milestones.forEach((m) => {
-        if (m.status === 'IN_PROGRESS' && !hasFoundActive) {
-          hasFoundActive = true;
-          // Keep active stage open
-        } else if (!hasFoundActive && m === milestones[0]) {
-          // If none in-progress yet, keep stage 1 open
-        } else {
+        if (!activeWorkMilestone || m.id !== activeWorkMilestone.id) {
           initialCollapsed.add(m.id);
         }
       });
       setCollapsedMilestones(initialCollapsed);
     }
-  }, [contract?.id]);
+  }, [contract?.id, contract?.status, milestones.length]);
 
   // Mutations
   const deleteMilestoneMutation = useMutation({
@@ -211,62 +255,51 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
       setActionError('Hợp đồng phải có ít nhất 1 giai đoạn Milestone.');
       return;
     }
-    if (window.confirm('Bạn có chắc chắn muốn xóa giai đoạn này và tự động đánh số lại các mốc còn lại?')) {
+    if (
+      window.confirm(
+        'Bạn có chắc chắn muốn xóa giai đoạn này và tự động đánh số lại các mốc còn lại?'
+      )
+    ) {
       deleteMilestoneMutation.mutate(milestoneId);
     }
   };
 
   const handleCancelContract = () => {
     if (!contract) return;
-    if (window.confirm('Bạn có chắc chắn muốn hủy hợp đồng này trước khi khán giả nạp cọc? Thao tác này sẽ giải phóng slot đặt hàng.')) {
+    if (
+      window.confirm(
+        'Bạn có chắc chắn muốn hủy hợp đồng này trước khi khán giả nạp cọc? Thao tác này sẽ giải phóng slot đặt hàng.'
+      )
+    ) {
       cancelContractMutation.mutate(contract.id);
     }
   };
 
-  const handleSendChatMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInputText.trim()) return;
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setLocalMessages((prev) => [
-      ...prev,
-      {
-        id: `msg-${Date.now()}`,
-        sender: 'me',
-        text: chatInputText.trim(),
-        time: timeStr,
-      },
-    ]);
-    setChatInputText('');
-  };
-
-  const isNegotiating = contract?.status === 'PENDING' || contract?.status === 'REJECTED';
+  const isNegotiating =
+    (contract?.status === 'PENDING' || contract?.status === 'REJECTED') &&
+    milestones.every(
+      (m) =>
+        (m.status === 'WAITING' || m.status === 'UNFUNDED') &&
+        (!m.escrowStatus || m.escrowStatus === 'UNFUNDED')
+    );
+  const contractStatusBadge = getContractStatusPresentation(contract?.status, milestones);
+  const customerDisplayName =
+    contract?.requesterFullName || contract?.freelancerFullName || 'Khách hàng';
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogContent
-          maxWidth={isChatOpen ? 'max-w-7xl' : 'max-w-5xl'}
-          className={cn(
-            'w-[96vw] max-h-[92vh] overflow-hidden p-0 bg-white rounded-[28px] sm:rounded-[32px] border border-stone-200/90 shadow-2xl font-sans z-[60] flex flex-col [&>button:last-child]:hidden transition-all duration-300',
-            isChatOpen ? 'max-w-7xl' : 'max-w-5xl'
-          )}
+          maxWidth="max-w-4xl"
+          className="w-[95vw] max-w-4xl max-h-[90vh] overflow-hidden p-0 bg-white rounded-3xl border border-[#EBE4D8] shadow-2xl font-sans flex flex-col [&>button:last-child]:hidden"
         >
-          {/* Top Floating Close Button */}
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng cửa sổ"
-            className="absolute top-4 right-4 z-30 h-8 w-8 rounded-full bg-[#FAF9F6] border border-stone-200/80 hover:bg-stone-200/70 text-stone-500 hover:text-stone-800 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
-          >
-            <X className="h-4 w-4" />
-          </button>
-
           {/* Loading State */}
           {isLoading && (
-            <div className="py-24 flex flex-col items-center justify-center gap-2.5 text-xs text-stone-400">
-              <RefreshCw className="h-7 w-7 animate-spin text-[#A31D24]" />
-              <span className="font-sans font-medium text-stone-600">Đang tải thông tin chi tiết lộ trình hợp đồng...</span>
+            <div className="py-24 flex flex-col items-center justify-center gap-3 text-xs text-[#696660]">
+              <RefreshCw className="h-7 w-7 animate-spin text-[#9B2C2C]" />
+              <span className="font-sans font-medium text-[#4A4640]">
+                Đang tải thông tin chi tiết hợp đồng...
+              </span>
             </div>
           )}
 
@@ -274,259 +307,545 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
           {isError && (
             <div className="p-6 m-6 rounded-2xl border border-rose-200 bg-rose-50 text-xs text-rose-800 flex items-center justify-between font-sans">
               <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-[#A31D24] shrink-0" />
+                <AlertCircle className="h-5 w-5 text-[#9B2C2C] shrink-0" />
                 <span>Không thể tải chi tiết hợp đồng #{contractId}. Vui lòng thử lại.</span>
               </div>
-              <Button size="sm" variant="outline" onClick={() => refetch()} className="h-8 text-xs font-semibold">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => refetch()}
+                className="h-8 text-xs font-semibold"
+              >
                 Thử lại
               </Button>
             </div>
           )}
 
-          {/* Action Error Banner */}
-          {actionError && (
-            <div className="mx-6 mt-4 p-3.5 text-xs text-rose-900 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 font-sans">
-              <AlertCircle className="h-4 w-4 text-[#A31D24] shrink-0" />
-              <span>{actionError}</span>
-            </div>
-          )}
-
-          {/* Main Layout: Split Screen (Left Contract & Milestones, Right Collapsible Chat 1-1) */}
+          {/* Main Contract Content */}
           {!isLoading && contract && (
-            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
-              {/* ─── LEFT COLUMN: CONTRACT OVERVIEW & MILESTONES ROADMAP ──── */}
-              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 min-w-0">
-                {/* 1. Header Row */}
-                <div className="space-y-2 pb-1">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-sans uppercase tracking-wider bg-[#FFF0F0] text-[#A31D24] border border-[#FECDD3]">
-                      <FileText className="h-3.5 w-3.5" />
+            <>
+              {/* ─── 1. STICKY HEADER BAR (Matching Sử Ký Studio Modal Header) ─── */}
+              <div className="px-6 py-4 bg-white border-b border-[#EBE4D8] flex items-center justify-between gap-4 shrink-0">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider bg-[#FDE9E9] text-[#A31D24] border border-rose-200/60 whitespace-nowrap">
+                      <FileText className="h-3 w-3 shrink-0" />
                       HỢP ĐỒNG #{contract.id}
                     </span>
 
-                    {/* Action buttons on header */}
-                    <div className="flex items-center gap-2 flex-wrap pr-8">
-                      {/* Chat 1-1 Toggle Tab (User requirement: click vào mới mở ra) */}
-                      <button
-                        type="button"
-                        onClick={() => setIsChatOpen(!isChatOpen)}
-                        className={cn(
-                          'inline-flex items-center gap-1.5 h-8 px-3.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-2xs font-sans active:scale-[0.98]',
-                          isChatOpen
-                            ? 'bg-[#FFF0F0] border-[#FECDD3] text-[#A31D24]'
-                            : 'bg-white border-stone-200 text-stone-700 hover:bg-stone-50 hover:border-stone-300'
-                        )}
-                        title={isChatOpen ? 'Thu gọn phòng Chat 1-1' : 'Mở phòng Chat 1-1'}
-                      >
-                        <MessageSquare className="h-3.5 w-3.5 text-[#A31D24]" />
-                        <span>Phòng Chat 1-1</span>
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse ml-0.5" />
-                      </button>
-
-                      {/* Negotiating Action Buttons */}
-                      {isNegotiating && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setOpenEditRoadmap(true)}
-                            className="h-8 px-3 text-xs rounded-xl border-stone-200 bg-white text-[#A31D24] hover:bg-rose-50 flex items-center gap-1.5 font-semibold active:scale-[0.98]"
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span>Sửa toàn bộ lộ trình</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={handleCancelContract}
-                            disabled={cancelContractMutation.isPending}
-                            className="h-8 px-3 text-xs rounded-xl border-stone-200 bg-white text-rose-700 hover:bg-rose-50 flex items-center gap-1.5 font-semibold active:scale-[0.98]"
-                          >
-                            <Ban className="h-3.5 w-3.5" />
-                            <span>Hủy hợp đồng</span>
-                          </Button>
-                        </>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap',
+                        contractStatusBadge.className
                       )}
-                    </div>
+                    >
+                      <span
+                        className={cn(
+                          'h-1.5 w-1.5 rounded-full shrink-0',
+                          contractStatusBadge.dotColor
+                        )}
+                      />
+                      {contractStatusBadge.label}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1 text-[11px] text-stone-500 font-medium whitespace-nowrap">
+                      <Calendar className="h-3 w-3 text-stone-400 shrink-0" />
+                      Ngày lập: {formatDate(contract.createdAt)}
+                    </span>
                   </div>
 
-                  <DialogTitle className="text-xl sm:text-2xl font-bold font-sans text-stone-900 tracking-tight leading-snug">
-                    {contract.title || 'Chi tiết Hợp đồng Lộ trình Milestone'}
+                  <DialogTitle className="font-serif text-lg sm:text-xl font-bold text-[#1C1615] tracking-tight leading-snug truncate">
+                    {contract.title || 'Hợp đồng Sản xuất Nội dung Lịch sử'}
                   </DialogTitle>
-
-                  <DialogDescription className="text-xs sm:text-[13px] text-stone-500 font-sans leading-relaxed">
-                    Khách hàng đặt nội dung:{' '}
-                    <strong className="text-stone-800 font-semibold">
-                      {contract.requesterFullName || contract.freelancerFullName || 'Khán giả'}
-                    </strong>
-                    {contract.requesterEmail && (
-                      <span className="text-stone-500"> ({contract.requesterEmail})</span>
-                    )}
+                  <DialogDescription className="sr-only">
+                    Chi tiết hợp đồng #{contract.id} với khách hàng {customerDisplayName}
                   </DialogDescription>
                 </div>
 
-                {/* 2. Four KPI / Stat Cards (Exact match from reference image) */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {/* Card 1: Tổng giá trị (Khách trả) */}
-                  <div className="rounded-2xl border border-stone-200/80 bg-[#FAF9F6] p-4 space-y-1 shadow-2xs">
-                    <span className="text-xs text-stone-500 font-sans block truncate">
-                      Tổng giá trị (Khách trả)
-                    </span>
-                    <span className="text-base sm:text-lg font-bold font-sans text-stone-900 block truncate">
-                      {formatVND(contract.totalAmount || 0)}
-                    </span>
-                    <span className="text-[11px] text-stone-400 font-sans block truncate">
-                      {milestones.length} giai đoạn
-                    </span>
+                {/* Top Right Actions */}
+                <div className="flex items-center gap-2 shrink-0">
+                  {onOpenCustomerChat && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenCustomerChat(contract);
+                      }}
+                      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-white hover:bg-[#FDE9E9]/50 border border-[#EBE4D8] hover:border-[#A31D24]/40 text-[#1C1615] hover:text-[#A31D24] text-xs font-semibold transition-all duration-150 cursor-pointer shadow-2xs active:scale-[0.98] whitespace-nowrap"
+                      title="Chuyển đến mục Tin nhắn với khách hàng này"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5 text-[#A31D24] shrink-0" />
+                      <span>
+                        {contract.status === 'CANCELLED' || contract.status === 'COMPLETED'
+                          ? 'Xem lịch sử chat'
+                          : 'Mở chat với khách hàng'}
+                      </span>
+                      <ArrowUpRight className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                    </button>
+                  )}
+
+                  {isNegotiating && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setOpenEditRoadmap(true)}
+                        className="h-9 px-3 text-xs rounded-xl border-[#EBE4D8] bg-white text-[#A31D24] hover:bg-rose-50 flex items-center gap-1.5 font-semibold whitespace-nowrap"
+                      >
+                        <Edit3 className="h-3.5 w-3.5 shrink-0" />
+                        <span>Sửa lộ trình</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCancelContract}
+                        disabled={cancelContractMutation.isPending}
+                        className="h-9 px-3 text-xs rounded-xl border-[#EBE4D8] bg-white text-rose-700 hover:bg-rose-50 flex items-center gap-1.5 font-semibold whitespace-nowrap"
+                      >
+                        <Ban className="h-3.5 w-3.5 shrink-0" />
+                        <span>Hủy hợp đồng</span>
+                      </Button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Đóng cửa sổ"
+                    className="h-9 w-9 rounded-xl bg-white border border-[#EBE4D8] hover:bg-stone-100 text-stone-500 hover:text-[#1C1615] flex items-center justify-center transition-colors cursor-pointer shadow-2xs shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Error Banner */}
+              {actionError && (
+                <div className="mx-6 mt-4 p-3 text-xs text-rose-900 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 font-sans shrink-0">
+                  <AlertCircle className="h-4 w-4 text-[#A31D24] shrink-0" />
+                  <span>{actionError}</span>
+                </div>
+              )}
+
+              {/* ─── 2. SCROLLABLE BODY ─── */}
+              <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 bg-[#FAF8F5]">
+                {/* Row 1: 3 KPI-Style Financial Cards (Matching CommissionsKpiCards.tsx 100%) */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Card 1: Tổng giá trị */}
+                  <div className="rounded-2xl border border-[#EBE4D8] bg-white p-3.5 shadow-2xs flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FDE9E9] text-[#A31D24] flex items-center justify-center shrink-0">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block truncate">
+                        Tổng giá trị (Khách trả)
+                      </span>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        <span className="text-lg sm:text-xl font-bold font-mono tabular-nums text-[#1C1615] leading-none">
+                          {formatVND(contract.totalAmount || 0)}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-stone-400 block truncate mt-0.5">
+                        100% giá trị • {milestones.length} giai đoạn
+                      </span>
+                    </div>
                   </div>
 
                   {/* Card 2: Phí nền tảng (5%) */}
-                  <div className="rounded-2xl border border-rose-200/60 bg-rose-50/40 p-4 space-y-1 shadow-2xs">
-                    <span className="text-xs text-rose-800 font-sans block truncate flex items-center gap-1">
-                      <span className="font-bold font-mono">%</span> Phí nền tảng (5%)
-                    </span>
-                    <span className="text-base sm:text-lg font-bold font-sans text-rose-700 block truncate">
-                      {formatVND(contract.platformFee || Math.round((contract.totalAmount || 0) * 0.05))}
-                    </span>
-                    <span className="text-[11px] text-rose-600/80 font-sans block truncate">
-                      Thu khi giải ngân
-                    </span>
+                  <div className="rounded-2xl border border-[#EBE4D8] bg-white p-3.5 shadow-2xs flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FEF7E6] text-[#D97706] flex items-center justify-center shrink-0">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block truncate">
+                        Phí nền tảng (5%)
+                      </span>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        <span className="text-lg sm:text-xl font-bold font-mono tabular-nums text-[#1C1615] leading-none">
+                          {formatVND(
+                            contract.platformFee || Math.round((contract.totalAmount || 0) * 0.05)
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-stone-400 block truncate mt-0.5">
+                        Khấu trừ khi giải ngân
+                      </span>
+                    </div>
                   </div>
 
                   {/* Card 3: Creator thực nhận (95%) */}
-                  <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-4 space-y-1 shadow-2xs">
-                    <span className="text-xs text-emerald-800 font-sans block truncate">
-                      Creator thực nhận (95%)
-                    </span>
-                    <span className="text-base sm:text-lg font-bold font-sans text-emerald-700 block truncate">
-                      {formatVND(contract.netAmount || Math.round((contract.totalAmount || 0) * 0.95))}
-                    </span>
-                    <span className="text-[11px] text-emerald-600/80 font-sans block truncate">
-                      Vào ví khả dụng
-                    </span>
-                  </div>
-
-                  {/* Card 4: Trạng thái hợp đồng */}
-                  <div className="rounded-2xl border border-stone-200/80 bg-[#FAF9F6] p-4 space-y-1 shadow-2xs">
-                    <span className="text-xs text-stone-500 font-sans block truncate">
-                      Trạng thái hợp đồng
-                    </span>
-                    <div className="pt-0.5">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-sans bg-stone-200/80 text-stone-800">
-                        {contract.status}
+                  <div className="rounded-2xl border border-[#EBE4D8] bg-white p-3.5 shadow-2xs flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#EAFCF1] text-[#16A34A] flex items-center justify-center shrink-0">
+                      <ShieldCheck className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block truncate">
+                        Creator thực nhận (95%)
+                      </span>
+                      <div className="flex items-baseline gap-1.5 mt-0.5">
+                        <span className="text-lg sm:text-xl font-bold font-mono tabular-nums text-[#16A34A] leading-none">
+                          {formatVND(
+                            contract.netAmount || Math.round((contract.totalAmount || 0) * 0.95)
+                          )}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-stone-400 block truncate mt-0.5">
+                        Cộng thẳng vào ví khả dụng
                       </span>
                     </div>
-                    <span className="text-[11px] text-stone-400 font-sans block truncate pt-0.5">
-                      Tạo: {formatDate(contract.createdAt)}
-                    </span>
                   </div>
                 </div>
 
-                {/* 3. Ghi chú & Thỏa thuận */}
-                {contract.description && (
-                  <div className="space-y-1.5">
-                    <h4 className="text-xs font-bold text-stone-800 font-sans">
-                      Ghi chú &amp; Thỏa thuận
-                    </h4>
-                    <div className="rounded-xl border border-stone-200/80 bg-stone-50/60 p-3.5 text-xs sm:text-[13px] text-stone-700 leading-relaxed font-sans break-words shadow-2xs">
-                      {contract.description}
+                {/* Row 2: Customer Profile + Expandable Agreement Card */}
+                <div className="rounded-2xl border border-[#EBE4D8] bg-white p-4 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-10 w-10 rounded-full bg-[#FDE9E9] border border-rose-200/70 flex items-center justify-center text-[#A31D24] font-bold text-sm shrink-0">
+                        {(customerDisplayName || 'K')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-[#1C1615] truncate">
+                            {customerDisplayName}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-[#EAFCF1] px-2 py-0.5 rounded-full border border-emerald-200/60">
+                            <ShieldCheck className="h-2.5 w-2.5" />
+                            <span>Khách hàng đặt nội dung</span>
+                          </span>
+                        </div>
+                        {contract.requesterEmail && (
+                          <p className="text-[11px] text-stone-500 font-mono truncate mt-0.5">
+                            {contract.requesterEmail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Escrow Policy Badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-stone-600">
+                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] border border-[#EBE4D8] font-medium whitespace-nowrap">
+                        Sửa tối đa 2 lần (+2 ngày/lần)
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-[#FAF8F5] border border-[#EBE4D8] font-medium whitespace-nowrap">
+                        Tự động duyệt sau 3 ngày
+                      </span>
                     </div>
                   </div>
-                )}
 
-                {/* 4. Quy định Escrow Bar */}
-                <div className="p-3 rounded-xl border border-stone-200/80 bg-[#FAF9F6] flex flex-wrap items-center gap-2 text-xs font-sans shadow-2xs">
-                  <span className="text-xs font-bold text-stone-700 flex items-center gap-1.5 shrink-0">
-                    <ShieldCheck className="h-4 w-4 text-[#A31D24]" />
-                    Quy định Escrow:
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white border border-stone-200 text-stone-700 shadow-2xs">
-                    Tối đa 2 lần sửa miễn phí (+2 ngày/lần)
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white border border-stone-200 text-stone-700 shadow-2xs">
-                    Tự động duyệt sau 3 ngày
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-white border border-stone-200 text-stone-700 shadow-2xs">
-                    Hoàn 100% nếu Creator trễ hạn
-                  </span>
+                  {/* Expandable Multi-Line Agreement Note */}
+                  {(() => {
+                    const noteText =
+                      contract.description ||
+                      'Thực hiện đúng tiến độ và tiêu chuẩn chất lượng của từng mốc bàn giao bên dưới.';
+                    const isLongNote =
+                      noteText.length > 130 || (noteText.match(/\n/g)?.length || 0) >= 2;
+                    return (
+                      <div className="rounded-xl bg-[#FAF8F5] border border-[#EBE4D8] px-3.5 py-2.5 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                            Ghi chú &amp; Thỏa thuận hợp đồng
+                          </span>
+                          {isLongNote && (
+                            <button
+                              type="button"
+                              onClick={() => setIsNoteExpanded((prev) => !prev)}
+                              className="text-[11px] font-semibold text-[#A31D24] hover:underline cursor-pointer inline-flex items-center gap-0.5"
+                            >
+                              <span>{isNoteExpanded ? 'Thu gọn' : 'Xem đầy đủ'}</span>
+                              <ChevronDown
+                                className={cn(
+                                  'h-3 w-3 transition-transform duration-150',
+                                  isNoteExpanded && 'rotate-180'
+                                )}
+                              />
+                            </button>
+                          )}
+                        </div>
+                        <p
+                          className={cn(
+                            'text-xs sm:text-[13px] text-[#1C1615] leading-relaxed break-words whitespace-pre-line',
+                            !isNoteExpanded && isLongNote && 'line-clamp-2',
+                            isNoteExpanded && 'max-h-40 overflow-y-auto pr-1'
+                          )}
+                        >
+                          {noteText}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
-                {/* 5. Section: Tiến độ từng giai đoạn (Collapsible Cards per Stage) */}
-                <div className="space-y-3.5 pt-1">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm sm:text-base font-bold text-stone-900 font-sans flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-[#A31D24]" />
-                      <span>Tiến độ từng giai đoạn ({milestones.length} mốc)</span>
-                    </h4>
+                {/* ─── 3. MILESTONES ROADMAP SECTION ─── */}
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <h4 className="text-sm sm:text-base font-bold text-[#1C1615] flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-[#A31D24] shrink-0" />
+                        <span>Lộ trình bàn giao ({milestones.length} mốc)</span>
+                      </h4>
+
+                      {/* Current Milestone Position Badge */}
+                      {milestones.length > 0 && (
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap',
+                            contract.status === 'COMPLETED'
+                              ? 'bg-[#EAFCF1] text-[#16A34A] border-emerald-200/70'
+                              : contract.status === 'PENDING'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                              : contract.status === 'REJECTED'
+                              ? 'bg-rose-50 text-rose-800 border-rose-200/80'
+                              : contract.status === 'CANCELLED'
+                              ? 'bg-stone-100 text-stone-600 border-stone-200'
+                              : currentStageMilestone
+                              ? 'bg-[#FDE9E9] text-[#A31D24] border-rose-200/70'
+                              : 'bg-stone-100 text-stone-700 border-stone-200'
+                          )}
+                        >
+                          {contract.status === 'COMPLETED' ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-[#16A34A]" />
+                              <span>Đã hoàn tất {milestones.length}/{milestones.length} mốc</span>
+                            </>
+                          ) : contract.status === 'PENDING' ? (
+                            <>
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                              <span>Chưa bắt đầu — Chờ khách chấp thuận lộ trình</span>
+                            </>
+                          ) : contract.status === 'REJECTED' ? (
+                            <>
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                              <span>Khách yêu cầu sửa — Chờ cập nhật &amp; gửi lại lộ trình</span>
+                            </>
+                          ) : contract.status === 'CANCELLED' ? (
+                            <span>Hợp đồng đã hủy</span>
+                          ) : currentStageMilestone ? (
+                            <>
+                              <span className="h-1.5 w-1.5 rounded-full bg-[#A31D24]" />
+                              <span>
+                                Đang ở Mốc #{currentStageMilestone.orderNo}/{milestones.length}:{' '}
+                                {currentStageMilestone.title}
+                                {currentStageMilestone.status === 'UNFUNDED'
+                                  ? ' (Chờ khách nạp cọc)'
+                                  : currentStageMilestone.status === 'SUBMITTED'
+                                  ? ' (Chờ khách nghiệm thu)'
+                                  : ' (Đang thực hiện)'}
+                              </span>
+                            </>
+                          ) : (
+                            <span>Chưa bắt đầu</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (collapsedMilestones.size > 0) {
+                          setCollapsedMilestones(new Set());
+                        } else {
+                          setCollapsedMilestones(new Set(milestones.map((m) => m.id)));
+                        }
+                      }}
+                      className="text-xs font-semibold text-stone-600 hover:text-[#A31D24] transition-colors cursor-pointer whitespace-nowrap"
+                    >
+                      {collapsedMilestones.size === milestones.length
+                        ? 'Mở rộng chi tiết'
+                        : 'Thu gọn tất cả'}
+                    </button>
                   </div>
+
+                  {/* Interactive Multi-Milestone Stepper Bar (when >= 2 milestones) */}
+                  {milestones.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                      {milestones.map((m, idx) => {
+                        const isDone = m.status === 'RELEASED' || m.status === 'APPROVED';
+                        const isCurrent = currentStageMilestone?.id === m.id;
+                        return (
+                          <React.Fragment key={m.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCollapsedMilestones((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(m.id);
+                                  return next;
+                                });
+                              }}
+                              className={cn(
+                                'px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0',
+                                isCurrent
+                                  ? 'bg-[#A31D24] text-white border-[#A31D24] shadow-2xs'
+                                  : isDone
+                                  ? 'bg-[#EAFCF1] text-[#16A34A] border-emerald-200/70'
+                                  : 'bg-white text-stone-600 border-[#EBE4D8] hover:bg-stone-50'
+                              )}
+                            >
+                              {isDone && <CheckCircle2 className="h-3 w-3 text-[#16A34A]" />}
+                              <span>Mốc #{m.orderNo}</span>
+                              <span className="opacity-80 max-w-[120px] truncate">
+                                • {m.title}
+                              </span>
+                            </button>
+                            {idx < milestones.length - 1 && (
+                              <div className="w-4 h-px bg-[#D5CFC5] shrink-0" />
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="space-y-3">
                     {milestones.map((m) => {
                       const workStatus = formatMilestoneWorkStatus(m.status);
-                      const escrowStatus = formatMilestoneEscrowStatus(m.escrowStatus);
+                      const escrowStatus = formatMilestoneEscrowStatus(
+                        m.escrowStatus || 'UNFUNDED'
+                      );
                       const overdue = isMilestoneOverdue(m);
                       const revisionInfo = getMilestoneRevisionInfo(m);
                       const milestoneDispute = disputes.find((d) => d.milestoneId === m.id);
                       const isCollapsed = collapsedMilestones.has(m.id);
+                      const isCurrentStage =
+                        currentStageMilestone?.id === m.id &&
+                        contract.status !== 'CANCELLED' &&
+                        contract.status !== 'REJECTED' &&
+                        contract.status !== 'COMPLETED';
+                      const isDoneStage = m.status === 'RELEASED' || m.status === 'APPROVED';
+                      const effectiveWorkVariant =
+                        (m.status || '').toUpperCase() === 'CANCELLED'
+                          ? 'default'
+                          : workStatus.variant;
 
                       return (
                         <div
                           key={m.id}
                           className={cn(
-                            'rounded-2xl border p-4 sm:p-5 shadow-2xs transition-all duration-200 bg-white hover:border-stone-300 space-y-3',
+                            'rounded-2xl border transition-all duration-150 bg-white overflow-hidden shadow-2xs',
                             milestoneDispute
-                              ? 'border-rose-400 bg-rose-50/20'
+                              ? 'border-rose-400'
                               : overdue
-                                ? 'border-rose-300 bg-rose-50/10'
-                                : revisionInfo.hasRevisions && m.status === 'IN_PROGRESS'
-                                  ? 'border-amber-300/80 bg-amber-50/10'
-                                  : 'border-stone-200/90'
+                              ? 'border-rose-300'
+                              : isCurrentStage
+                              ? 'border-[#A31D24]/40 ring-1 ring-[#A31D24]/10'
+                              : 'border-[#EBE4D8] hover:border-[#D5CFC5]'
                           )}
                         >
-                          {/* Card Header Row: Badge #OrderNo + Title + Badges + Chevron Toggle */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold font-sans bg-stone-100 text-stone-800 border border-stone-200/80 shrink-0">
+                          {/* Milestone Header Bar */}
+                          <div
+                            onClick={() => toggleMilestoneCollapse(m.id)}
+                            className="px-4 py-3.5 bg-white hover:bg-[#FAF8F5] flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none transition-colors"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div
+                                className={cn(
+                                  'w-9 h-9 rounded-xl font-bold text-xs flex items-center justify-center shrink-0',
+                                  isCurrentStage
+                                    ? 'bg-[#A31D24] text-white shadow-2xs'
+                                    : isDoneStage
+                                    ? 'bg-[#EAFCF1] text-[#16A34A]'
+                                    : 'bg-[#FDE9E9] text-[#A31D24]'
+                                )}
+                              >
                                 #{m.orderNo}
-                              </span>
-                              <h5 className="text-sm font-bold text-stone-900 font-sans truncate">
-                                {m.title}
-                              </h5>
+                              </div>
 
-                              {milestoneDispute && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white shrink-0">
-                                  <ShieldAlert className="h-3 w-3" />
-                                  {milestoneDispute.status === 'RESOLVED' ? 'Đã phân xử' : 'FROZEN'}
-                                </span>
-                              )}
-                              {overdue && !milestoneDispute && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  Quá hạn
-                                </span>
-                              )}
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h5 className="text-sm font-bold text-[#1C1615] truncate">
+                                    {m.title}
+                                  </h5>
+                                  {isCurrentStage && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FDE9E9] text-[#A31D24] border border-rose-200/70 shrink-0 whitespace-nowrap">
+                                      Đang ở mốc này
+                                    </span>
+                                  )}
+                                  {milestoneDispute && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-600 text-white shrink-0 whitespace-nowrap">
+                                      <ShieldAlert className="h-3 w-3" />
+                                      {milestoneDispute.status === 'RESOLVED'
+                                        ? 'Đã phân xử'
+                                        : 'Đang tranh chấp'}
+                                    </span>
+                                  )}
+                                  {overdue && !milestoneDispute && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 shrink-0 whitespace-nowrap">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Quá hạn
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-stone-500 mt-0.5 flex-wrap">
+                                  <span className="font-mono font-bold text-[#1C1615] tabular-nums">
+                                    {formatVND(m.amount)}
+                                  </span>
+                                  <span>•</span>
+                                  <span className="text-[#16A34A] font-medium font-mono tabular-nums">
+                                    Thực nhận: {formatVND(m.netAmount || Math.round(m.amount * 0.95))}
+                                  </span>
+                                  <span>•</span>
+                                  <span>{m.durationDays || 3} ngày</span>
+                                </div>
+                              </div>
                             </div>
 
                             <div className="flex items-center gap-2 shrink-0">
-                              <Badge variant={workStatus.variant} className="text-[10px] px-2.5 py-0.5 font-sans font-semibold">
-                                • {workStatus.label}
-                              </Badge>
-                              <Badge variant={escrowStatus.variant} className="text-[10px] px-2.5 py-0.5 font-sans font-medium">
-                                Escrow: {escrowStatus.label}
-                              </Badge>
+                              {contract.status === 'PENDING' && m.status === 'WAITING' ? (
+                                <Badge
+                                  variant="pending"
+                                  className="text-[11px] px-2.5 py-0.5 font-sans font-semibold whitespace-nowrap"
+                                >
+                                  Chờ khách duyệt lộ trình
+                                </Badge>
+                              ) : contract.status === 'REJECTED' && m.status === 'WAITING' ? (
+                                <Badge
+                                  variant="error"
+                                  className="text-[11px] px-2.5 py-0.5 font-sans font-semibold whitespace-nowrap"
+                                >
+                                  Chờ cập nhật lộ trình
+                                </Badge>
+                              ) : isContractActive && m.status === 'WAITING' ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[11px] px-2.5 py-0.5 font-sans font-medium whitespace-nowrap"
+                                >
+                                  Chờ mở khóa (sau Mốc #{Math.max(1, m.orderNo - 1)})
+                                </Badge>
+                              ) : (
+                                <>
+                                  <Badge
+                                    variant={effectiveWorkVariant}
+                                    className="text-[11px] px-2.5 py-0.5 font-sans font-semibold whitespace-nowrap"
+                                  >
+                                    {m.status === 'UNFUNDED' ? 'Chờ khách ký quỹ' : workStatus.label}
+                                  </Badge>
+                                  <Badge
+                                    variant={escrowStatus.variant}
+                                    className="text-[11px] px-2.5 py-0.5 font-sans font-medium whitespace-nowrap"
+                                  >
+                                    Ký quỹ: {escrowStatus.label}
+                                  </Badge>
+                                </>
+                              )}
 
-                              {/* Collapse / Expand Arrow Button (User requirement) */}
                               <button
                                 type="button"
-                                onClick={() => toggleMilestoneCollapse(m.id)}
-                                aria-label={isCollapsed ? `Mở rộng mốc #${m.orderNo}` : `Thu gọn mốc #${m.orderNo}`}
-                                className="h-7 w-7 rounded-lg border border-stone-200 bg-white text-stone-500 hover:text-stone-800 hover:bg-stone-50 flex items-center justify-center transition-all cursor-pointer shadow-2xs active:scale-[0.96] ml-1"
-                                title={isCollapsed ? 'Mở rộng giai đoạn này' : 'Thu gọn giai đoạn này'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleMilestoneCollapse(m.id);
+                                }}
+                                aria-label={
+                                  isCollapsed
+                                    ? `Mở rộng mốc #${m.orderNo}`
+                                    : `Thu gọn mốc #${m.orderNo}`
+                                }
+                                className="h-8 w-8 rounded-xl border border-[#EBE4D8] bg-[#FAF8F5] text-stone-500 hover:text-[#1C1615] flex items-center justify-center transition-colors cursor-pointer shrink-0"
                               >
                                 <ChevronDown
                                   className={cn(
-                                    'h-4 w-4 transition-transform duration-200 text-stone-600',
+                                    'h-4 w-4 transition-transform duration-200 ease-out text-stone-600',
                                     isCollapsed && '-rotate-90'
                                   )}
                                 />
@@ -534,63 +853,75 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                             </div>
                           </div>
 
-                          {/* Expanded Content */}
+                          {/* Milestone Expanded Details */}
                           {!isCollapsed && (
-                            <div className="space-y-3.5 pt-2 border-t border-stone-100 animate-in fade-in-50 duration-200">
-                              {/* Cam kết bàn giao */}
-                              <div className="space-y-1">
-                                <span className="text-xs font-semibold text-stone-600 font-sans">
-                                  Cam kết bàn giao:
-                                </span>
-                                <p className="bg-stone-50/80 p-3 rounded-xl border border-stone-200/70 text-xs sm:text-[13px] text-stone-800 leading-relaxed font-sans break-words shadow-2xs">
-                                  {m.requirement || 'Chưa cập nhật chi tiết yêu cầu'}
-                                </p>
-                              </div>
-
-                              {/* 4 Stat Boxes (Giá trị, Thực nhận, Thời gian, Lượt sửa) */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                                <div className="rounded-xl border border-stone-200/70 bg-[#FAF9F6] p-2.5 space-y-0.5">
-                                  <span className="text-[11px] text-stone-500 font-sans block">Giá trị mốc:</span>
-                                  <strong className="text-sm font-bold font-sans text-stone-900 block">
+                            <div className="p-4 border-t border-[#EBE4D8] space-y-3.5 bg-[#FAF8F5]/50">
+                              {/* 4-Column Metric Strip */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#EBE4D8] rounded-xl border border-[#EBE4D8] bg-white">
+                                <div className="p-3 space-y-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block whitespace-nowrap">
+                                    Giá trị mốc
+                                  </span>
+                                  <strong className="text-sm font-bold font-mono text-[#1C1615] tabular-nums block whitespace-nowrap">
                                     {formatVND(m.amount)}
                                   </strong>
                                 </div>
 
-                                <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/30 p-2.5 space-y-0.5">
-                                  <span className="text-[11px] text-emerald-800 font-sans block">Thực nhận (95%):</span>
-                                  <strong className="text-sm font-bold font-sans text-emerald-700 block">
+                                <div className="p-3 space-y-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block whitespace-nowrap">
+                                    Thực nhận (95%)
+                                  </span>
+                                  <strong className="text-sm font-bold font-mono text-[#16A34A] tabular-nums block whitespace-nowrap">
                                     {formatVND(m.netAmount || Math.round(m.amount * 0.95))}
                                   </strong>
                                 </div>
 
-                                <div className="rounded-xl border border-stone-200/70 bg-[#FAF9F6] p-2.5 space-y-0.5">
-                                  <span className="text-[11px] text-stone-500 font-sans block">Thời gian:</span>
-                                  <span className="text-sm font-semibold font-sans text-stone-800 block">
-                                    {m.durationDays || 3} ngày
+                                <div className="p-3 space-y-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block whitespace-nowrap">
+                                    Thời gian thực hiện
                                   </span>
+                                  <strong className="text-sm font-bold text-[#1C1615] block whitespace-nowrap">
+                                    {m.durationDays || 3} ngày
+                                  </strong>
                                 </div>
 
-                                <div className="rounded-xl border border-stone-200/70 bg-[#FAF9F6] p-2.5 space-y-0.5">
-                                  <span className="text-[11px] text-stone-500 font-sans block">Lượt sửa:</span>
-                                  <span className="text-sm font-semibold font-sans text-stone-800 block">
-                                    {m.revisionsUsed || 0}/{m.maxRevisions || 2} lần (+2 ngày/lần)
+                                <div className="p-3 space-y-0.5">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block whitespace-nowrap">
+                                    Hạn mức chỉnh sửa
                                   </span>
+                                  <strong className="text-sm font-bold text-[#1C1615] block whitespace-nowrap">
+                                    {m.revisionsUsed || 0}/{m.maxRevisions || 2} lần (+2 ngày)
+                                  </strong>
                                 </div>
+                              </div>
+
+                              {/* Cam kết bàn giao (Clean White Card) */}
+                              <div className="rounded-xl border border-[#EBE4D8] bg-white px-3.5 py-2.5 space-y-1">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                                  Cam kết bàn giao giai đoạn #{m.orderNo}
+                                </span>
+                                <p className="text-xs sm:text-[13px] text-[#1C1615] leading-relaxed break-words whitespace-pre-line">
+                                  {m.requirement || 'Chưa cập nhật chi tiết yêu cầu bàn giao.'}
+                                </p>
                               </div>
 
                               {/* Dispute Alert Box */}
                               {milestoneDispute && (
-                                <div className="rounded-xl border border-rose-300 bg-rose-50/70 p-3.5 space-y-2 text-xs font-sans">
+                                <div className="rounded-xl border border-rose-300 bg-rose-50/70 p-3.5 space-y-2 text-xs">
                                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                                    <span className="font-bold text-rose-900 flex items-center gap-1.5 text-xs">
+                                    <span className="font-bold text-rose-900 flex items-center gap-1.5">
                                       <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0" />
                                       Khiếu nại tranh chấp #{milestoneDispute.id} (Tiền bảo chứng: ĐÓNG BĂNG)
                                     </span>
                                     <Badge
-                                      variant={milestoneDispute.status === 'RESOLVED' ? 'success' : 'error'}
+                                      variant={
+                                        milestoneDispute.status === 'RESOLVED' ? 'success' : 'error'
+                                      }
                                       className="text-[10px]"
                                     >
-                                      {milestoneDispute.status === 'RESOLVED' ? 'Đã giải quyết' : 'Chờ Admin phân xử'}
+                                      {milestoneDispute.status === 'RESOLVED'
+                                        ? 'Đã giải quyết'
+                                        : 'Chờ Admin phân xử'}
                                     </Badge>
                                   </div>
 
@@ -607,15 +938,19 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                     )}
                                     {milestoneDispute.counterEvidence ? (
                                       <div className="p-2 rounded-lg bg-emerald-50/90 border border-emerald-200 text-emerald-900 text-[11px] break-words">
-                                        <strong className="text-emerald-800">Giải trình đối chất: </strong>
+                                        <strong className="text-emerald-800">
+                                          Giải trình đối chất:{' '}
+                                        </strong>
                                         <span>{milestoneDispute.counterEvidence}</span>
                                       </div>
                                     ) : milestoneDispute.status === 'OPEN' ? (
                                       <div className="pt-1">
                                         <Button
                                           size="sm"
-                                          onClick={() => setSelectedDisputeForCounter(milestoneDispute)}
-                                          className="h-8 px-3 text-xs rounded-xl bg-[#A31D24] text-white hover:bg-[#8F181E] font-semibold shadow-2xs active:scale-[0.98] transition-all"
+                                          onClick={() =>
+                                            setSelectedDisputeForCounter(milestoneDispute)
+                                          }
+                                          className="h-8 px-3 text-xs rounded-xl bg-[#A31D24] text-white hover:bg-[#8F181E] font-semibold shadow-2xs"
                                         >
                                           <ShieldCheck className="h-3.5 w-3.5 mr-1" />
                                           Gửi bằng chứng đối chất
@@ -627,7 +962,8 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                       <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-1">
                                         <p className="font-bold">
                                           Quyết định của Admin: {milestoneDispute.result}
-                                          {milestoneDispute.splitPercent != null && ` (${milestoneDispute.splitPercent}%)`}
+                                          {milestoneDispute.splitPercent != null &&
+                                            ` (${milestoneDispute.splitPercent}%)`}
                                         </p>
                                         {milestoneDispute.resolution && (
                                           <p className="text-[11px] text-emerald-800 italic">
@@ -642,44 +978,50 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
 
                               {/* Overdue Alert Banner */}
                               {overdue && !milestoneDispute && (
-                                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3 flex items-start gap-2.5 text-xs text-rose-800 font-sans">
+                                <div className="rounded-xl border border-rose-200 bg-rose-50/80 p-3 flex items-start gap-2.5 text-xs text-rose-800">
                                   <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
                                   <div className="space-y-0.5">
                                     <p className="font-bold text-rose-900">
                                       Giai đoạn này đã quá hạn bàn giao!
                                     </p>
                                     <p className="text-[11px] text-rose-700 leading-relaxed">
-                                      Hạn chót ban đầu: {m.dueAt ? formatDateTime(m.dueAt) : 'Chưa xác định'}. Khách hàng có quyền hủy mốc này và nhận hoàn tiền 100%. Vui lòng nộp thành phẩm ngay.
+                                      Hạn chót ban đầu:{' '}
+                                      {m.dueAt ? formatDateTime(m.dueAt) : 'Chưa xác định'}. Khách
+                                      hàng có quyền hủy mốc này và nhận hoàn tiền 100%. Vui lòng
+                                      nộp thành phẩm ngay.
                                     </p>
                                   </div>
                                 </div>
                               )}
 
                               {/* Revision Request Banner */}
-                              {revisionInfo.hasRevisions && revisionInfo.latestRevisionNote && !milestoneDispute && (
-                                <div className="rounded-xl border border-amber-200/90 bg-amber-50/60 p-3 space-y-1.5 text-xs text-amber-900 font-sans">
-                                  <div className="flex items-center justify-between font-bold text-amber-800 text-[11px]">
-                                    <span className="flex items-center gap-1.5">
-                                      <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
-                                      Yêu cầu chỉnh sửa từ Khách hàng:
-                                    </span>
-                                    <span className="text-[10px] text-amber-700/80">
-                                      Tự động gia hạn +{revisionInfo.revisionDays} ngày
-                                    </span>
+                              {revisionInfo.hasRevisions &&
+                                revisionInfo.latestRevisionNote &&
+                                !milestoneDispute && (
+                                  <div className="rounded-xl border border-amber-200/90 bg-amber-50/60 p-3 space-y-1.5 text-xs text-amber-900">
+                                    <div className="flex items-center justify-between font-bold text-amber-800 text-[11px]">
+                                      <span className="flex items-center gap-1.5">
+                                        <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                                        Yêu cầu chỉnh sửa từ Khách hàng:
+                                      </span>
+                                      <span className="text-[10px] text-amber-700/80">
+                                        Tự động gia hạn +{revisionInfo.revisionDays} ngày
+                                      </span>
+                                    </div>
+                                    <p className="bg-white/80 p-2.5 rounded-lg border border-amber-200/60 text-xs italic text-stone-800 break-words leading-relaxed">
+                                      &ldquo;{revisionInfo.latestRevisionNote}&rdquo;
+                                    </p>
                                   </div>
-                                  <p className="bg-white/80 p-2.5 rounded-lg border border-amber-200/60 text-xs italic text-stone-800 break-words leading-relaxed">
-                                    &ldquo;{revisionInfo.latestRevisionNote}&rdquo;
-                                  </p>
-                                </div>
-                              )}
+                                )}
 
                               {/* Auto-Approval Notice */}
                               {m.status === 'SUBMITTED' && m.reviewDueAt && !milestoneDispute && (
-                                <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 p-2.5 flex items-center justify-between gap-2 text-xs text-blue-900 flex-wrap font-sans">
+                                <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 p-2.5 flex items-center justify-between gap-2 text-xs text-blue-900 flex-wrap">
                                   <div className="flex items-center gap-2">
                                     <Clock className="h-4 w-4 text-blue-600 shrink-0" />
                                     <span>
-                                      Đã nộp bài. Khách hàng có 3 ngày nghiệm thu (đến <strong>{formatDateTime(m.reviewDueAt)}</strong>).
+                                      Đã nộp bài. Khách hàng có 3 ngày nghiệm thu (đến{' '}
+                                      <strong>{formatDateTime(m.reviewDueAt)}</strong>).
                                     </span>
                                   </div>
                                   <span className="text-[10px] font-semibold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200 shrink-0">
@@ -689,33 +1031,40 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                               )}
 
                               {/* 3-Day Safety Hold Notice */}
-                              {m.status === 'APPROVED' && m.releaseAvailableAt && !milestoneDispute && (
-                                <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-2.5 flex items-center justify-between gap-2 text-xs text-emerald-900 flex-wrap font-sans">
-                                  <div className="flex items-center gap-2">
-                                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                                    <span>
-                                      Khách đã duyệt nghiệm thu! Đang tạm giữ an toàn 3 ngày (đến <strong>{formatDateTime(m.releaseAvailableAt)}</strong>).
+                              {m.status === 'APPROVED' &&
+                                m.releaseAvailableAt &&
+                                !milestoneDispute && (
+                                  <div className="rounded-xl border border-emerald-200/80 bg-emerald-50/50 p-2.5 flex items-center justify-between gap-2 text-xs text-emerald-900 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                                      <span>
+                                        Khách đã duyệt nghiệm thu! Đang tạm giữ an toàn 3 ngày (đến{' '}
+                                        <strong>{formatDateTime(m.releaseAvailableAt)}</strong>).
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
+                                      Tự động giải ngân 95%
                                     </span>
                                   </div>
-                                  <span className="text-[10px] font-semibold text-emerald-700 bg-white px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
-                                    Tự động giải ngân 95%
-                                  </span>
-                                </div>
-                              )}
+                                )}
 
                               {/* Released Payout Confirmation */}
                               {m.escrowStatus === 'RELEASED' && (
-                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 flex items-center gap-2 text-xs text-emerald-900 font-sans">
+                                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-2.5 flex items-center gap-2 text-xs text-emerald-900">
                                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                                   <span>
-                                    Đã giải ngân thành công <strong>{formatVND(m.netAmount || Math.round(m.amount * 0.95))}</strong> (95%) vào số dư ví khả dụng của bạn.
+                                    Đã giải ngân thành công{' '}
+                                    <strong>
+                                      {formatVND(m.netAmount || Math.round(m.amount * 0.95))}
+                                    </strong>{' '}
+                                    (95%) vào số dư ví khả dụng của bạn.
                                   </span>
                                 </div>
                               )}
 
                               {/* Milestone Reviews List */}
                               {m.reviews && m.reviews.length > 0 && (
-                                <div className="space-y-1.5 pt-1 font-sans">
+                                <div className="space-y-1.5 pt-1">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1">
                                     <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
                                     Đánh giá nghiệm thu ({m.reviews.length})
@@ -763,17 +1112,24 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                 </div>
                               )}
 
-                              {/* Milestone Action Buttons Row (Exact match from reference) */}
+                              {/* Milestone Action Buttons Row */}
                               <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-100">
-                                <div className="flex items-center gap-3 text-xs text-stone-500 flex-wrap font-sans">
-                                  {m.dueAt && (
-                                    <span className="flex items-center gap-1.5 font-sans">
+                                <div className="flex items-center gap-3 text-xs text-stone-500 flex-wrap">
+                                  {m.dueAt ? (
+                                    <span className="flex items-center gap-1.5 whitespace-nowrap">
                                       <Clock className="h-3.5 w-3.5 text-stone-400" />
-                                      Hạn nộp: <strong className="text-stone-700">{formatDateTime(m.dueAt)}</strong>
+                                      Hạn nộp:{' '}
+                                      <strong className="text-stone-700">
+                                        {formatDateTime(m.dueAt)}
+                                      </strong>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] text-stone-400">
+                                      Thời hạn tính từ lúc khách hàng ký quỹ mốc này
                                     </span>
                                   )}
                                   {m.reviewDueAt && m.status === 'SUBMITTED' && (
-                                    <span className="flex items-center gap-1.5 text-amber-700 font-sans">
+                                    <span className="flex items-center gap-1.5 text-amber-700 whitespace-nowrap">
                                       <Clock className="h-3.5 w-3.5" />
                                       Hạn khách duyệt: {formatDateTime(m.reviewDueAt)}
                                     </span>
@@ -781,14 +1137,13 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                 </div>
 
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  {/* In negotiating mode: Creator can edit or delete this milestone */}
                                   {isNegotiating && (
                                     <>
                                       <Button
                                         size="sm"
                                         variant="outline"
                                         onClick={() => setSelectedMilestoneForEdit(m)}
-                                        className="h-8 px-2.5 text-xs rounded-xl border-stone-200 bg-white text-stone-700 hover:bg-stone-50 flex items-center gap-1 active:scale-[0.98] transition-all font-sans"
+                                        className="h-8 px-2.5 text-xs rounded-xl border-stone-200 bg-white text-stone-700 hover:bg-stone-50 flex items-center gap-1 whitespace-nowrap"
                                       >
                                         <Edit3 className="h-3.5 w-3.5 text-stone-500" />
                                         <span>Sửa mốc</span>
@@ -800,7 +1155,7 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                           variant="outline"
                                           onClick={() => handleDeleteMilestone(m.id)}
                                           disabled={deleteMilestoneMutation.isPending}
-                                          className="h-8 px-2.5 text-xs rounded-xl border-stone-200 bg-white text-rose-700 hover:bg-rose-50 flex items-center gap-1 active:scale-[0.98] transition-all font-sans"
+                                          className="h-8 px-2.5 text-xs rounded-xl border-stone-200 bg-white text-rose-700 hover:bg-rose-50 flex items-center gap-1 whitespace-nowrap"
                                         >
                                           <Trash2 className="h-3.5 w-3.5" />
                                           <span>Xóa mốc</span>
@@ -809,43 +1164,39 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                     </>
                                   )}
 
-                                  {/* View Deliverables */}
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => setSelectedMilestoneForDeliverables(m)}
-                                    className="h-8 px-3 text-xs rounded-xl border-stone-200 bg-white text-stone-800 hover:bg-stone-50 flex items-center gap-1.5 active:scale-[0.98] transition-all shadow-2xs font-sans font-medium"
+                                    className="h-8 px-3 text-xs rounded-xl border-stone-200 bg-white text-stone-800 hover:bg-stone-50 flex items-center gap-1.5 font-medium whitespace-nowrap"
                                   >
                                     <FolderOpen className="h-3.5 w-3.5 text-stone-500" />
                                     <span>Tệp bàn giao</span>
                                   </Button>
 
-                                  {/* Upload Deliverable Button (Primary Red #A31D24) */}
                                   {m.status === 'IN_PROGRESS' && (
                                     <Button
                                       size="sm"
                                       onClick={() => setSelectedMilestoneForUpload(m)}
-                                      className="h-8 px-3.5 text-xs rounded-xl bg-[#A31D24] text-white hover:bg-[#8F181E] font-semibold flex items-center gap-1.5 shadow-xs active:scale-[0.98] transition-all font-sans"
+                                      className="h-8 px-3.5 text-xs rounded-xl bg-[#A31D24] text-white hover:bg-[#8F181E] font-semibold flex items-center gap-1.5 shadow-xs whitespace-nowrap"
                                     >
                                       <UploadCloud className="h-3.5 w-3.5" />
                                       <span>Nộp thành phẩm</span>
                                     </Button>
                                   )}
 
-                                  {/* Review Milestone Button */}
                                   {(m.status === 'APPROVED' || m.status === 'RELEASED') && (
                                     <Button
                                       size="sm"
                                       variant="outline"
                                       onClick={() => setSelectedMilestoneForReview(m)}
-                                      className="h-8 px-3 text-xs rounded-xl border-amber-300 text-amber-800 hover:bg-amber-50 flex items-center gap-1 active:scale-[0.98] transition-all font-sans font-medium"
+                                      className="h-8 px-3 text-xs rounded-xl border-amber-300 text-amber-800 hover:bg-amber-50 flex items-center gap-1 font-medium whitespace-nowrap"
                                     >
                                       <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
                                       <span>Đánh giá</span>
                                     </Button>
                                   )}
 
-                                  {/* Open Dispute Button */}
                                   {!milestoneDispute &&
                                     (m.status === 'IN_PROGRESS' ||
                                       m.status === 'SUBMITTED' ||
@@ -854,7 +1205,7 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                         size="sm"
                                         variant="outline"
                                         onClick={() => setSelectedMilestoneForDispute(m)}
-                                        className="h-8 px-2.5 text-xs rounded-xl border-stone-200 bg-white text-stone-600 hover:text-rose-700 hover:bg-rose-50 flex items-center gap-1 active:scale-[0.98] transition-all font-sans"
+                                        className="h-8 px-2.5 text-xs rounded-xl border-stone-200 bg-white text-stone-600 hover:text-rose-700 hover:bg-rose-50 flex items-center gap-1 whitespace-nowrap"
                                         title="Khiếu nại tranh chấp giai đoạn này"
                                       >
                                         <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
@@ -871,114 +1222,7 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                   </div>
                 </div>
               </div>
-
-              {/* ─── RIGHT COLUMN: COLLAPSIBLE CHAT 1-1 PANEL ─────────────── */}
-              {isChatOpen && (
-                <div className="w-full lg:w-[410px] xl:w-[440px] shrink-0 border-t lg:border-t-0 lg:border-l border-stone-200/80 flex flex-col bg-stone-50/40 animate-in slide-in-from-right-4 duration-300">
-                  {/* Chat Header */}
-                  <div className="p-4 border-b border-stone-200/80 bg-white flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-10 w-10 rounded-full bg-[#FFF0F0] border border-[#FECDD3] flex items-center justify-center shrink-0 text-[#A31D24] font-sans font-bold text-sm shadow-2xs">
-                        {conversation?.partnerAvatarUrl ? (
-                          <img
-                            src={conversation.partnerAvatarUrl}
-                            alt={conversation.partnerName || 'Khán giả'}
-                            className="h-full w-full rounded-full object-cover"
-                          />
-                        ) : (
-                          (contract.requesterFullName || conversation?.partnerName || 'K')[0].toUpperCase()
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-stone-900 font-sans truncate">
-                            {contract.requesterEmail || conversation?.partnerEmail || 'customer@example.com'}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-sans px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 font-medium">
-                            • Đã mở khóa
-                          </span>
-                        </div>
-                        <span className="text-[11px] text-stone-500 font-sans truncate block pt-0.5">
-                          {contract.title}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Minimize Chat Button */}
-                    <button
-                      type="button"
-                      onClick={() => setIsChatOpen(false)}
-                      className="h-7 w-7 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 flex items-center justify-center transition-colors cursor-pointer"
-                      title="Thu gọn phòng chat"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {/* Chat Negotiation Notice Banner (Exact match from design) */}
-                  <div className="p-3.5 m-3.5 rounded-xl border border-amber-200/80 bg-amber-50/70 text-xs text-amber-900 space-y-1 font-sans shrink-0 shadow-2xs">
-                    <div className="font-semibold flex items-center gap-1.5 text-amber-800 text-xs">
-                      <Radio className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                      <span>Quy tắc thương lượng bảo chứng Escrow:</span>
-                    </div>
-                    <p className="text-[11px] text-amber-800/90 leading-relaxed">
-                      Hai bên thống nhất kịch bản, thời gian và số chặng Milestone tại đây. Sau khi chốt, Creator bấm &ldquo;Lập lộ trình&rdquo; để gửi bảng giá và các giai đoạn cho khách hàng ký quỹ.
-                    </p>
-                  </div>
-
-                  {/* Message Stream */}
-                  <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
-                    <div className="flex justify-center my-1">
-                      <span className="px-3 py-0.5 rounded-full bg-stone-200/70 text-stone-600 text-[10px] font-sans">
-                        Hôm nay
-                      </span>
-                    </div>
-
-                    {localMessages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col ${msg.sender === 'me' ? 'items-end' : 'items-start'} space-y-1`}
-                      >
-                        <div
-                          className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs sm:text-[13px] leading-relaxed shadow-2xs break-words font-sans ${
-                            msg.sender === 'me'
-                              ? 'bg-[#A31D24] text-white rounded-br-xs'
-                              : 'bg-white text-stone-800 border border-stone-200/80 rounded-bl-xs'
-                          }`}
-                        >
-                          {msg.text}
-                        </div>
-                        <span className="text-[10px] text-stone-400 font-sans px-1">
-                          {msg.time}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Message Input Box */}
-                  <form
-                    onSubmit={handleSendChatMessage}
-                    className="p-3 border-t border-stone-200/80 bg-white flex items-center gap-2 shrink-0"
-                  >
-                    <input
-                      type="text"
-                      value={chatInputText}
-                      onChange={(e) => setChatInputText(e.target.value)}
-                      placeholder="Nhập tin nhắn trao đổi kịch bản, yêu cầu kỹ thuật..."
-                      className="flex-1 h-9 px-3 text-xs rounded-xl border border-stone-200 bg-stone-50/50 text-stone-800 placeholder-stone-400 focus:border-[#A31D24] focus:ring-1 focus:ring-[#A31D24] outline-hidden font-sans transition-all"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!chatInputText.trim()}
-                      className="h-9 px-4 rounded-xl bg-[#A31D24] text-white hover:bg-[#8F181E] disabled:opacity-50 text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer font-sans shrink-0 active:scale-[0.98]"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      <span>Gửi</span>
-                    </button>
-                  </form>
-                </div>
-              )}
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

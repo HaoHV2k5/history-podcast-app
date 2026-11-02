@@ -31,6 +31,8 @@ const CREATOR_ROUTE_NAME_MAP: Record<string, string> = {
   create: 'Tạo nội dung mới',
   series: 'Tuyển tập tác phẩm',
   livestream: 'Phát trực tiếp',
+  commissions: 'Đơn đặt hàng & Hợp đồng',
+  contracts: 'Hợp đồng & Lộ trình',
   kyc: 'Xác thực KYC',
   channel: 'Quản lý Kênh',
   wallet: 'Ví & Thu nhập',
@@ -81,7 +83,7 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
             <React.Fragment key={`${crumb.path}-${idx}`}>
               {idx > 0 && <ChevronRight className="h-3.5 w-3.5 text-border shrink-0" />}
               {crumb.isLast ? (
-                <span className="font-semibold text-ink truncate max-w-[160px] md:max-w-[220px]">
+                <span className="font-semibold text-ink truncate max-w-[200px] md:max-w-[260px]">
                   {crumb.name}
                 </span>
               ) : (
