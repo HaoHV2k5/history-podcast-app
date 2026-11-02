@@ -801,10 +801,15 @@ class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
   }
 
   Widget _transactionCard(WalletTransactionModel tx) {
-    final isPositive = tx.type == 'DEPOSIT' ||
-        tx.type == 'MEMBERSHIP_FEE' ||
-        tx.type == 'REFUND' ||
-        tx.type == 'ESCROW_RELEASE';
+    final typeUpper = tx.type.toUpperCase();
+    final isPositive = tx.amount < 0
+        ? false
+        : (typeUpper == 'DEPOSIT' ||
+            typeUpper == 'MEMBERSHIP_FEE' ||
+            typeUpper == 'REFUND' ||
+            typeUpper == 'ESCROW_REFUND' ||
+            typeUpper == 'ESCROW_RELEASE' ||
+            typeUpper == 'MILESTONE_RELEASE');
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -856,7 +861,7 @@ class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${isPositive ? '+' : '-'}${money(tx.amount.round())}',
+                '${isPositive ? '+' : '-'}${money(tx.amount.abs().round())}',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
