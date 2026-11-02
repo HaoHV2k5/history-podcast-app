@@ -8,6 +8,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Eye,
 } from 'lucide-react';
 import { ContractItem } from '@/types/contract';
 import { formatDate, formatVND } from '@/utils/formatters';
@@ -56,11 +57,23 @@ export const ContractCard: React.FC<ContractCardProps> = ({
       aria-label={`Hợp đồng #${contract.id}: ${contract.title || 'Sản xuất nội dung'}`}
     >
       {/* 1. Left: 16:9 Thumbnail Image with Contract ID badge */}
-      <div className="w-full sm:w-48 md:w-52 h-36 sm:h-28 rounded-xl overflow-hidden shrink-0 border border-stone-200/80 relative bg-stone-100 select-none">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onViewDetail(contract.id)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onViewDetail(contract.id);
+          }
+        }}
+        title={`Xem chi tiết & tiến độ hợp đồng #${contract.id}: ${contract.title || 'Sản xuất nội dung'}`}
+        className="w-full sm:w-48 md:w-52 h-36 sm:h-28 rounded-xl overflow-hidden shrink-0 border border-stone-200/80 relative bg-stone-100 select-none cursor-pointer group/thumb focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D24]"
+      >
         <img
           src={thumbnailUrl}
           alt={contract.title || 'Hợp đồng'}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-105 group-hover:scale-105"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = '/assets/studio/topic-bach-dang-938.png';
           }}
@@ -69,6 +82,14 @@ export const ContractCard: React.FC<ContractCardProps> = ({
         <span className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-black/60 text-white backdrop-blur-xs">
           HỢP ĐỒNG #{contract.id}
         </span>
+
+        {/* Hover Cue: "Xem tiến độ" */}
+        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/thumb:opacity-100 transition-opacity duration-200 flex items-center justify-center pointer-events-none">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 backdrop-blur-xs text-white text-[11px] font-medium border border-white/20 shadow-md">
+            <Eye className="h-3.5 w-3.5 text-rose-300" />
+            <span>Xem tiến độ</span>
+          </span>
+        </div>
       </div>
 
       {/* 2. Middle: Content & Progress */}
@@ -81,7 +102,19 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             </span>
           </div>
 
-          <h3 className="text-sm sm:text-base font-bold text-stone-900 group-hover:text-[#A31D24] transition-colors line-clamp-1 break-words font-sans">
+          <h3
+            role="button"
+            tabIndex={0}
+            onClick={() => onViewDetail(contract.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onViewDetail(contract.id);
+              }
+            }}
+            title={`Xem chi tiết & tiến độ hợp đồng #${contract.id}: ${contract.title || 'Sản xuất nội dung'}`}
+            className="text-sm sm:text-base font-bold text-stone-900 hover:text-[#A31D24] group-hover:text-[#A31D24] transition-colors line-clamp-1 break-words font-sans cursor-pointer focus:outline-none focus-visible:underline text-left"
+          >
             {contract.title || 'Hợp đồng sản xuất nội dung'}
           </h3>
         </div>
