@@ -2905,9 +2905,7 @@ class _CreatorLivestreamStudioPageState
                         showDragHandle: true,
                         backgroundColor: Palette.paper,
                         shape: const RoundedRectangleBorder(
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(20),
-                          ),
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                         ),
                         builder: (_) => AuthSheet(state: widget.state),
                       ),
@@ -3552,12 +3550,8 @@ class _LivestreamExploreViewState extends State<LivestreamExploreView> {
           if (query.isNotEmpty) {
             final titleMatch = s.title.toLowerCase().contains(query);
             final channelMatch = s.channelName.toLowerCase().contains(query);
-            final creatorMatch = (s.creatorName ?? '').toLowerCase().contains(
-              query,
-            );
-            final descMatch = (s.description ?? '').toLowerCase().contains(
-              query,
-            );
+            final creatorMatch = (s.creatorName ?? '').toLowerCase().contains(query);
+            final descMatch = (s.description ?? '').toLowerCase().contains(query);
             if (!titleMatch && !channelMatch && !creatorMatch && !descMatch) {
               return false;
             }
@@ -3637,28 +3631,14 @@ class _LivestreamExploreViewState extends State<LivestreamExploreView> {
                   textAlignVertical: TextAlignVertical.center,
                   decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 10,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     hintText: 'Tìm kiếm phòng live, chủ đề, kênh...',
-                    hintStyle: const TextStyle(
-                      fontSize: 13,
-                      color: Palette.muted,
-                    ),
-                    prefixIcon: const Icon(
-                      CupertinoIcons.search,
-                      size: 16,
-                      color: Palette.muted,
-                    ),
+                    hintStyle: const TextStyle(fontSize: 13, color: Palette.muted),
+                    prefixIcon: const Icon(CupertinoIcons.search, size: 16, color: Palette.muted),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             key: const Key('livestream-search-clear-btn'),
-                            icon: const Icon(
-                              CupertinoIcons.clear_circled_solid,
-                              size: 16,
-                              color: Palette.muted,
-                            ),
+                            icon: const Icon(CupertinoIcons.clear_circled_solid, size: 16, color: Palette.muted),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _searchQuery = '');
@@ -3743,9 +3723,7 @@ class _LivestreamExploreViewState extends State<LivestreamExploreView> {
                         key: const Key('livestream-reset-filters-btn'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Palette.red,
-                          side: BorderSide(
-                            color: Palette.red.withValues(alpha: 0.4),
-                          ),
+                          side: BorderSide(color: Palette.red.withValues(alpha: 0.4)),
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -3754,10 +3732,7 @@ class _LivestreamExploreViewState extends State<LivestreamExploreView> {
                             _selectedFilter = 'Tất cả';
                           });
                         },
-                        icon: const Icon(
-                          CupertinoIcons.arrow_counterclockwise,
-                          size: 14,
-                        ),
+                        icon: const Icon(CupertinoIcons.arrow_counterclockwise, size: 14),
                         label: const Text('Xóa bộ lọc & tìm kiếm'),
                       ),
                     ],

@@ -43,25 +43,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verify server badge is visible with current IP
-    expect(find.byKey(const Key('auth-server-badge-btn')), findsOneWidget);
-    expect(find.textContaining('192.168.1.123:8080'), findsOneWidget);
-
-    // Tap server badge to open config dialog
-    await tester.tap(find.byKey(const Key('auth-server-badge-btn')));
-    await tester.pumpAndSettle();
-
-    // Verify dialog elements
-    expect(find.text('Cấu hình máy chủ API'), findsOneWidget);
-    expect(find.text('Wi-Fi máy tính (192.168.1.123)'), findsOneWidget);
-    expect(find.text('Giả lập Android (10.0.2.2)'), findsOneWidget);
-    expect(find.text('Localhost (localhost:8080)'), findsOneWidget);
-
-    // Tap "Hủy" to dismiss
-    await tester.tap(find.text('Hủy'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Cấu hình máy chủ API'), findsNothing);
+    // Verify server badge is hidden from the header for clean production UX
+    expect(find.byKey(const Key('auth-server-badge-btn')), findsNothing);
+    expect(find.textContaining('192.168.1.123:8080'), findsNothing);
   });
 
   testWidgets('AuthSheet catches TimeoutException and displays friendly error with config button', (tester) async {
