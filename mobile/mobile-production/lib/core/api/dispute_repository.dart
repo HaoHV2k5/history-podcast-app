@@ -3,7 +3,9 @@ import 'api_client.dart';
 class DisputeModel {
   final int id;
   final int contractId;
+  final String? contractTitle;
   final int? milestoneId;
+  final String? milestoneTitle;
   final int raisedByUserId;
   final String? raisedByName;
   final String reason;
@@ -11,7 +13,11 @@ class DisputeModel {
   final String? counterEvidenceUrl;
   final String? counterNote;
   final String status;
+  final String? result;
+  final double? splitPercent;
+  final String? resolvedByUserFullName;
   final String? resolution;
+  final String? resolvedAt;
   final double? refundCreatorPercent;
   final double? payFreelancerPercent;
   final String? createdAt;
@@ -19,7 +25,9 @@ class DisputeModel {
   DisputeModel({
     required this.id,
     required this.contractId,
+    this.contractTitle,
     this.milestoneId,
+    this.milestoneTitle,
     required this.raisedByUserId,
     this.raisedByName,
     required this.reason,
@@ -27,7 +35,11 @@ class DisputeModel {
     this.counterEvidenceUrl,
     this.counterNote,
     required this.status,
+    this.result,
+    this.splitPercent,
+    this.resolvedByUserFullName,
     this.resolution,
+    this.resolvedAt,
     this.refundCreatorPercent,
     this.payFreelancerPercent,
     this.createdAt,
@@ -36,16 +48,22 @@ class DisputeModel {
   factory DisputeModel.fromJson(Map<String, dynamic> json) {
     return DisputeModel(
       id: (json['id'] as num).toInt(),
-      contractId: (json['contractId'] as num).toInt(),
+      contractId: (json['contractId'] as num?)?.toInt() ?? 0,
+      contractTitle: json['contractTitle']?.toString(),
       milestoneId: (json['milestoneId'] as num?)?.toInt(),
+      milestoneTitle: json['milestoneTitle']?.toString(),
       raisedByUserId: (json['raisedByUserId'] as num?)?.toInt() ?? 0,
-      raisedByName: json['raisedByName']?.toString(),
+      raisedByName: (json['raisedByUserFullName'] ?? json['raisedByName'])?.toString(),
       reason: (json['reason'] ?? '').toString(),
-      evidenceUrl: json['evidenceUrl']?.toString(),
-      counterEvidenceUrl: json['counterEvidenceUrl']?.toString(),
+      evidenceUrl: (json['evidence'] ?? json['evidenceUrl'])?.toString(),
+      counterEvidenceUrl: (json['counterEvidence'] ?? json['counterEvidenceUrl'])?.toString(),
       counterNote: json['counterNote']?.toString(),
       status: (json['status'] ?? 'OPEN').toString(),
+      result: json['result']?.toString(),
+      splitPercent: (json['splitPercent'] as num?)?.toDouble(),
+      resolvedByUserFullName: json['resolvedByUserFullName']?.toString(),
       resolution: json['resolution']?.toString(),
+      resolvedAt: json['resolvedAt']?.toString(),
       refundCreatorPercent: (json['refundCreatorPercent'] as num?)?.toDouble(),
       payFreelancerPercent: (json['payFreelancerPercent'] as num?)?.toDouble(),
       createdAt: json['createdAt']?.toString(),
@@ -60,16 +78,19 @@ class DisputeRepository {
 
   /// 1. Mở khiếu nại / tranh chấp (POST /api/v1/disputes)
   Future<DisputeModel> openDispute({
-    required int contractId,
+    int? contractId,
     int? milestoneId,
     required String reason,
+    String? evidence,
     String? evidenceUrl,
   }) async {
+    final effectiveEvidence = evidence ?? evidenceUrl;
     final payload = {
-      'contractId': contractId,
+      if (contractId != null) 'contractId': contractId,
       if (milestoneId != null) 'milestoneId': milestoneId,
       'reason': reason,
-      if (evidenceUrl != null) 'evidenceUrl': evidenceUrl,
+      if (effectiveEvidence != null && effectiveEvidence.isNotEmpty)
+        'evidence': effectiveEvidence,
     };
     final res = await client.post('/api/v1/disputes', body: payload);
     final data = res['data'] as Map<String, dynamic>;
@@ -79,11 +100,21 @@ class DisputeRepository {
   /// 2. Bên còn lại nộp bằng chứng phản hồi (POST /api/v1/disputes/{id}/counter-evidence)
   Future<DisputeModel> submitCounterEvidence(
     int disputeId, {
-    required String counterEvidenceUrl,
+    String? counterEvidence,
+    String? counterEvidenceUrl,
     String? counterNote,
   }) async {
+    final effectiveCounter = [
+      if (counterEvidence != null && counterEvidence.trim().isNotEmpty)
+        counterEvidence.trim(),
+      if (counterEvidenceUrl != null && counterEvidenceUrl.trim().isNotEmpty)
+        counterEvidenceUrl.trim(),
+      if (counterNote != null && counterNote.trim().isNotEmpty)
+        counterNote.trim(),
+    ].join(' — ');
     final payload = {
-      'counterEvidenceUrl': counterEvidenceUrl,
+      'counterEvidence': effectiveCounter,
+      if (counterEvidenceUrl != null) 'counterEvidenceUrl': counterEvidenceUrl,
       if (counterNote != null) 'counterNote': counterNote,
     };
     final res = await client.post('/api/v1/disputes/$disputeId/counter-evidence', body: payload);

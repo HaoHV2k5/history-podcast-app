@@ -253,14 +253,14 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Nút "Trò chuyện" nằm ngay cạnh nút "Đăng tin"
+      // Nút "Trò chuyện" nằm ngay cạnh nút "Đặt nội dung"
       final chatBtnFinder = find.byKey(const Key('open-chat-hub-btn'));
-      final postBtnFinder = find.byKey(const Key('open-post-job-btn'));
+      final commissionBtnFinder = find.byKey(const Key('open-commission-channel-picker-btn'));
 
       expect(chatBtnFinder, findsOneWidget);
-      expect(postBtnFinder, findsOneWidget);
-      expect(find.text('Trò chuyện'), findsOneWidget);
-      expect(find.text('Đăng tin'), findsOneWidget);
+      expect(commissionBtnFinder, findsOneWidget);
+      expect(find.text('Trò chuyện 1-1'), findsOneWidget);
+      expect(find.text('Đặt làm nội dung'), findsOneWidget);
 
       // Bấm nút "Trò chuyện" mở Chat Hub
       await tester.tap(chatBtnFinder);
@@ -271,6 +271,34 @@ void main() {
       expect(find.byKey(const Key('chat-hub-tab-contracts')), findsOneWidget);
       expect(find.byKey(const Key('chat-hub-tab-apps')), findsOneWidget);
       expect(find.byKey(const Key('chat-hub-tab-quick')), findsOneWidget);
+    });
+
+    testWidgets('Chat Sheet enters Read-Only Archive mode when contract is COMPLETED', (tester) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(),
+          home: Scaffold(
+            body: CreatorFreelancerChatSheet(
+              contractId: 105,
+              contractStatus: 'COMPLETED',
+              partnerName: 'Sử Gia Trần Quốc',
+              senderRole: 'CUSTOMER',
+              preferences: prefs,
+              onCreateNewCommission: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('chat-readonly-archive-bar')), findsOneWidget);
+      expect(find.byKey(const Key('chat-archive-new-commission-btn')), findsOneWidget);
+      expect(find.byKey(const Key('chat-message-input')), findsNothing);
     });
   });
 }

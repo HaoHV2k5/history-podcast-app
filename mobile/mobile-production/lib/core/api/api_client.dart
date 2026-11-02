@@ -262,6 +262,55 @@ class ApiClient {
     return _handleResponse(response);
   }
 
+  /// Tải dữ liệu nhị phân (PDF, Audio, Video, Ảnh, ZIP...) có đính kèm JWT Bearer Token
+  Future<({List<int> bytes, String contentType, String? filename})> getBytes(
+    String path, {
+    Map<String, String>? queryParams,
+  }) async {
+    Future<http.Response> doGet(String? bearerToken) {
+      var uri = Uri.parse('$_baseUrl$path');
+      if (queryParams != null && queryParams.isNotEmpty) {
+        uri = uri.replace(queryParameters: queryParams);
+      }
+      final headers = <String, String>{};
+      if (bearerToken != null && bearerToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $bearerToken';
+      }
+      return _http.get(uri, headers: headers).timeout(defaultTimeout);
+    }
+
+    var response = await doGet(token);
+    if (response.statusCode == 401 && !_isAuthEndpoint(path)) {
+      final newToken = await refreshAccessToken();
+      if (newToken != null && newToken.isNotEmpty) {
+        response = await doGet(newToken);
+      }
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final contentType =
+          response.headers['content-type'] ?? 'application/octet-stream';
+      String? filename;
+      final disposition = response.headers['content-disposition'];
+      if (disposition != null) {
+        final match = RegExp(r'filename="([^"]+)"').firstMatch(disposition);
+        if (match != null) {
+          filename = match.group(1);
+        }
+      }
+      return (
+        bytes: response.bodyBytes,
+        contentType: contentType,
+        filename: filename,
+      );
+    }
+
+    throw ApiException(
+      statusCode: response.statusCode,
+      message: 'Không thể tải tệp sản phẩm bàn giao (${response.statusCode})',
+    );
+  }
+
   Map<String, dynamic> _handleResponse(http.Response response) {
     final utf8Body = utf8.decode(response.bodyBytes);
     final dynamic decoded = utf8Body.isNotEmpty ? jsonDecode(utf8Body) : {};

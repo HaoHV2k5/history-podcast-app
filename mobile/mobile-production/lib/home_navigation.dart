@@ -60,21 +60,21 @@ class HomeTabBar extends StatefulWidget {
     'Khám phá',
     'Trực tiếp',
     'Tạo video',
-    'Tuyển dụng',
+    'Đặt nội dung',
     'Cá nhân',
   ];
   static const icons = [
     CupertinoIcons.compass,
     CupertinoIcons.dot_radiowaves_left_right,
     CupertinoIcons.plus,
-    CupertinoIcons.briefcase,
+    CupertinoIcons.layers_alt,
     CupertinoIcons.person,
   ];
   static const selectedIcons = [
     CupertinoIcons.compass_fill,
     CupertinoIcons.dot_radiowaves_left_right,
     CupertinoIcons.plus,
-    CupertinoIcons.briefcase_fill,
+    CupertinoIcons.layers_alt_fill,
     CupertinoIcons.person_fill,
   ];
   static const labelStyle = TextStyle(

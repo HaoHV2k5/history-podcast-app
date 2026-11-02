@@ -327,6 +327,7 @@ class ContentRepository {
       return items.map((item) {
         final map = item as Map<String, dynamic>;
         final id = (map['id'] as num?)?.toInt();
+        final creatorId = (map['creatorId'] as num?)?.toInt();
         final name = map['name'] as String? ?? 'Kênh Sử Ký';
         final initial = name.isNotEmpty ? name.substring(0, 1) : 'S';
         final avatar =
@@ -343,6 +344,7 @@ class ContentRepository {
           avatar,
           description,
           id: id,
+          creatorId: creatorId,
           coverImage: cover,
         );
       }).toList();

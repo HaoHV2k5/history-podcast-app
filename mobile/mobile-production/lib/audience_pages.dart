@@ -7,6 +7,7 @@ import 'app_state.dart';
 import 'components.dart';
 import 'core/api/channel_repository.dart';
 import 'core/api/creator_series_repository.dart';
+import 'core/api/review_repository.dart';
 import 'design.dart';
 import 'artwork_image.dart';
 import 'artwork_state.dart';
@@ -51,6 +52,9 @@ class ChannelPage extends StatefulWidget {
 
 class _ChannelPageState extends State<ChannelPage> {
   String filter = 'Tất cả';
+  int? _resolvedChannelId;
+  int? _resolvedCreatorId;
+  List<ReviewModel> _creatorReviews = [];
 
   @override
   void initState() {
@@ -59,6 +63,71 @@ class _ChannelPageState extends State<ChannelPage> {
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
     }
+    _resolveChannelAndReviews();
+  }
+
+  Future<void> _resolveChannelAndReviews() async {
+    final remoteMatch = remoteChannels.firstWhere(
+      (rc) =>
+          (widget.channel.id != null && rc.id == widget.channel.id) ||
+          rc.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+      orElse: () => widget.channel,
+    );
+    final baseC = channelByName(widget.channel.name);
+    int? chId = remoteMatch.id ?? widget.channel.id ?? baseC.id;
+    int? crId = remoteMatch.creatorId ?? widget.channel.creatorId ?? baseC.creatorId;
+
+    if (widget.state.channelRepository != null) {
+      try {
+        if (chId != null && crId == null) {
+          final detail = await widget.state.channelRepository!.getChannelById(chId);
+          chId = detail.id;
+          crId = detail.creatorId;
+        } else if (chId == null) {
+          final all = await widget.state.channelRepository!.getAllChannels(size: 50);
+          final found = all.where(
+            (m) => m.name.trim().toLowerCase() == widget.channel.name.trim().toLowerCase(),
+          );
+          if (found.isNotEmpty) {
+            chId = found.first.id;
+            crId = found.first.creatorId;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() {
+        _resolvedChannelId = chId;
+        _resolvedCreatorId = crId;
+      });
+    }
+
+    if (crId != null && widget.state.reviewRepository != null) {
+      try {
+        final revs = await widget.state.reviewRepository!.getUserReviews(crId);
+        if (mounted) {
+          setState(() => _creatorReviews = revs);
+        }
+      } catch (_) {}
+    }
+  }
+
+  void _openCommissionSheet(Channel c) {
+    final chId = _resolvedChannelId ?? c.id ?? 1;
+    final crId = _resolvedCreatorId ?? c.creatorId ?? 2;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Palette.paper,
+      builder: (_) => CustomCommissionRequestSheet(
+        state: widget.state,
+        channelId: chId,
+        creatorId: crId,
+        channelName: c.name,
+      ),
+    );
   }
 
   @override
@@ -100,7 +169,8 @@ class _ChannelPageState extends State<ChannelPage> {
         remoteMatch.initial.isNotEmpty ? remoteMatch.initial : widget.channel.initial,
         avatarImage.isNotEmpty ? avatarImage : baseC.image,
         remoteMatch.description.isNotEmpty ? remoteMatch.description : baseC.description,
-        id: remoteMatch.id ?? widget.channel.id ?? baseC.id,
+        id: _resolvedChannelId ?? remoteMatch.id ?? widget.channel.id ?? baseC.id,
+        creatorId: _resolvedCreatorId ?? remoteMatch.creatorId ?? widget.channel.creatorId ?? baseC.creatorId,
         coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
         monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
         hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
@@ -110,6 +180,9 @@ class _ChannelPageState extends State<ChannelPage> {
       final member = widget.state.memberships.contains(c.name);
       final seriesList = widget.state.getChannelSeries(c.name);
       final plan = widget.state.getChannelPlan(c.name);
+      final isOwnChannel = widget.state.currentUserId != null &&
+          c.creatorId != null &&
+          widget.state.currentUserId == c.creatorId;
       final items = c.content.where((e) {
         if (filter == 'Công khai') return !e.membersOnly;
         if (filter == 'Hội viên') return e.membersOnly;
@@ -165,17 +238,68 @@ class _ChannelPageState extends State<ChannelPage> {
               style: const TextStyle(color: Palette.muted, fontSize: 12),
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () => widget.state.toggleFollow(c.name),
-                icon: Icon(
-                  followed ? CupertinoIcons.check_mark : CupertinoIcons.plus,
-                  size: 18,
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => widget.state.toggleFollow(c.name),
+                    icon: Icon(
+                      followed ? CupertinoIcons.check_mark : CupertinoIcons.plus,
+                      size: 18,
+                    ),
+                    label: Text(followed ? 'Đang theo dõi' : 'Theo dõi kênh'),
+                  ),
                 ),
-                label: Text(followed ? 'Đang theo dõi' : 'Theo dõi kênh'),
-              ),
+                if (!isOwnChannel) ...[
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('open-commission-form-btn'),
+                      style: FilledButton.styleFrom(backgroundColor: Palette.red),
+                      onPressed: () => _openCommissionSheet(c),
+                      icon: const Icon(CupertinoIcons.sparkles, size: 16),
+                      label: const Text('Đặt làm nội dung'),
+                    ),
+                  ),
+                ],
+              ],
             ),
+            if (_creatorReviews.isNotEmpty) ...[
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(CupertinoIcons.star_fill, size: 15, color: Color(0xFFD97706)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Đánh giá uy tín từ Hợp đồng đã hoàn thành (${_creatorReviews.length})',
+                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ..._creatorReviews.take(3).map(
+                      (r) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          '★ ${r.rating}/5 · ${r.reviewerFullName ?? 'Khách hàng'}: "${r.comment ?? 'Hoàn thành đúng tiến độ và chất lượng.'}"',
+                          style: const TextStyle(fontSize: 12, color: Palette.muted, height: 1.4),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (widget.state.activeLivestreamsForChannel(c).isNotEmpty) ...[
               const SizedBox(height: 20),
               ...widget.state
@@ -368,6 +492,365 @@ class _ChannelPageState extends State<ChannelPage> {
       );
     },
   );
+}
+
+/// Form 1 — Gửi / Cập nhật Yêu cầu Đặt làm Nội dung (Khách -> Creator)
+/// Tuân thủ tuyệt đối mục 6.1 của MILESTONE_FLOW_GUIDE.md:
+/// Chỉ gồm đúng 3 trường người dùng nhập:
+///   1. Loại nội dung đặt làm (contentType): SINGLE_VIDEO | SERIES
+///   2. Tiêu đề đề tài muốn đặt (title)
+///   3. Mô tả chi tiết mong muốn (description)
+class CustomCommissionRequestSheet extends StatefulWidget {
+  const CustomCommissionRequestSheet({
+    super.key,
+    required this.state,
+    required this.channelId,
+    required this.creatorId,
+    required this.channelName,
+    this.commissionId,
+    this.initialContentType = 'SINGLE_VIDEO',
+    this.initialTitle = '',
+    this.initialDescription = '',
+    this.onSubmitted,
+  });
+
+  final AppState state;
+  final int channelId;
+  final int creatorId;
+  final String channelName;
+  final int? commissionId;
+  final String initialContentType;
+  final String initialTitle;
+  final String initialDescription;
+  final VoidCallback? onSubmitted;
+
+  @override
+  State<CustomCommissionRequestSheet> createState() =>
+      _CustomCommissionRequestSheetState();
+}
+
+class _CustomCommissionRequestSheetState
+    extends State<CustomCommissionRequestSheet> {
+  late String _contentType;
+  late final TextEditingController _titleCtrl;
+  late final TextEditingController _descCtrl;
+  bool _submitting = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentType = widget.initialContentType == 'SERIES'
+        ? 'SERIES'
+        : 'SINGLE_VIDEO';
+    _titleCtrl = TextEditingController(text: widget.initialTitle);
+    _descCtrl = TextEditingController(text: widget.initialDescription);
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _descCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final title = _titleCtrl.text.trim();
+    final desc = _descCtrl.text.trim();
+    if (title.isEmpty || desc.isEmpty) {
+      setState(() {
+        _error = 'Vui lòng nhập đầy đủ tiêu đề đề tài và mô tả chi tiết mong muốn.';
+      });
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    try {
+      int resolvedChannelId = widget.channelId;
+      int resolvedCreatorId = widget.creatorId;
+
+      if (widget.commissionId == null && widget.state.channelRepository != null) {
+        try {
+          final detail = await widget.state.channelRepository!.getChannelById(resolvedChannelId);
+          resolvedChannelId = detail.id;
+          if (detail.creatorId != null) {
+            resolvedCreatorId = detail.creatorId!;
+          }
+        } catch (_) {}
+      }
+
+      if (widget.state.hireRequestRepository != null) {
+        if (widget.commissionId != null) {
+          await widget.state.hireRequestRepository!.updateCommission(
+            widget.commissionId!,
+            contentType: _contentType,
+            title: title,
+            description: desc,
+          );
+        } else {
+          await widget.state.hireRequestRepository!.createCommission(
+            channelId: resolvedChannelId,
+            creatorId: resolvedCreatorId,
+            contentType: _contentType,
+            title: title,
+            description: desc,
+          );
+        }
+      }
+
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      widget.onSubmitted?.call();
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.commissionId != null
+                ? 'Đã cập nhật yêu cầu đặt làm nội dung thành công.'
+                : 'Đã gửi yêu cầu đặt làm nội dung tới kênh "${widget.channelName}". Đơn đang chờ Creator chấp nhận mở Chat 1-1!',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEditing = widget.commissionId != null;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          22,
+          14,
+          22,
+          MediaQuery.viewInsetsOf(context).bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: Palette.line,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Eyebrow('KÊNH ${widget.channelName.toUpperCase()}'),
+                        const SizedBox(height: 4),
+                        Text(
+                          isEditing
+                              ? 'Chỉnh sửa yêu cầu đặt nội dung'
+                              : 'Đặt làm nội dung theo yêu cầu',
+                          style: editorial(22),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Đóng',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(CupertinoIcons.xmark, size: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Trường 1: Loại nội dung đặt làm (contentType)
+              const Text(
+                '1. Loại nội dung đặt làm *',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      key: const Key('commission-type-single-video'),
+                      label: const SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          'Video / Podcast lẻ',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      selected: _contentType == 'SINGLE_VIDEO',
+                      selectedColor: Palette.red.withValues(alpha: 0.14),
+                      side: BorderSide(
+                        color: _contentType == 'SINGLE_VIDEO'
+                            ? Palette.red
+                            : Palette.line,
+                      ),
+                      onSelected: (_) =>
+                          setState(() => _contentType = 'SINGLE_VIDEO'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ChoiceChip(
+                      key: const Key('commission-type-series'),
+                      label: const SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          'Series nhiều tập',
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      selected: _contentType == 'SERIES',
+                      selectedColor: Palette.red.withValues(alpha: 0.14),
+                      side: BorderSide(
+                        color: _contentType == 'SERIES'
+                            ? Palette.red
+                            : Palette.line,
+                      ),
+                      onSelected: (_) => setState(() => _contentType = 'SERIES'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Trường 2: Tiêu đề đề tài muốn đặt (title)
+              const Text(
+                '2. Tiêu đề đề tài muốn đặt *',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                key: const Key('commission-title-input'),
+                controller: _titleCtrl,
+                decoration: InputDecoration(
+                  hintText:
+                      'VD: Trận Bạch Đằng năm 938 dưới góc nhìn chiến thuật thủy chiến',
+                  hintStyle: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                  filled: true,
+                  fillColor: Palette.soft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Trường 3: Mô tả chi tiết mong muốn (description)
+              const Text(
+                '3. Mô tả chi tiết mong muốn *',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                key: const Key('commission-desc-input'),
+                controller: _descCtrl,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText:
+                      'VD: Mong muốn giọng kể hào hùng, thời lượng khoảng 20 phút, tập trung phân tích bãi cọc ngầm và thời điểm thủy triều rút...',
+                  hintStyle: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                  filled: true,
+                  fillColor: Palette.soft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Vị trí 1 — Policy Banner ngay dưới Form Đặt làm nội dung
+              Container(
+                key: const Key('commission-form-policy-banner'),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8E7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE6C27A)),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      CupertinoIcons.lightbulb_fill,
+                      size: 16,
+                      color: Color(0xFFB45309),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Bạn chưa phải thanh toán lúc này. Sau khi Creator chấp nhận đơn, phòng Chat 1-1 sẽ mở để hai bên thống nhất lộ trình và chỉ đóng cọc theo từng giai đoạn (Milestone).',
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.45,
+                          color: Color(0xFF78350F),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Palette.red, fontSize: 12.5),
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              FilledButton.icon(
+                key: const Key('submit-commission-btn'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Palette.red,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: _submitting ? null : _submit,
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Palette.white,
+                        ),
+                      )
+                    : const Icon(CupertinoIcons.paperplane_fill, size: 16),
+                label: Text(
+                  isEditing
+                      ? 'Lưu cập nhật yêu cầu'
+                      : 'Gửi yêu cầu đặt nội dung',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class SeriesDetailPage extends StatefulWidget {

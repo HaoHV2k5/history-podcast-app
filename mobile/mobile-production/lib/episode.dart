@@ -120,12 +120,14 @@ class Channel {
     this.image,
     this.description, {
     this.id,
+    this.creatorId,
     this.coverImage = '',
     this.monthlyPrice,
     this.hasBackendPlan = false,
   });
   final String name, initial, image, description;
   final int? id;
+  final int? creatorId;
   final String coverImage;
   final double? monthlyPrice;
   final bool hasBackendPlan;
@@ -164,6 +166,7 @@ List<Channel> get channels {
         avatarImg,
         existing.description.isNotEmpty ? existing.description : c.description,
         id: existing.id ?? c.id,
+        creatorId: existing.creatorId ?? c.creatorId,
         coverImage: coverImg,
         monthlyPrice: existing.monthlyPrice ?? c.monthlyPrice,
         hasBackendPlan: existing.hasBackendPlan || c.hasBackendPlan,

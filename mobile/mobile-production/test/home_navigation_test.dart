@@ -109,7 +109,7 @@ void main() {
       await tab(tester, 2);
       expect(find.text('Không gian sáng tạo'), findsWidgets);
       await tab(tester, 3);
-      expect(find.text('Tuyển dụng & Việc'), findsWidgets);
+      expect(find.text('Đơn đặt hàng & Lộ trình Milestone'), findsWidgets);
       await tab(tester, 4);
       expect(find.text('Góc của bạn'), findsWidgets);
       await tab(tester, 0);
