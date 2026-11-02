@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'components.dart';
 import 'design.dart';
@@ -299,6 +300,9 @@ class TopUpWalletSheet extends StatefulWidget {
 
 class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
   final _amountCtrl = TextEditingController(text: '500.000');
+  final _descCtrl = TextEditingController(
+    text: 'Nạp tiền vào ví Sử Ký qua VNPay Sandbox',
+  );
   int _selectedPreset = 500000;
   bool _busy = false;
   String? _error;
@@ -308,14 +312,16 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
   @override
   void dispose() {
     _amountCtrl.dispose();
+    _descCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_busy) return;
     final parsed = parseWalletAmount(_amountCtrl.text);
-    if (parsed == null || parsed < 50000) {
-      setState(() => _error = 'Nhập số tiền nạp hợp lệ từ 50.000đ trở lên.');
+    final minAmt = widget.ledger.isLiveBackend ? 10000 : 50000;
+    if (parsed == null || parsed < minAmt) {
+      setState(() => _error = 'Nhập số tiền nạp hợp lệ từ ${money(minAmt)} trở lên.');
       return;
     }
     setState(() {
@@ -323,7 +329,27 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
       _error = null;
     });
     try {
-      await widget.ledger.topUpWallet(widget.owner, parsed);
+      final paymentUrl = await widget.ledger.topUpWallet(
+        widget.owner,
+        parsed,
+        description: _descCtrl.text.trim(),
+      );
+      if (paymentUrl != null && paymentUrl.isNotEmpty) {
+        await widget.ledger.preferences.setBool(
+          'return_to_wallet_after_vnpay',
+          true,
+        );
+        final uri = Uri.tryParse(paymentUrl);
+        if (uri != null) {
+          try {
+            await launchUrl(
+              uri,
+              mode: LaunchMode.externalApplication,
+              webOnlyWindowName: '_self',
+            );
+          } catch (_) {}
+        }
+      }
       if (mounted) {
         Navigator.pop(context, true);
       }
@@ -357,12 +383,12 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Eyebrow('NẠP SỐ DƯ VÍ / CỔNG THANH TOÁN'),
+            const Eyebrow('NẠP SỐ DƯ VÍ / CỔNG THANH TOÁN VNPAY SANDBOX'),
             const SizedBox(height: 8),
             Text('Nạp tiền vào ví', style: editorial(24)),
             const SizedBox(height: 8),
             const Text(
-              'Nạp tiền vào ví để ký quỹ hợp đồng thu âm (Milestone Escrow) hoặc đăng ký gói Hội viên kênh.',
+              'Nạp tiền vào ví để ký quỹ hợp đồng thu âm (Milestone Escrow) hoặc đăng ký gói Hội viên kênh qua cổng VNPay Sandbox.',
               style: TextStyle(color: Palette.muted, fontSize: 13, height: 1.6),
             ),
             const SizedBox(height: 18),
@@ -400,10 +426,45 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
               style: const TextStyle(
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Số tiền nạp (VND)',
                 hintText: '500.000',
-                helperText: 'Tối thiểu 50.000đ · Hỗ trợ cổng VNPay Sandbox',
+                helperText: widget.ledger.isLiveBackend
+                    ? 'Tối thiểu 10.000đ · Hỗ trợ cổng VNPay Sandbox (NCB)'
+                    : 'Tối thiểu 50.000đ · Hỗ trợ cổng VNPay Sandbox',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('topup-desc-input'),
+              controller: _descCtrl,
+              enabled: !_busy,
+              decoration: const InputDecoration(
+                labelText: 'Nội dung nạp tiền',
+                hintText: 'Nạp tiền vào ví Sử Ký qua VNPay Sandbox',
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Palette.soft,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Palette.line),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Thẻ thử nghiệm VNPay Sandbox (NCB)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Palette.ink),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Số thẻ: 9704198526191432198 · Chủ thẻ: NGUYEN VAN A · Ngày: 07/15 · OTP: 123456',
+                    style: TextStyle(fontSize: 11.5, color: Palette.muted),
+                  ),
+                ],
               ),
             ),
             if (_error != null)
@@ -419,7 +480,7 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
               key: const Key('confirm-topup-btn'),
               onPressed: _busy ? null : _submit,
               icon: const Icon(CupertinoIcons.creditcard, size: 16),
-              label: Text(_busy ? 'Đang xử lý…' : 'Xác nhận nạp tiền'),
+              label: Text(_busy ? 'Đang chuyển sang VNPay…' : 'Xác nhận nạp tiền'),
             ),
           ],
         ),
