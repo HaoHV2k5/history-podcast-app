@@ -145,10 +145,10 @@ class AppState extends ChangeNotifier {
     userAvatarUrl = preferences.getString('userAvatarUrl');
     userRoles = preferences.getStringList('userRoles') ?? ['VIEWER'];
     isCreator = preferences.getBool('isCreator') ?? false;
-    isFreelancer = preferences.getBool('isFreelancer') ??
+    isFreelancer =
+        preferences.getBool('isFreelancer') ??
         preferences.getBool('isFreelancerActiveV1') ??
-        userRoles.contains('FREELANCER') ||
-        userRoles.contains('NARRATOR');
+        userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
     kycStatus = preferences.getString('kycStatus');
 
     recentSearches.addAll(
@@ -258,24 +258,24 @@ class AppState extends ChangeNotifier {
       livestreamRepository != null;
 
   CreatorState get creatorState => _creatorState ??= CreatorState(
-        preferences,
-        channelRepository: channelRepository,
-        kycRepository: kycRepository,
-        creatorStudioRepository: creatorStudioRepository,
-        creatorSeriesRepository: creatorSeriesRepository,
-        walletRepository: walletRepository,
-        withdrawalRepository: withdrawalRepository,
-        contractRepository: contractRepository,
-        hireRequestRepository: hireRequestRepository,
-        milestoneRepository: milestoneRepository,
-        deliverableRepository: deliverableRepository,
-        disputeRepository: disputeRepository,
-        chatRepository: chatRepository,
-        narratorProfileRepository: narratorProfileRepository,
-        narratorDemoRepository: narratorDemoRepository,
-        freelancerRepository: freelancerRepository,
-        postRepository: postRepository,
-      );
+    preferences,
+    channelRepository: channelRepository,
+    kycRepository: kycRepository,
+    creatorStudioRepository: creatorStudioRepository,
+    creatorSeriesRepository: creatorSeriesRepository,
+    walletRepository: walletRepository,
+    withdrawalRepository: withdrawalRepository,
+    contractRepository: contractRepository,
+    hireRequestRepository: hireRequestRepository,
+    milestoneRepository: milestoneRepository,
+    deliverableRepository: deliverableRepository,
+    disputeRepository: disputeRepository,
+    chatRepository: chatRepository,
+    narratorProfileRepository: narratorProfileRepository,
+    narratorDemoRepository: narratorDemoRepository,
+    freelancerRepository: freelancerRepository,
+    postRepository: postRepository,
+  );
   CreatorState? _creatorState;
 
   bool isLoadingCatalog = false;
@@ -346,7 +346,8 @@ class AppState extends ChangeNotifier {
         }
         userRoles = rolesSet.toList();
         isCreator = profile.isCreator || userRoles.contains('CREATOR');
-        isFreelancer = profile.isFreelancer ||
+        isFreelancer =
+            profile.isFreelancer ||
             userRoles.contains('FREELANCER') ||
             userRoles.contains('NARRATOR') ||
             preferences.getBool('isFreelancer') == true ||
@@ -634,26 +635,31 @@ class AppState extends ChangeNotifier {
         activeLivestreams
           ..clear()
           ..addAll(
-            liveList
-                .where((s) => s.status.toUpperCase() == 'LIVE')
-                .map((s) {
-                  if (s.channelName.isNotEmpty) return s;
-                  final chMatch = channels.where((c) => c.id == s.channelId);
-                  return chMatch.isNotEmpty
-                      ? s.copyWith(channelName: chMatch.first.name)
-                      : s;
-                }),
+            liveList.where((s) => s.status.toUpperCase() == 'LIVE').map((s) {
+              if (s.channelName.isNotEmpty) return s;
+              final chMatch = channels.where((c) => c.id == s.channelId);
+              return chMatch.isNotEmpty
+                  ? s.copyWith(channelName: chMatch.first.name)
+                  : s;
+            }),
           );
       } catch (_) {}
     }
 
     // Tự động thử fallback địa chỉ IP LAN nếu địa chỉ mặc định bị lỗi mạng
-    if (hadNetworkFailure && allowAutoFallback && apiClient != null && !kIsWeb) {
+    if (hadNetworkFailure &&
+        allowAutoFallback &&
+        apiClient != null &&
+        !kIsWeb) {
       final currentBase = apiClient!.baseUrl;
       String? fallbackUrl;
       if (currentBase.contains('10.0.2.2')) {
         fallbackUrl = 'http://192.168.1.123:8080';
-      } else if (currentBase.contains('192.168.1.115') || currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229') || currentBase.contains('192.168.1.80')) {
+      } else if (currentBase.contains('192.168.1.115') ||
+          currentBase.contains('192.168.1.72') ||
+          currentBase.contains('172.18.1.206') ||
+          currentBase.contains('10.87.31.229') ||
+          currentBase.contains('192.168.1.80')) {
         fallbackUrl = 'http://192.168.1.123:8080';
       }
       if (fallbackUrl != null) {
@@ -722,7 +728,9 @@ class AppState extends ChangeNotifier {
       seriesDetails[seriesId] = detail;
       for (final item in detail.items) {
         final epId = item.contentId.toString();
-        if (!allEpisodes.any((e) => e.id == epId || e.contentId == item.contentId)) {
+        if (!allEpisodes.any(
+          (e) => e.id == epId || e.contentId == item.contentId,
+        )) {
           final media = item.mediaUrl ?? '';
           final isVid =
               media.toLowerCase().endsWith('.mp4') ||
@@ -782,9 +790,7 @@ class AppState extends ChangeNotifier {
         .toList();
     if (bySeriesId.isNotEmpty) return bySeriesId;
     if (series.channelName != null && series.channelName!.isNotEmpty) {
-      return allEpisodes
-          .where((e) => e.channel == series.channelName)
-          .toList();
+      return allEpisodes.where((e) => e.channel == series.channelName).toList();
     }
     return const [];
   }
@@ -917,9 +923,7 @@ class AppState extends ChangeNotifier {
       if (idx >= 0) {
         activeLivestreams[idx] = session.channelName.isNotEmpty
             ? session
-            : session.copyWith(
-                channelName: activeLivestreams[idx].channelName,
-              );
+            : session.copyWith(channelName: activeLivestreams[idx].channelName);
         notifyListeners();
       }
       return session;
@@ -936,11 +940,12 @@ class AppState extends ChangeNotifier {
     if (!isHost && session.isExclusive && !canJoinLivestream(session)) {
       throw StateError('LIVESTREAM_MEMBER_REQUIRED');
     }
-    final effectiveUid = clientUid ??
+    final effectiveUid =
+        clientUid ??
         (isHost
             ? null
             : ((currentUserId ?? 1) * 1000 +
-                (DateTime.now().millisecondsSinceEpoch % 899 + 100)));
+                  (DateTime.now().millisecondsSinceEpoch % 899 + 100)));
     if (livestreamRepository != null) {
       final token = await livestreamRepository!.getJoinToken(
         session.id,
@@ -999,9 +1004,7 @@ class AppState extends ChangeNotifier {
     final idx = activeLivestreams.indexWhere((s) => s.id == sessionId);
     if (idx >= 0) {
       final current = activeLivestreams[idx];
-      final nextCount = reset
-          ? 0
-          : (current.viewerCount - 1).clamp(0, 999999);
+      final nextCount = reset ? 0 : (current.viewerCount - 1).clamp(0, 999999);
       final updated = current.copyWith(viewerCount: nextCount);
       activeLivestreams[idx] = updated;
       notifyListeners();
@@ -1143,6 +1146,7 @@ class AppState extends ChangeNotifier {
     }
     return msg;
   }
+
   final Map<String, String> checkoutStates = {};
   final List<String> queue = [];
   String checkoutStatus(String channel) =>
@@ -1304,7 +1308,9 @@ class AppState extends ChangeNotifier {
     }
     if (userRepository != null && isLoggedIn) {
       try {
-        final updated = await userRepository!.updateMyProfile(fullName: trimmed);
+        final updated = await userRepository!.updateMyProfile(
+          fullName: trimmed,
+        );
         if (updated.fullName.trim().isNotEmpty) {
           displayName = updated.fullName.trim();
         } else {
@@ -1344,7 +1350,8 @@ class AppState extends ChangeNotifier {
       if (initialRoles.isEmpty) initialRoles.add('VIEWER');
       userRoles = initialRoles.toList();
       isCreator = userRoles.contains('CREATOR');
-      isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
+      isFreelancer =
+          userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
       await preferences.setStringList('userRoles', userRoles);
       await preferences.setBool('isCreator', isCreator);
       await preferences.setBool('isFreelancer', isFreelancer);
@@ -1356,53 +1363,59 @@ class AppState extends ChangeNotifier {
               .getMyProfile()
               .timeout(const Duration(seconds: 4))
               .then((profile) async {
-            currentUserId = profile.id;
-            await preferences.setInt('currentUserId', profile.id);
-            if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
-              userAvatarUrl = profile.avatarUrl;
-              await preferences.setString('userAvatarUrl', userAvatarUrl!);
-            }
-            if (profile.fullName.trim().isNotEmpty) {
-              displayName = profile.fullName.trim();
-            }
-            if (profile.roles.isNotEmpty) {
-              initialRoles.addAll(profile.roles);
-            }
-            if (profile.isCreator) initialRoles.add('CREATOR');
-            if (profile.isFreelancer) initialRoles.add('FREELANCER');
-            userRoles = initialRoles.toList();
-            isCreator = userRoles.contains('CREATOR');
-            isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
-            await preferences.setStringList('userRoles', userRoles);
-            await preferences.setBool('isCreator', isCreator);
-            await preferences.setBool('isFreelancer', isFreelancer);
-          }).catchError((_) {}),
+                currentUserId = profile.id;
+                await preferences.setInt('currentUserId', profile.id);
+                if (profile.avatarUrl != null &&
+                    profile.avatarUrl!.isNotEmpty) {
+                  userAvatarUrl = profile.avatarUrl;
+                  await preferences.setString('userAvatarUrl', userAvatarUrl!);
+                }
+                if (profile.fullName.trim().isNotEmpty) {
+                  displayName = profile.fullName.trim();
+                }
+                if (profile.roles.isNotEmpty) {
+                  initialRoles.addAll(profile.roles);
+                }
+                if (profile.isCreator) initialRoles.add('CREATOR');
+                if (profile.isFreelancer) initialRoles.add('FREELANCER');
+                userRoles = initialRoles.toList();
+                isCreator = userRoles.contains('CREATOR');
+                isFreelancer =
+                    userRoles.contains('FREELANCER') ||
+                    userRoles.contains('NARRATOR');
+                await preferences.setStringList('userRoles', userRoles);
+                await preferences.setBool('isCreator', isCreator);
+                await preferences.setBool('isFreelancer', isFreelancer);
+              })
+              .catchError((_) {}),
         if (freelancerRepository != null)
           freelancerRepository!
               .getMyProfile()
               .timeout(const Duration(seconds: 4))
               .then((f) async {
-            if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
-              initialRoles.add('FREELANCER');
-              userRoles = initialRoles.toList();
-              isFreelancer = true;
-              await preferences.setStringList('userRoles', userRoles);
-              await preferences.setBool('isFreelancer', true);
-            }
-          }).catchError((_) {}),
+                if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+                  initialRoles.add('FREELANCER');
+                  userRoles = initialRoles.toList();
+                  isFreelancer = true;
+                  await preferences.setStringList('userRoles', userRoles);
+                  await preferences.setBool('isFreelancer', true);
+                }
+              })
+              .catchError((_) {}),
         if (kycRepository != null)
           kycRepository!
               .getMyKycProfile()
               .timeout(const Duration(seconds: 4))
               .then((kyc) async {
-            if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
-              initialRoles.add('CREATOR');
-              userRoles = initialRoles.toList();
-              isCreator = true;
-              await preferences.setStringList('userRoles', userRoles);
-              await preferences.setBool('isCreator', true);
-            }
-          }).catchError((_) {}),
+                if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
+                  initialRoles.add('CREATOR');
+                  userRoles = initialRoles.toList();
+                  isCreator = true;
+                  await preferences.setStringList('userRoles', userRoles);
+                  await preferences.setBool('isCreator', true);
+                }
+              })
+              .catchError((_) {}),
       ]);
 
       await preferences.setBool('isLoggedIn', true);
@@ -1738,7 +1751,6 @@ class AppState extends ChangeNotifier {
     } finally {
       _sendingComments.remove(episodeId);
     }
-
   }
 
   void toggleLikeComment(String episodeId, String commentId) {
