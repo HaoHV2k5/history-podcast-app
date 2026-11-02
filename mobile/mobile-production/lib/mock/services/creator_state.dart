@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,7 +44,6 @@ String? validateKycBirthDate(String value, {DateTime? today}) {
 }
 
 enum DraftStage { draft, checked, pending, rejected, approved }
-
 
 extension DraftStageLabel on DraftStage {
   String get label => switch (this) {
@@ -400,20 +400,18 @@ class CreatorState extends ChangeNotifier {
       } catch (_) {}
       try {
         final rawVideos = await creatorStudioRepository!.getVideos();
-        studioVideos = rawVideos
-            .whereType<Map<String, dynamic>>()
-            .toList();
+        studioVideos = rawVideos.whereType<Map<String, dynamic>>().toList();
         if (drafts.isEmpty && studioVideos.isNotEmpty) {
           drafts = [
             for (var i = 0; i < studioVideos.length; i++)
               CreatorDraft(
                 id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
                 title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
-                script: (studioVideos[i]['summary'] ??
-                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
-                    .toString(),
-                sources:
-                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                script:
+                    (studioVideos[i]['summary'] ??
+                            'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                        .toString(),
+                sources: 'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
                 format: 'video',
                 stage: i == 0 ? DraftStage.checked : DraftStage.approved,
               ),
@@ -521,9 +519,11 @@ class CreatorState extends ChangeNotifier {
     final effectiveId = (idNumber != null && idNumber.trim().isNotEmpty)
         ? idNumber.trim()
         : (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty
-            ? bankAccountNumber.trim()
-            : '001099012345');
-    if (idNumber != null && idNumber.trim().isNotEmpty && !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
+              ? bankAccountNumber.trim()
+              : '001099012345');
+    if (idNumber != null &&
+        idNumber.trim().isNotEmpty &&
+        !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
       throw StateError('Số CCCD phải đủ 12 chữ số.');
     }
     if (!idFront || !idBack) {
@@ -541,17 +541,24 @@ class CreatorState extends ChangeNotifier {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
     if (_otpPhone != phone.trim() || otp == null || otp.trim() != '889900') {
-      throw StateError('Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.');
+      throw StateError(
+        'Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.',
+      );
     }
 
-    final effectiveEmail = (contactEmail != null && contactEmail.trim().isNotEmpty)
+    final effectiveEmail =
+        (contactEmail != null && contactEmail.trim().isNotEmpty)
         ? contactEmail.trim()
         : (preferences.getString('userEmail') ?? 'creator@suky.vn');
-    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty) ? bankName.trim() : 'Vietcombank';
-    final effectiveBankAcc = (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
+    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty)
+        ? bankName.trim()
+        : 'Vietcombank';
+    final effectiveBankAcc =
+        (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
         ? bankAccountNumber.trim()
         : effectiveId;
-    final effectiveBankHolder = (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
+    final effectiveBankHolder =
+        (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
         ? bankAccountHolder.trim().toUpperCase()
         : fullName.trim().toUpperCase();
 
@@ -627,7 +634,9 @@ class CreatorState extends ChangeNotifier {
     if (channelRepository != null) {
       final res = await channelRepository!.createChannel(
         name: name.trim(),
-        description: description.trim().isNotEmpty ? description.trim() : 'Kênh chuyên đề lịch sử',
+        description: description.trim().isNotEmpty
+            ? description.trim()
+            : 'Kênh chuyên đề lịch sử',
       );
       channelModel = res;
     }
@@ -651,7 +660,8 @@ class CreatorState extends ChangeNotifier {
 
     if (channelRepository != null) {
       try {
-        final id = channelModel?.id ?? (await channelRepository!.getMyChannel()).id;
+        final id =
+            channelModel?.id ?? (await channelRepository!.getMyChannel()).id;
         final res = await channelRepository!.updateChannel(
           id,
           name: name.trim(),
@@ -668,7 +678,10 @@ class CreatorState extends ChangeNotifier {
     );
   }
 
-  Future<ChannelModel?> uploadChannelAvatar(List<int> bytes, String filename) async {
+  Future<ChannelModel?> uploadChannelAvatar(
+    List<int> bytes,
+    String filename,
+  ) async {
     _requireCreator();
     if (channelRepository != null) {
       final res = await channelRepository!.uploadAvatar(bytes, filename);
@@ -679,7 +692,10 @@ class CreatorState extends ChangeNotifier {
     return null;
   }
 
-  Future<ChannelModel?> uploadChannelCover(List<int> bytes, String filename) async {
+  Future<ChannelModel?> uploadChannelCover(
+    List<int> bytes,
+    String filename,
+  ) async {
     _requireCreator();
     if (channelRepository != null) {
       final res = await channelRepository!.uploadCover(bytes, filename);
@@ -984,9 +1000,7 @@ class CreatorState extends ChangeNotifier {
         seriesId,
         contentId: contentId,
       );
-      mySeries = mySeries
-          .map((s) => s.id == seriesId ? updated : s)
-          .toList();
+      mySeries = mySeries.map((s) => s.id == seriesId ? updated : s).toList();
       notifyListeners();
       return updated;
     }
@@ -1111,9 +1125,15 @@ class CreatorState extends ChangeNotifier {
     };
   }
 
-  Future<String> uploadStudioSceneImage(List<int> fileBytes, String filename) async {
+  Future<String> uploadStudioSceneImage(
+    List<int> fileBytes,
+    String filename,
+  ) async {
     if (creatorStudioRepository != null) {
-      return await creatorStudioRepository!.uploadSceneImage(fileBytes, filename);
+      return await creatorStudioRepository!.uploadSceneImage(
+        fileBytes,
+        filename,
+      );
     }
     return 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80';
   }
@@ -1140,9 +1160,12 @@ class CreatorState extends ChangeNotifier {
         'scriptText': scriptText.trim(),
         if (voiceName != null) 'voiceName': voiceName,
         if (ttsEngine != null) 'ttsEngine': ttsEngine,
-        if (sceneImages != null && sceneImages.isNotEmpty) 'sceneImages': sceneImages,
-        if (coverImage != null && coverImage.trim().isNotEmpty) 'coverImage': coverImage.trim(),
-        if (thumbnailUrl != null && thumbnailUrl.trim().isNotEmpty) 'thumbnailUrl': thumbnailUrl.trim(),
+        if (sceneImages != null && sceneImages.isNotEmpty)
+          'sceneImages': sceneImages,
+        if (coverImage != null && coverImage.trim().isNotEmpty)
+          'coverImage': coverImage.trim(),
+        if (thumbnailUrl != null && thumbnailUrl.trim().isNotEmpty)
+          'thumbnailUrl': thumbnailUrl.trim(),
         if (channelModel != null) 'channelId': channelModel!.id,
         if (seriesId != null) 'seriesId': seriesId,
         if (effectiveStoryboard != null) 'storyboard': effectiveStoryboard,
@@ -1174,20 +1197,18 @@ class CreatorState extends ChangeNotifier {
       activeRenderJob = {...?activeRenderJob, ...res};
       try {
         final rawVideos = await creatorStudioRepository!.getVideos();
-        studioVideos = rawVideos
-            .whereType<Map<String, dynamic>>()
-            .toList();
+        studioVideos = rawVideos.whereType<Map<String, dynamic>>().toList();
         if (drafts.isEmpty && studioVideos.isNotEmpty) {
           drafts = [
             for (var i = 0; i < studioVideos.length; i++)
               CreatorDraft(
                 id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
                 title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
-                script: (studioVideos[i]['summary'] ??
-                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
-                    .toString(),
-                sources:
-                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                script:
+                    (studioVideos[i]['summary'] ??
+                            'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                        .toString(),
+                sources: 'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
                 format: 'video',
                 stage: i == 0 ? DraftStage.checked : DraftStage.approved,
               ),
@@ -1234,7 +1255,11 @@ class CreatorState extends ChangeNotifier {
     }
     return studioVideos.firstWhere(
       (v) => v['contentId'] == contentId,
-      orElse: () => {'contentId': contentId, 'title': 'Tập video', 'status': 'PUBLISHED'},
+      orElse: () => {
+        'contentId': contentId,
+        'title': 'Tập video',
+        'status': 'PUBLISHED',
+      },
     );
   }
 
@@ -1274,7 +1299,10 @@ class CreatorState extends ChangeNotifier {
     bool hidden,
   ) async {
     if (creatorStudioRepository != null) {
-      final res = await creatorStudioRepository!.updateVisibility(contentId, hidden);
+      final res = await creatorStudioRepository!.updateVisibility(
+        contentId,
+        hidden,
+      );
       studioVideos = studioVideos
           .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
           .toList();
@@ -1304,7 +1332,7 @@ class CreatorState extends ChangeNotifier {
         'textBody': 'Phân tích rất chuẩn xác và hào sảng!',
         'status': 'VISIBLE',
         'createdAt': '2026-10-28T08:00:00Z',
-      }
+      },
     ];
   }
 

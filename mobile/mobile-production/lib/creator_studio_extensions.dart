@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import 'components.dart';
 import 'creator_state.dart';
 import 'design.dart';
 import 'core/api/creator_studio_repository.dart';
+
 class ChannelMembershipPlanSheet extends StatefulWidget {
   const ChannelMembershipPlanSheet({super.key, required this.state});
   final CreatorState state;
@@ -40,8 +42,7 @@ class _ChannelMembershipPlanSheetState
       text: plan != null ? plan.monthlyPrice.round().toString() : '39000',
     );
     _descCtrl = TextEditingController(
-      text: plan?.description ??
-          'Mở khóa toàn bộ tập chuyên sâu và phòng phát sóng trực tiếp độc quyền.',
+      text: plan?.description ?? 'Mở khóa toàn bộ tập chuyên sâu và phòng phát sóng trực tiếp độc quyền.',
     );
     final defaultPerks = [
       'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên',
@@ -49,20 +50,23 @@ class _ChannelMembershipPlanSheetState
       'Tham gia phòng phát sóng trực tiếp độc quyền (VIP)',
     ];
     final existingPerks = (plan != null && plan.perks.isNotEmpty)
-        ? plan.perks.map((p) {
-            if (p.toLowerCase().contains('bình luận') || p.toLowerCase().contains('huy hiệu')) {
-              return 'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên';
-            }
-            if (p.toLowerCase().contains('nghe sớm') || p.toLowerCase().contains('nghe trước')) {
-              return 'Nghe không giới hạn các nội dung độc quyền của kênh';
-            }
-            return p;
-          }).toSet().toList()
+        ? plan.perks
+              .map((p) {
+                if (p.toLowerCase().contains('bình luận') ||
+                    p.toLowerCase().contains('huy hiệu')) {
+                  return 'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên';
+                }
+                if (p.toLowerCase().contains('nghe sớm') ||
+                    p.toLowerCase().contains('nghe trước')) {
+                  return 'Nghe không giới hạn các nội dung độc quyền của kênh';
+                }
+                return p;
+              })
+              .toSet()
+              .toList()
         : defaultPerks;
 
-    _perksCtrl = TextEditingController(
-      text: existingPerks.join('\n'),
-    );
+    _perksCtrl = TextEditingController(text: existingPerks.join('\n'));
     _isActive = plan?.isActive ?? true;
   }
 
@@ -192,7 +196,9 @@ class _ChannelMembershipPlanSheetState
               FilledButton(
                 key: const Key('save-membership-plan-btn'),
                 onPressed: _busy ? null : _save,
-                child: Text(_busy ? 'Đang lưu gói…' : 'Lưu cấu hình gói hội viên'),
+                child: Text(
+                  _busy ? 'Đang lưu gói…' : 'Lưu cấu hình gói hội viên',
+                ),
               ),
             ],
           ),
@@ -447,12 +453,10 @@ const List<HistoricalTopicData> kHistoricalTopicSuggestions = [
     shortTitle: 'Đại Lễ Dời Đô 1010',
     cardSubtitle: 'Lý Thái Tổ • 1009 – 1225',
     figure: 'Vua Lý Thái Tổ (Lý Công Uẩn)',
-    desc:
-        'Mùa thu năm Canh Tuất 1010, vua Lý Thái Tổ ban Chiếu dời đô từ cố đô Hoa Lư ra thành Đại La. Thuyền ngự vừa đỗ dưới chân thành thì có rồng vàng bay vút lên trời xanh, nhân đó đổi tên Đại La thành Thăng Long.',
+    desc: 'Mùa thu năm Canh Tuất 1010, vua Lý Thái Tổ ban Chiếu dời đô từ cố đô Hoa Lư ra thành Đại La. Thuyền ngự vừa đỗ dưới chân thành thì có rồng vàng bay vút lên trời xanh, nhân đó đổi tên Đại La thành Thăng Long.',
     era: 'Năm Canh Tuất 1010',
     sourceBook: 'Đại Việt Sử Ký Toàn Thư • Quyển II',
-    excerpt:
-        'Vua thấy thành cũ Đại La ở giữa khu vực trời đất, có thế rồng cuộn hổ ngồi, chính giữa nam bắc đông tây, tiện nghi núi sông sau trước... Muôn vật hết sức tươi tốt phồn thịnh.',
+    excerpt: 'Vua thấy thành cũ Đại La ở giữa khu vực trời đất, có thế rồng cuộn hổ ngồi, chính giữa nam bắc đông tây, tiện nghi núi sông sau trước... Muôn vật hết sức tươi tốt phồn thịnh.',
     suggestedDuration: 60,
     tags: ['Chiếu Dời Đô', 'Thăng Long', 'Rồng Vàng', 'Định Đô'],
   ),
@@ -464,12 +468,10 @@ const List<HistoricalTopicData> kHistoricalTopicSuggestions = [
     shortTitle: 'Sông Như Nguyệt 1077',
     cardSubtitle: 'Lý Thường Kiệt • 1009 – 1225',
     figure: 'Thái úy Lý Thường Kiệt',
-    desc:
-        'Thái úy Lý Thường Kiệt lãnh đạo cuộc kháng chiến chống 30 vạn quân Tống xâm lược. Đêm trên sông Như Nguyệt vang vọng bài thơ thần Nam Quốc Sơn Hà, khẳng định chủ quyền độc lập của giang sơn Đại Việt.',
+    desc: 'Thái úy Lý Thường Kiệt lãnh đạo cuộc kháng chiến chống 30 vạn quân Tống xâm lược. Đêm trên sông Như Nguyệt vang vọng bài thơ thần Nam Quốc Sơn Hà, khẳng định chủ quyền độc lập của giang sơn Đại Việt.',
     era: 'Năm Đinh Tỵ 1077',
     sourceBook: 'Đại Việt Sử Ký Toàn Thư • Quyển III',
-    excerpt:
-        'Nam quốc sơn hà Nam đế cư / Tiệt nhiên định phận tại thiên thư / Như hà nghịch lỗ lai xâm phạm / Nhữ đẳng hành khan thủ bại hư.',
+    excerpt: 'Nam quốc sơn hà Nam đế cư / Tiệt nhiên định phận tại thiên thư / Như hà nghịch lỗ lai xâm phạm / Nhữ đẳng hành khan thủ bại hư.',
     suggestedDuration: 60,
     tags: ['Sông Như Nguyệt', 'Nam Quốc Sơn Hà', 'Kháng Tống', 'Thơ Thần'],
   ),
@@ -481,12 +483,10 @@ const List<HistoricalTopicData> kHistoricalTopicSuggestions = [
     shortTitle: 'Trận Bạch Đằng 1288',
     cardSubtitle: 'Trần Quốc Tuấn • 1225 – 1400',
     figure: 'Hưng Đạo Đại Vương Trần Quốc Tuấn',
-    desc:
-        'Trận thủy chiến cọc ngầm lịch sử trên sông Bạch Đằng, Hưng Đạo Vương đón thủy triều rút, đại phá thủy binh Mông - Nguyên do Ô Mã Nhi chỉ huy, bắt sống tướng giặc, giữ vững non sông Đại Việt.',
+    desc: 'Trận thủy chiến cọc ngầm lịch sử trên sông Bạch Đằng, Hưng Đạo Vương đón thủy triều rút, đại phá thủy binh Mông - Nguyên do Ô Mã Nhi chỉ huy, bắt sống tướng giặc, giữ vững non sông Đại Việt.',
     era: 'Tháng 3 năm Mậu Tý 1288',
     sourceBook: 'Đại Việt Sử Ký Toàn Thư • Quyển V',
-    excerpt:
-        'Hưng Đạo Vương đón đánh quân Nguyên, giả cách thua chạy. Quân giặc đuổi theo, thuyền giặc xô vào cọc nhọn bị vỡ đắm... Bắt sống Ô Mã Nhi, Phàn Tiếp dâng lên Thượng hoàng.',
+    excerpt: 'Hưng Đạo Vương đón đánh quân Nguyên, giả cách thua chạy. Quân giặc đuổi theo, thuyền giặc xô vào cọc nhọn bị vỡ đắm... Bắt sống Ô Mã Nhi, Phàn Tiếp dâng lên Thượng hoàng.',
     suggestedDuration: 60,
     tags: ['Trận Bạch Đằng', 'Cọc Ngầm', 'Ô Mã Nhi', 'Thủy Chiến'],
   ),
@@ -498,14 +498,17 @@ const List<HistoricalTopicData> kHistoricalTopicSuggestions = [
     shortTitle: 'Hội Nghị Diên Hồng 1285',
     cardSubtitle: 'Trần Thánh Tông • 1225 – 1400',
     figure: 'Thượng hoàng Trần Thánh Tông & Hưng Đạo Vương',
-    desc:
-        'Trước họa xâm lược của 50 vạn quân Thoát Hoan, triều đình mở hội nghị Diên Hồng hỏi ý muôn dân, muôn người đồng thanh hô Đánh. Tinh thần Sát Thát quật khởi chỉ huy quân dân 3 lần toàn thắng giặc Nguyên.',
+    desc: 'Trước họa xâm lược của 50 vạn quân Thoát Hoan, triều đình mở hội nghị Diên Hồng hỏi ý muôn dân, muôn người đồng thanh hô Đánh. Tinh thần Sát Thát quật khởi chỉ huy quân dân 3 lần toàn thắng giặc Nguyên.',
     era: 'Năm Ất Dậu 1285',
     sourceBook: 'Đại Việt Sử Ký Toàn Thư • Quyển V',
-    excerpt:
-        'Thượng hoàng triệu các phụ lão trong cả nước về điện Diên Hồng ban yến và hỏi kế đánh giặc. Các phụ lão đều hô to: Đánh! Tiếng vang như sấm dậy trời đất.',
+    excerpt: 'Thượng hoàng triệu các phụ lão trong cả nước về điện Diên Hồng ban yến và hỏi kế đánh giặc. Các phụ lão đều hô to: Đánh! Tiếng vang như sấm dậy trời đất.',
     suggestedDuration: 60,
-    tags: ['Hội Nghị Diên Hồng', 'Sát Thát', 'Hịch Tướng Sĩ', 'Ý Đảng Lòng Dân'],
+    tags: [
+      'Hội Nghị Diên Hồng',
+      'Sát Thát',
+      'Hịch Tướng Sĩ',
+      'Ý Đảng Lòng Dân',
+    ],
   ),
 ];
 
@@ -533,8 +536,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
   String _creationMode = 'ai_prompt'; // 'ai_prompt' | 'manual_script'
 
   // Step 1: Script Input
-  final _topicCtrl =
-      TextEditingController(text: 'Đại Lễ Dời Đô Năm 1010 (Lý Thái Tổ)');
+  final _topicCtrl = TextEditingController(
+    text: 'Đại Lễ Dời Đô Năm 1010 (Lý Thái Tổ)',
+  );
   final _scriptCtrl = TextEditingController(text: kSampleHistoricalScript);
   String _selectedTone = 'Hào sảng, sử thi';
   int _durationSec = 60;
@@ -565,7 +569,8 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
   @override
   void initState() {
     super.initState();
-    _selectedVoiceId = widget.state.aiSettings?.preferredVoiceId ??
+    _selectedVoiceId =
+        widget.state.aiSettings?.preferredVoiceId ??
         (widget.state.aiVoices.isNotEmpty
             ? widget.state.aiVoices.first.voiceId
             : 'vi-VN-NamMinhNeural');
@@ -600,7 +605,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
       await action();
     } catch (e) {
       if (mounted) {
-        setState(() => _statusNote = e.toString().replaceFirst('Exception: ', ''));
+        setState(
+          () => _statusNote = e.toString().replaceFirst('Exception: ', ''),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -626,7 +633,8 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
       final url = await widget.state.uploadStudioSceneImage(bytes, filename);
       setState(() {
         _sceneImages[sceneNo.toString()] = url;
-        _statusNote = 'Đã tải ảnh phân cảnh $sceneNo lên Cloudinary thành công!';
+        _statusNote =
+            'Đã tải ảnh phân cảnh $sceneNo lên Cloudinary thành công!';
       });
     });
   }
@@ -743,7 +751,8 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     ChoiceChip(
                       label: const Text('ElevenLabs (Studio)'),
                       selected: engine == 'elevenlabs',
-                      onSelected: (_) => setDlgState(() => engine = 'elevenlabs'),
+                      onSelected: (_) =>
+                          setDlgState(() => engine = 'elevenlabs'),
                     ),
                   ],
                 ),
@@ -801,11 +810,16 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       children: [
                         Row(
                           children: [
-                            const Icon(CupertinoIcons.film,
-                                color: Palette.red, size: 20),
+                            const Icon(
+                              CupertinoIcons.film,
+                              color: Palette.red,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
-                            Text('Thư viện nội dung Creator',
-                                style: editorial(20)),
+                            Text(
+                              'Thư viện nội dung Creator',
+                              style: editorial(20),
+                            ),
                           ],
                         ),
                         IconButton(
@@ -818,12 +832,14 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     TextField(
                       controller: _searchKeywordCtrl,
                       decoration: InputDecoration(
-                        prefixIcon:
-                            const Icon(CupertinoIcons.search, size: 16),
-                        hintText: 'Tìm kiếm video theo tiêu đề hoặc nội dung...',
+                        prefixIcon: const Icon(CupertinoIcons.search, size: 16),
+                        hintText:
+                            'Tìm kiếm video theo tiêu đề hoặc nội dung...',
                         suffixIcon: IconButton(
-                          icon: const Icon(CupertinoIcons.arrow_right_circle,
-                              size: 18),
+                          icon: const Icon(
+                            CupertinoIcons.arrow_right_circle,
+                            size: 18,
+                          ),
                           onPressed: () async {
                             await widget.state.fetchStudioVideos(
                               keyword: _searchKeywordCtrl.text.trim().isNotEmpty
@@ -853,37 +869,41 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: [
-                          'ALL',
-                          'PUBLISHED',
-                          'HIDDEN',
-                          'PROCESSING',
-                          'FAILED'
-                        ].map((st) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 6),
-                            child: ChoiceChip(
-                              label: Text(
-                                st == 'ALL' ? 'Tất cả' : st,
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              selected: _selectedStatusFilter == st,
-                              onSelected: (_) async {
-                                setState(() => _selectedStatusFilter = st);
-                                setSheetState(
-                                    () => _selectedStatusFilter = st);
-                                await widget.state.fetchStudioVideos(
-                                  keyword:
-                                      _searchKeywordCtrl.text.trim().isNotEmpty
+                        children:
+                            [
+                              'ALL',
+                              'PUBLISHED',
+                              'HIDDEN',
+                              'PROCESSING',
+                              'FAILED',
+                            ].map((st) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                  label: Text(
+                                    st == 'ALL' ? 'Tất cả' : st,
+                                    style: const TextStyle(fontSize: 11),
+                                  ),
+                                  selected: _selectedStatusFilter == st,
+                                  onSelected: (_) async {
+                                    setState(() => _selectedStatusFilter = st);
+                                    setSheetState(
+                                      () => _selectedStatusFilter = st,
+                                    );
+                                    await widget.state.fetchStudioVideos(
+                                      keyword:
+                                          _searchKeywordCtrl.text
+                                              .trim()
+                                              .isNotEmpty
                                           ? _searchKeywordCtrl.text.trim()
                                           : null,
-                                  status: st != 'ALL' ? st : null,
-                                );
-                                setSheetState(() {});
-                              },
-                            ),
-                          );
-                        }).toList(),
+                                      status: st != 'ALL' ? st : null,
+                                    );
+                                    setSheetState(() {});
+                                  },
+                                ),
+                              );
+                            }).toList(),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -893,7 +913,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                               child: Text(
                                 'Chưa có video nào trong kho Studio.',
                                 style: TextStyle(
-                                    fontSize: 12, color: Palette.muted),
+                                  fontSize: 12,
+                                  color: Palette.muted,
+                                ),
                               ),
                             )
                           : ListView.builder(
@@ -902,12 +924,13 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                 final v = videos[idx];
                                 final contentId =
                                     (v['contentId'] as num?)?.toInt() ?? 0;
-                                final status =
-                                    (v['status'] ?? 'PROCESSING').toString();
-                                final shield = (v['aiShieldTierLabel'] ??
-                                        v['aiShieldTier'] ??
-                                        'Chờ quét AI Shield')
+                                final status = (v['status'] ?? 'PROCESSING')
                                     .toString();
+                                final shield =
+                                    (v['aiShieldTierLabel'] ??
+                                            v['aiShieldTier'] ??
+                                            'Chờ quét AI Shield')
+                                        .toString();
                                 final isHidden = status == 'HIDDEN';
 
                                 return Container(
@@ -942,60 +965,72 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                         children: [
                                           FilledButton.tonal(
                                             key: Key(
-                                                'submit-publish-video-$contentId'),
+                                              'submit-publish-video-$contentId',
+                                            ),
                                             onPressed: _busy
                                                 ? null
                                                 : () => _runStep(() async {
-                                                      await widget.state
-                                                          .submitStudioVideoForPublish(
-                                                              contentId);
-                                                      setSheetState(() {});
-                                                    }),
+                                                    await widget.state
+                                                        .submitStudioVideoForPublish(
+                                                          contentId,
+                                                        );
+                                                    setSheetState(() {});
+                                                  }),
                                             child: const Text(
-                                                'Gửi duyệt AI Shield',
-                                                style: TextStyle(fontSize: 11)),
+                                              'Gửi duyệt AI Shield',
+                                              style: TextStyle(fontSize: 11),
+                                            ),
                                           ),
                                           OutlinedButton(
                                             key: Key(
-                                                'view-video-detail-$contentId'),
+                                              'view-video-detail-$contentId',
+                                            ),
                                             onPressed: _busy
                                                 ? null
                                                 : () => _openVideoDetailSheet(
-                                                    contentId),
-                                            child: const Text('Chi tiết',
-                                                style: TextStyle(fontSize: 11)),
+                                                    contentId,
+                                                  ),
+                                            child: const Text(
+                                              'Chi tiết',
+                                              style: TextStyle(fontSize: 11),
+                                            ),
                                           ),
                                           OutlinedButton(
                                             key: Key('edit-video-$contentId'),
                                             onPressed: _busy
                                                 ? null
                                                 : () => _openEditVideoDialog(
-                                                      contentId,
-                                                      (v['title'] ?? '')
-                                                          .toString(),
-                                                      v['description']
-                                                          ?.toString(),
-                                                      v['isExclusive'] as bool?,
-                                                    ),
-                                            child: const Text('Sửa',
-                                                style: TextStyle(fontSize: 11)),
+                                                    contentId,
+                                                    (v['title'] ?? '')
+                                                        .toString(),
+                                                    v['description']
+                                                        ?.toString(),
+                                                    v['isExclusive'] as bool?,
+                                                  ),
+                                            child: const Text(
+                                              'Sửa',
+                                              style: TextStyle(fontSize: 11),
+                                            ),
                                           ),
                                           OutlinedButton(
                                             key: Key(
-                                                'toggle-video-visibility-$contentId'),
+                                              'toggle-video-visibility-$contentId',
+                                            ),
                                             onPressed: _busy
                                                 ? null
                                                 : () => _runStep(() async {
-                                                      await widget.state
-                                                          .updateStudioVideoVisibility(
-                                                              contentId,
-                                                              !isHidden);
-                                                      setSheetState(() {});
-                                                    }),
+                                                    await widget.state
+                                                        .updateStudioVideoVisibility(
+                                                          contentId,
+                                                          !isHidden,
+                                                        );
+                                                    setSheetState(() {});
+                                                  }),
                                             child: Text(
                                               isHidden ? 'Hiện' : 'Ẩn',
-                                              style:
-                                                  const TextStyle(fontSize: 11),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1084,8 +1119,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                         const SizedBox(height: 4),
                         Text(
                           detail['aiShieldReason'].toString(),
-                          style:
-                              const TextStyle(fontSize: 12, color: Palette.muted),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Palette.muted,
+                          ),
                         ),
                       ],
                       const SizedBox(height: 6),
@@ -1097,12 +1134,16 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('Bình luận của thính giả (${comments.length}):',
-                    style: editorial(16)),
+                Text(
+                  'Bình luận của thính giả (${comments.length}):',
+                  style: editorial(16),
+                ),
                 const SizedBox(height: 8),
                 if (comments.isEmpty)
-                  const Text('Chưa có bình luận nào.',
-                      style: TextStyle(fontSize: 12, color: Palette.muted))
+                  const Text(
+                    'Chưa có bình luận nào.',
+                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                  )
                 else
                   ...comments.map(
                     (c) => Container(
@@ -1214,7 +1255,8 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
         final verification = widget.state.lastVerification;
         final job = widget.state.activeRenderJob;
         final settings = widget.state.aiSettings;
-        final hasGeminiKey = settings?.geminiApiKey != null &&
+        final hasGeminiKey =
+            settings?.geminiApiKey != null &&
             settings!.geminiApiKey!.trim().isNotEmpty;
 
         return Scaffold(
@@ -1241,8 +1283,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 icon: const Icon(CupertinoIcons.film, size: 14),
                 label: const Text('Thư viện', style: TextStyle(fontSize: 11)),
                 style: OutlinedButton.styleFrom(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -1264,7 +1308,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               const SizedBox(height: 6),
               const Text(
                 'Biến ý tưởng lịch sử thành podcast hoặc video giàu giá trị, dựa trên tư liệu chính thống.',
-                style: TextStyle(color: Palette.muted, fontSize: 13, height: 1.45),
+                style: TextStyle(
+                  color: Palette.muted,
+                  fontSize: 13,
+                  height: 1.45,
+                ),
               ),
               const SizedBox(height: 14),
 
@@ -1276,12 +1324,16 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     color: Palette.red.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                        color: Palette.red.withValues(alpha: 0.25)),
+                      color: Palette.red.withValues(alpha: 0.25),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(CupertinoIcons.exclamationmark_triangle_fill,
-                          color: Palette.red, size: 18),
+                      const Icon(
+                        CupertinoIcons.exclamationmark_triangle_fill,
+                        color: Palette.red,
+                        size: 18,
+                      ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
@@ -1295,11 +1347,15 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                         style: FilledButton.styleFrom(
                           backgroundColor: Palette.red,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           visualDensity: VisualDensity.compact,
                         ),
-                        child: const Text('Nhập Key',
-                            style: TextStyle(fontSize: 11)),
+                        child: const Text(
+                          'Nhập Key',
+                          style: TextStyle(fontSize: 11),
+                        ),
                       ),
                     ],
                   ),
@@ -1309,8 +1365,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
 
               // 3. WORKFLOW STEPPER (4 BƯỚC)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Palette.paper,
                   borderRadius: BorderRadius.circular(12),
@@ -1325,8 +1383,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       active: _currentStep == 0,
                       completed: _currentStep > 0,
                     ),
-                    const Icon(CupertinoIcons.chevron_forward,
-                        size: 14, color: Palette.line),
+                    const Icon(
+                      CupertinoIcons.chevron_forward,
+                      size: 14,
+                      color: Palette.line,
+                    ),
                     _buildStepTab(
                       stepIndex: 1,
                       label: 'Phân cảnh',
@@ -1334,8 +1395,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       active: _currentStep == 1,
                       completed: _currentStep > 1,
                     ),
-                    const Icon(CupertinoIcons.chevron_forward,
-                        size: 14, color: Palette.line),
+                    const Icon(
+                      CupertinoIcons.chevron_forward,
+                      size: 14,
+                      color: Palette.line,
+                    ),
                     _buildStepTab(
                       stepIndex: 2,
                       label: 'Giọng đọc',
@@ -1343,8 +1407,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       active: _currentStep == 2,
                       completed: _currentStep > 2,
                     ),
-                    const Icon(CupertinoIcons.chevron_forward,
-                        size: 14, color: Palette.line),
+                    const Icon(
+                      CupertinoIcons.chevron_forward,
+                      size: 14,
+                      color: Palette.line,
+                    ),
                     _buildStepTab(
                       stepIndex: 3,
                       label: 'Kết xuất',
@@ -1373,9 +1440,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                           ? 'Định dạng nội dung: Kể chuyện truyền cảm • Chỉ cần 1 ảnh bìa dọc/vuông'
                           : 'Định dạng nội dung: Khung hình 16:9 • Tải ảnh từng phân cảnh',
                       style: const TextStyle(
-                          fontSize: 11,
-                          color: Palette.muted,
-                          fontWeight: FontWeight.w500),
+                        fontSize: 11,
+                        color: Palette.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Row(
@@ -1387,7 +1455,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: _renderMode == 'audio_podcast'
                                     ? Palette.red.withValues(alpha: 0.12)
@@ -1397,8 +1467,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                   color: _renderMode == 'audio_podcast'
                                       ? Palette.red
                                       : Palette.line,
-                                  width:
-                                      _renderMode == 'audio_podcast' ? 1.5 : 1,
+                                  width: _renderMode == 'audio_podcast'
+                                      ? 1.5
+                                      : 1,
                                 ),
                               ),
                               child: Row(
@@ -1419,8 +1490,8 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                         fontSize: 11,
                                         fontWeight:
                                             _renderMode == 'audio_podcast'
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                         color: _renderMode == 'audio_podcast'
                                             ? Palette.red
                                             : Palette.ink,
@@ -1441,7 +1512,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
                                 color: _renderMode == 'whiteboard'
                                     ? Palette.red.withValues(alpha: 0.12)
@@ -1451,8 +1524,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                   color: _renderMode == 'whiteboard'
                                       ? Palette.red
                                       : Palette.line,
-                                  width:
-                                      _renderMode == 'whiteboard' ? 1.5 : 1,
+                                  width: _renderMode == 'whiteboard' ? 1.5 : 1,
                                 ),
                               ),
                               child: Row(
@@ -1471,10 +1543,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                       'Bảng Trắng 16:9',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        fontWeight:
-                                            _renderMode == 'whiteboard'
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
+                                        fontWeight: _renderMode == 'whiteboard'
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
                                         color: _renderMode == 'whiteboard'
                                             ? Palette.red
                                             : Palette.ink,
@@ -1550,13 +1621,16 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                   color: active
                       ? Palette.red
                       : completed
-                          ? Palette.red.withValues(alpha: 0.15)
-                          : Palette.soft,
+                      ? Palette.red.withValues(alpha: 0.15)
+                      : Palette.soft,
                 ),
                 alignment: Alignment.center,
                 child: completed && !active
-                    ? const Icon(CupertinoIcons.checkmark,
-                        size: 13, color: Palette.red)
+                    ? const Icon(
+                        CupertinoIcons.checkmark,
+                        size: 13,
+                        color: Palette.red,
+                      )
                     : Text(
                         '${stepIndex + 1}',
                         style: TextStyle(
@@ -1641,13 +1715,18 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                             child: Text(
                               'AI hỗ trợ sáng tác',
                               style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 12),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (_creationMode == 'ai_prompt')
-                            const Icon(CupertinoIcons.checkmark_circle_fill,
-                                size: 15, color: Palette.red),
+                            const Icon(
+                              CupertinoIcons.checkmark_circle_fill,
+                              size: 15,
+                              color: Palette.red,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1689,13 +1768,18 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                             child: Text(
                               'Kịch bản có sẵn',
                               style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 12),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (_creationMode == 'manual_script')
-                            const Icon(CupertinoIcons.checkmark_circle_fill,
-                                size: 15, color: Palette.red),
+                            const Icon(
+                              CupertinoIcons.checkmark_circle_fill,
+                              size: 15,
+                              color: Palette.red,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1722,8 +1806,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               labelText: 'Chủ đề hoặc sự kiện lịch sử *',
               hintText: 'Ví dụ: Đại Lễ dời đô năm 1010 của vua Lý Thái Tổ...',
               prefixIcon: const Icon(CupertinoIcons.pencil, size: 16),
-              helperText:
-                  'Hệ thống hỗ trợ Lý – Trần (1009–1400), dựa trên Đại Việt Sử Ký Toàn Thư.',
+              helperText: 'Hệ thống hỗ trợ Lý – Trần (1009–1400), dựa trên Đại Việt Sử Ký Toàn Thư.',
             ),
             onChanged: (val) {
               if (_renderTitleCtrl.text.isEmpty ||
@@ -1736,8 +1819,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
           const SizedBox(height: 12),
 
           // Suggested Topics Header & Dynasty Filter
-          const Text('Gợi ý chủ đề phổ biến',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Text(
+            'Gợi ý chủ đề phổ biến',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
@@ -1746,19 +1831,23 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               ChoiceChip(
                 label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
                 selected: _selectedDynasty == 'all',
-                onSelected: (_) =>
-                    setState(() => _selectedDynasty = 'all'),
+                onSelected: (_) => setState(() => _selectedDynasty = 'all'),
               ),
               ChoiceChip(
-                label: const Text('Triều Lý (1009 – 1225)', style: TextStyle(fontSize: 11)),
+                label: const Text(
+                  'Triều Lý (1009 – 1225)',
+                  style: TextStyle(fontSize: 11),
+                ),
                 selected: _selectedDynasty == 'ly',
                 onSelected: (_) => setState(() => _selectedDynasty = 'ly'),
               ),
               ChoiceChip(
-                label: const Text('Triều Trần (1225 – 1400)', style: TextStyle(fontSize: 11)),
+                label: const Text(
+                  'Triều Trần (1225 – 1400)',
+                  style: TextStyle(fontSize: 11),
+                ),
                 selected: _selectedDynasty == 'tran',
-                onSelected: (_) =>
-                    setState(() => _selectedDynasty = 'tran'),
+                onSelected: (_) => setState(() => _selectedDynasty = 'tran'),
               ),
             ],
           ),
@@ -1772,54 +1861,64 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 spacing: 8,
                 runSpacing: 8,
                 children: kHistoricalTopicSuggestions
-                    .where((item) =>
-                        _selectedDynasty == 'all' ||
-                        item.dynasty == _selectedDynasty)
+                    .where(
+                      (item) =>
+                          _selectedDynasty == 'all' ||
+                          item.dynasty == _selectedDynasty,
+                    )
                     .map((item) {
-                  final sel = _topicCtrl.text == item.title ||
-                      _topicCtrl.text == item.shortTitle;
-                  return InkWell(
-                    onTap: () {
-                      setState(() {
-                        _topicCtrl.text = item.title;
-                        _renderTitleCtrl.text = item.title;
-                        _durationSec = item.suggestedDuration;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: cardW,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: sel
-                            ? Palette.red.withValues(alpha: 0.08)
-                            : Palette.paper,
+                      final sel =
+                          _topicCtrl.text == item.title ||
+                          _topicCtrl.text == item.shortTitle;
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _topicCtrl.text = item.title;
+                            _renderTitleCtrl.text = item.title;
+                            _durationSec = item.suggestedDuration;
+                          });
+                        },
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: sel ? Palette.red : Palette.line,
-                          width: sel ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(item.shortTitle,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: sel ? Palette.red : Palette.ink,
+                        child: Container(
+                          width: cardW,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: sel
+                                ? Palette.red.withValues(alpha: 0.08)
+                                : Palette.paper,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: sel ? Palette.red : Palette.line,
+                              width: sel ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.shortTitle,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: sel ? Palette.red : Palette.ink,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 2),
-                          Text(item.cardSubtitle,
-                              style: const TextStyle(
-                                  fontSize: 10, color: Palette.muted),
-                              overflow: TextOverflow.ellipsis),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+                              const SizedBox(height: 2),
+                              Text(
+                                item.cardSubtitle,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Palette.muted,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    })
+                    .toList(),
               );
             },
           ),
@@ -1829,32 +1928,42 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Phong cách kể chuyện (tùy chọn):',
-                  style: TextStyle(fontSize: 11, color: Palette.muted)),
+              const Text(
+                'Phong cách kể chuyện (tùy chọn):',
+                style: TextStyle(fontSize: 11, color: Palette.muted),
+              ),
               const SizedBox(height: 4),
               DropdownButtonFormField<String>(
                 isExpanded: true,
                 value: _selectedTone,
                 decoration: const InputDecoration(
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                 ),
                 style: const TextStyle(fontSize: 12, color: Palette.ink),
                 items: const [
                   DropdownMenuItem(
                     value: 'Hào sảng, sử thi',
-                    child: Text('Hào sảng, sử thi',
-                        overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      'Hào sảng, sử thi',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'Điềm đạm, chiêm nghiệm',
-                    child: Text('Điềm đạm, chiêm nghiệm',
-                        overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      'Điềm đạm, chiêm nghiệm',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   DropdownMenuItem(
                     value: 'Kịch tính, dồn dập',
-                    child: Text('Kịch tính, dồn dập',
-                        overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      'Kịch tính, dồn dập',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
                 onChanged: (v) {
@@ -1862,19 +1971,22 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 },
               ),
               const SizedBox(height: 10),
-              const Text('Thời lượng mục tiêu:',
-                  style: TextStyle(fontSize: 11, color: Palette.muted)),
+              const Text(
+                'Thời lượng mục tiêu:',
+                style: TextStyle(fontSize: 11, color: Palette.muted),
+              ),
               const SizedBox(height: 4),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
                 children: [30, 60, 90, 120].map((dur) {
                   return ChoiceChip(
-                    label: Text('${dur}s',
-                        style: const TextStyle(fontSize: 11)),
+                    label: Text(
+                      '${dur}s',
+                      style: const TextStyle(fontSize: 11),
+                    ),
                     selected: _durationSec == dur,
-                    onSelected: (_) =>
-                        setState(() => _durationSec = dur),
+                    onSelected: (_) => setState(() => _durationSec = dur),
                   );
                 }).toList(),
               ),
@@ -1895,16 +2007,20 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               children: [
                 Row(
                   children: [
-                    const Icon(CupertinoIcons.book_fill,
-                        color: Palette.red, size: 14),
+                    const Icon(
+                      CupertinoIcons.book_fill,
+                      color: Palette.red,
+                      size: 14,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Tư liệu RAG: ${activeHistorical.sourceBook}',
                         style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Palette.red),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Palette.red,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1914,7 +2030,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 Text(
                   '“${activeHistorical.excerpt}”',
                   style: const TextStyle(
-                      fontSize: 11, fontStyle: FontStyle.italic, height: 1.45),
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                    height: 1.45,
+                  ),
                 ),
               ],
             ),
@@ -1932,13 +2051,18 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               ),
               child: const Row(
                 children: [
-                  Icon(CupertinoIcons.info_circle,
-                      size: 14, color: Palette.muted),
+                  Icon(
+                    CupertinoIcons.info_circle,
+                    size: 14,
+                    color: Palette.muted,
+                  ),
                   SizedBox(width: 6),
                   Expanded(
-                    child: Text('Vui lòng nhập chủ đề hoặc chọn một thẻ gợi ý.',
-                        style: TextStyle(fontSize: 11, color: Palette.muted),
-                        overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      'Vui lòng nhập chủ đề hoặc chọn một thẻ gợi ý.',
+                      style: TextStyle(fontSize: 11, color: Palette.muted),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
@@ -1949,21 +2073,24 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               decoration: BoxDecoration(
                 color: Palette.red.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                    color: Palette.red.withValues(alpha: 0.25)),
+                border: Border.all(color: Palette.red.withValues(alpha: 0.25)),
               ),
               child: Row(
                 children: [
-                  const Icon(CupertinoIcons.checkmark_circle_fill,
-                      size: 14, color: Palette.red),
+                  const Icon(
+                    CupertinoIcons.checkmark_circle_fill,
+                    size: 14,
+                    color: Palette.red,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Chủ đề: ${_topicCtrl.text.trim()}',
                       style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Palette.red),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Palette.red,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -1978,27 +2105,27 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
             onPressed: _busy || _topicCtrl.text.trim().isEmpty
                 ? null
                 : () => _runStep(() async {
-                      final topic = _topicCtrl.text.trim();
-                      final res = await widget.state.generateAiStoryboard(
-                        topic: topic,
-                        durationSec: _durationSec,
-                      );
-                      if (_renderTitleCtrl.text.trim().isEmpty) {
-                        _renderTitleCtrl.text = topic;
-                      }
-                      final summary = res['summary']?.toString() ??
-                          res['narration']?.toString() ??
-                          'Kịch bản phân cảnh cho $topic';
-                      if (_scriptCtrl.text.trim().isEmpty ||
-                          _scriptCtrl.text == kSampleHistoricalScript) {
-                        _scriptCtrl.text = summary;
-                      }
-                      setState(() {
-                        _currentStep = 1;
-                        _statusNote =
-                            '✨ Đã tạo kịch bản AI thành công! Chuyển sang bước Phân cảnh.';
-                      });
-                    }),
+                    final topic = _topicCtrl.text.trim();
+                    final res = await widget.state.generateAiStoryboard(
+                      topic: topic,
+                      durationSec: _durationSec,
+                    );
+                    if (_renderTitleCtrl.text.trim().isEmpty) {
+                      _renderTitleCtrl.text = topic;
+                    }
+                    final summary =
+                        res['summary']?.toString() ??
+                        res['narration']?.toString() ??
+                        'Kịch bản phân cảnh cho $topic';
+                    if (_scriptCtrl.text.trim().isEmpty ||
+                        _scriptCtrl.text == kSampleHistoricalScript) {
+                      _scriptCtrl.text = summary;
+                    }
+                    setState(() {
+                      _currentStep = 1;
+                      _statusNote = '✨ Đã tạo kịch bản AI thành công! Chuyển sang bước Phân cảnh.';
+                    });
+                  }),
             icon: const Icon(CupertinoIcons.sparkles, size: 16),
             label: Text(
               _busy
@@ -2019,8 +2146,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
             maxLines: 6,
             decoration: const InputDecoration(
               labelText: 'Nội dung kịch bản thuyết minh lịch sử *',
-              hintText:
-                  'Nhập hoặc dán toàn bộ nội dung kịch bản lịch sử (tối thiểu 100 ký tự)...',
+              hintText: 'Nhập hoặc dán toàn bộ nội dung kịch bản lịch sử (tối thiểu 100 ký tự)...',
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -2039,8 +2165,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 onPressed: () {
                   setState(() => _scriptCtrl.text = kSampleHistoricalScript);
                 },
-                child: const Text('Dùng kịch bản mẫu',
-                    style: TextStyle(fontSize: 11)),
+                child: const Text(
+                  'Dùng kịch bản mẫu',
+                  style: TextStyle(fontSize: 11),
+                ),
               ),
             ],
           ),
@@ -2052,9 +2180,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
             onPressed: _busy || _scriptCtrl.text.trim().isEmpty
                 ? null
                 : () => _runStep(() async {
-                      await widget.state
-                          .verifyHistoricalScript(_scriptCtrl.text.trim());
-                    }),
+                    await widget.state.verifyHistoricalScript(
+                      _scriptCtrl.text.trim(),
+                    );
+                  }),
             icon: const Icon(CupertinoIcons.checkmark_shield, size: 15),
             label: const Text('🛡️ Thẩm định kịch bản sử liệu (AI Shield)'),
           ),
@@ -2083,8 +2212,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     const SizedBox(height: 4),
                     Text(
                       'Gợi ý prompt thumbnail 16:9: ${verification['thumbnailPrompt']}',
-                      style:
-                          const TextStyle(fontSize: 11, color: Palette.muted),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Palette.muted,
+                      ),
                     ),
                   ],
                 ],
@@ -2099,23 +2230,25 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
             onPressed: _busy || _scriptCtrl.text.trim().isEmpty
                 ? null
                 : () => _runStep(() async {
-                      final topic = _topicCtrl.text.trim().isNotEmpty
-                          ? _topicCtrl.text.trim()
-                          : 'Kịch bản lịch sử tự biên tập';
-                      await widget.state.generateAiStoryboard(
-                        topic: topic,
-                        durationSec: _durationSec,
-                        keepOriginalScript: true,
-                      );
-                      setState(() {
-                        _currentStep = 1;
-                        _statusNote =
-                            'Đã phân tích kịch bản và sinh phân cảnh thành công!';
-                      });
-                    }),
+                    final topic = _topicCtrl.text.trim().isNotEmpty
+                        ? _topicCtrl.text.trim()
+                        : 'Kịch bản lịch sử tự biên tập';
+                    await widget.state.generateAiStoryboard(
+                      topic: topic,
+                      durationSec: _durationSec,
+                      keepOriginalScript: true,
+                    );
+                    setState(() {
+                      _currentStep = 1;
+                      _statusNote =
+                          'Đã phân tích kịch bản và sinh phân cảnh thành công!';
+                    });
+                  }),
             icon: const Icon(CupertinoIcons.arrow_right_circle, size: 16),
-            label: const Text('Chuyển sang phân cảnh ->',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Chuyển sang phân cảnh ->',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             style: FilledButton.styleFrom(
               backgroundColor: Palette.red,
               padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2181,10 +2314,14 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     Icon(CupertinoIcons.photo, color: Palette.red, size: 16),
                     SizedBox(width: 8),
                     Expanded(
-                      child: Text('Ảnh bìa Video Podcast (Vuông 1:1 hoặc Dọc)',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        'Ảnh bìa Video Podcast (Vuông 1:1 hoặc Dọc)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -2206,9 +2343,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                         height: 80,
                         color: Palette.soft,
                         alignment: Alignment.center,
-                        child: const Text('Đã tải ảnh bìa',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.green)),
+                        child: const Text(
+                          'Đã tải ảnh bìa',
+                          style: TextStyle(fontSize: 12, color: Colors.green),
+                        ),
                       ),
                     ),
                   ),
@@ -2217,9 +2355,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _uploadCoverImage,
                   icon: const Icon(CupertinoIcons.cloud_upload, size: 15),
-                  label: Text(_coverImageUrl != null
-                      ? 'Đổi ảnh bìa Podcast'
-                      : 'Tải ảnh bìa Podcast lên Cloudinary'),
+                  label: Text(
+                    _coverImageUrl != null
+                        ? 'Đổi ảnh bìa Podcast'
+                        : 'Tải ảnh bìa Podcast lên Cloudinary',
+                  ),
                 ),
               ],
             ),
@@ -2242,10 +2382,14 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     Icon(CupertinoIcons.tv, color: Palette.red, size: 16),
                     SizedBox(width: 8),
                     Expanded(
-                      child: Text('Ảnh Thumbnail Card (Tỉ lệ 16:9)',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        'Ảnh Thumbnail Card (Tỉ lệ 16:9)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
@@ -2267,9 +2411,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                         height: 60,
                         color: Palette.soft,
                         alignment: Alignment.center,
-                        child: const Text('Đã tải ảnh thumbnail',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.green)),
+                        child: const Text(
+                          'Đã tải ảnh thumbnail',
+                          style: TextStyle(fontSize: 12, color: Colors.green),
+                        ),
                       ),
                     ),
                   ),
@@ -2278,9 +2423,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _uploadThumbnailImage,
                   icon: const Icon(CupertinoIcons.cloud_upload, size: 15),
-                  label: Text(_thumbnailUrl != null
-                      ? 'Đổi ảnh Thumbnail 16:9'
-                      : 'Tải Thumbnail 16:9 lên Cloudinary'),
+                  label: Text(
+                    _thumbnailUrl != null
+                        ? 'Đổi ảnh Thumbnail 16:9'
+                        : 'Tải Thumbnail 16:9 lên Cloudinary',
+                  ),
                 ),
               ],
             ),
@@ -2321,20 +2468,30 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Cảnh $scNo',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: Palette.red)),
+                        Text(
+                          'Cảnh $scNo',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Palette.red,
+                          ),
+                        ),
                         if (uploadedUrl != null)
                           const Row(
                             children: [
-                              Icon(CupertinoIcons.checkmark_circle_fill,
-                                  color: Colors.green, size: 14),
+                              Icon(
+                                CupertinoIcons.checkmark_circle_fill,
+                                color: Colors.green,
+                                size: 14,
+                              ),
                               SizedBox(width: 4),
-                              Text('Đã có ảnh',
-                                  style: TextStyle(
-                                      fontSize: 11, color: Colors.green)),
+                              Text(
+                                'Đã có ảnh',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.green,
+                                ),
+                              ),
                             ],
                           ),
                       ],
@@ -2349,19 +2506,24 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       Text(
                         'Prompt gợi ý: ${sc['imagePrompt']}',
                         style: const TextStyle(
-                            fontSize: 10,
-                            color: Palette.muted,
-                            fontStyle: FontStyle.italic),
+                          fontSize: 10,
+                          color: Palette.muted,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ],
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
                       key: Key('upload-scene-image-$idx'),
-                      onPressed: _busy ? null : () => _uploadImageForScene(scNo),
+                      onPressed: _busy
+                          ? null
+                          : () => _uploadImageForScene(scNo),
                       icon: const Icon(CupertinoIcons.cloud_upload, size: 14),
-                      label: Text(uploadedUrl != null
-                          ? 'Đổi ảnh phân cảnh'
-                          : 'Tải ảnh cảnh lên Cloudinary'),
+                      label: Text(
+                        uploadedUrl != null
+                            ? 'Đổi ảnh phân cảnh'
+                            : 'Tải ảnh cảnh lên Cloudinary',
+                      ),
                     ),
                   ],
                 ),
@@ -2426,7 +2588,10 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
           runSpacing: 6,
           children: [
             ChoiceChip(
-              label: const Text('Tất cả engine', style: TextStyle(fontSize: 10)),
+              label: const Text(
+                'Tất cả engine',
+                style: TextStyle(fontSize: 10),
+              ),
               selected: _selectedVoiceEngine == 'all',
               onSelected: (_) => setState(() => _selectedVoiceEngine = 'all'),
             ),
@@ -2446,13 +2611,19 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               label: const Text('Giọng Nam', style: TextStyle(fontSize: 10)),
               selected: _selectedVoiceGender == 'male',
               onSelected: (_) => setState(
-                  () => _selectedVoiceGender = _selectedVoiceGender == 'male' ? 'all' : 'male'),
+                () => _selectedVoiceGender = _selectedVoiceGender == 'male'
+                    ? 'all'
+                    : 'male',
+              ),
             ),
             ChoiceChip(
               label: const Text('Giọng Nữ', style: TextStyle(fontSize: 10)),
               selected: _selectedVoiceGender == 'female',
               onSelected: (_) => setState(
-                  () => _selectedVoiceGender = _selectedVoiceGender == 'female' ? 'all' : 'female'),
+                () => _selectedVoiceGender = _selectedVoiceGender == 'female'
+                    ? 'all'
+                    : 'female',
+              ),
             ),
           ],
         ),
@@ -2497,16 +2668,21 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(v.name,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13),
-                                  overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                v.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Palette.soft,
                                 borderRadius: BorderRadius.circular(4),
@@ -2514,7 +2690,9 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                               child: Text(
                                 v.engine ?? v.provider ?? 'Edge-TTS',
                                 style: const TextStyle(
-                                    fontSize: 9, color: Palette.muted),
+                                  fontSize: 9,
+                                  color: Palette.muted,
+                                ),
                               ),
                             ),
                           ],
@@ -2522,9 +2700,13 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                         if (v.description != null &&
                             v.description!.isNotEmpty) ...[
                           const SizedBox(height: 2),
-                          Text(v.description!,
-                              style: const TextStyle(
-                                  fontSize: 11, color: Palette.muted)),
+                          Text(
+                            v.description!,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Palette.muted,
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -2540,8 +2722,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     onPressed: () => _runStep(() async {
                       final res = await widget.state.previewAiVoice(
                         voiceId: v.voiceId,
-                        text:
-                            'Sử Ký muôn đời ghi công bậc tiền nhân dựng nước và giữ nước.',
+                        text: 'Sử Ký muôn đời ghi công bậc tiền nhân dựng nước và giữ nước.',
                         engine: v.engine ?? _ttsEngine,
                       );
                       setState(() {
@@ -2581,12 +2762,12 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               onPressed: _busy
                   ? null
                   : () => _runStep(() async {
-                        await widget.state.saveAiSettings(
-                          preferredVoiceId: _selectedVoiceId,
-                          voiceProvider: _ttsEngine,
-                        );
-                        _statusNote = 'Đã lưu cấu hình giọng đọc AI.';
-                      }),
+                      await widget.state.saveAiSettings(
+                        preferredVoiceId: _selectedVoiceId,
+                        voiceProvider: _ttsEngine,
+                      );
+                      _statusNote = 'Đã lưu cấu hình giọng đọc AI.';
+                    }),
               icon: const Icon(CupertinoIcons.bookmark, size: 14),
               label: const Text('Lưu cấu hình giọng đọc'),
             ),
@@ -2595,18 +2776,16 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               onPressed: _busy
                   ? null
                   : () => _runStep(() async {
-                        final res = await widget.state.previewAiVoice(
-                          voiceId: _selectedVoiceId ?? 'vi-VN-NamMinhNeural',
-                          text:
-                              'Sử Ký muôn đời ghi công bậc tiền nhân dựng nước và giữ nước.',
-                          engine: _ttsEngine,
-                        );
-                        setState(() {
-                          _previewAudioUrl = res['audioUrl']?.toString();
-                          _statusNote =
-                              'Đã tạo bản nghe thử giọng đọc trực tiếp thành công!';
-                        });
-                      }),
+                      final res = await widget.state.previewAiVoice(
+                        voiceId: _selectedVoiceId ?? 'vi-VN-NamMinhNeural',
+                        text: 'Sử Ký muôn đời ghi công bậc tiền nhân dựng nước và giữ nước.',
+                        engine: _ttsEngine,
+                      );
+                      setState(() {
+                        _previewAudioUrl = res['audioUrl']?.toString();
+                        _statusNote = 'Đã tạo bản nghe thử giọng đọc trực tiếp thành công!';
+                      });
+                    }),
               icon: const Icon(CupertinoIcons.play_circle, size: 14),
               label: const Text('Nghe thử giọng'),
             ),
@@ -2670,9 +2849,13 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Thông số video:',
-                  style:
-                      const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(
+                'Thông số video:',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
                 '• Định dạng: ${_renderMode == "audio_podcast" ? "Video Podcast Âm Thanh" : "Hoạt Họa Bảng Trắng 16:9"}',
@@ -2710,52 +2893,52 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
           onPressed: _busy
               ? null
               : () => _runStep(() async {
-                    final titleText = _renderTitleCtrl.text.trim().isNotEmpty
-                        ? _renderTitleCtrl.text.trim()
-                        : (_topicCtrl.text.trim().isNotEmpty
+                  final titleText = _renderTitleCtrl.text.trim().isNotEmpty
+                      ? _renderTitleCtrl.text.trim()
+                      : (_topicCtrl.text.trim().isNotEmpty
                             ? _topicCtrl.text.trim()
                             : 'Chiến thắng Bạch Đằng 938');
-                    final scriptText = _scriptCtrl.text.trim().isNotEmpty
-                        ? _scriptCtrl.text.trim()
-                        : 'Năm 938, Ngô Quyền đại phá quân Nam Hán trên sông Bạch Đằng.';
+                  final scriptText = _scriptCtrl.text.trim().isNotEmpty
+                      ? _scriptCtrl.text.trim()
+                      : 'Năm 938, Ngô Quyền đại phá quân Nam Hán trên sông Bạch Đằng.';
 
-                    await widget.state.startAiRender(
-                      title: titleText,
-                      scriptText: scriptText,
-                      renderMode: _renderMode,
-                      voiceName: _selectedVoiceId,
-                      ttsEngine: _ttsEngine,
-                      sceneImages: _sceneImages,
-                      durationSec: _durationSec,
-                      coverImage: _coverImageUrl,
-                      thumbnailUrl: _thumbnailUrl,
-                      storyboard: storyboard,
-                    );
+                  await widget.state.startAiRender(
+                    title: titleText,
+                    scriptText: scriptText,
+                    renderMode: _renderMode,
+                    voiceName: _selectedVoiceId,
+                    ttsEngine: _ttsEngine,
+                    sceneImages: _sceneImages,
+                    durationSec: _durationSec,
+                    coverImage: _coverImageUrl,
+                    thumbnailUrl: _thumbnailUrl,
+                    storyboard: storyboard,
+                  );
 
-                    // Bắt đầu polling tiến trình render mỗi 2s
-                    _jobPollTimer?.cancel();
-                    _jobPollTimer =
-                        Timer.periodic(const Duration(seconds: 2), (timer) async {
-                      if (!mounted) {
+                  // Bắt đầu polling tiến trình render mỗi 2s
+                  _jobPollTimer?.cancel();
+                  _jobPollTimer = Timer.periodic(const Duration(seconds: 2), (
+                    timer,
+                  ) async {
+                    if (!mounted) {
+                      timer.cancel();
+                      return;
+                    }
+                    final j = widget.state.activeRenderJob;
+                    if (j != null && j['jobId'] != null) {
+                      final currentStatus = (j['status'] ?? '').toString();
+                      if (currentStatus == 'COMPLETED' ||
+                          currentStatus == 'FAILED') {
                         timer.cancel();
                         return;
                       }
-                      final j = widget.state.activeRenderJob;
-                      if (j != null && j['jobId'] != null) {
-                        final currentStatus =
-                            (j['status'] ?? '').toString();
-                        if (currentStatus == 'COMPLETED' ||
-                            currentStatus == 'FAILED') {
-                          timer.cancel();
-                          return;
-                        }
-                        await widget.state.pollRenderJobStatus(
-                          j['jobId'].toString(),
-                          artifactId: (j['artifactId'] as num?)?.toInt(),
-                        );
-                      }
-                    });
-                  }),
+                      await widget.state.pollRenderJobStatus(
+                        j['jobId'].toString(),
+                        artifactId: (j['artifactId'] as num?)?.toInt(),
+                      );
+                    }
+                  });
+                }),
           icon: const Icon(CupertinoIcons.film, size: 16),
           label: Text(
             _busy ? 'Đang khởi chạy...' : 'Khởi chạy Render Video / Podcast',
@@ -2804,24 +2987,39 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('Tiến trình dựng video (6 bước):',
-                        style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Palette.muted)),
+                    Text(
+                      'Tiến trình dựng video (6 bước):',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Palette.muted,
+                      ),
+                    ),
                     SizedBox(height: 6),
-                    Text('1. Khởi tạo tác vụ & xác thực quyền',
-                        style: TextStyle(fontSize: 10, color: Palette.ink)),
-                    Text('2. Tải & tiền xử lý tư liệu ảnh Cloudinary',
-                        style: TextStyle(fontSize: 10, color: Palette.ink)),
-                    Text('3. Tổng hợp giọng đọc Edge-TTS / ElevenLabs',
-                        style: TextStyle(fontSize: 10, color: Palette.ink)),
-                    Text('4. Dựng đồ họa phân cảnh & hiệu ứng waveform',
-                        style: TextStyle(fontSize: 10, color: Palette.ink)),
-                    Text('5. Ghép video, âm thanh & phụ đề (FFmpeg)',
-                        style: TextStyle(fontSize: 10, color: Palette.ink)),
-                    Text('6. Hoàn tất kết xuất & tải lên lưu trữ',
-                        style: TextStyle(fontSize: 10, color: Palette.ink)),
+                    Text(
+                      '1. Khởi tạo tác vụ & xác thực quyền',
+                      style: TextStyle(fontSize: 10, color: Palette.ink),
+                    ),
+                    Text(
+                      '2. Tải & tiền xử lý tư liệu ảnh Cloudinary',
+                      style: TextStyle(fontSize: 10, color: Palette.ink),
+                    ),
+                    Text(
+                      '3. Tổng hợp giọng đọc Edge-TTS / ElevenLabs',
+                      style: TextStyle(fontSize: 10, color: Palette.ink),
+                    ),
+                    Text(
+                      '4. Dựng đồ họa phân cảnh & hiệu ứng waveform',
+                      style: TextStyle(fontSize: 10, color: Palette.ink),
+                    ),
+                    Text(
+                      '5. Ghép video, âm thanh & phụ đề (FFmpeg)',
+                      style: TextStyle(fontSize: 10, color: Palette.ink),
+                    ),
+                    Text(
+                      '6. Hoàn tất kết xuất & tải lên lưu trữ',
+                      style: TextStyle(fontSize: 10, color: Palette.ink),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -2831,12 +3029,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                   onPressed: _busy
                       ? null
                       : () => _runStep(() async {
-                            await widget.state.pollRenderJobStatus(
-                              job['jobId'].toString(),
-                              artifactId:
-                                  (job['artifactId'] as num?)?.toInt(),
-                            );
-                          }),
+                          await widget.state.pollRenderJobStatus(
+                            job['jobId'].toString(),
+                            artifactId: (job['artifactId'] as num?)?.toInt(),
+                          );
+                        }),
                   child: const Text('Cập nhật tiến độ Render'),
                 ),
 
@@ -2848,20 +3045,25 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
-                          color: Colors.green.withValues(alpha: 0.3)),
+                        color: Colors.green.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: const Row(
                       children: [
-                        Icon(CupertinoIcons.checkmark_circle_fill,
-                            color: Colors.green, size: 16),
+                        Icon(
+                          CupertinoIcons.checkmark_circle_fill,
+                          color: Colors.green,
+                          size: 16,
+                        ),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Video đã render thành công! Bạn có thể gửi duyệt AI Shield và xuất bản.',
                             style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.green,
-                                fontWeight: FontWeight.bold),
+                              fontSize: 11,
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -2873,13 +3075,13 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                     onPressed: _busy
                         ? null
                         : () => _runStep(() async {
-                              await widget.state
-                                  .submitStudioVideoForPublish(contentId);
-                              setState(() {
-                                _statusNote =
-                                    'Đã duyệt AI Shield · Xuất bản video thành công!';
-                              });
-                            }),
+                            await widget.state.submitStudioVideoForPublish(
+                              contentId,
+                            );
+                            setState(() {
+                              _statusNote = 'Đã duyệt AI Shield · Xuất bản video thành công!';
+                            });
+                          }),
                     child: const Text('Gửi duyệt AI Shield & Xuất bản'),
                   ),
                 ],
