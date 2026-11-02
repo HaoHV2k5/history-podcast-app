@@ -205,6 +205,7 @@ void main() {
               'channelName': 'Dấu Ấn Lịch Sử',
               'title': payload['title'],
               'description': payload['description'],
+              'thumbnailUrl': payload['thumbnailUrl'],
               'agoraChannelName': 'prm_live_10_205',
               'isExclusive': payload['isExclusive'] == true,
               'status': 'LIVE',
@@ -389,6 +390,17 @@ void main() {
       await tester.enterText(
         find.byKey(const Key('livestream-desc-input')),
         'Giao lưu tư liệu lịch sử trực tiếp.',
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('livestream-thumbnail-input')),
+        200,
+        scrollable: studioScrollable,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('livestream-pick-thumbnail-btn')), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('livestream-thumbnail-input')),
+        'https://res.cloudinary.com/demo/image/upload/v1/livestream_thumb.png',
       );
       await tester.scrollUntilVisible(
         find.byKey(const Key('start-livestream-btn')),

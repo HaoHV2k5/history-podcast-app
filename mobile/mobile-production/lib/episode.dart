@@ -2,6 +2,58 @@ import 'dart:convert';
 
 part 'mock/fixtures/catalog.dart';
 
+/// Làm sạch phần mô tả tập video / podcast, loại bỏ các tag phân cảnh RAG thô (=== Tên cảnh ===)
+/// để hiển thị văn bản tóm tắt tác phẩm chỉn chu, chuyên nghiệp cho người xem.
+String cleanEpisodeDescription(String text, {String? title, String? channel}) {
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) {
+    if (title != null && title.trim().isNotEmpty) {
+      final ch = (channel != null && channel.trim().isNotEmpty) ? ' do kênh $channel sản xuất' : '';
+      return 'Tập video lịch sử "$title"$ch trên nền tảng Sử Ký. Khám phá những câu chuyện hào hùng và giá trị lịch sử dân tộc.';
+    }
+    return 'Thông tin mô tả tác phẩm đang được ban biên tập cập nhật.';
+  }
+
+  // 1. Loại bỏ các dòng phân cảnh kịch bản RAG: === Tên cảnh === hoặc === Scene X ===
+  var cleaned = trimmed.replaceAll(RegExp(r'===\s*.*?\s*==='), '').trim();
+
+  // 2. Loại bỏ tiền tố kịch bản phân cảnh ở đầu dòng: "Phân cảnh X:", "Scene X:", "Kịch bản:", "Prompt:"
+  cleaned = cleaned.replaceAll(RegExp(r'^(?:Phân cảnh|Scene)\s*\d+\s*:\s*', caseSensitive: false, multiLine: true), '');
+
+  // 3. Chuẩn hóa khoảng trắng và dòng trống
+  cleaned = cleaned.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+
+  if (cleaned.isEmpty) {
+    if (title != null && title.trim().isNotEmpty) {
+      final ch = (channel != null && channel.trim().isNotEmpty) ? ' do kênh $channel sản xuất' : '';
+      return 'Tập video lịch sử "$title"$ch trên nền tảng Sử Ký. Tác phẩm tái hiện các phân cảnh lịch sử sống động.';
+    }
+    return 'Nội dung video tái hiện các phân cảnh lịch sử đặc sắc.';
+  }
+
+  return cleaned;
+}
+
+/// Trích xuất danh sách chương/phân cảnh video từ kịch bản phân cảnh RAG (=== Tên phân cảnh ===)
+List<Chapter> parseChaptersFromScript(String text, int totalSeconds) {
+  final regex = RegExp(r'===\s*(.+?)\s*===');
+  final matches = regex.allMatches(text).toList();
+  if (matches.isEmpty) {
+    return const [Chapter('Mở đầu', 0)];
+  }
+  final chapters = <Chapter>[];
+  final count = matches.length;
+  for (var i = 0; i < count; i++) {
+    final rawTitle = matches[i].group(1)?.trim() ?? 'Phân cảnh ${i + 1}';
+    final cleanTitle = rawTitle
+        .replaceAll(RegExp(r'^(?:Phân cảnh|Scene)\s*\d+\s*:\s*', caseSensitive: false), '')
+        .trim();
+    final sec = count > 1 ? (totalSeconds * i / count).round() : 0;
+    chapters.add(Chapter(cleanTitle.isNotEmpty ? cleanTitle : 'Phân cảnh ${i + 1}', sec));
+  }
+  return chapters;
+}
+
 class Chapter {
   const Chapter(this.title, this.seconds);
   final String title;
@@ -30,6 +82,7 @@ class Episode {
     this.remoteLikeCount,
     this.remoteDislikeCount,
     this.remoteCommentCount,
+    this.rawScript,
   });
   final String id, title, channel, image, category, description;
   final int seconds;
@@ -44,8 +97,57 @@ class Episode {
   final int? remoteLikeCount;
   final int? remoteDislikeCount;
   final int? remoteCommentCount;
+  final String? rawScript;
   String get duration =>
       seconds < 60 ? '$seconds giây' : '${seconds ~/ 60} ph\u00fat';
+
+  String get displayDescription => cleanEpisodeDescription(description, title: title, channel: channel);
+
+  Episode copyWith({
+    String? id,
+    String? title,
+    String? channel,
+    String? image,
+    String? category,
+    int? seconds,
+    String? description,
+    List<Chapter>? chapters,
+    bool? membersOnly,
+    bool? isVideo,
+    String? mediaAsset,
+    String? sources,
+    String? channelImage,
+    int? channelId,
+    int? contentId,
+    int? seriesId,
+    String? seriesTitle,
+    int? remoteLikeCount,
+    int? remoteDislikeCount,
+    int? remoteCommentCount,
+    String? rawScript,
+  }) => Episode(
+    id: id ?? this.id,
+    title: title ?? this.title,
+    channel: channel ?? this.channel,
+    image: image ?? this.image,
+    category: category ?? this.category,
+    seconds: seconds ?? this.seconds,
+    description: description ?? this.description,
+    chapters: chapters ?? this.chapters,
+    membersOnly: membersOnly ?? this.membersOnly,
+    isVideo: isVideo ?? this.isVideo,
+    mediaAsset: mediaAsset ?? this.mediaAsset,
+    sources: sources ?? this.sources,
+    channelImage: channelImage ?? this.channelImage,
+    channelId: channelId ?? this.channelId,
+    contentId: contentId ?? this.contentId,
+    seriesId: seriesId ?? this.seriesId,
+    seriesTitle: seriesTitle ?? this.seriesTitle,
+    remoteLikeCount: remoteLikeCount ?? this.remoteLikeCount,
+    remoteDislikeCount: remoteDislikeCount ?? this.remoteDislikeCount,
+    remoteCommentCount: remoteCommentCount ?? this.remoteCommentCount,
+    rawScript: rawScript ?? this.rawScript,
+  );
 }
 
 final List<Episode> publishedEpisodes = [];
@@ -90,28 +192,41 @@ Map<String, dynamic> episodeToJson(Episode e) => {
   if (e.contentId != null) 'contentId': e.contentId,
   if (e.seriesId != null) 'seriesId': e.seriesId,
   if (e.seriesTitle != null) 'seriesTitle': e.seriesTitle,
+  if (e.rawScript != null) 'rawScript': e.rawScript,
 };
-Episode episodeFromJson(Map<String, dynamic> j) => Episode(
-  id: j['id'] as String,
-  title: j['title'] as String,
-  channel: j['channel'] as String,
-  image: j['image'] as String,
-  channelImage: j['channelImage'] as String? ?? '',
-  category: j['category'] as String,
-  seconds: j['seconds'] as int,
-  description: j['description'] as String,
-  chapters: (j['chapters'] as List)
-      .map((c) => Chapter(c['title'] as String, c['seconds'] as int))
-      .toList(),
-  membersOnly: j['membersOnly'] == true,
-  isVideo: j['isVideo'] == true,
-  mediaAsset: j['mediaAsset'] as String? ?? '',
-  sources: j['sources'] as String? ?? '',
-  channelId: (j['channelId'] as num?)?.toInt(),
-  contentId: (j['contentId'] as num?)?.toInt(),
-  seriesId: (j['seriesId'] as num?)?.toInt(),
-  seriesTitle: j['seriesTitle'] as String?,
-);
+Episode episodeFromJson(Map<String, dynamic> j) {
+  final rawDesc = (j['description'] ?? j['textBody']) as String? ?? '';
+  final title = j['title'] as String? ?? '';
+  final channel = j['channel'] as String? ?? '';
+  final seconds = j['seconds'] as int? ?? 300;
+  final chaptersList = j['chapters'] as List?;
+  final parsedChapters = (chaptersList != null && chaptersList.isNotEmpty)
+      ? chaptersList
+          .map((c) => Chapter(c['title'] as String, (c['seconds'] as num).toInt()))
+          .toList()
+      : parseChaptersFromScript(rawDesc, seconds);
+
+  return Episode(
+    id: j['id'] as String,
+    title: title,
+    channel: channel,
+    image: j['image'] as String,
+    channelImage: j['channelImage'] as String? ?? '',
+    category: j['category'] as String,
+    seconds: seconds,
+    description: cleanEpisodeDescription(rawDesc, title: title, channel: channel),
+    rawScript: (j['rawScript'] ?? rawDesc) as String?,
+    chapters: parsedChapters,
+    membersOnly: j['membersOnly'] == true,
+    isVideo: j['isVideo'] == true,
+    mediaAsset: j['mediaAsset'] as String? ?? '',
+    sources: j['sources'] as String? ?? '',
+    channelId: (j['channelId'] as num?)?.toInt(),
+    contentId: (j['contentId'] as num?)?.toInt(),
+    seriesId: (j['seriesId'] as num?)?.toInt(),
+    seriesTitle: j['seriesTitle'] as String?,
+  );
+}
 
 class Channel {
   const Channel(

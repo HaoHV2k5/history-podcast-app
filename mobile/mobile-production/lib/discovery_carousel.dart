@@ -151,9 +151,9 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
       ];
       final cardWidth = constraints.maxWidth * .97 - 8;
       final showImage =
-          cardWidth >= 300 && MediaQuery.textScalerOf(context).scale(1) < 1.4;
-      final imageWidth = showImage ? cardWidth * .22 : 0.0;
-      final textWidth = cardWidth - imageWidth - 36;
+          cardWidth >= 280 && MediaQuery.textScalerOf(context).scale(1) < 1.4;
+      final imageWidth = showImage ? cardWidth * .50 : 0.0;
+      final textWidth = showImage ? (cardWidth * 0.50 - 32) : (cardWidth - 36);
       double measure(String text, TextStyle style) {
         final painter = TextPainter(
           text: TextSpan(
@@ -168,7 +168,7 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
         return height;
       }
 
-      final titleStyle = editorial(27);
+      final titleStyle = editorial(cardWidth > 360 ? 24 : 21);
       const captionStyle = TextStyle(fontSize: 12, height: 1.6);
       final titleHeight = cards
           .map((c) => measure(c.title, titleStyle))
@@ -187,13 +187,13 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
       final actionHeight =
           (measure('Khám phá tập', const TextStyle(fontSize: 12, height: 1.5)) +
                   20)
-              .clamp(48.0, double.infinity);
+              .clamp(44.0, double.infinity);
       final height =
-          36 +
+          32 +
           labelHeight +
-          14 +
-          titleHeight +
           12 +
+          titleHeight +
+          10 +
           captionHeight +
           10 +
           actionHeight;
@@ -235,8 +235,9 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                               child: Row(
                                 children: [
                                   Expanded(
+                                    flex: 1,
                                     child: Padding(
-                                      padding: const EdgeInsets.all(18),
+                                      padding: const EdgeInsets.all(16),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -251,7 +252,7 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                               color: card.foreground,
                                             ),
                                           ),
-                                          const SizedBox(height: 14),
+                                          const SizedBox(height: 12),
                                           SizedBox(
                                             height: titleHeight,
                                             child: Text(
@@ -259,9 +260,11 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                               style: titleStyle.copyWith(
                                                 color: card.foreground,
                                               ),
+                                              maxLines: 3,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          const SizedBox(height: 12),
+                                          const SizedBox(height: 10),
                                           SizedBox(
                                             height: captionHeight,
                                             child: Text(
@@ -270,6 +273,8 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                                 color: card.foreground
                                                     .withValues(alpha: .85),
                                               ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
                                           const SizedBox(height: 10),
@@ -295,13 +300,15 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                                       style: const TextStyle(
                                                         fontSize: 12,
                                                         height: 1.5,
+                                                        fontWeight: FontWeight.w600,
                                                       ),
+                                                      overflow: TextOverflow.ellipsis,
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 10),
+                                                  const SizedBox(width: 8),
                                                   const Icon(
                                                     CupertinoIcons.arrow_right,
-                                                    size: 17,
+                                                    size: 16,
                                                   ),
                                                 ],
                                               ),
@@ -312,13 +319,15 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                     ),
                                   ),
                                   if (showImage)
-                                    SizedBox(
-                                      width: imageWidth,
-                                      height: height,
-                                      child: ArtworkImage(
-                                        card.image,
-                                        fit: BoxFit.cover,
-                                        excludeFromSemantics: true,
+                                    Expanded(
+                                      flex: 1,
+                                      child: SizedBox(
+                                        height: height,
+                                        child: ArtworkImage(
+                                          card.image,
+                                          fit: BoxFit.cover,
+                                          excludeFromSemantics: true,
+                                        ),
                                       ),
                                     ),
                                 ],

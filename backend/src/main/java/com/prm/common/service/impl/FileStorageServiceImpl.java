@@ -196,7 +196,16 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
+        boolean validContentType = contentType != null && ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase());
+
+        // Fallback: check original filename extension if content type was generic or octet-stream
+        if (!validContentType && StringUtils.hasText(file.getOriginalFilename())) {
+            String lowerName = file.getOriginalFilename().toLowerCase();
+            validContentType = lowerName.endsWith(".png") || lowerName.endsWith(".jpg")
+                    || lowerName.endsWith(".jpeg") || lowerName.endsWith(".webp");
+        }
+
+        if (!validContentType) {
             throw new AppException(
                     ErrorCode.FILE_INVALID_FORMAT,
                     "Định dạng tệp không hợp lệ. Chỉ chấp nhận các định dạng ảnh: JPG, JPEG, PNG, WEBP"

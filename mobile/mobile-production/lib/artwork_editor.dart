@@ -48,10 +48,7 @@ class _ArtworkEditorState extends State<ArtworkEditor> {
     try {
       widget.guard?.call();
       FocusScope.of(context).unfocus();
-      final files = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp'],
-      );
+      final files = await FilePicker.pickFiles(type: FileType.image);
       if (files.isEmpty || !mounted) return;
       final file = files.first;
       validateArtworkInput(
@@ -62,7 +59,8 @@ class _ArtworkEditorState extends State<ArtworkEditor> {
       validateArtworkInput(file.name, bytes.length);
       // Yield to paint the loading state before decoding on web.
       await Future<void>.delayed(const Duration(milliseconds: 20));
-      final prepared = await compute(prepareArtworkSource, bytes);
+      final prepared =
+          await compute<Uint8List, Uint8List>(prepareArtworkSource, bytes);
       if (!mounted) return;
       await Navigator.push<bool>(
         context,
