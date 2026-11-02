@@ -49,7 +49,8 @@ public class ChatServiceImpl implements ChatService {
             String status = commission.getStatus();
             boolean chatAllowed = CommissionStatus.ACCEPTED.name().equalsIgnoreCase(status)
                     || CommissionStatus.CONTRACT_SENT.name().equalsIgnoreCase(status)
-                    || CommissionStatus.COMPLETED.name().equalsIgnoreCase(status);
+                    || CommissionStatus.COMPLETED.name().equalsIgnoreCase(status)
+                    || CommissionStatus.CANCELLED.name().equalsIgnoreCase(status);
 
             if (!chatAllowed) {
                 throw new AppException(ErrorCode.CHAT_NOT_ALLOWED,
