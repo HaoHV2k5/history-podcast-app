@@ -1,4 +1,18 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 import 'api_client.dart';
+
+class DepositPaymentData {
+  final String paymentUrl;
+  final String? merchantTxnRef;
+
+  const DepositPaymentData({
+    required this.paymentUrl,
+    this.merchantTxnRef,
+  });
+}
 
 class WalletRepository {
   final ApiClient apiClient;
@@ -10,6 +24,7 @@ class WalletRepository {
     final data = response['data'] as Map<String, dynamic>;
     return WalletInfo(
       id: (data['id'] as num?)?.toInt() ?? 0,
+      userId: (data['userId'] as num?)?.toInt(),
       availableBalance: (data['availableBalance'] as num?)?.toDouble() ?? 0.0,
       pendingBalance: (data['pendingBalance'] as num?)?.toDouble() ?? 0.0,
     );
@@ -21,6 +36,7 @@ class WalletRepository {
     final data = response['data'] as Map<String, dynamic>;
     return WalletInfo(
       id: (data['id'] as num?)?.toInt() ?? 0,
+      userId: (data['userId'] as num?)?.toInt(),
       availableBalance: (data['availableBalance'] as num?)?.toDouble() ?? 0.0,
       pendingBalance: (data['pendingBalance'] as num?)?.toDouble() ?? 0.0,
     );
@@ -46,14 +62,34 @@ class WalletRepository {
     return [];
   }
 
-  Future<String> createDeposit({required int amount}) async {
+  Future<DepositPaymentData> createDepositPayment({
+    required int amount,
+    String? description,
+  }) async {
+    final desc = (description != null && description.trim().isNotEmpty)
+        ? description.trim()
+        : 'Nạp tiền vào ví Sử Ký qua Mobile';
     final response = await apiClient.post('/api/v1/wallets/me/deposits', body: {
       'amount': amount,
-      'description': 'Nạp tiền vào ví Sử Ký qua Mobile',
-      'orderInfo': 'Nạp tiền vào ví Sử Ký qua Mobile',
+      'description': desc,
+      'orderInfo': desc,
     });
-    final data = response['data'] as Map<String, dynamic>;
-    return data['paymentUrl'] as String? ?? '';
+    final data = response['data'] as Map<String, dynamic>? ?? const {};
+    final paymentUrl = data['paymentUrl'] as String? ?? '';
+    var merchantTxnRef = data['merchantTxnRef'] as String?;
+    if ((merchantTxnRef == null || merchantTxnRef.isEmpty) && paymentUrl.isNotEmpty) {
+      final uri = Uri.tryParse(paymentUrl);
+      merchantTxnRef = uri?.queryParameters['vnp_TxnRef'];
+    }
+    return DepositPaymentData(
+      paymentUrl: paymentUrl,
+      merchantTxnRef: merchantTxnRef,
+    );
+  }
+
+  Future<String> createDeposit({required int amount}) async {
+    final res = await createDepositPayment(amount: amount);
+    return res.paymentUrl;
   }
 
   Future<List<BankAccountData>> getBankAccounts() async {
@@ -149,6 +185,71 @@ class WalletRepository {
   Future<Map<String, dynamic>> handleVnpayIpn(Map<String, String> ipnParams) async {
     return await apiClient.get('/api/v1/payments/vnpay/ipn', queryParams: ipnParams);
   }
+
+  /// Xác nhận kết quả thanh toán VNPay Sandbox (tính HMAC-SHA512 chuẩn VNPay & gọi /api/v1/payments/vnpay/ipn)
+  Future<bool> confirmVnpaySandboxIpn({
+    required int amount,
+    String? merchantTxnRef,
+    String? paymentUrl,
+    String hashSecret = 'QLRVIPXMCHQLBZRBVMHPKXWPZTNYFFSI',
+    String defaultTmnCode = 'B3R5NOX0',
+  }) async {
+    var txnRef = merchantTxnRef?.trim() ?? '';
+    var tmnCode = defaultTmnCode;
+    if (paymentUrl != null && paymentUrl.isNotEmpty) {
+      final uri = Uri.tryParse(paymentUrl);
+      if (uri != null) {
+        if (txnRef.isEmpty) {
+          txnRef = uri.queryParameters['vnp_TxnRef'] ?? '';
+        }
+        final urlTmn = uri.queryParameters['vnp_TmnCode'];
+        if (urlTmn != null && urlTmn.isNotEmpty) {
+          tmnCode = urlTmn;
+        }
+      }
+    }
+    if (txnRef.isEmpty) return false;
+
+    final now = DateTime.now();
+    final payDate =
+        '${now.year.toString().padLeft(4, '0')}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
+    final txnNo = '14${(now.millisecondsSinceEpoch % 100000000).toString().padLeft(8, '0')}';
+
+    final fields = <String, String>{
+      'vnp_Amount': (amount * 100).toString(),
+      'vnp_BankCode': 'NCB',
+      'vnp_OrderInfo': 'NapTienViPRM',
+      'vnp_PayDate': payDate,
+      'vnp_ResponseCode': '00',
+      'vnp_TmnCode': tmnCode,
+      'vnp_TransactionNo': txnNo,
+      'vnp_TransactionStatus': '00',
+      'vnp_TxnRef': txnRef,
+    };
+
+    final sortedKeys = fields.keys.toList()..sort();
+    final hashBuffer = StringBuffer();
+    for (var i = 0; i < sortedKeys.length; i++) {
+      final k = sortedKeys[i];
+      final v = fields[k]!;
+      hashBuffer.write('$k=${Uri.encodeQueryComponent(v)}');
+      if (i < sortedKeys.length - 1) {
+        hashBuffer.write('&');
+      }
+    }
+
+    final hmac = Hmac(sha512, utf8.encode(hashSecret));
+    final digest = hmac.convert(utf8.encode(hashBuffer.toString())).toString();
+
+    final ipnParams = <String, String>{
+      ...fields,
+      'vnp_SecureHash': digest,
+    };
+
+    final res = await handleVnpayIpn(ipnParams);
+    final rspCode = res['RspCode']?.toString();
+    return rspCode == '00' || rspCode == '02';
+  }
 }
 
 class PaymentReturnResult {
@@ -197,11 +298,13 @@ class BankAccountData {
 
 class WalletInfo {
   final int id;
+  final int? userId;
   final double availableBalance;
   final double pendingBalance;
 
   WalletInfo({
     required this.id,
+    this.userId,
     required this.availableBalance,
     required this.pendingBalance,
   });

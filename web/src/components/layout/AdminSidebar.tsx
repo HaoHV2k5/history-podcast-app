@@ -34,11 +34,11 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: 'WORKSPACE',
+    title: 'KHÔNG GIAN LÀM VIỆC',
     items: [
       { id: '01', label: 'Tổng quan', to: '/admin/overview', icon: LayoutDashboard },
       { id: '02', label: 'Kiểm duyệt nội dung', to: '/admin/moderation', icon: ShieldAlert },
-      { id: '03', label: 'Xác thực KYC', to: '/admin/kyc', icon: UserCheck },
+      { id: '03', label: 'Xác thực định danh', to: '/admin/kyc', icon: UserCheck },
     ],
   },
   {
@@ -51,11 +51,11 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'VẬN HÀNH THUYẾT MINH',
+    title: 'HỢP ĐỒNG & KÝ QUỸ ĐẢM BẢO',
     items: [
       { id: '08', label: 'Hồ sơ Thuyết minh', to: '/admin/narrators', icon: Mic },
       { id: '09', label: 'Hợp đồng thu âm', to: '/admin/contracts', icon: FileText },
-      { id: '10', label: 'Ký quỹ Escrow', to: '/admin/escrow', icon: Lock },
+      { id: '10', label: 'Ký quỹ đảm bảo', to: '/admin/escrow', icon: Lock },
       { id: '11', label: 'Xử lý Khiếu nại', to: '/admin/disputes', icon: AlertCircle },
     ],
   },

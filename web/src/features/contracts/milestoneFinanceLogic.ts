@@ -451,3 +451,60 @@ export function downloadCSV(filename: string, csvContent: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Detects whether an in-progress milestone is past its delivery deadline.
+ * If overdue, the Requester has the contractual right to invoke `cancel-overdue`
+ * for a 100% refund.
+ */
+export function isMilestoneOverdue(
+  milestone?: MilestoneItem | null,
+  referenceTime: Date = new Date()
+): boolean {
+  if (!milestone) return false;
+  const status = (milestone.status || '').toUpperCase();
+  if (status !== 'IN_PROGRESS' || !milestone.dueAt) return false;
+  return new Date(milestone.dueAt).getTime() < referenceTime.getTime();
+}
+
+export interface MilestoneRevisionInfo {
+  revisionsUsed: number;
+  maxRevisions: number;
+  remainingRevisions: number;
+  isRevisionLimitReached: boolean;
+  revisionDays: number;
+  latestRevisionNote?: string;
+  hasRevisions: boolean;
+}
+
+/**
+ * Extracts revision details and checks quota limits.
+ * System default: max 2 free revisions, +2 days extended per revision.
+ */
+export function getMilestoneRevisionInfo(
+  milestone?: MilestoneItem | null
+): MilestoneRevisionInfo {
+  const revisionsUsed = Number(milestone?.revisionsUsed) || 0;
+  const maxRevisions = Number(milestone?.maxRevisions) || 2;
+  const revisionDays = Number(milestone?.revisionDays) || 2;
+  const remainingRevisions = Math.max(0, maxRevisions - revisionsUsed);
+  const isRevisionLimitReached = revisionsUsed >= maxRevisions;
+
+  let latestRevisionNote: string | undefined = undefined;
+  if (milestone?.revisionRequests && milestone.revisionRequests.length > 0) {
+    const sorted = [...milestone.revisionRequests].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    latestRevisionNote = sorted[0]?.note;
+  }
+
+  return {
+    revisionsUsed,
+    maxRevisions,
+    remainingRevisions,
+    isRevisionLimitReached,
+    revisionDays,
+    latestRevisionNote,
+    hasRevisions: revisionsUsed > 0,
+  };
+}

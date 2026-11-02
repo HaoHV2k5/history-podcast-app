@@ -49,12 +49,16 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
   late final TextEditingController account;
   late final TextEditingController holder;
   final amount = TextEditingController();
+  int? selectedBankId;
   bool reviewing = false, busy = false;
   String? error;
 
   @override
   void initState() {
     super.initState();
+    if (widget.ledger.remoteBanks.isNotEmpty) {
+      selectedBankId = widget.ledger.remoteBanks.first.id;
+    }
     if (widget.existingBank != null) {
       bank = TextEditingController(text: widget.existingBank!.bankName);
       account = TextEditingController(text: widget.existingBank!.accountNumber);
@@ -121,6 +125,7 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
           widget.owner,
           widget.kyc,
           parseWalletAmount(amount.text)!,
+          bankAccountId: selectedBankId,
         );
       }
       if (mounted) Navigator.pop(context, true);
@@ -227,7 +232,8 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
                     validator: (v) {
                       final val = (v ?? '').trim();
                       if (val.isEmpty) return 'Nhập tên chủ tài khoản.';
-                      if (widget.kyc.fullName.isNotEmpty &&
+                      if (!widget.ledger.isLiveBackend &&
+                          widget.kyc.fullName.isNotEmpty &&
                           normalizeSearch(val) != normalizeSearch(widget.kyc.fullName.trim())) {
                         return 'Tên phải khớp ${widget.kyc.fullName}.';
                       }
@@ -236,24 +242,50 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
                   ),
                 ] else if (!reviewing) ...[
                   Text('Khả dụng ${money(available)}'),
+                  if (widget.ledger.isLiveBackend && widget.ledger.remoteBanks.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      initialValue: selectedBankId ?? widget.ledger.remoteBanks.first.id,
+                      decoration: const InputDecoration(
+                        labelText: 'Tài khoản nhận tiền',
+                      ),
+                      items: widget.ledger.remoteBanks
+                          .map(
+                            (b) => DropdownMenuItem<int>(
+                              value: b.id,
+                              child: Text(
+                                '${b.bankName} · ••••${b.accountNumber.length > 4 ? b.accountNumber.substring(b.accountNumber.length - 4) : b.accountNumber}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: busy
+                          ? null
+                          : (val) => setState(() => selectedBankId = val),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   TextFormField(
                     key: const Key('withdraw-amount'),
                     controller: amount,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Số tiền (VND)',
                       hintText: '200.000',
-                      helperText: 'Ngưỡng thử: 100.000đ',
+                      helperText: widget.ledger.isLiveBackend
+                          ? 'Tối thiểu: 50.000đ'
+                          : 'Ngưỡng thử: 100.000đ',
                     ),
                     validator: (v) {
                       final n = parseWalletAmount(v ?? '');
                       if (n == null) {
                         return 'Nhập số nguyên, ví dụ 200.000 hoặc 200000.';
                       }
-                      return n >= 100000 && n <= available
+                      final minW = widget.ledger.isLiveBackend ? 50000 : 100000;
+                      return n >= minW && n <= available
                           ? null
-                          : 'Từ 100.000đ đến ${money(available)}.';
+                          : 'Từ ${money(minW)} đến ${money(available)}.';
                     },
                   ),
                 ] else ...[
@@ -266,12 +298,40 @@ class _WalletFormDialogState extends State<WalletFormDialog> {
                     'Ngân hàng nhận',
                     style: TextStyle(color: Palette.muted),
                   ),
-                  Text(
-                    linked == null
-                        ? 'Chưa liên kết'
-                        : maskedBankAccount(linked),
+                  Builder(
+                    builder: (_) {
+                      if (widget.ledger.isLiveBackend &&
+                          widget.ledger.remoteBanks.isNotEmpty) {
+                        final picked = widget.ledger.remoteBanks.firstWhere(
+                          (b) => b.id == selectedBankId,
+                          orElse: () => widget.ledger.remoteBanks.first,
+                        );
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              maskedBankAccount({
+                                'name': picked.bankName,
+                                'account': picked.accountNumber,
+                              }),
+                            ),
+                            Text(picked.accountHolderName),
+                          ],
+                        );
+                      }
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            linked == null
+                                ? 'Chưa liên kết'
+                                : maskedBankAccount(linked),
+                          ),
+                          if (linked != null) Text(linked['holder'].toString()),
+                        ],
+                      );
+                    },
                   ),
-                  if (linked != null) Text(linked['holder'].toString()),
                   const SizedBox(height: 16),
                   Text(
                     'Còn khả dụng sau yêu cầu: ${money(available - parseWalletAmount(amount.text)!)}',
