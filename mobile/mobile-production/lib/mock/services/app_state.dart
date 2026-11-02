@@ -655,8 +655,6 @@ class AppState extends ChangeNotifier {
         fallbackUrl = 'http://192.168.1.123:8080';
       } else if (currentBase.contains('192.168.1.115') || currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229') || currentBase.contains('192.168.1.80')) {
         fallbackUrl = 'http://192.168.1.123:8080';
-      } else if (currentBase.contains('192.168.1.123')) {
-        fallbackUrl = 'http://10.0.2.2:8080';
       }
       if (fallbackUrl != null) {
         apiClient!.updateBaseUrl(fallbackUrl);

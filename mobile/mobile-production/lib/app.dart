@@ -20,6 +20,7 @@ import 'paper_surface.dart';
 import 'listening_widgets.dart';
 import 'video_surface.dart';
 import 'wallet_page.dart';
+import 'kyc_management_page.dart';
 
 void openChannel(BuildContext context, Channel channel, AppState state) {
   Navigator.of(context).push(
@@ -226,7 +227,9 @@ class _HomeShellState extends State<HomeShell> {
               child: switch (index) {
                 0 => discover(),
                 1 => LivestreamExploreView(state: widget.state),
-                2 => AiWhiteboardPipelinePage(state: widget.state.creatorState),
+                2 => (!widget.state.isLoggedIn || !widget.state.isCreator)
+                    ? CreatorStudioAuthGate(state: widget.state)
+                    : AiWhiteboardPipelinePage(state: widget.state.creatorState),
                 3 => RecruitmentMarketplaceView(state: widget.state),
                 _ => ProfileContent(
                   state: widget.state,
@@ -2284,3 +2287,212 @@ class _MiniProgress extends StatelessWidget {
     },
   );
 }
+
+class CreatorStudioAuthGate extends StatelessWidget {
+  const CreatorStudioAuthGate({super.key, required this.state});
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final isLoggedIn = state.isLoggedIn;
+
+    return Scaffold(
+      key: const Key('creator-studio-auth-gate'),
+      appBar: AppBar(
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Không gian sáng tạo',
+              style: TextStyle(fontSize: 12, color: Palette.muted),
+            ),
+            Text(
+              'Creator Studio — Xưởng Sáng Tạo Lịch Sử',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Palette.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  CupertinoIcons.videocam_fill,
+                  color: Palette.red,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Eyebrow('KHÔNG GIAN SÁNG TẠO · CREATOR STUDIO'),
+              const SizedBox(height: 10),
+              Text(
+                isLoggedIn
+                    ? 'Kích hoạt quyền Nhà sáng tạo'
+                    : 'Đăng nhập vào Xưởng Video AI',
+                style: editorial(24),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                isLoggedIn
+                    ? 'Tài khoản của bạn hiện là Người nghe. Để tạo video hoạt họa và quản lý kênh podcast, vui lòng hoàn tất hồ sơ xác thực KYC Nhà sáng tạo.'
+                    : 'Quy trình sản xuất kịch bản sử liệu RAG, phân cảnh bảng trắng và lồng tiếng tự động 6 bước dành riêng cho Nhà sáng tạo Sử Ký đã đăng nhập.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Palette.muted,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: const Column(
+                  children: [
+                    _StudioFeatureRow(
+                      icon: CupertinoIcons.doc_text_search,
+                      title: 'Đối chiếu sử liệu chính xác (AI RAG)',
+                      desc: 'Truy xuất Đại Việt Sử Ký Toàn Thư & tài liệu chuẩn xác',
+                    ),
+                    Divider(height: 16),
+                    _StudioFeatureRow(
+                      icon: CupertinoIcons.pencil_outline,
+                      title: 'Vẽ bảng trắng & Tạo storyboard',
+                      desc: 'Tự động tạo tranh hoạt họa và phân cảnh 6 bước',
+                    ),
+                    Divider(height: 16),
+                    _StudioFeatureRow(
+                      icon: CupertinoIcons.mic,
+                      title: 'Lồng tiếng thuyết minh đa dạng',
+                      desc: 'Hệ thống giọng đọc truyền cảm hào sảng, bi tráng',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (!isLoggedIn)
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: const Key('creator-gate-login-btn'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.red,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () => showModalBottomSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => AuthSheet(state: state),
+                    ),
+                    icon: const Icon(CupertinoIcons.person_badge_plus, size: 18),
+                    label: const Text(
+                      'Đăng nhập Nhà sáng tạo',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: const Key('creator-gate-kyc-btn'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Palette.red,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => KycManagementPage(appState: state),
+                      ),
+                    ),
+                    icon: const Icon(CupertinoIcons.checkmark_shield, size: 18),
+                    label: const Text(
+                      'Xác thực KYC Nhà sáng tạo',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Text(
+                isLoggedIn
+                    ? 'Sau khi KYC được duyệt, xưởng AI Studio sẽ tự động mở.'
+                    : 'Chưa có tài khoản? Nhấn Đăng nhập rồi chọn Đăng ký mới trong giây lát.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11, color: Palette.muted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudioFeatureRow extends StatelessWidget {
+  const _StudioFeatureRow({
+    required this.icon,
+    required this.title,
+    required this.desc,
+  });
+
+  final IconData icon;
+  final String title;
+  final String desc;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Palette.red),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Palette.ink,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: const TextStyle(fontSize: 11.5, color: Palette.muted),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+

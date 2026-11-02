@@ -17,6 +17,7 @@ import 'core/api/livestream_repository.dart';
 import 'design.dart';
 import 'episode.dart';
 import 'mock/services/app_state.dart';
+import 'kyc_management_page.dart';
 
 class LivestreamShelfCard extends StatelessWidget {
   const LivestreamShelfCard({
@@ -2745,6 +2746,114 @@ class _CreatorLivestreamStudioPageState
     return AnimatedBuilder(
       animation: widget.state,
       builder: (context, _) {
+        if (!widget.state.isLoggedIn) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Phòng phát sóng trực tiếp'),
+            ),
+            body: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Palette.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.lock_shield,
+                        size: 48,
+                        color: Palette.red,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text('Yêu cầu đăng nhập', style: editorial(24)),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Bạn cần đăng nhập tài khoản Nhà sáng tạo Sử Ký để khởi tạo phiên phát sóng trực tiếp.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Palette.muted, height: 1.5),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      key: const Key('creator-live-gate-login-btn'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Palette.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => AuthSheet(state: widget.state),
+                      ),
+                      icon: const Icon(CupertinoIcons.person_badge_plus, size: 16),
+                      label: const Text('Đăng nhập ngay'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (!widget.state.isCreator) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Phòng phát sóng trực tiếp'),
+            ),
+            body: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        color: Palette.soft,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.shield_slash,
+                        size: 48,
+                        color: Palette.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text('Chưa kích hoạt Creator', style: editorial(24)),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Tài khoản của bạn chưa có quyền Nhà sáng tạo. Hãy nộp hồ sơ xác thực KYC để mở khóa phát sóng trực tiếp.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Palette.muted, height: 1.5),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      key: const Key('creator-live-gate-kyc-btn'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Palette.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => KycManagementPage(appState: widget.state),
+                        ),
+                      ),
+                      icon: const Icon(CupertinoIcons.checkmark_shield, size: 16),
+                      label: const Text('Xác thực KYC Nhà sáng tạo'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         final active = widget.state.activeLivestreams;
         return Scaffold(
           appBar: AppBar(
@@ -3232,6 +3341,45 @@ class LivestreamExploreView extends StatefulWidget {
 class _LivestreamExploreViewState extends State<LivestreamExploreView> {
   String _selectedFilter = 'Tất cả';
 
+  void _handleOpenLiveStudio() {
+    if (!widget.state.isLoggedIn) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => AuthSheet(state: widget.state),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng đăng nhập tài khoản Nhà sáng tạo để khởi tạo phiên phát sóng trực tiếp.'),
+        ),
+      );
+      return;
+    }
+    if (!widget.state.isCreator) {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => KycManagementPage(appState: widget.state),
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tài khoản cần hoàn tất xác thực KYC Nhà sáng tạo để được quyền phát trực tiếp.'),
+        ),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => CreatorLivestreamStudioPage(
+          state: widget.state,
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -3298,14 +3446,7 @@ class _LivestreamExploreViewState extends State<LivestreamExploreView> {
                       ),
                       visualDensity: VisualDensity.compact,
                     ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => CreatorLivestreamStudioPage(
-                          state: widget.state,
-                        ),
-                      ),
-                    ),
+                    onPressed: _handleOpenLiveStudio,
                     icon: const Icon(
                       CupertinoIcons.dot_radiowaves_left_right,
                       size: 14,
@@ -3389,14 +3530,7 @@ class _LivestreamExploreViewState extends State<LivestreamExploreView> {
                         style: FilledButton.styleFrom(
                           backgroundColor: Palette.red,
                         ),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute<void>(
-                            builder: (_) => CreatorLivestreamStudioPage(
-                              state: widget.state,
-                            ),
-                          ),
-                        ),
+                        onPressed: _handleOpenLiveStudio,
                         icon: const Icon(CupertinoIcons.plus_circle, size: 16),
                         label: const Text('Bắt đầu buổi phát sóng của bạn'),
                       ),
