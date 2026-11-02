@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Menu, ChevronRight, LogOut, Shield, Bell } from 'lucide-react';
+import { Menu, ChevronRight, ChevronDown, LogOut, Shield, Bell } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -51,7 +51,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
   const breadcrumbs = segments.map((seg, idx) => {
     const path = '/' + segments.slice(0, idx + 1).join('/');
-    const name = ROUTE_NAME_MAP[seg] || seg;
+    const name = /^\d+$/.test(seg) ? `Chi tiết #${seg}` : ROUTE_NAME_MAP[seg] || seg;
     const isLast = idx === segments.length - 1;
     return { name, path, isLast };
   });
@@ -96,7 +96,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
       <div className="flex items-center gap-3">
         <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border border-status-success-text/25 bg-status-success-bg/90 text-status-success-text text-xs font-medium select-none shadow-2xs">
           <span className="h-2 w-2 rounded-full bg-status-success-text animate-pulse" />
-          <span>Hệ Thống Trực Tuyến</span>
+          <span>Hệ thống trực tuyến</span>
         </div>
 
         {/* System Notification Bell */}
@@ -122,17 +122,18 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                   {currentUser.fullName ? (
                     currentUser.fullName.charAt(0).toUpperCase()
                   ) : (
-                    'Q'
+                    'D'
                   )}
                 </div>
                 <div className="hidden sm:flex flex-col text-xs leading-tight">
                   <span className="font-bold text-ink max-w-[150px] truncate">
-                    {currentUser.fullName || 'Quản trị viên'}
+                    {currentUser.fullName || 'Demo Administrator'}
                   </span>
                   <span className="text-[10px] text-muted">
                     {currentUser.roles?.includes('ADMIN') ? 'Quản trị viên' : 'Nhân sự'}
                   </span>
                 </div>
+                <ChevronDown className="h-3.5 w-3.5 text-muted ml-0.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
