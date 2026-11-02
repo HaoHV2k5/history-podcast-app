@@ -51,33 +51,40 @@ class WalletState extends ChangeNotifier {
   Future<void> syncWalletBackend(String owner) async {
     refresh();
     var updated = false;
+    int? resolvedUserId = preferences.getInt('currentUserId');
     if (walletRepository != null) {
       try {
         final info = await walletRepository!.getMyWallet();
+        if (info.userId != null && info.userId! > 0) {
+          resolvedUserId = info.userId;
+          await preferences.setInt('currentUserId', info.userId!);
+        }
         final w = wallet(owner);
         w['available'] = info.availableBalance.round();
         w['holding'] = info.pendingBalance.round();
         updated = true;
       } catch (_) {}
       try {
-        remoteTransactions = await walletRepository!.getMyTransactions();
+        remoteTransactions = await walletRepository!.getMyTransactions(page: 0, size: 50);
       } catch (_) {}
       try {
-        remoteBanks = await walletRepository!.getBankAccounts();
+        final allBanks = await walletRepository!.getBankAccounts();
+        remoteBanks = (resolvedUserId != null && resolvedUserId > 0)
+            ? allBanks.where((b) => b.userId == 0 || b.userId == resolvedUserId).toList()
+            : allBanks;
         if (remoteBanks.isEmpty && kycRepository != null) {
           try {
             final kyc = await kycRepository!.getMyKycProfile();
             if (kyc != null &&
                 kyc.bankName.trim().isNotEmpty &&
                 kyc.bankAccountNumber.trim().isNotEmpty) {
-              final currentUserId = preferences.getInt('currentUserId');
               final newBank = await walletRepository!.createBankAccount(
                 bankName: kyc.bankName.trim(),
                 accountNumber: kyc.bankAccountNumber.trim(),
                 accountHolderName: kyc.bankAccountHolder.trim().isNotEmpty
                     ? kyc.bankAccountHolder.trim()
                     : kyc.fullName.trim(),
-                userId: currentUserId,
+                userId: resolvedUserId,
               );
               remoteBanks = [newBank];
             }
@@ -92,12 +99,15 @@ class WalletState extends ChangeNotifier {
             'holder': firstBank.accountHolderName,
           };
           updated = true;
+        } else {
+          wallet(owner)['bank'] = null;
+          updated = true;
         }
       } catch (_) {}
     }
     if (withdrawalRepository != null) {
       try {
-        remoteWithdrawals = await withdrawalRepository!.getMyWithdrawals();
+        remoteWithdrawals = await withdrawalRepository!.getMyWithdrawals(page: 0, size: 50);
       } catch (_) {}
     }
     if (contractRepository != null) {
@@ -112,24 +122,43 @@ class WalletState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> topUpWallet(String owner, int amount) async {
+  Future<String?> topUpWallet(String owner, int amount, {String? description}) async {
     refresh();
-    if (amount < 50000) {
-      throw StateError('Số tiền nạp tối thiểu là 50.000đ.');
+    final minTopUp = isLiveBackend ? 10000 : 50000;
+    if (amount < minTopUp) {
+      throw StateError('Số tiền nạp tối thiểu là ${money(minTopUp)}.');
     }
     String? paymentUrl;
     if (walletRepository != null) {
-      try {
-        paymentUrl = await walletRepository!.createDeposit(amount: amount);
-        lastDepositPaymentUrl = paymentUrl;
-      } catch (_) {}
+      final deposit = await walletRepository!.createDepositPayment(
+        amount: amount,
+        description: description,
+      );
+      paymentUrl = deposit.paymentUrl;
+      lastDepositPaymentUrl = paymentUrl;
+      await syncWalletBackend(owner);
+      event('Tạo lệnh nạp ${money(amount)} qua cổng thanh toán VNPay Sandbox');
+      await save();
+      return paymentUrl;
     }
     wallet(owner)['available'] = available(owner) + amount;
-    event(
-      'Nạp ${money(amount)} vào ví $owner${paymentUrl != null && paymentUrl.isNotEmpty ? ' · Cổng thanh toán VNPay' : ''}',
-    );
+    event('Nạp ${money(amount)} vào ví $owner');
     await save();
-    return paymentUrl;
+    return null;
+  }
+
+  Future<bool> confirmPendingDeposit(String owner, WalletTransactionModel tx) async {
+    if (walletRepository == null || tx.merchantTxnRef == null || tx.merchantTxnRef!.isEmpty) {
+      return false;
+    }
+    final ok = await walletRepository!.confirmVnpaySandboxIpn(
+      amount: tx.amount.round(),
+      merchantTxnRef: tx.merchantTxnRef,
+    );
+    if (ok) {
+      await syncWalletBackend(owner);
+    }
+    return ok;
   }
 
   Map<String, dynamic> wallet(String owner) =>
@@ -175,21 +204,26 @@ class WalletState extends ChangeNotifier {
     String holder,
   ) async {
     refresh();
-    if ((kyc.fullName.isNotEmpty &&
-            normalizeSearch(holder.trim()) !=
-                normalizeSearch(kyc.fullName.trim())) ||
+    final invalidHolder = isLiveBackend
+        ? holder.trim().isEmpty
+        : (!kyc.isApproved ||
+              normalizeSearch(holder.trim()) !=
+                  normalizeSearch(kyc.fullName.trim()));
+    if (invalidHolder ||
         !RegExp(r'^\d{6,19}$').hasMatch(account) ||
         bank.trim().isEmpty) {
       throw StateError(
         'Cần ngân hàng, số tài khoản 6–19 số và tên chủ khớp KYC.',
       );
     }
-    if ((wallet(owner)['withdrawals'] as List).any(
-      (r) => r['status'] == 'processing',
-    )) {
+    if (!isLiveBackend &&
+        (wallet(owner)['withdrawals'] as List).any(
+          (r) => r['status'] == 'processing',
+        )) {
       throw StateError('Có yêu cầu rút đang xử lý; chưa đổi ngân hàng.');
     }
 
+    int? createdId;
     if (walletRepository != null) {
       final currentUserId = preferences.getInt('currentUserId');
       final newBank = await walletRepository!.createBankAccount(
@@ -198,10 +232,12 @@ class WalletState extends ChangeNotifier {
         accountHolderName: holder.trim(),
         userId: currentUserId,
       );
+      createdId = newBank.id;
       remoteBanks = [newBank, ...remoteBanks.where((b) => b.id != newBank.id)];
     }
 
     wallet(owner)['bank'] = {
+      'id': ?createdId,
       'name': bank.trim(),
       'account': account,
       'holder': holder.trim(),
@@ -219,7 +255,9 @@ class WalletState extends ChangeNotifier {
     required String holder,
   }) async {
     refresh();
-    if ((kyc.fullName.isNotEmpty &&
+    final mustMatchKycName = !isLiveBackend && kyc.fullName.isNotEmpty;
+    if (holder.trim().isEmpty ||
+        (mustMatchKycName &&
             normalizeSearch(holder.trim()) !=
                 normalizeSearch(kyc.fullName.trim())) ||
         !RegExp(r'^\d{6,19}$').hasMatch(account) ||
@@ -256,41 +294,67 @@ class WalletState extends ChangeNotifier {
     await save();
   }
 
-  Future<void> withdraw(String owner, KycProfile kyc, int amount) async {
+  Future<void> withdraw(
+    String owner,
+    KycProfile kyc,
+    int amount, {
+    int? bankAccountId,
+  }) async {
     refresh();
     final w = wallet(owner), bank = w['bank'] as Map?;
-    if (!kyc.isApproved ||
-        bank == null ||
-        normalizeSearch(bank['holder'] as String) !=
-            normalizeSearch(kyc.fullName)) {
-      throw StateError('Cần KYC và ngân hàng trùng tên chủ.');
+    if (!isLiveBackend) {
+      if (!kyc.isApproved ||
+          bank == null ||
+          normalizeSearch(bank['holder'] as String) !=
+              normalizeSearch(kyc.fullName)) {
+        throw StateError('Cần KYC và ngân hàng trùng tên chủ.');
+      }
+      if (amount < 100000 || amount > available(owner)) {
+        throw StateError(
+          'Mức thử tối thiểu 100.000đ; không vượt số dư khả dụng. Đây chưa phải policy thật.',
+        );
+      }
+      if ((w['withdrawals'] as List).any((r) => r['status'] == 'processing')) {
+        throw StateError('Hãy xử lý yêu cầu đang chờ trước.');
+      }
+    } else {
+      if (bank == null && remoteBanks.isEmpty) {
+        throw StateError('Vui lòng liên kết tài khoản ngân hàng trước khi rút tiền.');
+      }
+      if (amount < 50000 || amount > available(owner)) {
+        throw StateError(
+          'Số tiền rút tối thiểu là 50.000đ và không vượt quá số dư khả dụng.',
+        );
+      }
     }
-    if (amount < 100000 || amount > available(owner)) {
-      throw StateError(
-        'Mức thử tối thiểu 100.000đ; không vượt số dư khả dụng. Đây chưa phải policy thật.',
-      );
-    }
-    if ((w['withdrawals'] as List).any((r) => r['status'] == 'processing')) {
-      throw StateError('Hãy xử lý yêu cầu đang chờ trước.');
-    }
+
     if (withdrawalRepository != null) {
+      final bankId = bankAccountId ??
+          (bank?['id'] as num?)?.toInt() ??
+          (remoteBanks.isNotEmpty ? remoteBanks.first.id : 1);
       try {
-        final bankId = (bank['id'] as num?)?.toInt() ??
-            (remoteBanks.isNotEmpty ? remoteBanks.first.id : 1);
         final created = await withdrawalRepository!.requestWithdrawal(
           bankAccountId: bankId,
           amount: amount.toDouble(),
         );
-        remoteWithdrawals = [created, ...remoteWithdrawals];
-      } catch (_) {}
+        remoteWithdrawals = [
+          created,
+          ...remoteWithdrawals.where((item) => item.id != created.id),
+        ];
+        await syncWalletBackend(owner);
+        return;
+      } catch (e) {
+        throw StateError(e.toString().replaceFirst('Exception: ', ''));
+      }
     }
+
     w['available'] = available(owner) - amount;
     (w['withdrawals'] as List).insert(0, {
       'id': 'RUT-${DateTime.now().microsecondsSinceEpoch}',
       'amount': amount,
       'status': 'processing',
       'reason': '',
-      'bank': Map.of(bank),
+      'bank': bank != null ? Map.of(bank) : <String, dynamic>{},
     });
     event('$owner yêu cầu rút mẫu ${money(amount)} · giữ số tiền đang xử lý');
     await save();
