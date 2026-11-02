@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiClient {
@@ -225,6 +226,21 @@ class ApiClient {
     );
   }
 
+  static MediaType _resolveMediaType(String filename) {
+    final lower = filename.toLowerCase();
+    if (lower.endsWith('.png')) return MediaType('image', 'png');
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return MediaType('image', 'jpeg');
+    }
+    if (lower.endsWith('.webp')) return MediaType('image', 'webp');
+    if (lower.endsWith('.gif')) return MediaType('image', 'gif');
+    if (lower.endsWith('.mp3')) return MediaType('audio', 'mpeg');
+    if (lower.endsWith('.wav')) return MediaType('audio', 'wav');
+    if (lower.endsWith('.mp4')) return MediaType('video', 'mp4');
+    if (lower.endsWith('.pdf')) return MediaType('application', 'pdf');
+    return MediaType('application', 'octet-stream');
+  }
+
   Future<Map<String, dynamic>> multipartPost(
     String path, {
     Map<String, String>? fields,
@@ -246,6 +262,7 @@ class ApiClient {
         fileField,
         fileBytes,
         filename: filename,
+        contentType: _resolveMediaType(filename),
       ));
       final streamedResponse = await _http.send(request);
       return http.Response.fromStream(streamedResponse);

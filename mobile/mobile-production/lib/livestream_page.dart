@@ -2209,10 +2209,7 @@ class _CreatorLivestreamStudioPageState
       String filename = 'livestream_thumbnail.png';
 
       try {
-        final files = await FilePicker.pickFiles(
-          type: FileType.custom,
-          allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
-        );
+        final files = await FilePicker.pickFiles(type: FileType.image);
         if (files.isNotEmpty) {
           final file = files.first;
           filename = file.name;
@@ -2220,7 +2217,10 @@ class _CreatorLivestreamStudioPageState
         }
       } catch (_) {
         try {
-          final files = await FilePicker.pickFiles(type: FileType.image);
+          final files = await FilePicker.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: ['png', 'jpg', 'jpeg', 'webp'],
+          );
           if (files.isNotEmpty) {
             final file = files.first;
             filename = file.name;
