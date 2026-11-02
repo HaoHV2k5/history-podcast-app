@@ -14,7 +14,7 @@ import 'artwork_state.dart';
 import 'artwork_editor.dart';
 import 'episode.dart';
 import 'livestream_page.dart';
-import 'studio_pages.dart';
+import 'studio_pages.dart' hide KycManagementPage;
 import 'narrator_pages.dart';
 import 'demo_pages.dart';
 import 'wallet_page.dart';

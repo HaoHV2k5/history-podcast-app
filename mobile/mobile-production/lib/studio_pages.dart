@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:io';
-
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'kyc_form.dart';
 export 'kyc_form.dart' show KycSheet;
+export 'creator_studio_extensions.dart';
+import 'app_state.dart';
+import 'components.dart';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/api/channel_repository.dart';
 import 'core/api/chat_repository.dart';
@@ -25,11 +26,8 @@ import 'core/api/narrator_profile_repository.dart';
 import 'core/api/post_repository.dart';
 import 'core/api/wallet_repository.dart';
 import 'core/api/withdrawal_repository.dart';
-import 'creator_channel_page.dart';
-export 'creator_channel_page.dart';
 import 'creator_state.dart';
 import 'creator_studio_extensions.dart';
-export 'creator_studio_extensions.dart';
 import 'design.dart';
 import 'artwork_editor.dart';
 import 'artwork_state.dart';
@@ -37,19 +35,9 @@ import 'artwork_image.dart';
 import 'narrator_marketplace.dart';
 import 'local_file.dart';
 import 'workspace_components.dart';
+import 'wallet_page.dart';
 
-/// Minimal valid 1x1 PNG bytes accepted by image processing decoders and Cloudinary
-const _minimalValidPngBytes = <int>[
-  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-  0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89,
-  0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54,
-  0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01,
-  0x0D, 0x0A, 0x2D, 0xB4,
-  0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
-  0xAE, 0x42, 0x60, 0x82,
-];
+part 'mock/fixtures/studio_videos.dart';
 
 class CreatorStudio extends StatefulWidget {
   const CreatorStudio({
@@ -143,6 +131,35 @@ class _CreatorStudioState extends State<CreatorStudio> {
       )
       .toList();
 
+  void openChannelManagement() => Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) =>
+          ChannelManagementPage(state: state, preferences: widget.preferences),
+    ),
+  );
+
+  void openKycManagement() => Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) =>
+          KycManagementPage(state: state, kycRepository: widget.kycRepository),
+    ),
+  );
+
+  void openWallet() => Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) => WalletPage(
+        preferences: widget.preferences,
+        walletRepository: widget.walletRepository,
+        withdrawalRepository: widget.withdrawalRepository,
+        contractRepository: widget.contractRepository,
+        kycRepository: widget.kycRepository,
+      ),
+    ),
+  );
+
   Widget channelMenu() => PopupMenuButton<String>(
     key: const Key('studio-options'),
     tooltip: 'Tùy chọn Studio',
@@ -157,32 +174,57 @@ class _CreatorStudioState extends State<CreatorStudio> {
     onSelected: (action) {
       switch (action) {
         case 'channel':
+          openChannelManagement();
+        case 'kyc':
+          openKycManagement();
+        case 'wallet':
+          openWallet();
         case 'edit':
+          openEditChannelDialog();
         case 'artwork':
-          openChannelManagementPage();
+          openChannelArtwork();
         case 'preview':
           openChannelPreview();
         case 'narrator':
           openMarketplace();
         case 'video':
-          if (state.isLiveBackend) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AiWhiteboardPipelinePage(state: state),
-              ),
-            );
-          } else {
-            edit(const CreatorDraft(id: '', title: '', format: 'video'));
-          }
+          edit(const CreatorDraft(id: '', title: '', format: 'video'));
       }
     },
     itemBuilder: (_) => [
       const PopupMenuItem(
-        key: Key('open-channel-management-menu-item'),
-        value: 'channel',
-        child: Text('Quản lý Kênh & Ảnh bìa'),
+        value: 'kyc',
+        child: Row(
+          children: [
+            Icon(CupertinoIcons.person_crop_circle_badge_checkmark, size: 18),
+            SizedBox(width: 10),
+            Text('Xác thực KYC'),
+          ],
+        ),
       ),
+      const PopupMenuItem(
+        value: 'channel',
+        child: Row(
+          children: [
+            Icon(CupertinoIcons.dot_radiowaves_left_right, size: 18),
+            SizedBox(width: 10),
+            Text('Quản lý Kênh'),
+          ],
+        ),
+      ),
+      const PopupMenuItem(
+        value: 'wallet',
+        child: Row(
+          children: [
+            Icon(CupertinoIcons.creditcard, size: 18),
+            SizedBox(width: 10),
+            Text('Ví & Thu nhập'),
+          ],
+        ),
+      ),
+      const PopupMenuDivider(),
+      const PopupMenuItem(value: 'edit', child: Text('Sửa nhanh tên kênh')),
+      const PopupMenuItem(value: 'artwork', child: Text('Ảnh kênh')),
       const PopupMenuItem(value: 'preview', child: Text('Xem trang kênh')),
       const PopupMenuItem(
         key: Key('open-marketplace-btn'),
@@ -192,26 +234,12 @@ class _CreatorStudioState extends State<CreatorStudio> {
       PopupMenuItem(
         key: const Key('upload-video-stt'),
         value: 'video',
-        child: Text(state.isLiveBackend ? 'Xưởng Video AI (Whiteboard)' : 'Nhập video mẫu'),
+        child: Text(
+          state.isLiveBackend ? 'Nhập video & STT' : 'Nhập video mẫu',
+        ),
       ),
     ],
   );
-
-  Future<void> openChannelManagementPage() async {
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CreatorChannelPage(
-          state: state,
-          onOpenPreview: openChannelPreview,
-        ),
-      ),
-    );
-    if (mounted) {
-      await state.fetchMyChannel();
-      setState(() {});
-    }
-  }
 
   @override
   void dispose() {
@@ -401,192 +429,6 @@ class _CreatorStudioState extends State<CreatorStudio> {
     if (mounted) setState(() {});
   }
 
-  String _formatDate(String? raw) {
-    if (raw == null || raw.isEmpty) return '–';
-    try {
-      final dt = DateTime.parse(raw).toLocal();
-      final d = dt.day.toString().padLeft(2, '0');
-      final m = dt.month.toString().padLeft(2, '0');
-      final y = dt.year;
-      return '$d/$m/$y';
-    } catch (_) {
-      return raw.length >= 10 ? raw.substring(0, 10) : raw;
-    }
-  }
-
-  Widget _buildCoverPlaceholder() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF2C2420), Color(0xFF6B2D2B)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(CupertinoIcons.photo_fill_on_rectangle_fill, color: Colors.white.withValues(alpha: 0.6), size: 28),
-            const SizedBox(height: 6),
-            Text(
-              'SỬ KÝ PODCAST PLATFORM • BANNER 16:9',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStudioAvatarPlaceholder() {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        color: Palette.paper,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Palette.line),
-      ),
-      child: const Center(
-        child: Icon(Icons.image_outlined, size: 28, color: Palette.muted),
-      ),
-    );
-  }
-
-  void _pickAndUploadChannelImageSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Palette.paper,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Cập nhật hình ảnh kênh', style: editorial(20)),
-              const SizedBox(height: 4),
-              const Text(
-                'Chọn loại ảnh bạn muốn thay đổi cho kênh podcast:',
-                style: TextStyle(color: Palette.muted, fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Palette.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(CupertinoIcons.person_crop_square, color: Palette.red),
-                ),
-                title: const Text('Đổi ảnh đại diện (Avatar 1:1)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Hiển thị cạnh tên kênh và trên danh sách tập'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _uploadImageDirectly(isAvatar: true);
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Palette.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(CupertinoIcons.photo, color: Palette.red),
-                ),
-                title: const Text('Đổi ảnh bìa kênh (Cover Banner 16:9)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Banner xuất hiện trên cùng trang kênh cá nhân'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _uploadImageDirectly(isAvatar: false);
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Palette.soft,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(CupertinoIcons.slider_horizontal_3, color: Palette.ink),
-                ),
-                title: const Text('Mở trang Quản lý Kênh chi tiết', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Xem trước ảnh bìa, avatar và toàn bộ thiết lập kênh'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  openChannelManagementPage();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _uploadImageDirectly({required bool isAvatar}) async {
-    try {
-      List<int>? bytes;
-      String filename = isAvatar ? 'channel_avatar.png' : 'channel_cover.png';
-
-      try {
-        final files = await FilePicker.pickFiles(type: FileType.image);
-        if (files.isNotEmpty) {
-          final file = files.first;
-          filename = file.name;
-          bytes = await file.xFile.readAsBytes();
-        }
-      } catch (_) {
-        final isTest = Platform.environment.containsKey('FLUTTER_TEST');
-        if (isTest) {
-          bytes = _minimalValidPngBytes;
-        }
-      }
-
-      if (bytes == null || bytes.isEmpty) return;
-
-      setState(() => busy = true);
-      if (isAvatar) {
-        await state.uploadChannelAvatar(bytes, filename);
-      } else {
-        await state.uploadChannelCover(bytes, filename);
-      }
-      await state.fetchMyChannel();
-      if (mounted) {
-        setState(() => busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isAvatar
-                  ? 'Cập nhật ảnh đại diện kênh thành công!'
-                  : 'Cập nhật ảnh bìa kênh thành công!',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => busy = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tải ảnh thất bại: $e')),
-        );
-      }
-    }
-  }
-
   void openChannelPreview() {
     showModalBottomSheet<void>(
       context: context,
@@ -623,138 +465,65 @@ class _CreatorStudioState extends State<CreatorStudio> {
               ),
               const SizedBox(height: 16),
               Container(
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Palette.soft,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Palette.line),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: (state.channelModel?.coverUrl != null &&
-                              state.channelModel!.coverUrl!.isNotEmpty)
-                          ? Image.network(
-                              state.channelModel!.coverUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _buildCoverPlaceholder(),
-                            )
-                          : _buildCoverPlaceholder(),
+                    ArtworkImage(
+                      artworkReference('channel'),
+                      width: 72,
+                      height: 72,
+                      semanticLabel: 'Ảnh kênh',
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Transform.translate(
-                                offset: const Offset(0, -28),
-                                child: Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    color: Palette.paper,
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: Palette.paper, width: 2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: (state.channelModel?.avatarUrl != null &&
-                                            state.channelModel!.avatarUrl!.isNotEmpty)
-                                        ? Image.network(
-                                            state.channelModel!.avatarUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => ArtworkImage(
-                                              artworkReference('channel'),
-                                              width: 64,
-                                              height: 64,
-                                              semanticLabel: 'Ảnh kênh',
-                                            ),
-                                          )
-                                        : ArtworkImage(
-                                            artworkReference('channel'),
-                                            width: 64,
-                                            height: 64,
-                                            semanticLabel: 'Ảnh kênh',
-                                          ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 6),
-                                  child: Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    children: [
-                                      Text(
-                                        'Mã kênh: #${state.channelModel?.id ?? 1}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Palette.muted,
-                                        ),
-                                      ),
-                                      const Text('•', style: TextStyle(color: Palette.line)),
-                                      Text(
-                                        'Tác giả ID: #${state.channelModel?.creatorId ?? 1}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: Palette.muted,
-                                        ),
-                                      ),
-                                      const Text('•', style: TextStyle(color: Palette.line)),
-                                      Text(
-                                        'Ngày tạo: ${_formatDate(state.channelModel?.createdAt)}',
-                                        style: const TextStyle(fontSize: 11, color: Palette.muted),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(state.channel, style: editorial(22)),
-                          const SizedBox(height: 6),
-                          Text(
-                            state.channelDescription.isNotEmpty
-                                ? state.channelDescription
-                                : 'Chưa có mô tả cho kênh này.',
-                            style: const TextStyle(fontSize: 13, height: 1.6),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 16,
-                            runSpacing: 4,
-                            children: [
-                              Text(
-                                '${state.drafts.where((d) => d.stage == DraftStage.approved).length} tập đã duyệt',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Palette.muted,
-                                ),
-                              ),
-                              const Text(
-                                '0 người theo dõi',
-                                style: TextStyle(fontSize: 12, color: Palette.muted),
-                              ),
-                            ],
-                          ),
-                        ],
+                    const SizedBox(height: 12),
+                    Text(state.channel, style: editorial(24)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
                       ),
+                      decoration: BoxDecoration(
+                        color: Palette.paper,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Palette.line),
+                      ),
+                      child: Text(
+                        state.channelCategory,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Palette.red,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      state.channelDescription.isNotEmpty
+                          ? state.channelDescription
+                          : 'Kênh kể chuyện lịch sử trên Sử Ký.',
+                      style: const TextStyle(fontSize: 13, height: 1.6),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          '${state.drafts.where((d) => d.stage == DraftStage.approved).length} tập đã duyệt',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Palette.muted,
+                          ),
+                        ),
+                        const Text(
+                          '0 người theo dõi',
+                          style: TextStyle(fontSize: 12, color: Palette.muted),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -818,151 +587,37 @@ class _CreatorStudioState extends State<CreatorStudio> {
             ),
           ),
           const SizedBox(height: 12),
-          if (state.channel.isNotEmpty) ...[
-            Container(
-              key: const Key('open-channel-management-card'),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Palette.soft,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Palette.line),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: (state.channelModel?.avatarUrl != null &&
-                                state.channelModel!.avatarUrl!.isNotEmpty)
-                            ? Image.network(
-                                state.channelModel!.avatarUrl!,
-                                width: 56,
-                                height: 56,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    _buildStudioAvatarPlaceholder(),
-                              )
-                            : (ArtworkStore(widget.preferences)
-                                    .read()
-                                    .containsKey('channel')
-                                ? ArtworkImage(
-                                    artworkReference('channel'),
-                                    width: 56,
-                                    height: 56,
-                                    semanticLabel: 'Ảnh kênh ${state.channel}',
-                                  )
-                                : _buildStudioAvatarPlaceholder()),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(state.channel, style: editorial(22)),
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Palette.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                state.channelCategory.isNotEmpty
-                                    ? state.channelCategory
-                                    : 'Lịch sử Việt Nam',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Palette.red,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (state.channelDescription.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      state.channelDescription,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.5,
-                        color: Palette.ink,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          key: const Key('change-channel-artwork-btn'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Palette.ink,
-                            side: const BorderSide(color: Palette.line),
-                            backgroundColor: Palette.paper,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: _pickAndUploadChannelImageSheet,
-                          icon: const Icon(CupertinoIcons.photo, size: 16),
-                          label: const Text(
-                            'Đổi ảnh kênh',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.icon(
-                          key: const Key('edit-channel-info-btn'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Palette.red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: openEditChannelDialog,
-                          icon: const Icon(CupertinoIcons.pencil, size: 16),
-                          label: const Text(
-                            'Chỉnh sửa thông tin',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          if (state.channel.isNotEmpty &&
+              ArtworkStore(widget.preferences)
+                  .read()
+                  .containsKey('channel')) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: ArtworkImage(
+                  artworkReference('channel'),
+                  width: 64,
+                  height: 64,
+                  semanticLabel: 'Ảnh kênh ${state.channel}',
+                ),
               ),
             ),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            state.channel.isEmpty
+                ? 'Mỗi câu chuyện,\nmột góc nhìn.'
+                : state.channel,
+            style: editorial(32),
+          ),
+          if (state.channel.isEmpty) ...[
             const SizedBox(height: 16),
-          ] else ...[
             Text(
-              'Mỗi câu chuyện,\nmột góc nhìn.',
-              style: editorial(32),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Từ trang tư liệu đến một tập kể. Bắt đầu với kênh của bạn.',
-              style: TextStyle(color: Palette.muted),
+              state.channel.isEmpty
+                  ? 'Từ trang tư liệu đến một tập kể. Bắt đầu với kênh của bạn.'
+                  : 'Nơi những trang viết dần thành câu chuyện.',
+              style: const TextStyle(color: Palette.muted),
             ),
           ],
           if (!state.demoVerified && !state.isLiveBackend) ...[
@@ -1039,8 +694,9 @@ class _CreatorStudioState extends State<CreatorStudio> {
                           OutlinedButton(
                             onPressed: busy
                                 ? null
-                                : () =>
-                                      act(() => state.simulateKycDecision(true)),
+                                : () => act(
+                                    () => state.simulateKycDecision(true),
+                                  ),
                             child: const Text(
                               'Mô phỏng duyệt: Đạt',
                               style: TextStyle(fontSize: 12),
@@ -1049,8 +705,9 @@ class _CreatorStudioState extends State<CreatorStudio> {
                           OutlinedButton(
                             onPressed: busy
                                 ? null
-                                : () =>
-                                      act(() => state.simulateKycDecision(false)),
+                                : () => act(
+                                    () => state.simulateKycDecision(false),
+                                  ),
                             child: const Text(
                               'Mô phỏng: Từ chối',
                               style: TextStyle(fontSize: 12),
@@ -1113,7 +770,9 @@ class _CreatorStudioState extends State<CreatorStudio> {
               children: [
                 if (!state.isLiveBackend)
                   FilledButton(
-                    onPressed: busy ? null : () => act(state.useVerifiedFixture),
+                    onPressed: busy
+                        ? null
+                        : () => act(state.useVerifiedFixture),
                     child: const Text('Dùng hồ sơ mẫu đã duyệt'),
                   ),
                 OutlinedButton.icon(
@@ -1197,16 +856,11 @@ class _CreatorStudioState extends State<CreatorStudio> {
               ),
             ),
           ] else ...[
-            if (state.channelDescription.isNotEmpty) ...[
-              Text(
-                state.channelDescription,
-                style: const TextStyle(color: Palette.muted, fontSize: 12),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-            ] else
-              const SizedBox(height: 8),
+            Text(
+              state.channelCategory,
+              style: const TextStyle(color: Palette.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 24),
             FilledButton.icon(
               key: const Key('new-draft'),
               onPressed: busy ? null : () => edit(),
@@ -1219,22 +873,16 @@ class _CreatorStudioState extends State<CreatorStudio> {
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  key: const Key('open-channel-management-btn'),
-                  onPressed: busy ? null : openChannelManagementPage,
-                  icon: const Icon(CupertinoIcons.antenna_radiowaves_left_right, size: 15),
-                  label: const Text('Quản lý Kênh'),
-                ),
-                OutlinedButton.icon(
                   key: const Key('open-ai-pipeline-btn'),
                   onPressed: busy
                       ? null
                       : () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  AiWhiteboardPipelinePage(state: state),
-                            ),
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                AiWhiteboardPipelinePage(state: state),
                           ),
+                        ),
                   icon: const Icon(CupertinoIcons.sparkles, size: 15),
                   label: const Text('Tạo nội dung mới (AI Studio)'),
                 ),
@@ -1243,12 +891,12 @@ class _CreatorStudioState extends State<CreatorStudio> {
                   onPressed: busy
                       ? null
                       : () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) =>
-                                  CreatorSeriesManagerPage(state: state),
-                            ),
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) =>
+                                CreatorSeriesManagerPage(state: state),
                           ),
+                        ),
                   icon: const Icon(CupertinoIcons.collections, size: 15),
                   label: Text(
                     state.mySeries.isEmpty
@@ -1261,12 +909,12 @@ class _CreatorStudioState extends State<CreatorStudio> {
                   onPressed: busy
                       ? null
                       : () => showModalBottomSheet<void>(
-                            context: context,
-                            isScrollControlled: true,
-                            showDragHandle: true,
-                            builder: (_) =>
-                                ChannelMembershipPlanSheet(state: state),
-                          ),
+                          context: context,
+                          isScrollControlled: true,
+                          showDragHandle: true,
+                          builder: (_) =>
+                              ChannelMembershipPlanSheet(state: state),
+                        ),
                   icon: const Icon(CupertinoIcons.tickets, size: 15),
                   label: Text(
                     state.membershipPlan != null
@@ -1393,6 +1041,9 @@ class _DraftEditorState extends State<DraftEditor> {
   bool showHistory = false;
   Timer? previewTimer;
   int previewSeconds = 0;
+  late String videoFileName = widget.draft?.videoFileName ?? '';
+  late String videoFileSize = widget.draft?.videoFileSize ?? '';
+  late String extractedTranscript = widget.draft?.extractedTranscript ?? '';
 
   CreatorDraft? get saved {
     for (final d in widget.state.drafts) {
@@ -1401,49 +1052,10 @@ class _DraftEditorState extends State<DraftEditor> {
     return null;
   }
 
-  void openVideoUploadModal() {
-    if (widget.state.isLiveBackend) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Palette.paper,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Nhập video mẫu (Mô phỏng)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Đóng nhập video',
-                  icon: const Icon(CupertinoIcons.xmark),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('Chế độ mô phỏng cho thiết bị chưa kết nối backend.'),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
-    if (!widget.state.isLiveBackend &&
-        widget.draft != null &&
+    if (widget.draft != null &&
         widget.draft!.id.isEmpty &&
         widget.draft!.format == 'video') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1527,6 +1139,9 @@ class _DraftEditorState extends State<DraftEditor> {
           script: script.text,
           sources: sources.text,
           format: format,
+          videoFileName: videoFileName,
+          videoFileSize: videoFileSize,
+          extractedTranscript: extractedTranscript,
         ),
       );
       dirty = false;
@@ -1571,6 +1186,49 @@ class _DraftEditorState extends State<DraftEditor> {
     });
   }
 
+  void openVideoUploadModal() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Palette.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => VideoUploadSttModal(
+        onExtractComplete:
+            (
+              extractedTitle,
+              extractedScript,
+              extractedSources,
+              fileName,
+              fileSize,
+            ) {
+              Navigator.pop(ctx);
+              setState(() {
+                if (title.text.trim().isEmpty) title.text = extractedTitle;
+                script.text = extractedScript;
+                if (!sources.text.contains(extractedSources)) {
+                  sources.text = [
+                    sources.text.trim(),
+                    extractedSources,
+                  ].where((s) => s.isNotEmpty).join('\n');
+                }
+                format = 'video';
+                videoFileName = fileName;
+                videoFileSize = fileSize;
+                extractedTranscript = extractedScript;
+                dirty = true;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Đã nhập kịch bản và thông tin video mẫu.'),
+                ),
+              );
+            },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = saved;
@@ -1597,17 +1255,9 @@ class _DraftEditorState extends State<DraftEditor> {
               ),
               IconButton(
                 key: const Key('appbar-upload-video'),
-                icon: const Icon(CupertinoIcons.film, size: 20),
-                tooltip: 'Xưởng Video AI (Whiteboard)',
-                onPressed: busy
-                    ? null
-                    : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                AiWhiteboardPipelinePage(state: widget.state),
-                          ),
-                        ),
+                icon: const Icon(CupertinoIcons.video_camera, size: 20),
+                tooltip: 'Tải video có sẵn (STT)',
+                onPressed: busy ? null : openVideoUploadModal,
               ),
             ],
             if (history.isNotEmpty)
@@ -1835,7 +1485,11 @@ class _DraftEditorState extends State<DraftEditor> {
                         d.stage == DraftStage.rejected)) ...[
                   OutlinedButton(
                     onPressed: busy ? null : () => step(DraftStage.checked),
-                    child: const Text('Thử kết quả AI: đạt'),
+                    child: Text(
+                      widget.state.isLiveBackend
+                          ? 'Thẩm định AI: Đạt yêu cầu sử liệu'
+                          : 'Thử kết quả AI: đạt',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton(
@@ -1843,18 +1497,37 @@ class _DraftEditorState extends State<DraftEditor> {
                         ? null
                         : () => step(
                             DraftStage.rejected,
-                            reason: 'Hệ thống AI: Cần bổ sung nguồn tư liệu gốc và phân định niên đại lịch sử chuẩn.',
+                            reason: widget.state.isLiveBackend
+                                ? 'Hệ thống AI: Cần bổ sung nguồn tư liệu gốc và phân định niên đại lịch sử chuẩn.'
+                                : 'AI mẫu: bổ sung nguồn cho các mốc thời gian và phân biệt tư liệu với nhận định.',
                           ),
-                    child: const Text('Thử kết quả AI: cần sửa'),
+                    child: Text(
+                      widget.state.isLiveBackend
+                          ? 'Thẩm định AI: Cần chỉnh sửa bổ sung'
+                          : 'Thử kết quả AI: cần sửa',
+                    ),
                   ),
                 ],
 
                 if (ready && d.stage == DraftStage.checked) ...[
                   Text(
-                    widget.state.isLiveBackend
-                        ? 'Chọn định dạng tập'
-                        : 'Chọn định dạng tập thử',
+                    videoFileName.isNotEmpty
+                        ? '${widget.state.isLiveBackend ? 'Video đã tải lên' : 'Video mẫu đã nhập'} · $videoFileSize'
+                        : (widget.state.isLiveBackend
+                              ? 'Chọn định dạng tập'
+                              : 'Chọn định dạng tập thử'),
                   ),
+                  if (videoFileName.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        videoFileName,
+                        style: const TextStyle(
+                          color: Palette.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
@@ -1863,64 +1536,19 @@ class _DraftEditorState extends State<DraftEditor> {
                       ChoiceChip(
                         label: const Text('Tập âm thanh'),
                         selected: format == 'audio',
-                        onSelected: busy
+                        onSelected: busy || videoFileName.isNotEmpty
                             ? null
                             : (_) => setState(() => format = 'audio'),
                       ),
                       ChoiceChip(
-                        label: const Text('Video hoạt họa AI'),
+                        label: const Text('Video minh họa'),
                         selected: format == 'video',
-                        onSelected: busy
+                        onSelected: busy || videoFileName.isNotEmpty
                             ? null
                             : (_) => setState(() => format = 'video'),
                       ),
                     ],
                   ),
-                  if (format == 'video') ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Palette.soft,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Palette.line),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Row(
-                            children: [
-                              Icon(CupertinoIcons.sparkles, size: 16, color: Palette.red),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Sản xuất Video với Xưởng Sử Ký Whiteboard AI',
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Video được tự động phân cảnh, minh họa bảng trắng, thuyết minh bằng AI và kiểm duyệt AI Shield.',
-                            style: TextStyle(fontSize: 12, color: Palette.muted),
-                          ),
-                          const SizedBox(height: 8),
-                          OutlinedButton.icon(
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    AiWhiteboardPipelinePage(state: widget.state),
-                              ),
-                            ),
-                            icon: const Icon(CupertinoIcons.film, size: 14),
-                            label: const Text('Mở Xưởng Video AI'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 16),
 
                   // PREVIEW PLAYER (UC-03)
@@ -2006,9 +1634,13 @@ class _DraftEditorState extends State<DraftEditor> {
                   FilledButton(
                     onPressed: busy ? null : () => step(DraftStage.pending),
                     child: Text(
-                      widget.state.isLiveBackend
-                          ? 'Sản xuất & gửi duyệt'
-                          : 'Giả lập sản xuất & gửi duyệt',
+                      videoFileName.isNotEmpty
+                          ? (widget.state.isLiveBackend
+                                ? 'Gửi video để duyệt'
+                                : 'Gửi video mẫu để duyệt')
+                          : (widget.state.isLiveBackend
+                                ? 'Sản xuất & gửi duyệt'
+                                : 'Giả lập sản xuất & gửi duyệt'),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -2038,8 +1670,7 @@ class _DraftEditorState extends State<DraftEditor> {
                         ? null
                         : () => step(
                             DraftStage.rejected,
-                            reason:
-                                'Biên tập viên: ghi rõ tác giả và số trang của nguồn được trích trong phần mở đầu.',
+                            reason: 'Biên tập viên: ghi rõ tác giả và số trang của nguồn được trích trong phần mở đầu.',
                           ),
                     child: Text(
                       widget.state.isLiveBackend
@@ -2076,6 +1707,1225 @@ class _DraftEditorState extends State<DraftEditor> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class VideoUploadSttModal extends StatefulWidget {
+  const VideoUploadSttModal({super.key, required this.onExtractComplete});
+  final void Function(
+    String title,
+    String script,
+    String sources,
+    String fileName,
+    String fileSize,
+  )
+  onExtractComplete;
+
+  @override
+  State<VideoUploadSttModal> createState() => _VideoUploadSttModalState();
+}
+
+class _VideoUploadSttModalState extends State<VideoUploadSttModal> {
+  final customTranscript = TextEditingController();
+  String? pickedName, pickedSize, pickError;
+  @override
+  void dispose() {
+    customTranscript.dispose();
+    super.dispose();
+  }
+
+  int selectedVideo = 0;
+  bool processing = false;
+  String currentStep = '';
+
+  final sampleVideos = sampleStudioVideos;
+
+  Future<void> startProcess() async {
+    if (pickedName != null) {
+      if (customTranscript.text.trim().length < 20) {
+        setState(
+          () => pickError = 'Nhập transcript từ 20 ký tự; chưa chạy STT thật.',
+        );
+        return;
+      }
+      widget.onExtractComplete(
+        'Video từ $pickedName',
+        customTranscript.text.trim(),
+        'Nguồn do người dùng bổ sung trước khi gửi duyệt.',
+        pickedName!,
+        pickedSize!,
+      );
+      return;
+    }
+    setState(() {
+      processing = true;
+      currentStep = 'Đang tải file video lên máy chủ (Mô phỏng)...';
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    setState(() {
+      currentStep = 'Đang trích xuất audio stream (128 kbps stereo)...';
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    setState(() {
+      currentStep = 'Chạy Speech-to-Text nhận dạng giọng nói tiếng Việt...';
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    final item = sampleVideos[selectedVideo];
+    widget.onExtractComplete(
+      item['title']!,
+      item['transcript']!,
+      item['sources']!,
+      item['fileName']!,
+      item['size']!,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tải video & Bóc tách kịch bản',
+                      style: editorial(19),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Đóng nhập video',
+                    icon: const Icon(CupertinoIcons.xmark, size: 18),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Chọn video mẫu để thử luồng nhập kịch bản. Chưa tải file hoặc chạy nhận dạng giọng nói thật.',
+                style: TextStyle(fontSize: 12, color: Palette.muted),
+              ),
+              const SizedBox(height: 16),
+              ...List.generate(sampleVideos.length, (i) {
+                final v = sampleVideos[i];
+                final sel = selectedVideo == i;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Material(
+                    color: sel ? Palette.soft : Palette.paper,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: BorderSide(color: sel ? Palette.ink : Palette.line),
+                    ),
+                    child: ListTile(
+                      title: Text(
+                        v['title']!,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${v['fileName']} · ${v['size']} · ${v['duration']}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Palette.muted,
+                        ),
+                      ),
+                      trailing: sel
+                          ? const Icon(
+                              CupertinoIcons.checkmark_circle_fill,
+                              color: Palette.red,
+                              size: 20,
+                            )
+                          : null,
+                      onTap: processing
+                          ? null
+                          : () => setState(() {
+                              selectedVideo = i;
+                              pickedName = null;
+                            }),
+                    ),
+                  ),
+                );
+              }),
+              if (processing) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        currentStep,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Palette.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              OutlinedButton(
+                onPressed: processing
+                    ? null
+                    : () async {
+                        try {
+                          final picked = await pickLocalMetadata(video: true);
+                          if (picked != null && mounted) {
+                            setState(() {
+                              pickedName = picked.name;
+                              pickedSize =
+                                  '${(picked.size / 1024 / 1024).toStringAsFixed(2)} MB';
+                              pickError = null;
+                            });
+                          }
+                        } on StateError catch (e) {
+                          if (mounted) setState(() => pickError = e.message);
+                        } catch (_) {
+                          if (mounted) {
+                            setState(() => pickError = 'Chưa chọn được file.');
+                          }
+                        }
+                      },
+                child: const Text('Chọn video trên thiết bị (metadata)'),
+              ),
+              if (pickedName != null) ...[
+                Text(
+                  '$pickedName · $pickedSize · Chưa upload hoặc phát file này',
+                ),
+                TextField(
+                  controller: customTranscript,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Transcript nhập tay cho bản thử',
+                    helperText: 'STT thật cần backend',
+                  ),
+                ),
+              ],
+              if (pickError != null)
+                Text(pickError!, style: const TextStyle(color: Palette.red)),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: processing ? null : startProcess,
+                child: Text(
+                  processing
+                      ? 'Đang xử lý bóc tách…'
+                      : (pickedName != null
+                            ? 'Lưu metadata và transcript nhập tay'
+                            : 'Tiến hành bóc tách (Speech-to-Text)'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ChannelManagementPage extends StatefulWidget {
+  const ChannelManagementPage({
+    super.key,
+    required this.state,
+    required this.preferences,
+    this.appState,
+  });
+
+  final CreatorState state;
+  final SharedPreferences preferences;
+  final AppState? appState;
+
+  @override
+  State<ChannelManagementPage> createState() => _ChannelManagementPageState();
+}
+
+class _ChannelManagementPageState extends State<ChannelManagementPage> {
+  CreatorState get state => widget.state;
+
+  void _editChannelDialog() {
+    final editName = TextEditingController(text: state.channel);
+    final editDesc = TextEditingController(text: state.channelDescription);
+    var category = state.channelCategory;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDState) => AlertDialog(
+          backgroundColor: Palette.paper,
+          title: Text('Thông tin kênh', style: editorial(20)),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: editName,
+                    maxLength: 60,
+                    decoration: const InputDecoration(labelText: 'Tên kênh'),
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty ? 'Nhập tên kênh' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: editDesc,
+                    maxLines: 3,
+                    maxLength: 300,
+                    decoration: const InputDecoration(
+                      labelText: 'Giới thiệu kênh',
+                      hintText: 'Mô tả góc nhìn, câu chuyện lịch sử của kênh…',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Chủ đề chính',
+                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    children:
+                        [
+                              'Lịch sử Việt Nam',
+                              'Văn hóa cổ truyền',
+                              'Di sản & Danh nhân',
+                              'Giai thoại kinh kỳ',
+                            ]
+                            .map(
+                              (c) => ChoiceChip(
+                                label: Text(
+                                  c,
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                                selected: category == c,
+                                onSelected: (_) =>
+                                    setDState(() => category = c),
+                              ),
+                            )
+                            .toList(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx);
+                  await state.updateChannelProfile(
+                    name: editName.text,
+                    description: editDesc.text,
+                    category: category,
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã cập nhật thông tin kênh!'),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Lưu thay đổi'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openChannelArtwork() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Ảnh đại diện & Ảnh bìa')),
+          body: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              Text(state.channel, style: editorial(27)),
+              const SizedBox(height: 8),
+              const Text(
+                'Ảnh xuất hiện trên trang kênh, thẻ podcast và phòng phát sóng trực tiếp.',
+                style: TextStyle(fontSize: 13, color: Palette.muted),
+              ),
+              const SizedBox(height: 24),
+              ArtworkEditor(
+                preferences: widget.preferences,
+                target: 'channel',
+                kind: ArtworkKind.channel,
+                label: 'Ảnh đại diện kênh',
+                guard: state.guardArtwork,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  void _openChannelPreview() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Palette.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Eyebrow('XEM TRƯỚC TRANG KÊNH'),
+                  IconButton(
+                    icon: const Icon(CupertinoIcons.xmark, size: 18),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ArtworkImage(
+                artworkReference('channel'),
+                width: 72,
+                height: 72,
+                semanticLabel: 'Ảnh kênh',
+              ),
+              const SizedBox(height: 12),
+              Text(state.channel, style: editorial(24)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  state.channelCategory,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Palette.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                state.channelDescription.isNotEmpty
+                    ? state.channelDescription
+                    : 'Kênh kể chuyện lịch sử trên Sử Ký.',
+                style: const TextStyle(fontSize: 13, height: 1.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final approvedDrafts = state.drafts
+        .where((d) => d.stage == DraftStage.approved)
+        .length;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Quản lý Kênh'),
+        actions: [
+          IconButton(
+            tooltip: 'Xem trước kênh',
+            icon: const Icon(CupertinoIcons.eye),
+            onPressed: _openChannelPreview,
+          ),
+        ],
+      ),
+      body: ListenableBuilder(
+        listenable: state,
+        builder: (context, _) => ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+          children: [
+            // Channel Header Card
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Palette.soft,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Palette.line),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: ArtworkImage(
+                          artworkReference('channel'),
+                          width: 64,
+                          height: 64,
+                          semanticLabel: 'Ảnh kênh',
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(state.channel, style: editorial(22)),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Palette.red.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                state.channelCategory,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Palette.red,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    state.channelDescription.isNotEmpty
+                        ? state.channelDescription
+                        : 'Chưa có lời giới thiệu cho kênh. Hãy bổ sung để thu hút thính giả.',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Palette.muted,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _openChannelArtwork,
+                        icon: const Icon(CupertinoIcons.photo, size: 14),
+                        label: const Text('Đổi ảnh kênh'),
+                      ),
+                      FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Palette.red,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _editChannelDialog,
+                        icon: const Icon(CupertinoIcons.pencil, size: 14),
+                        label: const Text('Chỉnh sửa thông tin'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            const Eyebrow('GÓI HỘI VIÊN KÊNH (VIP)'),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Palette.paper,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Palette.line),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Palette.red.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.star_circle_fill,
+                          color: Palette.red,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Gói Hội Viên Độc Quyền',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '49.000 đ / tháng',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Palette.red,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Palette.soft,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'Đang hoạt động',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: Palette.ink,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    '• Tham gia phòng phát sóng trực tiếp độc quyền (VIP)\n• Nghe trước các tập podcast mới ra mắt\n• Huy hiệu hội viên đặc biệt khi bình luận và tương tác',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.6,
+                      color: Palette.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+            const Eyebrow('NỘI DUNG & THỐNG KÊ KÊNH'),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Palette.soft,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Palette.line),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('$approvedDrafts', style: editorial(26)),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Tập đã duyệt',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Palette.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Palette.soft,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Palette.line),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${state.drafts.length}', style: editorial(26)),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Tổng bản thảo',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Palette.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class KycManagementPage extends StatefulWidget {
+  const KycManagementPage({super.key, required this.state, this.kycRepository});
+
+  final CreatorState state;
+  final KycRepository? kycRepository;
+
+  @override
+  State<KycManagementPage> createState() => _KycManagementPageState();
+}
+
+class _KycManagementPageState extends State<KycManagementPage> {
+  CreatorState get state => widget.state;
+  bool _isEditing = false;
+
+  void _openKycForm() {
+    setState(() => _isEditing = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) {
+        final kyc = state.kyc;
+        final isApproved = kyc.isApproved;
+        final isPending = kyc.status == KycStatus.pending;
+        final isRejected = kyc.status == KycStatus.rejected;
+        final isNotSubmitted = kyc.status == KycStatus.notSubmitted;
+
+        final shouldShowForm = isNotSubmitted || isRejected || _isEditing;
+
+        if (shouldShowForm) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Xác thực KYC'),
+              actions: [
+                if (_isEditing && !isNotSubmitted && !isRejected)
+                  TextButton(
+                    onPressed: () => setState(() => _isEditing = false),
+                    child: const Text('Xem hồ sơ'),
+                  ),
+              ],
+            ),
+            body: KycSheet(
+              state: state,
+              showHeader: false,
+              onSubmitted: () {
+                setState(() => _isEditing = false);
+              },
+            ),
+          );
+        }
+
+        final badgeColor = isApproved
+            ? const Color(0xFF2E7D32)
+            : const Color(0xFFE65100);
+
+        final badgeBg = isApproved
+            ? const Color(0xFFE8F5E9)
+            : const Color(0xFFFFF3E0);
+
+        final statusText = isApproved
+            ? 'HỒ SƠ ĐÃ ĐƯỢC XÁC THỰC'
+            : 'HỒ SƠ ĐANG CHỜ THẨM ĐỊNH';
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Xác thực KYC')),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
+            children: [
+              // Status Card
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: badgeBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isApproved
+                          ? CupertinoIcons.checkmark_seal_fill
+                          : CupertinoIcons.clock_fill,
+                      color: badgeColor,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                              color: badgeColor,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            isApproved
+                                ? 'Định danh của bạn đã được kiểm duyệt và kích hoạt đầy đủ quyền hạn.'
+                                : 'Hồ sơ đã gửi thành công và đang chờ chuyên viên đối soát đối chiếu.',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Palette.ink,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // CARD 1: THÔNG TIN ĐỊNH DANH ỨNG VIÊN
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Palette.paper,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.person_crop_circle_badge_checkmark,
+                              size: 18,
+                              color: Palette.red,
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Thông tin định danh',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Palette.ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Text(
+                          'User ID #6',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Palette.muted,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    _infoTile(
+                      'HỌ VÀ TÊN ĐẦY ĐỦ',
+                      kyc.fullName.isNotEmpty ? kyc.fullName : 'Chưa cung cấp',
+                    ),
+                    const SizedBox(height: 10),
+                    _infoTile(
+                      'EMAIL TÀI KHOẢN ĐĂNG NHẬP',
+                      kyc.userEmail.isNotEmpty
+                          ? kyc.userEmail
+                          : (state.preferences.getString('userEmail') ??
+                                'Chưa đăng nhập'),
+                      isMono: true,
+                    ),
+                    const SizedBox(height: 10),
+                    _infoTile(
+                      'EMAIL LIÊN HỆ ĐÃ XÁC THỰC',
+                      kyc.contactEmail.isNotEmpty
+                          ? kyc.contactEmail
+                          : (state.preferences.getString('userEmail') ??
+                                'Chưa cung cấp'),
+                      icon: CupertinoIcons.mail,
+                      isMono: true,
+                    ),
+                    const SizedBox(height: 10),
+                    _infoTile(
+                      'SỐ ĐIỆN THOẠI ĐÃ BẢO MẬT',
+                      _maskPhone(kyc.phone),
+                      icon: CupertinoIcons.phone,
+                      isMono: true,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // CARD 2: TRẠNG THÁI XÁC THỰC BẢO MẬT HAI LỚP
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Palette.paper,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.checkmark_shield_fill,
+                              size: 18,
+                              color: Colors.green[700],
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Xác thực bảo mật OTP',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: Palette.ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'ĐÃ XÁC THỰC OTP',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green[800],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Palette.soft,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Phương thức xác minh',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: Palette.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            kyc.verificationMethod.isNotEmpty
+                                ? kyc.verificationMethod
+                                : 'OTP Hộp thư Email (Brevo HTTPS)',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Palette.soft,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Thời điểm hoàn tất OTP',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: Palette.muted,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            kyc.otpVerifiedAt.isNotEmpty
+                                ? kyc.otpVerifiedAt
+                                : '16:23 27/10/2026',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // CARD 3: TIỂU SỬ & HỒ SƠ SÁNG TẠO
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Palette.paper,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          CupertinoIcons.globe,
+                          size: 18,
+                          color: Palette.red,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Tiểu sử & Hồ sơ sáng tạo',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: Palette.ink,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Text(
+                      'ĐƯỜNG DẪN PORTFOLIO / KÊNH THAM CHIẾU:',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Palette.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      kyc.portfolioUrl.isNotEmpty
+                          ? kyc.portfolioUrl
+                          : 'https://porfolio.eraidev.id.vn',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Palette.red,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'TIỂU SỬ GIỚI THIỆU BẢN THÂN:',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Palette.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Palette.soft,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        kyc.bio.isNotEmpty
+                            ? kyc.bio
+                            : 'Kênh podcast lịch sử Việt Nam',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          height: 1.5,
+                          color: Palette.ink,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('kyc-action-btn'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Palette.red,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  onPressed: _openKycForm,
+                  icon: const Icon(CupertinoIcons.pencil, size: 16),
+                  label: const Text(
+                    'Cập nhật lại thông tin hồ sơ',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _infoTile(
+    String label,
+    String value, {
+    IconData? icon,
+    bool isMono = false,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Palette.soft,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Palette.muted,
+              letterSpacing: 0.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 14, color: Palette.muted),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Palette.ink,
+                    fontFamily: isMono ? 'monospace' : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _maskPhone(String? phone) {
+    if (phone == null || phone.isEmpty) return 'Chưa liên kết';
+    if (phone.length <= 6) return phone;
+    return '${phone.substring(0, 3)}•••${phone.substring(phone.length - 3)}';
+  }
+
+  String _maskAccount(String? acc) {
+    if (acc == null || acc.isEmpty) return 'Chưa liên kết';
+    if (acc.length <= 4) return acc;
+    return '•••• ${acc.substring(acc.length - 4)}';
+  }
+
+  Widget _kycRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: Palette.muted)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }
