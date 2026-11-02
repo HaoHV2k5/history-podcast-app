@@ -1324,47 +1324,49 @@ class _ProfileContentState extends State<ProfileContent> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  state.displayName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (_) => EditNameSheet(state: state),
+              ),
+              child: Tooltip(
+                message: 'Sửa tên hiển thị',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      state.displayName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      state.isLoggedIn
+                          ? (state.userEmail ??
+                                state.userPhone ??
+                                (state.isLiveBackend
+                                    ? 'Đã đăng nhập'
+                                    : 'Đã đăng nhập (Mô phỏng)'))
+                          : 'Hồ sơ trên thiết bị này',
+                      style: const TextStyle(color: Palette.muted, fontSize: 12),
+                    ),
+                    if (state.isLoggedIn) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: _buildRoleBadges(context, state),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  state.isLoggedIn
-                      ? (state.userEmail ??
-                            state.userPhone ??
-                            (state.isLiveBackend
-                                ? 'Đã đăng nhập'
-                                : 'Đã đăng nhập (Mô phỏng)'))
-                      : 'Hồ sơ trên thiết bị này',
-                  style: const TextStyle(color: Palette.muted, fontSize: 12),
-                ),
-                if (state.isLoggedIn) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: _buildRoleBadges(context, state),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Sửa tên hiển thị',
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              showDragHandle: true,
-              builder: (_) => EditNameSheet(state: state),
-            ),
-            icon: const Icon(CupertinoIcons.pencil, size: 20),
           ),
         ],
       ),
