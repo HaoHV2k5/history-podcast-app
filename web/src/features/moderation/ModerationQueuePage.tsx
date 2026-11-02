@@ -1,48 +1,99 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { ArrowUpRight, Video } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/common/DataTable';
-import { FilterToolbar } from '@/components/common/FilterToolbar';
-import { PaginationBar } from '@/components/common/PaginationBar';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { AiShieldBadge } from './components/AiShieldBadge';
-import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { gsap } from 'gsap';
+import { isReducedMotion } from '@/utils/motion';
+
+import { AdminModerationHeroBanner } from './components/AdminModerationHeroBanner';
+import { AdminModerationStatCards } from './components/AdminModerationStatCards';
+import { AdminModerationFilterTabs } from './components/AdminModerationFilterTabs';
+import { AdminModerationSearchToolbar } from './components/AdminModerationSearchToolbar';
+import { AdminModerationTable } from './components/AdminModerationTable';
+import { AdminModerationDetailModal } from './components/AdminModerationDetailModal';
+import { AdminModerationBatchBar } from './components/AdminModerationBatchBar';
+import { calculateModerationStats } from './moderationLogic';
+
 import { moderationApi, ModerationQueryParams } from '@/services/api/moderation';
 import { AdminModerationItem } from '@/types/moderation';
-import { formatDateTime, formatDuration } from '@/utils/formatters';
-
-const DECISION_TABS = [
-  { id: '', label: 'Tất cả' },
-  { id: 'PENDING', label: 'Chờ duyệt' },
-  { id: 'APPROVED', label: 'Đã xuất bản' },
-  { id: 'REJECTED', label: 'Từ chối' },
-];
 
 export const ModerationQueuePage: React.FC = () => {
-  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
+  // Animation Refs
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef(false);
+
+  // Filter & Pagination States
   const [page, setPage] = useState(0);
-  const [size] = useState(10);
+  const [size, setSize] = useState(5);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [decision, setDecision] = useState('');
   const [tier, setTier] = useState('');
+  const [timeRange, setTimeRange] = useState('all');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const queryParams: ModerationQueryParams = {
-    page,
-    size,
-    search: search.trim() || undefined,
-    decision: decision || undefined,
-    tier: tier || undefined,
-    sortBy: 'id',
-    sortDir: 'desc',
-  };
+  // Selection & Modal States
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [detailModalItem, setDetailModalItem] = useState<AdminModerationItem | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Query Params for Table
+  const queryParams: ModerationQueryParams = useMemo(
+    () => ({
+      page,
+      size,
+      search: debouncedSearch.trim() || undefined,
+      decision: decision || undefined,
+      tier: tier || undefined,
+      sortBy: 'id',
+      sortDir: 'desc',
+    }),
+    [page, size, debouncedSearch, decision, tier]
+  );
+
+  // 1. Primary Table Query (Real live backend data)
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['admin-moderation-reviews', queryParams],
     queryFn: () => moderationApi.getReviews(queryParams),
+  });
+
+  // 2. Count Queries for accurate tabs & KPI stats
+  const { data: allCountData } = useQuery({
+    queryKey: ['admin-moderation-count-all'],
+    queryFn: () => moderationApi.getReviews({ size: 1 }),
+    staleTime: 30000,
+  });
+
+  const { data: pendingCountData } = useQuery({
+    queryKey: ['admin-moderation-count-pending'],
+    queryFn: () => moderationApi.getReviews({ decision: 'PENDING', size: 1 }),
+    staleTime: 30000,
+  });
+
+  const { data: approvedCountData } = useQuery({
+    queryKey: ['admin-moderation-count-approved'],
+    queryFn: () => moderationApi.getReviews({ decision: 'APPROVED', size: 1 }),
+    staleTime: 30000,
+  });
+
+  const { data: rejectedCountData } = useQuery({
+    queryKey: ['admin-moderation-count-rejected'],
+    queryFn: () => moderationApi.getReviews({ decision: 'REJECTED', size: 1 }),
+    staleTime: 30000,
   });
 
   const pageData = data?.data;
@@ -50,189 +101,316 @@ export const ModerationQueuePage: React.FC = () => {
   const totalElements = pageData?.totalElements || 0;
   const totalPages = pageData?.totalPages || 0;
 
-  const handleReset = () => {
+  // Counts from queries
+  const allCount = allCountData?.data?.totalElements ?? totalElements;
+  const pendingCount = pendingCountData?.data?.totalElements ?? 0;
+  const approvedCount = approvedCountData?.data?.totalElements ?? 0;
+  const rejectedCount = rejectedCountData?.data?.totalElements ?? 0;
+
+  // Operational stats calculated strictly from real data
+  const stats = useMemo(() => {
+    return calculateModerationStats(items, {
+      pending: pendingCount,
+      approved: approvedCount,
+      rejected: rejectedCount,
+      total: allCount,
+    });
+  }, [items, pendingCount, approvedCount, rejectedCount, allCount]);
+
+  // Decision Mutation (Approve / Reject)
+  const decisionMutation = useMutation({
+    mutationFn: ({ id, decision, reason }: { id: number; decision: 'APPROVED' | 'REJECTED'; reason: string }) =>
+      moderationApi.submitDecision(id, { decision, reason }),
+    onSuccess: (res, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-all'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-approved'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-rejected'] });
+
+      // Update active modal item if open
+      if (detailModalItem && detailModalItem.reviewId === vars.id) {
+        setDetailModalItem(res.data);
+      }
+
+      setActionMessage(
+        vars.decision === 'APPROVED'
+          ? 'Đã phê duyệt video thành công!'
+          : 'Đã từ chối video và gửi phản hồi cho tác giả.'
+      );
+      setTimeout(() => setActionMessage(null), 3500);
+    },
+  });
+
+  // Batch Operations
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBatchProcessing(true);
+    try {
+      for (const id of selectedIds) {
+        await moderationApi.submitDecision(id, {
+          decision: 'APPROVED',
+          reason: 'Phê duyệt hàng loạt bởi Quản trị viên',
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-all'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-approved'] });
+      setSelectedIds([]);
+      setActionMessage(`Đã phê duyệt thành công ${selectedIds.length} video!`);
+      setTimeout(() => setActionMessage(null), 3500);
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  const handleBatchReject = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBatchProcessing(true);
+    try {
+      for (const id of selectedIds) {
+        await moderationApi.submitDecision(id, {
+          decision: 'REJECTED',
+          reason: 'Từ chối hàng loạt do chưa đạt yêu cầu thẩm định',
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-reviews'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-all'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-pending'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-moderation-count-rejected'] });
+      setSelectedIds([]);
+      setActionMessage(`Đã từ chối ${selectedIds.length} video.`);
+      setTimeout(() => setActionMessage(null), 3500);
+    } finally {
+      setIsBatchProcessing(false);
+    }
+  };
+
+  // Selection handlers
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (items.length === 0) return;
+    const currentIds = items.map((i) => i.reviewId);
+    const allSelected = currentIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !currentIds.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...currentIds])));
+    }
+  };
+
+  const handleClearFilters = () => {
     setSearch('');
+    setDebouncedSearch('');
     setDecision('');
     setTier('');
+    setTimeRange('all');
     setPage(0);
   };
 
-  const columns: Column<AdminModerationItem>[] = [
-    {
-      key: 'title',
-      header: 'Tiêu đề & Thời lượng',
-      render: (item) => (
-        <div className="flex items-start gap-3 max-w-sm">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-subtle text-muted">
-            <Video className="h-5 w-5" />
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-medium text-ink truncate leading-tight hover:underline cursor-pointer" onClick={() => navigate(`/admin/moderation/${item.reviewId}`)}>
-              {item.title}
-            </span>
-            <div className="flex items-center gap-2 mt-1 text-xs text-muted">
-              {item.durationSeconds ? (
-                <span className="font-mono">{formatDuration(item.durationSeconds)}</span>
-              ) : (
-                <span>Không có độ dài</span>
-              )}
-              <span>•</span>
-              <span className="font-mono text-[11px]">ID #{item.reviewId}</span>
-            </div>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'channel',
-      header: 'Kênh & Tác giả',
-      render: (item) => (
-        <div className="flex flex-col min-w-0">
-          <span className="font-medium text-ink truncate">{item.channelName || 'Chưa đặt tên'}</span>
-          <span className="text-xs text-muted truncate font-mono">{item.creatorEmail}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'aiShield',
-      header: 'Thẩm định AI Shield',
-      render: (item) => (
-        <div className="flex flex-col gap-1 items-start">
-          <AiShieldBadge tier={item.aiShieldTier} label={item.aiShieldTierLabel} />
-          {item.aiShieldReason && (
-            <span className="text-[11px] text-muted truncate max-w-[200px]" title={item.aiShieldReason}>
-              {item.aiShieldReason}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'decision',
-      header: 'Trạng thái duyệt',
-      render: (item) => <StatusBadge status={item.decision} />,
-    },
-    {
-      key: 'createdAt',
-      header: 'Thời gian gửi',
-      render: (item) => (
-        <span className="text-xs text-muted font-mono">
-          {formatDateTime(item.createdAt)}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      stickyRight: true,
-      align: 'right',
-      render: (item) => (
-        <Button
-          variant="outline"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/admin/moderation/${item.reviewId}`);
-          }}
-          className="min-h-[44px] px-3.5 text-xs text-ink hover:text-accent hover:border-accent"
-        >
-          <span>Xem xét</span>
-          <ArrowUpRight className="ml-1 h-3.5 w-3.5" />
-        </Button>
-      ),
-    },
-  ];
+  // Detail Modal Openers
+  const handleViewDetail = (item: AdminModerationItem) => {
+    setDetailModalItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleQuickApprove = (item: AdminModerationItem) => {
+    decisionMutation.mutate({
+      id: item.reviewId,
+      decision: 'APPROVED',
+      reason: 'Phê duyệt nhanh qua danh sách hàng đợi',
+    });
+  };
+
+  const handleQuickReject = (item: AdminModerationItem) => {
+    setDetailModalItem(item);
+    setIsModalOpen(true);
+  };
+
+  // GSAP Entrance Motion Sequence
+  useEffect(() => {
+    if (isReducedMotion() || hasAnimatedRef.current || !containerRef.current) return;
+    hasAnimatedRef.current = true;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+
+      if (heroRef.current) {
+        tl.fromTo(
+          heroRef.current,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.38, clearProps: 'transform,opacity' }
+        );
+      }
+
+      if (statsRef.current) {
+        tl.fromTo(
+          statsRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.36, clearProps: 'transform,opacity' },
+          '-=0.2'
+        );
+      }
+
+      if (tabsRef.current) {
+        tl.fromTo(
+          tabsRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.34, clearProps: 'transform,opacity' },
+          '-=0.18'
+        );
+      }
+
+      if (tableRef.current) {
+        tl.fromTo(
+          tableRef.current,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.35, clearProps: 'transform,opacity' },
+          '-=0.18'
+        );
+      }
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Kiểm duyệt nội dung"
-        description="Hàng đợi kiểm duyệt video và thẩm định học thuật với sự hỗ trợ của AI Shield"
-      />
-
-      {/* Decision Tabs */}
-      <div className="flex border-b border-border space-x-1" role="tablist">
-        {DECISION_TABS.map((tab) => {
-          const isActive = decision === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => {
-                setDecision(tab.id);
-                setPage(0);
-              }}
-              className={`min-h-[44px] px-4 text-xs font-medium border-b-2 transition-colors duration-150 select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-t-sm ${
-                isActive
-                  ? 'border-accent text-accent font-semibold'
-                  : 'border-transparent text-muted hover:text-ink hover:border-border'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Filter Toolbar */}
-      <FilterToolbar
-        searchPlaceholder="Tìm kiếm theo tiêu đề video hoặc tên kênh..."
-        searchValue={search}
-        onSearchChange={(v) => {
-          setSearch(v);
-          setPage(0);
-        }}
-        showReset={Boolean(search || decision || tier)}
-        onReset={handleReset}
-        filters={
-          <div className="w-48">
-            <Select
-              value={tier}
-              onChange={(e) => {
-                setTier(e.target.value);
-                setPage(0);
-              }}
-            >
-              <option value="">Tất cả phân tầng AI</option>
-              <option value="RED_ALERT">Báo động đỏ (Vi phạm)</option>
-              <option value="FAIR">Khá (Cần lưu ý)</option>
-              <option value="GOOD">Tốt (Đạt chuẩn)</option>
-              <option value="EXCELLENT">Xuất sắc</option>
-            </Select>
-          </div>
-        }
-      />
-
-      {/* Error State */}
-      {isError && (
-        <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
-          <span>Không thể tải danh sách hàng đợi kiểm duyệt. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="min-h-[44px] px-3.5 text-xs">
-            Tải lại
-          </Button>
+    <div ref={containerRef} className="space-y-6 sm:space-y-7 pb-12 max-w-[1600px] mx-auto">
+      {/* Feedback Toast Notification */}
+      {actionMessage && (
+        <div className="fixed top-20 right-6 z-50 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-800 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+          {actionMessage}
         </div>
       )}
 
-      {/* Data Table with embedded Pagination */}
-      <DataTable
-        columns={columns}
-        data={items}
-        keyExtractor={(item) => item.reviewId}
-        isLoading={isLoading}
-        onRowClick={(item) => navigate(`/admin/moderation/${item.reviewId}`)}
-        emptyTitle="Hàng đợi kiểm duyệt trống"
-        emptyDescription="Hiện không có video nào cần kiểm duyệt hoặc khớp với bộ lọc hiện tại."
-        pagination={
-          <PaginationBar
-            embedded
-            page={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            size={size}
-            onPageChange={setPage}
-          />
-        }
+      {/* 1. Hero Banner */}
+      <div ref={heroRef}>
+        <AdminModerationHeroBanner />
+      </div>
+
+      {/* 2. Four Operational Stat Cards */}
+      <div ref={statsRef}>
+        <AdminModerationStatCards
+          stats={stats}
+          selectedDecision={decision}
+          onSelectDecision={(dec) => {
+            setDecision(dec);
+            setPage(0);
+          }}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* 3. Filter Tabs & Search Controls */}
+      <div ref={tabsRef} className="space-y-4">
+        {/* Tab Selection Row */}
+        <AdminModerationFilterTabs
+          decision={decision}
+          onDecisionChange={(dec) => {
+            setDecision(dec);
+            setPage(0);
+          }}
+          counts={{
+            all: allCount,
+            pending: pendingCount,
+            approved: approvedCount,
+            rejected: rejectedCount,
+          }}
+          showAdvanced={showAdvanced}
+          onToggleAdvanced={() => setShowAdvanced((prev) => !prev)}
+        />
+
+        {/* Search, Dropdowns & Refresh Row */}
+        <AdminModerationSearchToolbar
+          search={search}
+          onSearchChange={setSearch}
+          tier={tier}
+          onTierChange={(t) => {
+            setTier(t);
+            setPage(0);
+          }}
+          decision={decision}
+          onDecisionChange={(d) => {
+            setDecision(d);
+            setPage(0);
+          }}
+          timeRange={timeRange}
+          onTimeRangeChange={(tr) => {
+            setTimeRange(tr);
+            setPage(0);
+          }}
+          onRefresh={() => refetch()}
+          isRefreshing={isFetching}
+          showAdvanced={showAdvanced}
+          onResetFilters={handleClearFilters}
+        />
+      </div>
+
+      {/* 4. Main Video Moderation Table */}
+      <div ref={tableRef}>
+        {isError && (
+          <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between">
+            <span>Không thể kết nối đến máy chủ kiểm duyệt. Vui lòng thử lại.</span>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="rounded-xl border border-rose-300 bg-white px-3 py-1.5 font-semibold text-rose-800 shadow-2xs hover:bg-rose-100"
+            >
+              Tải lại
+            </button>
+          </div>
+        )}
+
+        <AdminModerationTable
+          items={items}
+          isLoading={isLoading}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onToggleSelectAll={handleToggleSelectAll}
+          onViewDetail={handleViewDetail}
+          onQuickApprove={handleQuickApprove}
+          onQuickReject={handleQuickReject}
+          page={page}
+          size={size}
+          totalElements={totalElements}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          onSizeChange={(newSize) => {
+            setSize(newSize);
+            setPage(0);
+          }}
+          onClearFilters={handleClearFilters}
+        />
+      </div>
+
+      {/* Floating Batch Action Bar */}
+      <AdminModerationBatchBar
+        selectedCount={selectedIds.length}
+        onApproveBatch={handleBatchApprove}
+        onRejectBatch={handleBatchReject}
+        onClearSelection={() => setSelectedIds([])}
+        isProcessing={isBatchProcessing}
+      />
+
+      {/* Review & Detail Modal */}
+      <AdminModerationDetailModal
+        item={detailModalItem}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setDetailModalItem(null);
+        }}
+        onApprove={(id, reason) => decisionMutation.mutate({ id, decision: 'APPROVED', reason })}
+        onReject={(id, reason) => decisionMutation.mutate({ id, decision: 'REJECTED', reason })}
+        isSubmitting={decisionMutation.isPending}
       />
     </div>
   );

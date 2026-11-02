@@ -22,6 +22,7 @@ export interface AdminModerationItem {
   // AI Shield Qualitative Evaluation
   aiShieldTier?: AiShieldTier;
   aiShieldTierLabel?: string;
+  aiShieldScore?: number;
   aiShieldReason?: string;
   markdownContent?: string;
 }
