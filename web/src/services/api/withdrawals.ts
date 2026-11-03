@@ -24,23 +24,56 @@ export const withdrawalsApi = {
     return found || null;
   },
 
-  // Mandatory Correction 1 mapping: Approve Request transitions PENDING -> PROCESSING
-  approveRequest: async (id: number): Promise<ApiResponse<WithdrawalItem>> => {
+  // Process Request: transitions PENDING -> PROCESSING
+  processWithdrawal: async (id: number): Promise<ApiResponse<WithdrawalItem>> => {
     const response = await apiClient.patch<ApiResponse<WithdrawalItem>>(
       `/api/v1/withdrawals/admin/${id}/process`
     );
     return response.data;
   },
 
-  // Mandatory Correction 1 mapping: Reject Request transitions PENDING -> REJECTED with refund
-  rejectRequest: async (
+  // Alias for backward compatibility
+  approveRequest: async (id: number): Promise<ApiResponse<WithdrawalItem>> => {
+    return withdrawalsApi.processWithdrawal(id);
+  },
+
+  // Complete Request: transitions PROCESSING -> COMPLETED
+  completeWithdrawal: async (id: number): Promise<ApiResponse<WithdrawalItem>> => {
+    const response = await apiClient.patch<ApiResponse<WithdrawalItem>>(
+      `/api/v1/withdrawals/admin/${id}/complete`
+    );
+    return response.data;
+  },
+
+  // Fail Request: transitions PROCESSING -> FAILED and refunds wallet
+  failWithdrawal: async (
     id: number,
-    payload: RejectWithdrawalPayload
+    payload?: RejectWithdrawalPayload
+  ): Promise<ApiResponse<WithdrawalItem>> => {
+    const response = await apiClient.patch<ApiResponse<WithdrawalItem>>(
+      `/api/v1/withdrawals/admin/${id}/fail`,
+      payload
+    );
+    return response.data;
+  },
+
+  // Reject Request: transitions PENDING -> REJECTED and refunds wallet
+  rejectWithdrawal: async (
+    id: number,
+    payload?: RejectWithdrawalPayload
   ): Promise<ApiResponse<WithdrawalItem>> => {
     const response = await apiClient.patch<ApiResponse<WithdrawalItem>>(
       `/api/v1/withdrawals/admin/${id}/reject`,
       payload
     );
     return response.data;
+  },
+
+  // Alias for backward compatibility
+  rejectRequest: async (
+    id: number,
+    payload: RejectWithdrawalPayload
+  ): Promise<ApiResponse<WithdrawalItem>> => {
+    return withdrawalsApi.rejectWithdrawal(id, payload);
   },
 };
