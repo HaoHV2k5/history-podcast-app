@@ -521,9 +521,9 @@ class _CreatorStudioState extends State<CreatorStudio> {
                     color: Palette.soft,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(CupertinoIcons.slider_horizontal_3, color: Palette.ink),
+                  child: const Icon(CupertinoIcons.pencil, color: Palette.ink),
                 ),
-                title: const Text('Mở trang Quản lý Kênh chi tiết', style: TextStyle(fontWeight: FontWeight.w600)),
+                title: const Text('Chỉnh sửa thông tin', style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Xem trước ảnh bìa, avatar và toàn bộ thiết lập kênh'),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -900,55 +900,28 @@ class _CreatorStudioState extends State<CreatorStudio> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          key: const Key('change-channel-artwork-btn'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Palette.ink,
-                            side: const BorderSide(color: Palette.line),
-                            backgroundColor: Palette.paper,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: _pickAndUploadChannelImageSheet,
-                          icon: const Icon(CupertinoIcons.photo, size: 16),
-                          label: const Text(
-                            'Đổi ảnh kênh',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      key: const Key('edit-channel-info-btn'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Palette.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.icon(
-                          key: const Key('edit-channel-info-btn'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Palette.red,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: openEditChannelDialog,
-                          icon: const Icon(CupertinoIcons.pencil, size: 16),
-                          label: const Text(
-                            'Chỉnh sửa thông tin',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                      onPressed: openChannelManagementPage,
+                      icon: const Icon(CupertinoIcons.pencil, size: 16),
+                      label: const Text(
+                        'Chỉnh sửa thông tin',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -1236,7 +1209,7 @@ class _CreatorStudioState extends State<CreatorStudio> {
                             ),
                           ),
                   icon: const Icon(CupertinoIcons.sparkles, size: 15),
-                  label: const Text('Xưởng AI Studio 6 bước'),
+                  label: const Text('Tạo nội dung mới (AI Studio)'),
                 ),
                 OutlinedButton.icon(
                   key: const Key('open-series-manager-btn'),

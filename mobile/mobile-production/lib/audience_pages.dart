@@ -14,7 +14,7 @@ import 'artwork_state.dart';
 import 'artwork_editor.dart';
 import 'episode.dart';
 import 'livestream_page.dart';
-import 'studio_pages.dart';
+import 'studio_pages.dart' hide KycManagementPage;
 import 'narrator_pages.dart';
 import 'demo_pages.dart';
 import 'wallet_page.dart';
@@ -22,6 +22,7 @@ import 'publication_page.dart';
 import 'notification_page.dart';
 import 'password_recovery.dart';
 import 'kyc_form.dart';
+import 'kyc_management_page.dart';
 
 String _formatVndPrice(double amount) {
   final intVal = amount.round();
@@ -62,6 +63,7 @@ class _ChannelPageState extends State<ChannelPage> {
     widget.state.loadChannelMembershipPlan(widget.channel.name);
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
+      widget.state.refreshLivestreams();
     }
     _resolveChannelAndReviews();
   }
@@ -183,6 +185,9 @@ class _ChannelPageState extends State<ChannelPage> {
         coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
         monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
         hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
+        followerCount: remoteMatch.followerCount > 0
+            ? remoteMatch.followerCount
+            : (widget.channel.followerCount > 0 ? widget.channel.followerCount : baseC.followerCount),
       );
 
       final followed = widget.state.followed.contains(c.name);
@@ -243,7 +248,7 @@ class _ChannelPageState extends State<ChannelPage> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
+              '${c.followerCount > 0 ? "${c.followerCount} người theo dõi · " : ""}${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
               style: const TextStyle(color: Palette.muted, fontSize: 12),
             ),
             const SizedBox(height: 20),
@@ -1022,6 +1027,7 @@ class _MembershipPageState extends State<MembershipPage> {
     widget.state.loadChannelMembershipPlan(widget.channel.name);
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
+      widget.state.refreshLivestreams();
     }
   }
 
@@ -1723,26 +1729,6 @@ class _ProfileContentState extends State<ProfileContent> {
       );
     }
 
-    // 3. FREELANCER (khi tài khoản có vai trò FREELANCER / NARRATOR)
-    final hasFreelancer = state.isFreelancer ||
-        state.userRoles.any((r) =>
-            r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR') ||
-        state.preferences.getBool('isFreelancer') == true ||
-        state.preferences.getBool('isFreelancerActiveV1') == true ||
-        state.preferences.getString('narratorFreelancerProfileV1') != null;
-
-    if (hasFreelancer) {
-      badges.add(
-        _buildRolePill(
-          key: const Key('role-badge-freelancer'),
-          label: 'FREELANCER',
-          borderColor: const Color(0xFF00796B),
-          backgroundColor: const Color(0xFFE0F2F1).withValues(alpha: 0.6),
-          textColor: const Color(0xFF004D40),
-        ),
-      );
-    }
-
     // 4. ADMIN (nếu có vai trò ADMIN)
     final hasAdmin = state.userRoles.any((r) => r.toUpperCase() == 'ADMIN');
     if (hasAdmin) {
@@ -1829,47 +1815,49 @@ class _ProfileContentState extends State<ProfileContent> {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  state.displayName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => showModalBottomSheet<void>(
+                context: context,
+                isScrollControlled: true,
+                showDragHandle: true,
+                builder: (_) => EditNameSheet(state: state),
+              ),
+              child: Tooltip(
+                message: 'Sửa tên hiển thị',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      state.displayName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      state.isLoggedIn
+                          ? (state.userEmail ??
+                                state.userPhone ??
+                                (state.isLiveBackend
+                                    ? 'Đã đăng nhập'
+                                    : 'Đã đăng nhập (Mô phỏng)'))
+                          : 'Hồ sơ trên thiết bị này',
+                      style: const TextStyle(color: Palette.muted, fontSize: 12),
+                    ),
+                    if (state.isLoggedIn) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: _buildRoleBadges(context, state),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  state.isLoggedIn
-                      ? (state.userEmail ??
-                            state.userPhone ??
-                            (state.isLiveBackend
-                                ? 'Đã đăng nhập'
-                                : 'Đã đăng nhập (Mô phỏng)'))
-                      : 'Hồ sơ trên thiết bị này',
-                  style: const TextStyle(color: Palette.muted, fontSize: 12),
-                ),
-                if (state.isLoggedIn) ...[
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: _buildRoleBadges(context, state),
-                  ),
-                ],
-              ],
+              ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Sửa tên hiển thị',
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              isScrollControlled: true,
-              showDragHandle: true,
-              builder: (_) => EditNameSheet(state: state),
-            ),
-            icon: const Icon(CupertinoIcons.pencil, size: 20),
           ),
         ],
       ),
@@ -1984,6 +1972,27 @@ class _ProfileContentState extends State<ProfileContent> {
             ),
           );
           await state.refreshWalletBalance();
+        },
+      ),
+      _PersonalLink(
+        key: const Key('open-profile-kyc'),
+        icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+        title: 'Xác thực KYC',
+        subtitle: state.isLiveBackend
+            ? (state.kycStatus == 'APPROVED'
+                ? 'Hồ sơ đã duyệt (APPROVED)'
+                : (state.kycStatus == 'PENDING'
+                    ? 'Đang chờ thẩm định'
+                    : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
+            : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => KycManagementPage(appState: state),
+            ),
+          );
+          await state.refreshProfile();
         },
       ),
       const SizedBox(height: 20),
@@ -2161,6 +2170,27 @@ class CreativeWorkspacePage extends StatelessWidget {
             ),
           ),
         ),
+        _PersonalLink(
+          key: const Key('open-workspace-kyc'),
+          icon: CupertinoIcons.person_crop_circle_badge_checkmark,
+          title: 'Xác thực KYC',
+          subtitle: state.isLiveBackend
+              ? (state.kycStatus == 'APPROVED'
+                  ? 'Hồ sơ đã duyệt (APPROVED)'
+                  : (state.kycStatus == 'PENDING'
+                      ? 'Đang chờ thẩm định'
+                      : 'Định danh nhà sáng tạo & tài khoản thụ hưởng'))
+              : 'Định danh nhà sáng tạo & tài khoản thụ hưởng',
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => KycManagementPage(appState: state),
+              ),
+            );
+            await state.refreshProfile();
+          },
+        ),
       ],
     ),
   );
@@ -2337,6 +2367,84 @@ class _AuthSheetState extends State<AuthSheet> {
     super.dispose();
   }
 
+  void _showServerConfig() {
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.133:8080';
+    final controller = TextEditingController(text: currentUrl);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Palette.paper,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Cấu hình máy chủ API', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Nhập địa chỉ IP máy chủ backend Sử Ký (Spring Boot):',
+              style: TextStyle(fontSize: 13, color: Palette.muted),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Palette.soft,
+                hintText: 'http://192.168.1.133:8080',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text('Gợi ý kết nối nhanh:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  label: const Text('Wi-Fi máy tính (192.168.1.133)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://192.168.1.133:8080',
+                ),
+                ActionChip(
+                  label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://10.0.2.2:8080',
+                ),
+                ActionChip(
+                  label: const Text('Localhost (localhost:8080)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://localhost:8080',
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Palette.red),
+            onPressed: () async {
+              final newUrl = controller.text.trim();
+              if (newUrl.isNotEmpty) {
+                await widget.state.updateApiBaseUrl(newUrl);
+                if (mounted) {
+                  setState(() {
+                    error = null;
+                  });
+                }
+              }
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Lưu & Kết nối'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> submit() async {
     if (!formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
@@ -2365,12 +2473,23 @@ class _AuthSheetState extends State<AuthSheet> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          busy = false;
-          error = e
-              .toString()
+        final raw = e.toString();
+        String displayError;
+        final currentUrl = widget.state.apiClient?.baseUrl ?? 'máy chủ';
+        if (raw.contains('TimeoutException') || raw.toLowerCase().contains('timed out')) {
+          displayError = 'Quá thời gian chờ kết nối (15s) tới $currentUrl.\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
+        } else if (raw.contains('SocketException') ||
+            raw.contains('Connection refused') ||
+            raw.contains('Failed host lookup')) {
+          displayError = 'Không thể kết nối đến máy chủ backend ($currentUrl).\nVui lòng kiểm tra lại IP máy chủ hoặc kết nối Wi-Fi.';
+        } else {
+          displayError = raw
               .replaceFirst('Exception: ', '')
               .replaceFirst('ArgumentError: ', '');
+        }
+        setState(() {
+          busy = false;
+          error = displayError;
         });
       }
     }
@@ -2386,21 +2505,32 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        12,
-        24,
-        MediaQuery.viewInsetsOf(context).bottom + 24,
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Eyebrow('TÀI KHOẢN NGƯỜI NGHE · UC-06'),
+  Widget build(BuildContext context) => Material(
+    color: Palette.paper,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    clipBehavior: Clip.antiAlias,
+    child: SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.viewInsetsOf(context).bottom + 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+            const Row(
+              children: [
+                Expanded(
+                  child: Eyebrow('TÀI KHOẢN NGƯỜI NGHE · UC-06'),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             Text(
               tab == 0 ? 'Đăng nhập Sử Ký' : 'Đăng ký tài khoản',
@@ -2458,11 +2588,11 @@ class _AuthSheetState extends State<AuthSheet> {
               key: const Key('auth-identifier'),
               controller: identifierCtrl,
               decoration: const InputDecoration(
-                labelText: 'Email hoặc số điện thoại',
-                hintText: 'nghechuyen@suky.vn hoặc 0901234567',
+                labelText: 'Email',
+                hintText: 'nghechuyen@suky.vn',
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Nhập email hoặc SĐT' : null,
+                  v == null || v.trim().isEmpty ? 'Nhập email' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -2529,9 +2659,46 @@ class _AuthSheetState extends State<AuthSheet> {
               ),
             if (error != null) ...[
               const SizedBox(height: 12),
-              Text(
-                error!,
-                style: const TextStyle(color: Palette.red, fontSize: 13),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Palette.red.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Palette.red.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      error!,
+                      style: const TextStyle(color: Palette.red, fontSize: 13, height: 1.4),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      key: const Key('auth-error-config-server-btn'),
+                      onTap: _showServerConfig,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(CupertinoIcons.gear_alt, size: 14, color: Palette.red),
+                          SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              'Đổi địa chỉ IP máy chủ backend',
+                              style: TextStyle(
+                                color: Palette.red,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                decoration: TextDecoration.underline,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 24),
@@ -2570,7 +2737,8 @@ class _AuthSheetState extends State<AuthSheet> {
         ),
       ),
     ),
-  );
+  ),
+);
 }
 
 class TransactionHistorySheet extends StatelessWidget {
@@ -2759,20 +2927,25 @@ class _EditNameSheetState extends State<EditNameSheet> {
   }
 
   @override
-  Widget build(BuildContext context) => SafeArea(
-    child: SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        12,
-        24,
-        MediaQuery.viewInsetsOf(context).bottom + 24,
-      ),
-      child: Form(
-        key: formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+  Widget build(BuildContext context) => Material(
+    color: Palette.paper,
+    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    clipBehavior: Clip.antiAlias,
+    child: SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.viewInsetsOf(context).bottom + 24,
+        ),
+        child: Form(
+          key: formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
             ArtworkEditor(
               preferences: widget.state.preferences,
               target: 'avatar',
@@ -2813,7 +2986,8 @@ class _EditNameSheetState extends State<EditNameSheet> {
         ),
       ),
     ),
-  );
+  ),
+);
 }
 
 class ChannelMark extends StatelessWidget {

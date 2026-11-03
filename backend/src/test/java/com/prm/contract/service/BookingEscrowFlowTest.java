@@ -77,6 +77,8 @@ class BookingEscrowFlowTest {
     private WalletRepository walletRepository;
     @Mock
     private WalletTransactionRepository walletTransactionRepository;
+    @Mock
+    private com.prm.common.service.FileStorageService fileStorageService;
 
     private BookingEscrowProperties properties;
     private CommissionServiceImpl commissionService;
@@ -154,6 +156,8 @@ class BookingEscrowFlowTest {
                 milestoneRepository,
                 submissionRepository,
                 revisionRequestRepository,
+                deliverableRepository,
+                milestoneReviewRepository,
                 userRepository,
                 properties,
                 commissionRepository
@@ -173,7 +177,8 @@ class BookingEscrowFlowTest {
                 userRepository,
                 escrowService,
                 properties,
-                commissionRepository
+                commissionRepository,
+                fileStorageService
         );
 
         reviewService = new com.prm.contract.service.impl.ReviewServiceImpl(
@@ -683,5 +688,182 @@ class BookingEscrowFlowTest {
         assertEquals(new BigDecimal("285000.00"), savedMilestones.get(1).getNetAmount());
         assertEquals(new BigDecimal("500.00"), savedMilestones.get(2).getPlatformFee());
         assertEquals(new BigDecimal("9500.00"), savedMilestones.get(2).getNetAmount());
+    }
+
+    @Test
+    @DisplayName("Giải ngân sớm (release-early): Chỉ Khách đặt được quyền giải ngân ngay khi Milestone đang APPROVED + HELD; Creator hoặc Admin gọi sẽ bị chặn 403")
+    void testReleaseEarlyMilestone_RequesterOnly() {
+        Role adminRole = Role.builder().id(3L).name(RoleEnum.ADMIN.name()).build();
+        User admin = User.builder().id(99L).email("admin@example.com").fullName("System Admin").roles(Set.of(adminRole)).build();
+
+        Commission hr = Commission.builder().id(77L).status("CONTRACT_SENT").build();
+        Contract contract = Contract.builder()
+                .id(500L)
+                .hireRequest(hr)
+                .creator(creator)
+                .freelancer(listener)
+                .platformFeePercent(new BigDecimal("5.0"))
+                .status(ContractStatus.ACTIVE)
+                .build();
+
+        Milestone milestone = Milestone.builder()
+                .id(501L)
+                .contract(contract)
+                .orderNo(1)
+                .title("Milestone 1: Đã duyệt chờ đối soát 3 ngày")
+                .amount(new BigDecimal("200000"))
+                .platformFee(new BigDecimal("10000.00"))
+                .netAmount(new BigDecimal("190000.00"))
+                .status(MilestoneStatus.APPROVED)
+                .escrowStatus(EscrowStatus.HELD)
+                .releaseAt(Instant.now().plus(3, ChronoUnit.DAYS))
+                .build();
+
+        when(milestoneRepository.findById(501L)).thenReturn(Optional.of(milestone));
+        when(milestoneRepository.findByContractIdOrderByOrderNoAsc(500L)).thenReturn(List.of(milestone));
+
+        // 1. Creator gọi releaseEarlyMilestone -> bị chặn CONTRACT_ACCESS_DENIED
+        authenticateAs(creator);
+        AppException creatorEx = assertThrows(AppException.class, () -> milestoneService.releaseEarlyMilestone(501L));
+        assertEquals(ErrorCode.CONTRACT_ACCESS_DENIED, creatorEx.getErrorCode());
+
+        // 2. Admin gọi releaseEarlyMilestone -> bị chặn CONTRACT_ACCESS_DENIED (Admin chỉ xem, không tự ý giải ngân khi không có tranh chấp)
+        authenticateAs(admin);
+        AppException adminEx = assertThrows(AppException.class, () -> milestoneService.releaseEarlyMilestone(501L));
+        assertEquals(ErrorCode.CONTRACT_ACCESS_DENIED, adminEx.getErrorCode());
+
+        // 3. Khách đặt (listener) gọi releaseEarlyMilestone -> Giải ngân ngay 95% (190.000) vào ví Creator
+        authenticateAs(listener);
+        Wallet creatorWallet = Wallet.builder().id(1L).user(creator).availableBalance(new BigDecimal("50000")).currency("VND").build();
+        when(walletRepository.findByUserIdForUpdate(10L)).thenReturn(Optional.of(creatorWallet));
+
+        MilestoneResponse releasedRes = milestoneService.releaseEarlyMilestone(501L);
+        assertEquals(MilestoneStatus.RELEASED, releasedRes.getStatus());
+        assertEquals(EscrowStatus.RELEASED, releasedRes.getEscrowStatus());
+        assertEquals(new BigDecimal("240000.00"), creatorWallet.getAvailableBalance());
+        assertEquals(ContractStatus.COMPLETED, contract.getStatus());
+        assertEquals("COMPLETED", hr.getStatus());
+    }
+
+    @Test
+    @DisplayName("Admin xem toàn bộ danh sách hợp đồng (Read-Only) và chi tiết hợp đồng trả kèm danh sách deliverables")
+    void testAdminReadOnlyContractsAndDeliverablesIncluded() {
+        Role adminRole = Role.builder().id(3L).name(RoleEnum.ADMIN.name()).build();
+        User admin = User.builder().id(99L).email("admin@example.com").fullName("System Admin").roles(Set.of(adminRole)).build();
+
+        Contract contract = Contract.builder()
+                .id(600L)
+                .creator(creator)
+                .freelancer(listener)
+                .title("Hợp đồng kiểm tra quyền Admin")
+                .status(ContractStatus.ACTIVE)
+                .build();
+
+        Milestone m1 = Milestone.builder()
+                .id(601L)
+                .contract(contract)
+                .orderNo(1)
+                .title("Giai đoạn 1")
+                .amount(new BigDecimal("200000"))
+                .status(MilestoneStatus.APPROVED)
+                .build();
+
+        com.prm.contract.entity.MilestoneDeliverable d1 = com.prm.contract.entity.MilestoneDeliverable.builder()
+                .id(701L)
+                .milestone(m1)
+                .uploadedBy(creator)
+                .title("v1 - Kịch bản chi tiết")
+                .fileName("MLN122-Nhom1.pdf")
+                .filePath("https://res.cloudinary.com/demo/raw/upload/v1/MLN122-Nhom1.pdf")
+                .versionNo(1)
+                .createdAt(Instant.now())
+                .build();
+
+        when(contractRepository.findAllContracts(eq(null), any())).thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(contract)));
+        when(milestoneRepository.findByContractIdOrderByOrderNoAsc(600L)).thenReturn(List.of(m1));
+        when(deliverableRepository.findByMilestoneIdOrderByCreatedAtDesc(601L)).thenReturn(List.of(d1));
+
+        authenticateAs(admin);
+        com.prm.common.dto.PageResponse<ContractResponse> pageRes = contractService.getMyContracts(null, org.springframework.data.domain.PageRequest.of(0, 20));
+        assertEquals(1, pageRes.getItems().size());
+        ContractResponse cRes = pageRes.getItems().get(0);
+        assertEquals(600L, cRes.getId());
+        assertEquals(1, cRes.getMilestones().size());
+        assertEquals(1, cRes.getMilestones().get(0).getDeliverables().size());
+        assertEquals("https://res.cloudinary.com/demo/raw/upload/v1/MLN122-Nhom1.pdf",
+                cRes.getMilestones().get(0).getDeliverables().get(0).getFileUrl());
+
+        // Admin cố tình gọi updatePendingContract -> bị chặn CONTRACT_ACCESS_DENIED
+        when(contractRepository.findById(600L)).thenReturn(Optional.of(contract));
+        AppException editEx = assertThrows(AppException.class, () ->
+                contractService.updatePendingContract(600L, UpdateContractRequest.builder().title("Sửa trái phép").build()));
+        assertEquals(ErrorCode.CONTRACT_ACCESS_DENIED, editEx.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Khiếu nại & Đối chất kèm danh sách file bằng chứng (attachmentUrls -> evidenceUrls & counterEvidenceUrls)")
+    void testDisputeEvidenceUploadAndAttachmentUrls() {
+        Contract contract = Contract.builder()
+                .id(800L)
+                .creator(creator)
+                .freelancer(listener)
+                .title("Hợp đồng kiểm tra file bằng chứng")
+                .status(ContractStatus.ACTIVE)
+                .build();
+        Milestone milestone = Milestone.builder()
+                .id(801L)
+                .contract(contract)
+                .orderNo(1)
+                .title("Giai đoạn 1")
+                .amount(new BigDecimal("500000"))
+                .status(MilestoneStatus.SUBMITTED)
+                .escrowStatus(EscrowStatus.HELD)
+                .build();
+
+        when(milestoneRepository.findById(801L)).thenReturn(Optional.of(milestone));
+        when(disputeRepository.existsByMilestoneIdAndStatus(801L, DisputeStatus.OPEN)).thenReturn(false);
+        when(disputeRepository.save(any(com.prm.contract.entity.Dispute.class))).thenAnswer(inv -> {
+            com.prm.contract.entity.Dispute d = inv.getArgument(0);
+            if (d.getId() == null) d.setId(900L);
+            return d;
+        });
+
+        authenticateAs(listener);
+        OpenDisputeRequest openReq = OpenDisputeRequest.builder()
+                .milestoneId(801L)
+                .reason("Bản thu bị rè ở phút thứ 3")
+                .evidence("Đính kèm ảnh chụp phổ âm thanh và file PDF biên bản")
+                .attachmentUrls(List.of(
+                        "https://res.cloudinary.com/demo/image/upload/v1/evidence1.png",
+                        "https://res.cloudinary.com/demo/raw/upload/v1/report.pdf"
+                ))
+                .build();
+
+        com.prm.contract.dto.response.DisputeResponse opened = disputeService.openDispute(openReq);
+        assertEquals(2, opened.getEvidenceUrls().size());
+        assertTrue(opened.getEvidenceUrls().contains("https://res.cloudinary.com/demo/image/upload/v1/evidence1.png"));
+        assertTrue(opened.getEvidenceUrls().contains("https://res.cloudinary.com/demo/raw/upload/v1/report.pdf"));
+
+        // Creator gửi đối chất kèm file bằng chứng
+        com.prm.contract.entity.Dispute savedDispute = com.prm.contract.entity.Dispute.builder()
+                .id(900L)
+                .contract(contract)
+                .milestone(milestone)
+                .raisedByUser(listener)
+                .reason(openReq.getReason())
+                .evidence(opened.getEvidence())
+                .status(DisputeStatus.OPEN)
+                .build();
+        when(disputeRepository.findById(900L)).thenReturn(Optional.of(savedDispute));
+
+        authenticateAs(creator);
+        CounterEvidenceRequest counterReq = CounterEvidenceRequest.builder()
+                .counterEvidence("Đã kiểm tra file gốc hoàn toàn trong trẻo")
+                .attachmentUrls(List.of("https://res.cloudinary.com/demo/video/upload/v1/clean_audio.mp3"))
+                .build();
+
+        com.prm.contract.dto.response.DisputeResponse countered = disputeService.submitCounterEvidence(900L, counterReq);
+        assertEquals(1, countered.getCounterEvidenceUrls().size());
+        assertEquals("https://res.cloudinary.com/demo/video/upload/v1/clean_audio.mp3", countered.getCounterEvidenceUrls().get(0));
     }
 }

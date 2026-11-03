@@ -12,6 +12,7 @@ import {
   FileCheck2,
   Calendar,
   CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
 import { DetailWorkbench } from '@/components/layout/DetailWorkbench';
 import { StatusBadge } from '@/components/common/StatusBadge';
@@ -34,7 +35,7 @@ export const WithdrawalDetailPage: React.FC = () => {
   const [noDisputeFlag, setNoDisputeFlag] = useState(false);
 
   // Decision Modal State
-  const [modalType, setModalType] = useState<'APPROVE' | 'REJECT' | null>(null);
+  const [modalType, setModalType] = useState<'APPROVE' | 'REJECT' | 'COMPLETE' | 'FAIL' | null>(null);
 
   const { data: item, isLoading, isError } = useQuery({
     queryKey: ['admin-withdrawal-detail', withdrawalId],
@@ -43,18 +44,36 @@ export const WithdrawalDetailPage: React.FC = () => {
   });
 
   const approveMutation = useMutation({
-    mutationFn: () => withdrawalsApi.approveRequest(withdrawalId),
+    mutationFn: () => withdrawalsApi.processWithdrawal(withdrawalId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-all'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawal-detail', withdrawalId] });
+      setModalType(null);
+    },
+  });
+
+  const completeMutation = useMutation({
+    mutationFn: () => withdrawalsApi.completeWithdrawal(withdrawalId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-all'] });
       queryClient.invalidateQueries({ queryKey: ['admin-withdrawal-detail', withdrawalId] });
       setModalType(null);
     },
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (reason: string) => withdrawalsApi.rejectRequest(withdrawalId, { reason }),
+    mutationFn: (reason: string) => withdrawalsApi.rejectWithdrawal(withdrawalId, { reason }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-all'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawal-detail', withdrawalId] });
+      setModalType(null);
+    },
+  });
+
+  const failMutation = useMutation({
+    mutationFn: (reason: string) => withdrawalsApi.failWithdrawal(withdrawalId, { reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-withdrawals-all'] });
       queryClient.invalidateQueries({ queryKey: ['admin-withdrawal-detail', withdrawalId] });
       setModalType(null);
     },
@@ -68,7 +87,7 @@ export const WithdrawalDetailPage: React.FC = () => {
     return (
       <div className="rounded-lg border border-border bg-surface p-8 text-center">
         <AlertTriangle className="mx-auto h-8 w-8 text-status-error-text mb-3" />
-        <h2 className="font-serif text-lg font-bold text-ink mb-1">
+        <h2 className="font-sans text-lg font-bold text-ink mb-1">
           Không tìm thấy yêu cầu rút tiền
         </h2>
         <p className="text-xs text-muted mb-4">
@@ -82,12 +101,17 @@ export const WithdrawalDetailPage: React.FC = () => {
   }
 
   const isPending = item.status === 'PENDING';
+  const isProcessing = item.status === 'PROCESSING';
 
   const handleDecisionSubmit = (reason?: string) => {
     if (modalType === 'APPROVE') {
       approveMutation.mutate();
+    } else if (modalType === 'COMPLETE') {
+      completeMutation.mutate();
     } else if (modalType === 'REJECT') {
       rejectMutation.mutate(reason || 'Yêu cầu không đáp ứng tiêu chuẩn đối soát rút tiền');
+    } else if (modalType === 'FAIL') {
+      failMutation.mutate(reason || 'Lỗi chuyển khoản ngân hàng không thành công');
     }
   };
 
@@ -99,19 +123,19 @@ export const WithdrawalDetailPage: React.FC = () => {
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-accent" />
-            <h3 className="font-serif text-base font-bold text-ink">
+            <h3 className="font-sans text-base font-bold text-ink">
               Thông tin yêu cầu rút tiền
             </h3>
           </div>
-          <span className="font-mono text-xs text-muted">Ví Creator ID #{item.walletId}</span>
+          <span className="font-sans text-xs text-muted">Ví Creator ID #{item.walletId}</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-sans">
           <div className="rounded-lg border border-border bg-surface-subtle/50 p-4 space-y-1">
             <span className="text-muted block text-[11px] uppercase tracking-wider font-semibold">
               Số tiền yêu cầu rút
             </span>
-            <span className="font-mono tabular-nums font-bold text-ink text-2xl block text-accent">
+            <span className="font-sans tabular-nums font-bold text-ink text-2xl block text-accent">
               {formatVND(item.amount)}
             </span>
             <span className="text-[11px] text-muted block mt-1">
@@ -123,10 +147,10 @@ export const WithdrawalDetailPage: React.FC = () => {
             <span className="text-muted block text-[11px] uppercase tracking-wider font-semibold">
               Mã giao dịch nội bộ
             </span>
-            <span className="font-mono font-semibold text-ink text-sm block">
+            <span className="font-sans font-semibold text-ink text-sm block">
               WITHDRAW-REQ-#{item.id}
             </span>
-            <div className="flex items-center gap-1.5 text-muted pt-2 text-[11px] font-mono tabular-nums">
+            <div className="flex items-center gap-1.5 text-muted pt-2 text-[11px] font-sans tabular-nums">
               <Calendar className="h-3.5 w-3.5 text-muted" />
               <span>Thời điểm tạo: {formatDateTime(item.requestedAt)}</span>
             </div>
@@ -135,15 +159,15 @@ export const WithdrawalDetailPage: React.FC = () => {
       </div>
 
       {/* Payout Destination Card (Masked) */}
-      <div className="rounded-lg border border-border bg-surface p-6 space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-6 space-y-4 font-sans">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div className="flex items-center gap-2">
             <Landmark className="h-5 w-5 text-status-processing-text" />
-            <h3 className="font-serif text-base font-bold text-ink">
+            <h3 className="font-sans text-base font-bold text-ink">
               Tài khoản ngân hàng thụ hưởng (Bảo mật thông tin)
             </h3>
           </div>
-          <span className="text-[11px] text-muted uppercase tracking-wider font-mono">
+          <span className="text-[11px] text-muted uppercase tracking-wider font-sans">
             Đã che số tài khoản
           </span>
         </div>
@@ -162,7 +186,7 @@ export const WithdrawalDetailPage: React.FC = () => {
               <CreditCard className="h-3.5 w-3.5" />
               <span>Số tài khoản</span>
             </div>
-            <p className="font-mono tabular-nums font-semibold text-ink text-sm">
+            <p className="font-sans tabular-nums font-semibold text-ink text-sm">
               {maskIdentifier(item.accountNumber)}
             </p>
           </div>
@@ -178,11 +202,11 @@ export const WithdrawalDetailPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="rounded-md border border-border bg-surface-subtle p-3 text-xs text-muted leading-relaxed">
+        <div className="rounded-md border border-border bg-surface-subtle p-3 text-xs text-muted leading-relaxed font-sans">
           <p className="font-semibold text-ink mb-1 text-[11px] uppercase tracking-wide">
             Chính sách đối soát và hoàn tiền:
           </p>
-          Nếu yêu cầu này bị từ chối, số tiền <span className="font-mono tabular-nums font-medium">{formatVND(item.amount)}</span> sẽ được hệ thống tự động hoàn trả nguyên vẹn về số dư khả dụng trong ví của Nhà sáng tạo.
+          Nếu yêu cầu này bị từ chối hoặc báo lỗi, số tiền <span className="font-sans tabular-nums font-medium">{formatVND(item.amount)}</span> sẽ được hệ thống tự động hoàn trả nguyên vẹn về số dư khả dụng trong ví của Nhà sáng tạo.
         </div>
       </div>
     </div>
@@ -228,13 +252,13 @@ export const WithdrawalDetailPage: React.FC = () => {
           <StatusBadge status={item.status} />
         </div>
 
-        <div className="flex justify-between py-1 border-b border-border font-mono tabular-nums">
+        <div className="flex justify-between py-1 border-b border-border font-sans tabular-nums">
           <span className="text-muted">Khởi tạo:</span>
           <span className="text-muted">{formatDateTime(item.requestedAt)}</span>
         </div>
 
         {item.processedAt && (
-          <div className="flex justify-between py-1 border-b border-border font-mono tabular-nums">
+          <div className="flex justify-between py-1 border-b border-border font-sans tabular-nums">
             <span className="text-muted">Thời điểm xử lý:</span>
             <span className="text-muted">{formatDateTime(item.processedAt)}</span>
           </div>
@@ -245,7 +269,7 @@ export const WithdrawalDetailPage: React.FC = () => {
             <span className="font-semibold text-status-error-text block mb-1">
               Lý do từ chối / lỗi:
             </span>
-            <p className="rounded-md border border-status-error-text/30 bg-status-error-bg p-2.5 text-status-error-text leading-relaxed font-mono text-[11px]">
+            <p className="rounded-md border border-status-error-text/30 bg-status-error-bg p-2.5 text-status-error-text leading-relaxed font-sans text-[11px]">
               {item.failureReason}
             </p>
           </div>
@@ -254,7 +278,7 @@ export const WithdrawalDetailPage: React.FC = () => {
     </div>
   );
 
-  // Bottom Action Bar (Mandatory Correction 1: Approve Request / Reject Request)
+  // Bottom Action Bar
   const bottomBar = isPending ? (
     <>
       <div className="flex items-center gap-2 text-xs text-muted">
@@ -276,7 +300,32 @@ export const WithdrawalDetailPage: React.FC = () => {
           className="min-h-[44px] px-5"
         >
           <CheckCircle2 className="mr-1.5 h-4 w-4" />
-          Phê duyệt yêu cầu
+          Tiếp nhận xử lý
+        </Button>
+      </div>
+    </>
+  ) : isProcessing ? (
+    <>
+      <div className="flex items-center gap-2 text-xs text-muted">
+        <RefreshCw className="h-4 w-4 text-blue-600 animate-spin" />
+        <span>Yêu cầu đang trong tiến trình chuyển khoản ngân hàng</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setModalType('FAIL')}
+          className="border-amber-400 text-amber-800 hover:bg-amber-50 min-h-[44px] px-4"
+        >
+          <AlertTriangle className="mr-1.5 h-4 w-4 text-amber-600" />
+          Báo lỗi chuyển khoản
+        </Button>
+        <Button
+          variant="primary"
+          onClick={() => setModalType('COMPLETE')}
+          className="min-h-[44px] px-5 bg-emerald-600 hover:bg-emerald-700"
+        >
+          <CheckCircle2 className="mr-1.5 h-4 w-4" />
+          Xác nhận chuyển thành công
         </Button>
       </div>
     </>
@@ -284,7 +333,7 @@ export const WithdrawalDetailPage: React.FC = () => {
     <div className="flex items-center justify-between w-full text-xs text-muted">
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-status-success-text" />
-        <span>Yêu cầu rút tiền này đã được xử lý</span>
+        <span>Yêu cầu rút tiền này đã được giải quyết xong ({item.status})</span>
       </div>
       <Button variant="outline" className="min-h-[44px] px-4" onClick={() => navigate('/admin/withdrawals')}>
         Quay lại hàng đợi
@@ -292,7 +341,11 @@ export const WithdrawalDetailPage: React.FC = () => {
     </div>
   );
 
-  const isSubmitting = approveMutation.isPending || rejectMutation.isPending;
+  const isSubmitting =
+    approveMutation.isPending ||
+    completeMutation.isPending ||
+    rejectMutation.isPending ||
+    failMutation.isPending;
 
   return (
     <>
@@ -312,18 +365,38 @@ export const WithdrawalDetailPage: React.FC = () => {
         onClose={() => setModalType(null)}
         title={
           modalType === 'APPROVE'
-            ? 'Chấp thuận yêu cầu rút tiền'
+            ? 'Tiếp nhận xử lý rút tiền'
+            : modalType === 'COMPLETE'
+            ? 'Xác nhận chuyển tiền thành công'
+            : modalType === 'FAIL'
+            ? 'Báo lỗi chuyển khoản ngân hàng'
             : 'Từ chối yêu cầu rút tiền'
         }
         description={
           modalType === 'APPROVE'
-            ? `Yêu cầu rút số tiền ${formatVND(item.amount)} sẽ được chấp thuận và chuyển sang hàng đợi xử lý chi trả.`
+            ? `Yêu cầu rút số tiền ${formatVND(item.amount)} sẽ được chuyển sang trạng thái ĐANG XỬ LÝ (PROCESSING).`
+            : modalType === 'COMPLETE'
+            ? `Xác nhận bạn đã chuyển khoản thành công số tiền ${formatVND(item.amount)} đến tài khoản ${item.bankName} (${maskIdentifier(item.accountNumber)}).`
+            : modalType === 'FAIL'
+            ? `Ghi nhận giao dịch chuyển khoản thất bại. Số tiền ${formatVND(item.amount)} sẽ được hoàn trả vào ví Creator.`
             : `Yêu cầu rút tiền sẽ bị từ chối. Số tiền ${formatVND(item.amount)} sẽ được tự động hoàn trả vào ví Creator.`
         }
-        confirmText={modalType === 'APPROVE' ? 'Xác nhận chấp thuận' : 'Xác nhận từ chối'}
-        variant={modalType === 'APPROVE' ? 'primary' : 'destructive'}
-        requireReason={modalType === 'REJECT'}
-        reasonPlaceholder="Nhập lý do từ chối yêu cầu rút tiền..."
+        confirmText={
+          modalType === 'APPROVE'
+            ? 'Tiếp nhận xử lý'
+            : modalType === 'COMPLETE'
+            ? 'Xác nhận hoàn tất'
+            : modalType === 'FAIL'
+            ? 'Xác nhận báo lỗi'
+            : 'Xác nhận từ chối'
+        }
+        variant={modalType === 'APPROVE' || modalType === 'COMPLETE' ? 'primary' : 'destructive'}
+        requireReason={modalType === 'REJECT' || modalType === 'FAIL'}
+        reasonPlaceholder={
+          modalType === 'REJECT'
+            ? 'Nhập lý do từ chối yêu cầu rút tiền...'
+            : 'Nhập lý do lỗi chuyển khoản ngân hàng...'
+        }
         isLoading={isSubmitting}
         onConfirm={(reason?: string) => handleDecisionSubmit(reason)}
       />

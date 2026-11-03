@@ -65,7 +65,7 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
     title: 'Quên mật khẩu',
     step: 'BẮT ĐẦU',
     heading: 'Tìm lại tài khoản.',
-    description: 'Nhập email hoặc số điện thoại bạn dùng để đăng nhập.',
+    description: 'Nhập email bạn dùng để đăng nhập.',
     isLiveBackend: widget.authRepository != null,
     child: Form(
       key: form,
@@ -80,8 +80,8 @@ class _PasswordRecoveryPageState extends State<PasswordRecoveryPage> {
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.username],
             decoration: const InputDecoration(
-              labelText: 'Email hoặc số điện thoại',
-              hintText: 'minhanh@example.test',
+              labelText: 'Email',
+              hintText: 'minhanh@example.com',
             ),
             validator: (v) => DemoPasswordRecovery.validateIdentifier(v ?? ''),
             onFieldSubmitted: (_) {
@@ -232,7 +232,7 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
         ),
         TextButton(
           onPressed: busy ? null : () => Navigator.pop(context),
-          child: const Text('Đổi email / số điện thoại'),
+          child: const Text('Đổi email'),
         ),
         if (widget.flow.authRepository == null) ...[
           const Divider(height: 32),
@@ -243,7 +243,7 @@ class _RecoveryOtpPageState extends State<RecoveryOtpPage> {
               style: TextStyle(fontSize: 12),
             ),
             children: [
-              const Text('OTP mẫu: 889900. Không gửi email/SMS.'),
+              const Text('OTP mẫu: 889900. Không gửi email.'),
               TextButton(
                 onPressed: busy
                     ? null

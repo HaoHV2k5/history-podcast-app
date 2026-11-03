@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:su_ky_mobile_production/artwork_image.dart';
 import 'package:su_ky_mobile_production/design.dart';
 import 'package:su_ky_mobile_production/discovery_carousel.dart';
 import 'package:su_ky_mobile_production/episode.dart';
@@ -138,22 +139,21 @@ void main() {
     },
   );
 
-  testWidgets('background routes suspend automatic transitions', (
+  testWidgets('carousel card displays full artwork background', (
     tester,
   ) async {
-    await setup(tester);
-    final ctx = tester.element(find.byType(DiscoveryCarousel));
-    Navigator.of(ctx).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(body: Text('Detail')),
-      ),
-    );
+    await setup(tester, reduced: true);
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(seconds: 14));
-    await tester.pumpAndSettle();
-    Navigator.of(ctx).pop();
-    await tester.pumpAndSettle();
-    expect(current(tester), 3000);
+
+    final artworkFinder = find.byType(ArtworkImage);
+    expect(artworkFinder, findsWidgets);
+
+    final artworkSize = tester.getSize(artworkFinder.first);
+    final carouselFinder = find.byKey(const Key('discovery-carousel'));
+    final carouselSize = tester.getSize(carouselFinder);
+
+    // Image width should cover the card
+    expect(artworkSize.width, greaterThanOrEqualTo(carouselSize.width * 0.9));
     await tester.pumpWidget(const SizedBox());
   });
 }

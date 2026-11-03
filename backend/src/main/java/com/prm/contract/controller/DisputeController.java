@@ -17,10 +17,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/disputes")
@@ -30,6 +33,16 @@ import java.util.List;
 public class DisputeController {
 
     private final DisputeService disputeService;
+
+    @PostMapping(value = "/evidence-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Tải lên tệp bằng chứng khiếu nại / đối chất",
+               description = "Hỗ trợ tải tệp bằng chứng (Ảnh .jpg/.png/.webp, Tài liệu .pdf/.doc/.docx/.txt, Âm thanh .mp3/.wav, Video .mp4/.mov tối đa 25MB). Trả về fileUrl để đính kèm vào attachmentUrls khi mở khiếu nại hoặc gửi đối chất")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> uploadEvidenceFile(
+            @RequestPart("file") MultipartFile file
+    ) {
+        Map<String, Object> result = disputeService.uploadEvidenceFile(file);
+        return ResponseEntity.ok(ApiResponse.success("Tải lên tệp bằng chứng thành công", result));
+    }
 
     @PostMapping
     @Operation(summary = "Mở khiếu nại / tranh chấp (Report Dispute)", description = "Creator hoặc Người đặt nội dung mở khiếu nại khi milestone IN_PROGRESS/SUBMITTED/APPROVED. Khoản ký quỹ bị đóng băng (FROZEN)")

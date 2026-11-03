@@ -145,10 +145,10 @@ class AppState extends ChangeNotifier {
     userAvatarUrl = preferences.getString('userAvatarUrl');
     userRoles = preferences.getStringList('userRoles') ?? ['VIEWER'];
     isCreator = preferences.getBool('isCreator') ?? false;
-    isFreelancer = preferences.getBool('isFreelancer') ??
+    isFreelancer =
+        preferences.getBool('isFreelancer') ??
         preferences.getBool('isFreelancerActiveV1') ??
-        userRoles.contains('FREELANCER') ||
-        userRoles.contains('NARRATOR');
+        userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
     kycStatus = preferences.getString('kycStatus');
 
     recentSearches.addAll(
@@ -258,24 +258,24 @@ class AppState extends ChangeNotifier {
       livestreamRepository != null;
 
   CreatorState get creatorState => _creatorState ??= CreatorState(
-        preferences,
-        channelRepository: channelRepository,
-        kycRepository: kycRepository,
-        creatorStudioRepository: creatorStudioRepository,
-        creatorSeriesRepository: creatorSeriesRepository,
-        walletRepository: walletRepository,
-        withdrawalRepository: withdrawalRepository,
-        contractRepository: contractRepository,
-        hireRequestRepository: hireRequestRepository,
-        milestoneRepository: milestoneRepository,
-        deliverableRepository: deliverableRepository,
-        disputeRepository: disputeRepository,
-        chatRepository: chatRepository,
-        narratorProfileRepository: narratorProfileRepository,
-        narratorDemoRepository: narratorDemoRepository,
-        freelancerRepository: freelancerRepository,
-        postRepository: postRepository,
-      );
+    preferences,
+    channelRepository: channelRepository,
+    kycRepository: kycRepository,
+    creatorStudioRepository: creatorStudioRepository,
+    creatorSeriesRepository: creatorSeriesRepository,
+    walletRepository: walletRepository,
+    withdrawalRepository: withdrawalRepository,
+    contractRepository: contractRepository,
+    hireRequestRepository: hireRequestRepository,
+    milestoneRepository: milestoneRepository,
+    deliverableRepository: deliverableRepository,
+    disputeRepository: disputeRepository,
+    chatRepository: chatRepository,
+    narratorProfileRepository: narratorProfileRepository,
+    narratorDemoRepository: narratorDemoRepository,
+    freelancerRepository: freelancerRepository,
+    postRepository: postRepository,
+  );
   CreatorState? _creatorState;
 
   bool isLoadingCatalog = false;
@@ -313,6 +313,7 @@ class AppState extends ChangeNotifier {
         if (profile.fullName.trim().isNotEmpty) {
           displayName = profile.fullName.trim();
           await preferences.setString('displayName', displayName);
+          _updateCommentAuthorNames(displayName);
         }
         if (profile.email.isNotEmpty) {
           userEmail = profile.email;
@@ -346,7 +347,8 @@ class AppState extends ChangeNotifier {
         }
         userRoles = rolesSet.toList();
         isCreator = profile.isCreator || userRoles.contains('CREATOR');
-        isFreelancer = profile.isFreelancer ||
+        isFreelancer =
+            profile.isFreelancer ||
             userRoles.contains('FREELANCER') ||
             userRoles.contains('NARRATOR') ||
             preferences.getBool('isFreelancer') == true ||
@@ -513,6 +515,7 @@ class AppState extends ChangeNotifier {
                 coverImage: m.coverUrl ?? '',
                 monthlyPrice: plan?.monthlyPrice,
                 hasBackendPlan: plan != null && plan.isActive,
+                followerCount: m.followerCount,
               ),
             );
           }
@@ -532,6 +535,17 @@ class AppState extends ChangeNotifier {
 
     if (isLoggedIn) {
       await refreshProfile();
+      if (channelRepository != null) {
+        try {
+          final followedList = await channelRepository!.getFollowedChannels();
+          for (final fc in followedList) {
+            if (fc.name.trim().isNotEmpty) {
+              followed.add(fc.name.trim());
+            }
+          }
+          unawaited(preferences.setStringList('followedChannels', followed.toList()));
+        } catch (_) {}
+      }
     }
 
     if (walletRepository != null) {
@@ -579,10 +593,21 @@ class AppState extends ChangeNotifier {
         final realComments = await commentRepository!.getComments();
         for (final rc in realComments) {
           final epId = rc.artifactId?.toString() ?? '1';
+          final resolvedAuthor = (rc.authorName != null &&
+                  rc.authorName!.trim().isNotEmpty &&
+                  rc.authorName != 'Người nghe')
+              ? rc.authorName!.trim()
+              : ((currentUserId != null &&
+                      rc.userId == currentUserId &&
+                      displayName.isNotEmpty &&
+                      displayName != 'Người nghe')
+                  ? displayName
+                  : (rc.authorName ??
+                      (displayName != 'Người nghe' ? displayName : 'Người nghe')));
           final epCmt = EpisodeComment(
             id: rc.id.toString(),
             episodeId: epId,
-            authorName: rc.authorName ?? 'Người nghe',
+            authorName: resolvedAuthor,
             content: rc.textBody,
             timeAgo: rc.createdAt != null
                 ? rc.createdAt!.split('T').first
@@ -590,7 +615,10 @@ class AppState extends ChangeNotifier {
             isFlagged: rc.status?.toUpperCase() == 'FLAGGED',
           );
           final list = _comments.putIfAbsent(epId, () => []);
-          if (!list.any((c) => c.id == epCmt.id)) {
+          final idx = list.indexWhere((c) => c.id == epCmt.id);
+          if (idx >= 0) {
+            list[idx] = epCmt;
+          } else {
             list.insert(0, epCmt);
           }
         }
@@ -635,27 +663,33 @@ class AppState extends ChangeNotifier {
         activeLivestreams
           ..clear()
           ..addAll(
-            liveList
-                .where((s) => s.status.toUpperCase() == 'LIVE')
-                .map((s) {
-                  if (s.channelName.isNotEmpty) return s;
-                  final chMatch = channels.where((c) => c.id == s.channelId);
-                  return chMatch.isNotEmpty
-                      ? s.copyWith(channelName: chMatch.first.name)
-                      : s;
-                }),
+            liveList.where((s) => s.status.toUpperCase() == 'LIVE').map((s) {
+              if (s.channelName.isNotEmpty) return s;
+              final chMatch = channels.where((c) => c.id == s.channelId);
+              return chMatch.isNotEmpty
+                  ? s.copyWith(channelName: chMatch.first.name)
+                  : s;
+            }),
           );
       } catch (_) {}
     }
 
     // Tự động thử fallback địa chỉ IP LAN nếu địa chỉ mặc định bị lỗi mạng
-    if (hadNetworkFailure && allowAutoFallback && apiClient != null && !kIsWeb) {
+    if (hadNetworkFailure &&
+        allowAutoFallback &&
+        apiClient != null &&
+        !kIsWeb) {
       final currentBase = apiClient!.baseUrl;
       String? fallbackUrl;
       if (currentBase.contains('10.0.2.2')) {
-        fallbackUrl = 'http://10.87.31.229:8080';
-      } else if (currentBase.contains('192.168.1.72') || currentBase.contains('172.18.1.206') || currentBase.contains('10.87.31.229')) {
-        fallbackUrl = 'http://10.0.2.2:8080';
+        fallbackUrl = 'http://192.168.1.133:8080';
+      } else if (currentBase.contains('192.168.1.115') ||
+          currentBase.contains('192.168.1.72') ||
+          currentBase.contains('172.18.1.206') ||
+          currentBase.contains('10.87.31.229') ||
+          currentBase.contains('192.168.1.80') ||
+          currentBase.contains('192.168.1.123')) {
+        fallbackUrl = 'http://192.168.1.133:8080';
       }
       if (fallbackUrl != null) {
         apiClient!.updateBaseUrl(fallbackUrl);
@@ -682,17 +716,35 @@ class AppState extends ChangeNotifier {
         final list = await commentRepository!.getComments(artifactId: artId);
         final bucket = _comments.putIfAbsent(episodeId, () => []);
         for (final rc in list) {
+          final resolvedAuthor = (rc.authorName != null &&
+                  rc.authorName!.trim().isNotEmpty &&
+                  rc.authorName != 'Người nghe')
+              ? rc.authorName!.trim()
+              : ((currentUserId != null &&
+                      rc.userId == currentUserId &&
+                      displayName.isNotEmpty &&
+                      displayName != 'Người nghe')
+                  ? displayName
+                  : (rc.authorName ??
+                      (displayName != 'Người nghe' ? displayName : 'Người nghe')));
           final epCmt = EpisodeComment(
             id: rc.id.toString(),
             episodeId: episodeId,
-            authorName: rc.authorName ?? 'Người nghe',
+            authorName: resolvedAuthor,
             content: rc.textBody,
             timeAgo: rc.createdAt != null
                 ? rc.createdAt!.split('T').first
                 : 'Vừa xong',
             isFlagged: rc.status?.toUpperCase() == 'FLAGGED',
           );
-          if (!bucket.any((c) => c.id == epCmt.id)) {
+          final idx = bucket.indexWhere((c) => c.id == epCmt.id);
+          if (idx >= 0) {
+            if (bucket[idx].authorName != epCmt.authorName ||
+                bucket[idx].content != epCmt.content) {
+              bucket[idx] = epCmt;
+              changed = true;
+            }
+          } else {
             bucket.insert(0, epCmt);
             changed = true;
           }
@@ -723,11 +775,15 @@ class AppState extends ChangeNotifier {
       seriesDetails[seriesId] = detail;
       for (final item in detail.items) {
         final epId = item.contentId.toString();
-        if (!allEpisodes.any((e) => e.id == epId || e.contentId == item.contentId)) {
+        if (!allEpisodes.any(
+          (e) => e.id == epId || e.contentId == item.contentId,
+        )) {
           final media = item.mediaUrl ?? '';
           final isVid =
               media.toLowerCase().endsWith('.mp4') ||
               media.toLowerCase().endsWith('.webm');
+          final rawDesc = item.description ?? detail.description ?? '';
+          final sec = item.durationSeconds > 0 ? item.durationSeconds : 300;
           remoteEpisodes.add(
             Episode(
               id: epId,
@@ -738,9 +794,10 @@ class AppState extends ChangeNotifier {
                   ? item.thumbnailUrl!
                   : (detail.coverUrl ?? 'assets/images/hue-citadel.jpg'),
               category: detail.title,
-              seconds: item.durationSeconds > 0 ? item.durationSeconds : 300,
-              description: item.description ?? detail.description ?? '',
-              chapters: const [Chapter('Mở đầu', 0)],
+              seconds: sec,
+              description: cleanEpisodeDescription(rawDesc, title: item.title, channel: detail.channelName),
+              rawScript: rawDesc,
+              chapters: parseChaptersFromScript(rawDesc, sec),
               membersOnly: item.isExclusive,
               isVideo: isVid,
               mediaAsset: media,
@@ -780,9 +837,7 @@ class AppState extends ChangeNotifier {
         .toList();
     if (bySeriesId.isNotEmpty) return bySeriesId;
     if (series.channelName != null && series.channelName!.isNotEmpty) {
-      return allEpisodes
-          .where((e) => e.channel == series.channelName)
-          .toList();
+      return allEpisodes.where((e) => e.channel == series.channelName).toList();
     }
     return const [];
   }
@@ -915,9 +970,7 @@ class AppState extends ChangeNotifier {
       if (idx >= 0) {
         activeLivestreams[idx] = session.channelName.isNotEmpty
             ? session
-            : session.copyWith(
-                channelName: activeLivestreams[idx].channelName,
-              );
+            : session.copyWith(channelName: activeLivestreams[idx].channelName);
         notifyListeners();
       }
       return session;
@@ -929,12 +982,22 @@ class AppState extends ChangeNotifier {
   Future<LivestreamTokenModel> joinLivestream(
     LivestreamSessionModel session, {
     bool isHost = false,
+    int? clientUid,
   }) async {
     if (!isHost && session.isExclusive && !canJoinLivestream(session)) {
       throw StateError('LIVESTREAM_MEMBER_REQUIRED');
     }
+    final effectiveUid =
+        clientUid ??
+        (isHost
+            ? null
+            : ((currentUserId ?? 1) * 1000 +
+                  (DateTime.now().millisecondsSinceEpoch % 899 + 100)));
     if (livestreamRepository != null) {
-      final token = await livestreamRepository!.getJoinToken(session.id);
+      final token = await livestreamRepository!.getJoinToken(
+        session.id,
+        clientUid: effectiveUid,
+      );
       final idx = activeLivestreams.indexWhere((s) => s.id == session.id);
       if (idx >= 0 && !isHost) {
         final current = activeLivestreams[idx];
@@ -988,9 +1051,7 @@ class AppState extends ChangeNotifier {
     final idx = activeLivestreams.indexWhere((s) => s.id == sessionId);
     if (idx >= 0) {
       final current = activeLivestreams[idx];
-      final nextCount = reset
-          ? 0
-          : (current.viewerCount - 1).clamp(0, 999999);
+      final nextCount = reset ? 0 : (current.viewerCount - 1).clamp(0, 999999);
       final updated = current.copyWith(viewerCount: nextCount);
       activeLivestreams[idx] = updated;
       notifyListeners();
@@ -1004,6 +1065,7 @@ class AppState extends ChangeNotifier {
     required String channelName,
     required String title,
     String? description,
+    String? thumbnailUrl,
     bool isExclusive = false,
   }) async {
     if (livestreamRepository != null) {
@@ -1011,6 +1073,7 @@ class AppState extends ChangeNotifier {
         channelId: channelId,
         title: title.trim(),
         description: description?.trim(),
+        thumbnailUrl: thumbnailUrl?.trim(),
         isExclusive: isExclusive,
       );
       final enriched = created.channelName.isNotEmpty
@@ -1018,6 +1081,7 @@ class AppState extends ChangeNotifier {
           : created.copyWith(
               channelName: channelName,
               creatorName: displayName,
+              thumbnailUrl: thumbnailUrl?.trim(),
             );
       activeLivestreams.removeWhere(
         (s) => s.channelId == channelId || s.channelName == channelName,
@@ -1035,6 +1099,7 @@ class AppState extends ChangeNotifier {
       creatorName: displayName,
       title: title.trim(),
       description: description?.trim(),
+      thumbnailUrl: thumbnailUrl?.trim(),
       agoraChannelName: 'prm_live_${channelId}_$nowMs',
       status: 'LIVE',
       isExclusive: isExclusive,
@@ -1047,6 +1112,13 @@ class AppState extends ChangeNotifier {
     activeLivestreams.insert(0, localSession);
     notifyListeners();
     return localSession;
+  }
+
+  Future<String> uploadThumbnailImage(List<int> bytes, String filename) async {
+    if (creatorStudioRepository != null) {
+      return await creatorStudioRepository!.uploadSceneImage(bytes, filename);
+    }
+    return creatorState.uploadStudioSceneImage(bytes, filename);
   }
 
   Future<void> endLivestreamSession(int sessionId) async {
@@ -1121,6 +1193,7 @@ class AppState extends ChangeNotifier {
     }
     return msg;
   }
+
   final Map<String, String> checkoutStates = {};
   final List<String> queue = [];
   String checkoutStatus(String channel) =>
@@ -1248,7 +1321,21 @@ class AppState extends ChangeNotifier {
     if (rawUserComments != null) {
       for (final raw in rawUserComments) {
         try {
-          final cmt = EpisodeComment.fromJson(raw);
+          var cmt = EpisodeComment.fromJson(raw);
+          if ((cmt.authorName == 'Người nghe' || cmt.authorName.isEmpty) &&
+              displayName.isNotEmpty &&
+              displayName != 'Người nghe') {
+            cmt = EpisodeComment(
+              id: cmt.id,
+              episodeId: cmt.episodeId,
+              authorName: displayName,
+              content: cmt.content,
+              timeAgo: cmt.timeAgo,
+              isFlagged: cmt.isFlagged,
+              likes: cmt.likes,
+              isLiked: cmt.isLiked,
+            );
+          }
           final list = _comments.putIfAbsent(cmt.episodeId, () => []);
           // Replace or insert
           final idx = list.indexWhere((it) => it.id == cmt.id);
@@ -1258,6 +1345,27 @@ class AppState extends ChangeNotifier {
             list.insert(0, cmt);
           }
         } catch (_) {}
+      }
+    }
+  }
+
+  void _updateCommentAuthorNames(String newName) {
+    if (newName.isEmpty || newName == 'Người nghe') return;
+    for (final entry in _comments.entries) {
+      final list = entry.value;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i].authorName == 'Người nghe' || list[i].authorName.isEmpty) {
+          list[i] = EpisodeComment(
+            id: list[i].id,
+            episodeId: list[i].episodeId,
+            authorName: newName,
+            content: list[i].content,
+            timeAgo: list[i].timeAgo,
+            isFlagged: list[i].isFlagged,
+            likes: list[i].likes,
+            isLiked: list[i].isLiked,
+          );
+        }
       }
     }
   }
@@ -1282,7 +1390,9 @@ class AppState extends ChangeNotifier {
     }
     if (userRepository != null && isLoggedIn) {
       try {
-        final updated = await userRepository!.updateMyProfile(fullName: trimmed);
+        final updated = await userRepository!.updateMyProfile(
+          fullName: trimmed,
+        );
         if (updated.fullName.trim().isNotEmpty) {
           displayName = updated.fullName.trim();
         } else {
@@ -1305,7 +1415,7 @@ class AppState extends ChangeNotifier {
   }) async {
     final id = identifier.trim();
     if (id.isEmpty) {
-      throw ArgumentError('Nhập email hoặc số điện thoại.');
+      throw ArgumentError('Nhập email.');
     }
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
@@ -1322,68 +1432,73 @@ class AppState extends ChangeNotifier {
       if (initialRoles.isEmpty) initialRoles.add('VIEWER');
       userRoles = initialRoles.toList();
       isCreator = userRoles.contains('CREATOR');
-      isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
+      isFreelancer =
+          userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
       await preferences.setStringList('userRoles', userRoles);
       await preferences.setBool('isCreator', isCreator);
       await preferences.setBool('isFreelancer', isFreelancer);
 
-      if (userRepository != null) {
-        try {
-          final profile = await userRepository!
+      // Fetch thông tin profile, freelancer, kyc song song (parallel) để đăng nhập hoàn tất tức thì
+      await Future.wait([
+        if (userRepository != null)
+          userRepository!
               .getMyProfile()
-              .timeout(const Duration(seconds: 4));
-          currentUserId = profile.id;
-          await preferences.setInt('currentUserId', profile.id);
-          if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
-            userAvatarUrl = profile.avatarUrl;
-            await preferences.setString('userAvatarUrl', userAvatarUrl!);
-          }
-          if (profile.fullName.trim().isNotEmpty) {
-            displayName = profile.fullName.trim();
-          }
-          if (profile.roles.isNotEmpty) {
-            initialRoles.addAll(profile.roles);
-          }
-          if (profile.isCreator) initialRoles.add('CREATOR');
-          if (profile.isFreelancer) initialRoles.add('FREELANCER');
-          userRoles = initialRoles.toList();
-          isCreator = userRoles.contains('CREATOR');
-          isFreelancer = userRoles.contains('FREELANCER') || userRoles.contains('NARRATOR');
-          await preferences.setStringList('userRoles', userRoles);
-          await preferences.setBool('isCreator', isCreator);
-          await preferences.setBool('isFreelancer', isFreelancer);
-        } catch (_) {}
-      }
-
-      if (freelancerRepository != null) {
-        try {
-          final f = await freelancerRepository!
+              .timeout(const Duration(seconds: 4))
+              .then((profile) async {
+                currentUserId = profile.id;
+                await preferences.setInt('currentUserId', profile.id);
+                if (profile.avatarUrl != null &&
+                    profile.avatarUrl!.isNotEmpty) {
+                  userAvatarUrl = profile.avatarUrl;
+                  await preferences.setString('userAvatarUrl', userAvatarUrl!);
+                }
+                if (profile.fullName.trim().isNotEmpty) {
+                  displayName = profile.fullName.trim();
+                }
+                if (profile.roles.isNotEmpty) {
+                  initialRoles.addAll(profile.roles);
+                }
+                if (profile.isCreator) initialRoles.add('CREATOR');
+                if (profile.isFreelancer) initialRoles.add('FREELANCER');
+                userRoles = initialRoles.toList();
+                isCreator = userRoles.contains('CREATOR');
+                isFreelancer =
+                    userRoles.contains('FREELANCER') ||
+                    userRoles.contains('NARRATOR');
+                await preferences.setStringList('userRoles', userRoles);
+                await preferences.setBool('isCreator', isCreator);
+                await preferences.setBool('isFreelancer', isFreelancer);
+              })
+              .catchError((_) {}),
+        if (freelancerRepository != null)
+          freelancerRepository!
               .getMyProfile()
-              .timeout(const Duration(seconds: 4));
-          if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
-            initialRoles.add('FREELANCER');
-            userRoles = initialRoles.toList();
-            isFreelancer = true;
-            await preferences.setStringList('userRoles', userRoles);
-            await preferences.setBool('isFreelancer', true);
-          }
-        } catch (_) {}
-      }
-
-      if (kycRepository != null) {
-        try {
-          final kyc = await kycRepository!
+              .timeout(const Duration(seconds: 4))
+              .then((f) async {
+                if (f.status == 'ACTIVE' || f.roles.contains('FREELANCER')) {
+                  initialRoles.add('FREELANCER');
+                  userRoles = initialRoles.toList();
+                  isFreelancer = true;
+                  await preferences.setStringList('userRoles', userRoles);
+                  await preferences.setBool('isFreelancer', true);
+                }
+              })
+              .catchError((_) {}),
+        if (kycRepository != null)
+          kycRepository!
               .getMyKycProfile()
-              .timeout(const Duration(seconds: 4));
-          if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
-            initialRoles.add('CREATOR');
-            userRoles = initialRoles.toList();
-            isCreator = true;
-            await preferences.setStringList('userRoles', userRoles);
-            await preferences.setBool('isCreator', true);
-          }
-        } catch (_) {}
-      }
+              .timeout(const Duration(seconds: 4))
+              .then((kyc) async {
+                if (kyc != null && kyc.status.toUpperCase() == 'APPROVED') {
+                  initialRoles.add('CREATOR');
+                  userRoles = initialRoles.toList();
+                  isCreator = true;
+                  await preferences.setStringList('userRoles', userRoles);
+                  await preferences.setBool('isCreator', true);
+                }
+              })
+              .catchError((_) {}),
+      ]);
 
       await preferences.setBool('isLoggedIn', true);
       await preferences.remove('manual_logout');
@@ -1397,6 +1512,7 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
+      _updateCommentAuthorNames(displayName);
       notifyListeners();
       unawaited(initRealBackend());
       return;
@@ -1441,7 +1557,7 @@ class AppState extends ChangeNotifier {
     final n = name.trim();
     final id = identifier.trim();
     if (n.isEmpty) throw ArgumentError('Nhập họ tên của bạn.');
-    if (id.isEmpty) throw ArgumentError('Nhập email hoặc số điện thoại.');
+    if (id.isEmpty) throw ArgumentError('Nhập email.');
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
     }
@@ -1491,6 +1607,7 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
+      _updateCommentAuthorNames(displayName);
       notifyListeners();
       unawaited(initRealBackend());
       return;
@@ -1678,20 +1795,29 @@ class AppState extends ChangeNotifier {
     _sendingComments.add(episodeId);
     try {
       String createdId = 'cmt-${DateTime.now().microsecondsSinceEpoch}';
+      String resolvedAuthor = (displayName.trim().isNotEmpty && displayName != 'Người nghe')
+          ? displayName.trim()
+          : (userEmail != null && userEmail!.contains('@') ? userEmail!.split('@').first : 'Người nghe');
 
       if (commentRepository != null) {
         final artId = int.tryParse(episodeId);
         final res = await commentRepository!.createComment(
           artifactId: artId,
           textBody: content,
+          userId: currentUserId,
         );
         createdId = res.id.toString();
+        if (res.authorName != null &&
+            res.authorName!.trim().isNotEmpty &&
+            res.authorName != 'Người nghe') {
+          resolvedAuthor = res.authorName!.trim();
+        }
       }
 
       final comment = EpisodeComment(
         id: createdId,
         episodeId: episodeId,
-        authorName: displayName,
+        authorName: resolvedAuthor,
         content: content,
         timeAgo: 'Vừa xong',
       );
@@ -1718,7 +1844,6 @@ class AppState extends ChangeNotifier {
     } finally {
       _sendingComments.remove(episodeId);
     }
-
   }
 
   void toggleLikeComment(String episodeId, String commentId) {
@@ -1982,10 +2107,58 @@ class AppState extends ChangeNotifier {
   }
 
   void toggleFollow(String channel) {
-    followed.contains(channel)
-        ? followed.remove(channel)
-        : followed.add(channel);
+    final isFollowing = followed.contains(channel);
+    if (isFollowing) {
+      followed.remove(channel);
+    } else {
+      followed.add(channel);
+    }
     unawaited(preferences.setStringList('followedChannels', followed.toList()));
+
+    final target = channel.trim().toLowerCase();
+    int? channelId;
+    for (final c in channels) {
+      if (c.name.trim().toLowerCase() == target && c.id != null) {
+        channelId = c.id;
+        break;
+      }
+    }
+    if (channelId == null) {
+      for (final c in remoteChannels) {
+        if (c.name.trim().toLowerCase() == target && c.id != null) {
+          channelId = c.id;
+          break;
+        }
+      }
+    }
+
+    final idx = remoteChannels.indexWhere((c) => c.name.trim().toLowerCase() == target);
+    if (idx >= 0) {
+      final old = remoteChannels[idx];
+      final newCount = (old.followerCount + (isFollowing ? -1 : 1)).clamp(0, 9999999);
+      remoteChannels[idx] = Channel(
+        old.name,
+        old.initial,
+        old.image,
+        old.description,
+        id: old.id,
+        creatorId: old.creatorId,
+        coverImage: old.coverImage,
+        monthlyPrice: old.monthlyPrice,
+        hasBackendPlan: old.hasBackendPlan,
+        followerCount: newCount,
+      );
+    }
+
+    if (isLoggedIn && isLiveBackend && channelRepository != null && channelId != null) {
+      final id = channelId;
+      if (isFollowing) {
+        unawaited(channelRepository!.unfollowChannel(id).catchError((_) {}));
+      } else {
+        unawaited(channelRepository!.followChannel(id).catchError((_) {}));
+      }
+    }
+
     notifyListeners();
   }
 

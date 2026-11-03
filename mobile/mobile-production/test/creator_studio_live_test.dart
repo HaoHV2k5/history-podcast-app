@@ -320,7 +320,7 @@ void main() {
       await tester.pageBack();
       await tester.pumpAndSettle();
 
-      // 4. Mở Xưởng AI Studio 6 bước và chạy toàn bộ Pipeline
+      // 4. Mở Xưởng AI Studio 4 bước chuẩn Web và chạy toàn bộ Pipeline
       await tester.tap(find.byKey(const Key('open-ai-pipeline-btn')));
       await tester.pumpAndSettle();
 
@@ -331,34 +331,21 @@ void main() {
           )
           .first;
 
-      // Bước 1: Lưu cấu hình giọng đọc AI
-      await tester.tap(find.byKey(const Key('save-ai-settings-btn')));
-      await tester.pumpAndSettle();
-      expect(settingsSaved, isTrue);
-
-      // Bước 2: Sinh Storyboard RAG
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('ai-topic-input')),
-        80,
-        scrollable: aiScrollable,
-      );
-      await tester.pumpAndSettle();
+      // Bước 1: Kịch bản (Thẩm định & Khởi tạo với AI)
       await tester.enterText(
         find.byKey(const Key('ai-topic-input')),
         'Chiến dịch Chi Lăng 1427',
       );
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('generate-storyboard-btn')),
-        80,
-        scrollable: aiScrollable,
+      await tester.pumpAndSettle();
+
+      // Thẩm định kịch bản sử liệu (AI Shield)
+      await tester.tap(find.text('Kịch bản có sẵn'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('ai-script-input')),
+        kSampleHistoricalScript,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('generate-storyboard-btn')));
-      await tester.pumpAndSettle();
-      expect(storyboardCalled, isTrue);
-      expect(find.byKey(const Key('storyboard-preview-box')), findsOneWidget);
-
-      // Bước 3: Thẩm định kịch bản sử liệu
       await tester.scrollUntilVisible(
         find.byKey(const Key('verify-script-btn')),
         80,
@@ -370,7 +357,47 @@ void main() {
       expect(verifyCalled, isTrue);
       expect(find.byKey(const Key('verification-result-box')), findsOneWidget);
 
-      // Bước 4: Khởi chạy Render Video
+      // Chuyển lại AI sáng tác và khởi tạo Storyboard
+      await tester.tap(find.text('AI hỗ trợ sáng tác'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('generate-storyboard-btn')),
+        80,
+        scrollable: aiScrollable,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('generate-storyboard-btn')));
+      await tester.pumpAndSettle();
+      expect(storyboardCalled, isTrue);
+
+      // Bước 2: Phân cảnh & Hình ảnh
+      expect(find.text('Phân cảnh & Hình ảnh'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Tiếp tục: Chọn giọng ->'),
+        80,
+        scrollable: aiScrollable,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tiếp tục: Chọn giọng ->'));
+      await tester.pumpAndSettle();
+
+      // Bước 3: Giọng đọc thuyết minh & Cấu hình AI
+      expect(find.text('Chọn giọng thuyết minh'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('save-ai-settings-btn')));
+      await tester.pumpAndSettle();
+      expect(settingsSaved, isTrue);
+
+      await tester.scrollUntilVisible(
+        find.text('Tiếp tục: Kết xuất video ->'),
+        80,
+        scrollable: aiScrollable,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tiếp tục: Kết xuất video ->'));
+      await tester.pumpAndSettle();
+
+      // Bước 4: Kết xuất Video & Xuất bản
+      expect(find.text('Kết xuất & Xuất bản'), findsOneWidget);
       await tester.scrollUntilVisible(
         find.byKey(const Key('start-render-btn')),
         80,
@@ -382,7 +409,7 @@ void main() {
       expect(renderCalled, isTrue);
       expect(find.byKey(const Key('render-job-status')), findsOneWidget);
 
-      // Bước 5: Cập nhật tiến độ Render Job
+      // Cập nhật tiến độ Render Job
       await tester.scrollUntilVisible(
         find.byKey(const Key('poll-render-job-btn')),
         80,
@@ -394,7 +421,7 @@ void main() {
       expect(jobPolled, isTrue);
       expect(find.textContaining('COMPLETED'), findsOneWidget);
 
-      // Bước 6: Gửi duyệt AI Shield & Xuất bản Video
+      // Gửi duyệt AI Shield & Xuất bản Video
       await tester.scrollUntilVisible(
         find.byKey(const Key('submit-publish-video-701')),
         80,

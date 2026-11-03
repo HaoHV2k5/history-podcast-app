@@ -30,7 +30,9 @@ class CommentModel {
       textBody: (json['textBody'] ?? '').toString(),
       status: json['status']?.toString(),
       createdAt: json['createdAt']?.toString(),
-      authorName: json['authorName']?.toString(),
+      authorName: json['authorName']?.toString() ??
+          json['userFullName']?.toString() ??
+          json['userName']?.toString(),
     );
   }
 }
@@ -63,10 +65,12 @@ class CommentRepository {
     required int? artifactId,
     required String textBody,
     int? parentCommentId,
+    int? userId,
   }) async {
     final payload = {
       if (artifactId != null) 'artifactId': artifactId,
       if (parentCommentId != null) 'parentCommentId': parentCommentId,
+      if (userId != null) 'userId': userId,
       'textBody': textBody,
       'status': 'ACTIVE',
       'createdAt': DateTime.now().toUtc().toIso8601String(),

@@ -302,7 +302,7 @@ public class MilestoneServiceImpl implements MilestoneService {
                 .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone"));
 
         Contract contract = milestone.getContract();
-        if (!contract.getFreelancer().getId().equals(currentUser.getId()) && !currentUser.hasRole("ADMIN")) {
+        if (!contract.getFreelancer().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.CONTRACT_ACCESS_DENIED, "Chỉ Người đặt nội dung mới có quyền duyệt nghiệm thu milestone");
         }
 
@@ -336,6 +336,28 @@ public class MilestoneServiceImpl implements MilestoneService {
 
         log.info("Milestone {} APPROVED by {}, release scheduled at {}", milestoneId, currentUser.getEmail(), saved.getReleaseAt());
         return toMilestoneResponse(saved);
+    }
+
+    @Override
+    public MilestoneResponse releaseEarlyMilestone(Long milestoneId) {
+        User currentUser = getCurrentUser();
+        Milestone milestone = milestoneRepository.findById(milestoneId)
+                .orElseThrow(() -> new AppException(ErrorCode.MILESTONE_NOT_FOUND, "Không tìm thấy milestone"));
+
+        Contract contract = milestone.getContract();
+        if (contract.getFreelancer() == null || !contract.getFreelancer().getId().equals(currentUser.getId())) {
+            throw new AppException(ErrorCode.CONTRACT_ACCESS_DENIED, "Chỉ Người đặt nội dung mới có quyền giải ngân sớm cho Creator");
+        }
+
+        if (milestone.getStatus() != MilestoneStatus.APPROVED || milestone.getEscrowStatus() != EscrowStatus.HELD) {
+            throw new AppException(ErrorCode.MILESTONE_INVALID_STATE,
+                    "Chỉ có thể giải ngân sớm khi milestone đã được duyệt nghiệm thu (APPROVED) và khoản ký quỹ đang giữ chờ đối soát (HELD)");
+        }
+
+        escrowService.releaseMilestoneEscrow(milestoneId);
+        Milestone updated = milestoneRepository.findById(milestoneId).orElse(milestone);
+        log.info("Requester {} triggered early escrow release for milestone {}", currentUser.getEmail(), milestoneId);
+        return toMilestoneResponse(updated);
     }
 
     @Override
@@ -543,6 +565,7 @@ public class MilestoneServiceImpl implements MilestoneService {
                         .versionNo(d.getVersionNo())
                         .uploadedById(d.getUploadedBy() != null ? d.getUploadedBy().getId() : null)
                         .uploadedByFullName(d.getUploadedBy() != null ? d.getUploadedBy().getFullName() : null)
+                        .fileUrl(d.getFilePath())
                         .downloadUrl("/api/v1/deliverables/" + d.getId() + "/download")
                         .previewUrl("/api/v1/deliverables/" + d.getId() + "/view")
                         .createdAt(d.getCreatedAt())

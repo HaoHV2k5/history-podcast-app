@@ -44,8 +44,11 @@ dependencies:
   crop_your_image: 2.0.1
   image: ^4.10.1
   http: ^1.2.2
+  camera: ^0.12.2
   crypto: ^3.0.7
   url_launcher: ^6.3.3
+  agora_rtc_engine: ^6.6.4
+  permission_handler: ^13.0.2
 
 dev_dependencies:
   flutter_test:

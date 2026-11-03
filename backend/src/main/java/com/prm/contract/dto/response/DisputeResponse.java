@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Getter
 @Setter
@@ -25,7 +26,9 @@ public class DisputeResponse {
 
     private String reason;
     private String evidence;
+    private List<String> evidenceUrls;
     private String counterEvidence;
+    private List<String> counterEvidenceUrls;
 
     private DisputeStatus status;
     private DisputeResult result;

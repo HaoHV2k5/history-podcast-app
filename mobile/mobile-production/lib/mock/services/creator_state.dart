@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -43,7 +44,6 @@ String? validateKycBirthDate(String value, {DateTime? today}) {
 }
 
 enum DraftStage { draft, checked, pending, rejected, approved }
-
 
 extension DraftStageLabel on DraftStage {
   String get label => switch (this) {
@@ -101,19 +101,19 @@ class KycProfile {
   bool get isApproved => status == KycStatus.approved;
 
   factory KycProfile.fixtureApproved() => const KycProfile(
-    fullName: 'Nguyễn Văn Sử',
-    idNumber: '001099012345',
-    dob: '15/08/1995',
-    phone: '0901234567',
-    contactEmail: 'creator@suky.vn',
-    userEmail: 'creator@suky.vn',
-    verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
-    otpVerifiedAt: '16:23 27/10/2026',
-    portfolioUrl: 'https://porfolio.eraidev.id.vn',
-    bio: 'Kênh podcast lịch sử Việt Nam chính thống.',
-    bankName: 'Vietcombank',
-    bankAccountNumber: '001099012345',
-    bankAccountHolder: 'NGUYEN VAN SU',
+    fullName: '',
+    idNumber: '',
+    dob: '',
+    phone: '',
+    contactEmail: '',
+    userEmail: '',
+    verificationMethod: 'Xác thực qua hộp thư Email',
+    otpVerifiedAt: '',
+    portfolioUrl: '',
+    bio: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankAccountHolder: '',
     idFrontUploaded: true,
     idBackUploaded: true,
     selfiePassed: true,
@@ -278,8 +278,6 @@ class CreatorState extends ChangeNotifier {
           data['channelCategory'] as String? ?? 'Lịch sử Việt Nam';
       if (data['kyc'] != null) {
         kyc = KycProfile.fromJson(data['kyc'] as Map<String, dynamic>);
-      } else if (demoVerified) {
-        kyc = KycProfile.fixtureApproved();
       }
       drafts = (data['drafts'] as List? ?? [])
           .map((j) => CreatorDraft.fromJson(j as Map<String, dynamic>))
@@ -336,9 +334,6 @@ class CreatorState extends ChangeNotifier {
         channel = myChan.name;
         channelDescription = myChan.description;
         demoVerified = true;
-        if (!kyc.isApproved) {
-          kyc = KycProfile.fixtureApproved();
-        }
         try {
           membershipPlan = await channelRepository!.getChannelMembershipPlan(
             myChan.id,
@@ -361,9 +356,18 @@ class CreatorState extends ChangeNotifier {
           };
           kyc = KycProfile(
             fullName: remoteKyc.fullName,
-            idNumber: kyc.idNumber.isEmpty ? '001099012345' : kyc.idNumber,
-            dob: kyc.dob.isEmpty ? '15/08/1995' : kyc.dob,
+            idNumber: kyc.idNumber,
+            dob: kyc.dob,
             phone: remoteKyc.phone,
+            contactEmail: remoteKyc.contactEmail,
+            userEmail: remoteKyc.userEmail ?? '',
+            verificationMethod: remoteKyc.verificationMethod ?? 'EMAIL',
+            otpVerifiedAt: remoteKyc.otpVerifiedAt ?? '',
+            portfolioUrl: remoteKyc.portfolioUrl ?? '',
+            bio: remoteKyc.bio ?? '',
+            bankName: remoteKyc.bankName,
+            bankAccountNumber: remoteKyc.bankAccountNumber,
+            bankAccountHolder: remoteKyc.bankAccountHolder,
             idFrontUploaded: true,
             idBackUploaded: true,
             selfiePassed: true,
@@ -391,20 +395,18 @@ class CreatorState extends ChangeNotifier {
       } catch (_) {}
       try {
         final rawVideos = await creatorStudioRepository!.getVideos();
-        studioVideos = rawVideos
-            .whereType<Map<String, dynamic>>()
-            .toList();
+        studioVideos = rawVideos.whereType<Map<String, dynamic>>().toList();
         if (drafts.isEmpty && studioVideos.isNotEmpty) {
           drafts = [
             for (var i = 0; i < studioVideos.length; i++)
               CreatorDraft(
                 id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
                 title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
-                script: (studioVideos[i]['summary'] ??
-                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
-                    .toString(),
-                sources:
-                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                script:
+                    (studioVideos[i]['summary'] ??
+                            'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                        .toString(),
+                sources: 'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
                 format: 'video',
                 stage: i == 0 ? DraftStage.checked : DraftStage.approved,
               ),
@@ -465,11 +467,13 @@ class CreatorState extends ChangeNotifier {
 
   String? _otpPhone;
 
-  void requestDemoOtp(String phone) {
-    if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
-      throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
+  void requestDemoOtp(String contact) {
+    final trimmed = contact.trim();
+    if (!RegExp(r'^[\w\.\-+]+@[\w\.\-]+\.\w+$').hasMatch(trimmed) &&
+        !RegExp(r'^0[35789]\d{8}$').hasMatch(trimmed)) {
+      throw StateError('Nhập địa chỉ email hợp lệ.');
     }
-    _otpPhone = phone.trim();
+    _otpPhone = trimmed;
   }
 
   void _requireCreator({bool needsChannel = true}) {
@@ -512,9 +516,11 @@ class CreatorState extends ChangeNotifier {
     final effectiveId = (idNumber != null && idNumber.trim().isNotEmpty)
         ? idNumber.trim()
         : (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty
-            ? bankAccountNumber.trim()
-            : '001099012345');
-    if (idNumber != null && idNumber.trim().isNotEmpty && !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
+              ? bankAccountNumber.trim()
+              : '001099012345');
+    if (idNumber != null &&
+        idNumber.trim().isNotEmpty &&
+        !RegExp(r'^\d{12}$').hasMatch(idNumber.trim())) {
       throw StateError('Số CCCD phải đủ 12 chữ số.');
     }
     if (!idFront || !idBack) {
@@ -531,18 +537,30 @@ class CreatorState extends ChangeNotifier {
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp == null || otp.trim() != '889900') {
-      throw StateError('Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.');
+    if (!isLiveBackend) {
+      if ((_otpPhone != phone.trim() &&
+              (contactEmail == null || _otpPhone != contactEmail.trim())) ||
+          otp == null ||
+          otp.trim() != '889900') {
+        throw StateError(
+          'Vui lòng gửi và nhập mã OTP xác thực hợp lệ.',
+        );
+      }
     }
 
-    final effectiveEmail = (contactEmail != null && contactEmail.trim().isNotEmpty)
+    final effectiveEmail =
+        (contactEmail != null && contactEmail.trim().isNotEmpty)
         ? contactEmail.trim()
         : (preferences.getString('userEmail') ?? 'creator@suky.vn');
-    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty) ? bankName.trim() : 'Vietcombank';
-    final effectiveBankAcc = (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
+    final effectiveBankName = (bankName != null && bankName.trim().isNotEmpty)
+        ? bankName.trim()
+        : 'Vietcombank';
+    final effectiveBankAcc =
+        (bankAccountNumber != null && bankAccountNumber.trim().isNotEmpty)
         ? bankAccountNumber.trim()
         : effectiveId;
-    final effectiveBankHolder = (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
+    final effectiveBankHolder =
+        (bankAccountHolder != null && bankAccountHolder.trim().isNotEmpty)
         ? bankAccountHolder.trim().toUpperCase()
         : fullName.trim().toUpperCase();
 
@@ -553,7 +571,7 @@ class CreatorState extends ChangeNotifier {
       phone: phone.trim(),
       contactEmail: effectiveEmail,
       userEmail: preferences.getString('userEmail') ?? effectiveEmail,
-      verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+      verificationMethod: 'Xác thực qua hộp thư Email',
       otpVerifiedAt: _auditTime(),
       portfolioUrl: portfolioUrl?.trim() ?? '',
       bio: bio?.trim() ?? '',
@@ -565,17 +583,19 @@ class CreatorState extends ChangeNotifier {
       selfiePassed: selfie,
       status: KycStatus.pending,
     );
-    if (kycRepository != null) {
-      try {
-        await kycRepository!.submitKyc(
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          contactEmail: effectiveEmail,
-          bankName: effectiveBankName,
-          bankAccountNumber: effectiveBankAcc,
-          bankAccountHolder: effectiveBankHolder,
-        );
-      } catch (_) {}
+    if (isLiveBackend && kycRepository != null) {
+      await kycRepository!.submitKyc(
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        contactEmail: effectiveEmail,
+        bankName: effectiveBankName,
+        bankAccountNumber: effectiveBankAcc,
+        bankAccountHolder: effectiveBankHolder,
+        bio: (bio != null && bio.trim().isNotEmpty) ? bio.trim() : null,
+        portfolioUrl: (portfolioUrl != null && portfolioUrl.trim().isNotEmpty)
+            ? portfolioUrl.trim()
+            : null,
+      );
     }
     await _commit(verified: false, kycProfile: newKyc);
     _otpPhone = null;
@@ -618,7 +638,9 @@ class CreatorState extends ChangeNotifier {
     if (channelRepository != null) {
       final res = await channelRepository!.createChannel(
         name: name.trim(),
-        description: description.trim().isNotEmpty ? description.trim() : 'Kênh chuyên đề lịch sử',
+        description: description.trim().isNotEmpty
+            ? description.trim()
+            : 'Kênh chuyên đề lịch sử',
       );
       channelModel = res;
     }
@@ -642,7 +664,8 @@ class CreatorState extends ChangeNotifier {
 
     if (channelRepository != null) {
       try {
-        final id = channelModel?.id ?? (await channelRepository!.getMyChannel()).id;
+        final id =
+            channelModel?.id ?? (await channelRepository!.getMyChannel()).id;
         final res = await channelRepository!.updateChannel(
           id,
           name: name.trim(),
@@ -659,7 +682,10 @@ class CreatorState extends ChangeNotifier {
     );
   }
 
-  Future<ChannelModel?> uploadChannelAvatar(List<int> bytes, String filename) async {
+  Future<ChannelModel?> uploadChannelAvatar(
+    List<int> bytes,
+    String filename,
+  ) async {
     _requireCreator();
     if (channelRepository != null) {
       final res = await channelRepository!.uploadAvatar(bytes, filename);
@@ -670,7 +696,10 @@ class CreatorState extends ChangeNotifier {
     return null;
   }
 
-  Future<ChannelModel?> uploadChannelCover(List<int> bytes, String filename) async {
+  Future<ChannelModel?> uploadChannelCover(
+    List<int> bytes,
+    String filename,
+  ) async {
     _requireCreator();
     if (channelRepository != null) {
       final res = await channelRepository!.uploadCover(bytes, filename);
@@ -975,13 +1004,22 @@ class CreatorState extends ChangeNotifier {
         seriesId,
         contentId: contentId,
       );
-      mySeries = mySeries
-          .map((s) => s.id == seriesId ? updated : s)
-          .toList();
+      mySeries = mySeries.map((s) => s.id == seriesId ? updated : s).toList();
       notifyListeners();
       return updated;
     }
     return null;
+  }
+
+  Future<CreatorAiSettingModel?> fetchAiSettings() async {
+    if (creatorStudioRepository != null) {
+      try {
+        aiSettings = await creatorStudioRepository!.getSettings();
+        notifyListeners();
+        return aiSettings;
+      } catch (_) {}
+    }
+    return aiSettings;
   }
 
   Future<CreatorAiSettingModel> saveAiSettings({
@@ -1015,11 +1053,18 @@ class CreatorState extends ChangeNotifier {
   Future<Map<String, dynamic>> generateAiStoryboard({
     required String topic,
     int durationSec = 60,
+    String? geminiApiKey,
+    bool? keepOriginalScript,
   }) async {
     if (creatorStudioRepository != null) {
+      final effectiveGeminiKey = geminiApiKey ?? aiSettings?.geminiApiKey;
       final res = await creatorStudioRepository!.generateStoryboard({
         'topic': topic.trim(),
         'durationSec': durationSec,
+        if (effectiveGeminiKey != null && effectiveGeminiKey.trim().isNotEmpty)
+          'geminiApiKey': effectiveGeminiKey.trim(),
+        if (keepOriginalScript != null)
+          'keepOriginalScript': keepOriginalScript,
       });
       if (res is Map<String, dynamic>) {
         lastStoryboard = res;
@@ -1065,12 +1110,15 @@ class CreatorState extends ChangeNotifier {
     required String voiceId,
     required String text,
     String? engine,
+    String? elevenlabsApiKey,
   }) async {
     if (creatorStudioRepository != null) {
+      final effectiveKey = elevenlabsApiKey ?? aiSettings?.elevenLabsApiKey;
       return await creatorStudioRepository!.previewVoice(
         voiceId: voiceId,
         text: text,
         engine: engine,
+        elevenlabsApiKey: effectiveKey,
       );
     }
     return {
@@ -1081,9 +1129,15 @@ class CreatorState extends ChangeNotifier {
     };
   }
 
-  Future<String> uploadStudioSceneImage(List<int> fileBytes, String filename) async {
+  Future<String> uploadStudioSceneImage(
+    List<int> fileBytes,
+    String filename,
+  ) async {
     if (creatorStudioRepository != null) {
-      return await creatorStudioRepository!.uploadSceneImage(fileBytes, filename);
+      return await creatorStudioRepository!.uploadSceneImage(
+        fileBytes,
+        filename,
+      );
     }
     return 'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80';
   }
@@ -1097,8 +1151,12 @@ class CreatorState extends ChangeNotifier {
     Map<String, String>? sceneImages,
     int durationSec = 60,
     int? seriesId,
+    String? coverImage,
+    String? thumbnailUrl,
+    Map<String, dynamic>? storyboard,
   }) async {
     if (creatorStudioRepository != null) {
+      final effectiveStoryboard = storyboard ?? lastStoryboard;
       final res = await creatorStudioRepository!.renderVideo({
         'title': title.trim(),
         'durationSec': durationSec,
@@ -1106,10 +1164,15 @@ class CreatorState extends ChangeNotifier {
         'scriptText': scriptText.trim(),
         if (voiceName != null) 'voiceName': voiceName,
         if (ttsEngine != null) 'ttsEngine': ttsEngine,
-        if (sceneImages != null && sceneImages.isNotEmpty) 'sceneImages': sceneImages,
+        if (sceneImages != null && sceneImages.isNotEmpty)
+          'sceneImages': sceneImages,
+        if (coverImage != null && coverImage.trim().isNotEmpty)
+          'coverImage': coverImage.trim(),
+        if (thumbnailUrl != null && thumbnailUrl.trim().isNotEmpty)
+          'thumbnailUrl': thumbnailUrl.trim(),
         if (channelModel != null) 'channelId': channelModel!.id,
         if (seriesId != null) 'seriesId': seriesId,
-        if (lastStoryboard != null) 'storyboard': lastStoryboard,
+        if (effectiveStoryboard != null) 'storyboard': effectiveStoryboard,
       });
       activeRenderJob = res;
       notifyListeners();
@@ -1138,20 +1201,18 @@ class CreatorState extends ChangeNotifier {
       activeRenderJob = {...?activeRenderJob, ...res};
       try {
         final rawVideos = await creatorStudioRepository!.getVideos();
-        studioVideos = rawVideos
-            .whereType<Map<String, dynamic>>()
-            .toList();
+        studioVideos = rawVideos.whereType<Map<String, dynamic>>().toList();
         if (drafts.isEmpty && studioVideos.isNotEmpty) {
           drafts = [
             for (var i = 0; i < studioVideos.length; i++)
               CreatorDraft(
                 id: 'remote-content-${studioVideos[i]['contentId'] ?? i}',
                 title: (studioVideos[i]['title'] ?? 'Tập lịch sử').toString(),
-                script: (studioVideos[i]['summary'] ??
-                        'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
-                    .toString(),
-                sources:
-                    'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
+                script:
+                    (studioVideos[i]['summary'] ??
+                            'Nội dung kịch bản tư liệu lịch sử chính thống đã biên tập trên hệ thống.')
+                        .toString(),
+                sources: 'Đại Việt Sử Ký Toàn Thư · Khâm Định Việt Sử Thông Giám Cương Mục.',
                 format: 'video',
                 stage: i == 0 ? DraftStage.checked : DraftStage.approved,
               ),
@@ -1198,7 +1259,11 @@ class CreatorState extends ChangeNotifier {
     }
     return studioVideos.firstWhere(
       (v) => v['contentId'] == contentId,
-      orElse: () => {'contentId': contentId, 'title': 'Tập video', 'status': 'PUBLISHED'},
+      orElse: () => {
+        'contentId': contentId,
+        'title': 'Tập video',
+        'status': 'PUBLISHED',
+      },
     );
   }
 
@@ -1238,7 +1303,10 @@ class CreatorState extends ChangeNotifier {
     bool hidden,
   ) async {
     if (creatorStudioRepository != null) {
-      final res = await creatorStudioRepository!.updateVisibility(contentId, hidden);
+      final res = await creatorStudioRepository!.updateVisibility(
+        contentId,
+        hidden,
+      );
       studioVideos = studioVideos
           .map((v) => v['contentId'] == contentId ? {...v, ...res} : v)
           .toList();
@@ -1268,7 +1336,7 @@ class CreatorState extends ChangeNotifier {
         'textBody': 'Phân tích rất chuẩn xác và hào sảng!',
         'status': 'VISIBLE',
         'createdAt': '2026-10-28T08:00:00Z',
-      }
+      },
     ];
   }
 

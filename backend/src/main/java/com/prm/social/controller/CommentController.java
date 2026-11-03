@@ -23,9 +23,9 @@ public class CommentController {
     private final CommentService service;
 
     @GetMapping
-    @Operation(summary = "Lấy danh sách tất cả Comment", description = "Trả về danh sách bản ghi Comment")
-    public ResponseEntity<ApiResponse<List<CommentResponse>>> getAll() {
-        List<CommentResponse> list = service.findAll();
+    @Operation(summary = "Lấy danh sách tất cả Comment", description = "Trả về danh sách bản ghi Comment (có thể lọc theo artifactId)")
+    public ResponseEntity<ApiResponse<List<CommentResponse>>> getAll(@RequestParam(required = false) Long artifactId) {
+        List<CommentResponse> list = service.findAll(artifactId);
         return ResponseEntity.ok(ApiResponse.success(list));
     }
 

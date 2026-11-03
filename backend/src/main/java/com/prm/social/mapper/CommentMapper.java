@@ -6,6 +6,7 @@ import com.prm.social.entity.Comment;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.Named;
 
 @Mapper(componentModel = "spring")
 public interface CommentMapper {
@@ -19,7 +20,21 @@ public interface CommentMapper {
     @Mapping(source = "artifact.id", target = "artifactId")
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "parentComment.id", target = "parentCommentId")
+    @Mapping(target = "authorName", source = "entity", qualifiedByName = "mapAuthorName")
+    @Mapping(source = "user.avatarUrl", target = "authorAvatarUrl")
     CommentResponse toResponse(Comment entity);
+
+    @Named("mapAuthorName")
+    default String mapAuthorName(Comment entity) {
+        if (entity == null || entity.getUser() == null) return null;
+        if (entity.getUser().getFullName() != null && !entity.getUser().getFullName().trim().isEmpty()) {
+            return entity.getUser().getFullName().trim();
+        }
+        if (entity.getUser().getEmail() != null && !entity.getUser().getEmail().trim().isEmpty()) {
+            return entity.getUser().getEmail().split("@")[0];
+        }
+        return null;
+    }
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "artifact", ignore = true)

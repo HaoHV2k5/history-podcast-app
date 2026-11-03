@@ -54,6 +54,7 @@ coverage/
 ios/Pods/
 ios/.symlinks/
 android/.gradle/
+**/.kotlin/
 android/app/build/
 
 # Python & Virtual Environments

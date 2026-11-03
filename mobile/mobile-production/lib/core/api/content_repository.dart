@@ -157,7 +157,7 @@ class ContentRepository {
         final chId = (map['channelId'] as num?)?.toInt();
         final id = (artifactId ?? cIdInt ?? map['id'])?.toString() ?? '0';
         final title = map['title'] as String? ?? 'Tập Sử Ký';
-        final description = (map['description'] ?? map['textBody'])?.toString() ?? '';
+        final rawText = (map['description'] ?? map['textBody'])?.toString() ?? '';
 
         final videoArt = cIdInt != null ? videoArtifactsByContent[cIdInt] : null;
         final thumbArt = cIdInt != null ? thumbArtifactsByContent[cIdInt] : null;
@@ -175,6 +175,15 @@ class ContentRepository {
           channelTitle = 'Sử Ký Triều Trần';
         }
         final channelAvatar = (chId != null ? channelAvatars[chId] : null) ?? '';
+
+        // Tự động phân tách kịch bản RAG thành mô tả chuẩn & danh sách phân cảnh (chương)
+        final cleanDesc = cleanEpisodeDescription(rawText, title: title, channel: channelTitle);
+        final chaptersList = map['chapters'] as List?;
+        final parsedChapters = (chaptersList != null && chaptersList.isNotEmpty)
+            ? chaptersList
+                .map((c) => Chapter(c['title'] as String, (c['seconds'] as num).toInt()))
+                .toList()
+            : parseChaptersFromScript(rawText, duration);
 
         // Thumbnail URL
         String thumbnailUrl = thumbArt?['fileUrl']?.toString().trim() ?? '';
@@ -231,10 +240,9 @@ class ContentRepository {
           image: thumbnailUrl,
           category: map['category']?.toString() ?? 'Lịch sử Việt Nam',
           seconds: duration,
-          description: description,
-          chapters: const [
-            Chapter('Mở đầu', 0),
-          ],
+          description: cleanDesc,
+          rawScript: rawText,
+          chapters: parsedChapters,
           membersOnly: isExclusive,
           isVideo: isVideoType,
           mediaAsset: mediaUrl,
