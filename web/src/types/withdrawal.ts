@@ -9,6 +9,8 @@ export interface WithdrawalItem {
   amount: number;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED' | string;
   requestedAt: string;
+  slaDueAt?: string;
+  slaPolicyNote?: string;
   processedAt?: string;
   failureReason?: string;
 }
