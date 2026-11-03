@@ -96,7 +96,7 @@ export const AdminNarratorsTable: React.FC<AdminNarratorsTableProps> = ({
                 <th className="w-[15%] min-w-[140px] px-3 py-3.5 whitespace-nowrap">Hồ sơ demo</th>
                 <th className="w-[12%] min-w-[110px] px-3 py-3.5 whitespace-nowrap">Ngày đăng ký</th>
                 <th className="w-[14%] min-w-[135px] px-3 py-3.5 whitespace-nowrap">Trạng thái</th>
-                <th className="w-[160px] min-w-[160px] px-3 py-3.5 text-right whitespace-nowrap">Thao tác</th>
+                <th className="w-[170px] min-w-[170px] pl-2 pr-4 sm:pr-5 py-3.5 text-right whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
 
@@ -281,24 +281,24 @@ export const AdminNarratorsTable: React.FC<AdminNarratorsTableProps> = ({
                       </td>
 
                       {/* Thao tác (1 HÀNG DUY NHẤT whitespace-nowrap) */}
-                      <td className="w-[160px] min-w-[160px] px-3 py-3 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center justify-end gap-1.5 whitespace-nowrap">
+                      <td className="w-[170px] min-w-[170px] pl-2 pr-4 sm:pr-5 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-2 sm:gap-2.5 whitespace-nowrap">
                           {/* Nút [👁 Xem chi tiết] */}
                           <button
                             type="button"
                             onClick={() => onViewDetail(row)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-[#E7E5E4] bg-white text-xs font-medium text-stone-700 hover:bg-[#FAF8F5] hover:border-stone-300 hover:text-stone-900 transition-colors shadow-none shrink-0 whitespace-nowrap"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#E7E5E4] bg-white text-xs font-medium text-stone-700 hover:bg-[#FAF8F5] hover:border-stone-300 hover:text-stone-900 transition-colors shadow-2xs shrink-0 whitespace-nowrap"
                           >
                             <Eye className="h-3.5 w-3.5 text-stone-400 shrink-0" />
                             <span className="whitespace-nowrap">Xem chi tiết</span>
                           </button>
 
-                          {/* Nút Ba Chấm [...] Menu Thao Tác Nhanh */}
+                          {/* Nút Ba Chấm [...] Menu Thao Tác Nhanh thanh thoát chuẩn mockup */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
                                 type="button"
-                                className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#E7E5E4] bg-white text-stone-500 hover:bg-[#FAF8F5] hover:text-stone-900 hover:border-stone-300 transition-colors shrink-0"
+                                className="flex h-8 w-7 items-center justify-center rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors shrink-0"
                                 aria-label="Thao tác khác"
                               >
                                 <MoreVertical className="h-4 w-4" />
