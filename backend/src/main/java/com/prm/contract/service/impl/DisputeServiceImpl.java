@@ -3,6 +3,7 @@ package com.prm.contract.service.impl;
 import com.prm.common.dto.PageResponse;
 import com.prm.common.exception.AppException;
 import com.prm.common.exception.ErrorCode;
+import com.prm.common.service.FileStorageService;
 import com.prm.common.util.SecurityUtils;
 import com.prm.contract.config.BookingEscrowProperties;
 import com.prm.contract.constant.CommissionStatus;
@@ -32,17 +33,27 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class DisputeServiceImpl implements DisputeService {
+
+    private static final Pattern URL_PATTERN = Pattern.compile("(https?://[^\\s\"'<>]+)");
 
     private final DisputeRepository disputeRepository;
     private final MilestoneRepository milestoneRepository;
@@ -51,6 +62,23 @@ public class DisputeServiceImpl implements DisputeService {
     private final EscrowService escrowService;
     private final BookingEscrowProperties properties;
     private final CommissionRepository commissionRepository;
+    private final FileStorageService fileStorageService;
+
+    @Override
+    public Map<String, Object> uploadEvidenceFile(MultipartFile file) {
+        User currentUser = getCurrentUser();
+        if (file == null || file.isEmpty()) {
+            throw new AppException(ErrorCode.FILE_EMPTY, "Tệp bằng chứng tải lên không được để trống");
+        }
+        String fileUrl = fileStorageService.uploadRawFile(file, "disputes/evidence");
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("fileUrl", fileUrl);
+        result.put("fileName", file.getOriginalFilename() != null ? file.getOriginalFilename() : "evidence");
+        result.put("fileSize", file.getSize());
+        result.put("contentType", file.getContentType() != null ? file.getContentType() : "application/octet-stream");
+        log.info("User {} uploaded dispute evidence file '{}': {}", currentUser.getEmail(), file.getOriginalFilename(), fileUrl);
+        return result;
+    }
 
     @Override
     public DisputeResponse openDispute(OpenDisputeRequest request) {
@@ -83,13 +111,15 @@ public class DisputeServiceImpl implements DisputeService {
         milestone.setStatus(MilestoneStatus.DISPUTED);
         milestoneRepository.save(milestone);
 
-        // 3. Tạo bản ghi tranh chấp
+        // 3. Tạo bản ghi tranh chấp (kết hợp nội dung giải trình + danh sách URL tệp bằng chứng đính kèm)
+        String combinedEvidence = combineTextAndAttachmentUrls(request.getEvidence(), request.getAttachmentUrls());
+
         Dispute dispute = Dispute.builder()
                 .contract(contract)
                 .milestone(milestone)
                 .raisedByUser(currentUser)
                 .reason(request.getReason())
-                .evidence(request.getEvidence())
+                .evidence(combinedEvidence)
                 .status(DisputeStatus.OPEN)
                 .createdAt(Instant.now())
                 .build();
@@ -105,11 +135,28 @@ public class DisputeServiceImpl implements DisputeService {
         Dispute dispute = disputeRepository.findById(disputeId)
                 .orElseThrow(() -> new AppException(ErrorCode.DISPUTE_NOT_FOUND, "Không tìm thấy tranh chấp"));
 
+        Contract contract = dispute.getContract();
+        boolean isMember = contract != null && (
+                (contract.getCreator() != null && contract.getCreator().getId().equals(currentUser.getId())) ||
+                (contract.getFreelancer() != null && contract.getFreelancer().getId().equals(currentUser.getId()))
+        );
+        if (!isMember) {
+            throw new AppException(ErrorCode.CONTRACT_ACCESS_DENIED, "Chỉ thành viên của hợp đồng mới có quyền gửi bằng chứng đối chất");
+        }
+
         if (dispute.getStatus() != DisputeStatus.OPEN) {
             throw new AppException(ErrorCode.DISPUTE_INVALID_STATE, "Tranh chấp này đã được phân xử hoặc đóng");
         }
 
-        dispute.setCounterEvidence(request.getCounterEvidence());
+        String combinedCounterEvidence = combineTextAndAttachmentUrls(
+                request != null ? request.getCounterEvidence() : null,
+                request != null ? request.getAttachmentUrls() : null
+        );
+        if (combinedCounterEvidence == null || combinedCounterEvidence.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Vui lòng nhập nội dung giải trình đối chất hoặc đính kèm ít nhất 1 tệp bằng chứng");
+        }
+
+        dispute.setCounterEvidence(combinedCounterEvidence);
         dispute.setUpdatedAt(Instant.now());
         Dispute updated = disputeRepository.save(dispute);
 
@@ -232,6 +279,44 @@ public class DisputeServiceImpl implements DisputeService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy người dùng hiện tại"));
     }
 
+    private String combineTextAndAttachmentUrls(String text, List<String> attachmentUrls) {
+        StringBuilder sb = new StringBuilder();
+        if (text != null && !text.isBlank()) {
+            sb.append(text.trim());
+        }
+        if (attachmentUrls != null && !attachmentUrls.isEmpty()) {
+            for (String url : attachmentUrls) {
+                if (url != null && !url.isBlank()) {
+                    String trimmedUrl = url.trim();
+                    if (sb.indexOf(trimmedUrl) == -1) {
+                        if (!sb.isEmpty()) {
+                            sb.append("\n");
+                        }
+                        sb.append(trimmedUrl);
+                    }
+                }
+            }
+        }
+        return sb.isEmpty() ? null : sb.toString();
+    }
+
+    private List<String> extractUrls(String rawText) {
+        if (rawText == null || rawText.isBlank()) {
+            return List.of();
+        }
+        Set<String> urls = new LinkedHashSet<>();
+        Matcher matcher = URL_PATTERN.matcher(rawText);
+        while (matcher.find()) {
+            String matched = matcher.group(1);
+            // Loại bỏ dấu câu kết thúc câu nếu bị dính vào URL
+            matched = matched.replaceAll("[.,;)\\]]+$", "");
+            if (!matched.isBlank()) {
+                urls.add(matched);
+            }
+        }
+        return new ArrayList<>(urls);
+    }
+
     private DisputeResponse toDisputeResponse(Dispute d) {
         return DisputeResponse.builder()
                 .id(d.getId())
@@ -243,7 +328,9 @@ public class DisputeServiceImpl implements DisputeService {
                 .raisedByUserFullName(d.getRaisedByUser().getFullName())
                 .reason(d.getReason())
                 .evidence(d.getEvidence())
+                .evidenceUrls(extractUrls(d.getEvidence()))
                 .counterEvidence(d.getCounterEvidence())
+                .counterEvidenceUrls(extractUrls(d.getCounterEvidence()))
                 .status(d.getStatus())
                 .result(d.getResult())
                 .splitPercent(d.getSplitPercent())

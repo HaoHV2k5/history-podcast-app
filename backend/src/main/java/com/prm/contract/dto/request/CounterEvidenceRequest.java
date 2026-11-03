@@ -1,7 +1,8 @@
 package com.prm.contract.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -10,6 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 public class CounterEvidenceRequest {
 
-    @NotBlank(message = "Bằng chứng / nội dung phản hồi không được để trống")
     private String counterEvidence;
+
+    private List<String> attachmentUrls; // Danh sách đường dẫn tệp bằng chứng đối chất (Ảnh, PDF, DOCX, Audio, Video)
 }
