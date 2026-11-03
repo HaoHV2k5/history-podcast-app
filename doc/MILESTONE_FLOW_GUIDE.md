@@ -332,22 +332,39 @@ Sau khi kiểm tra, Khách hàng có **3 hành động trên giai đoạn đó**
 
 ---
 
-### Phase 5: Tạm giữ 3 Ngày & Giải ngân `95% / 5%` (`APPROVED` -> `RELEASED`)
+### Phase 5: Tạm giữ 3 Ngày, Giải ngân Tự động hoặc Giải ngân Sớm `95% / 5%` (`APPROVED` -> `RELEASED`)
 
-* Sau khi một Milestone đạt trạng thái `APPROVED` (do Khách bấm duyệt hoặc hệ thống tự động duyệt), khoản tiền ký quỹ được giữ thêm **3 ngày (`releaseHoldDays = 3`)** để phòng ngừa khiếu nại phát sinh.
-* Khi hết 3 ngày tạm giữ, `MilestoneReleaseScheduler` tự động thực thi:
+* Sau khi một Milestone đạt trạng thái `APPROVED` (do Khách bấm duyệt hoặc hệ thống tự động duyệt), khoản tiền ký quỹ được giữ ở trạng thái `escrowStatus = HELD` trong **3 ngày (`releaseHoldDays = 3`)** để phòng ngừa khiếu nại phát sinh.
+* Hệ thống hỗ trợ **2 cơ chế giải ngân** từ trạng thái `APPROVED` sang `RELEASED`:
+  1. **Cơ chế 1 — Giải ngân tự động sau 3 ngày (`MilestoneReleaseScheduler`):**
+     * Khi hết 3 ngày tạm giữ (`releaseAt <= now`) mà không có tranh chấp (`DISPUTED`), hệ thống tự động giải ngân.
+  2. **Cơ chế 2 — Khách hàng chủ động Giải ngân sớm (`POST /api/v1/milestones/{id}/release-early`):**
+     * Nếu Creator cần nhận tiền sớm (trao đổi với Khách hàng qua Phòng Chat 1-1) và Khách hàng đã kiểm tra kỹ sản phẩm, hoàn toàn hài lòng, **chỉ Khách hàng (`Customer / Requester`)** có quyền gọi **`POST /api/v1/milestones/{id}/release-early`** (không cần Request Body) khi `milestone.status == APPROVED` và `milestone.escrowStatus == HELD` để bỏ qua thời gian chờ 3 ngày và giải ngân ngay lập tức.
+* Khi giải ngân (dù tự động hay giải ngân sớm), hệ thống thực thi nguyên tử (`Transactional`):
   1. Cộng **95% (`netAmount`)** vào số dư khả dụng (`availableBalance`) trong Ví của **Creator**.
   2. Ghi nhận **5% (`platformFee`)** vào sổ cái doanh thu nền tảng.
-  3. Chuyển Milestone sang `RELEASED` (`escrowStatus = RELEASED`).
+  3. Chuyển Milestone sang `RELEASED` (`escrowStatus = RELEASED`, `releasedAt = now`).
   4. Nếu tất cả các Milestone của Hợp đồng đều đã `RELEASED`, Hợp đồng tự động chuyển sang **`COMPLETED`** và Đơn đặt hàng chuyển sang **`COMPLETED`** (giải phóng slot để Khách hàng có thể đặt đơn mới).
 
 ---
 
-### Phase 6: Xử lý Khiếu nại / Tranh chấp (`Dispute Flow`)
+### Phase 6: Xử lý Khiếu nại / Tranh chấp & Đính kèm Tệp Bằng chứng (`Dispute Flow`)
 
-* **Kiểu dữ liệu Bằng chứng (`evidence` & `counterEvidence`):**
-  * Trong Database (`disputes` table) và Java DTO (`OpenDisputeRequest`, `CounterEvidenceRequest`), cả `evidence` và `counterEvidence` đều có kiểu dữ liệu là **`TEXT` (`String` trong JSON)**.
-  * Hỗ trợ truyền cả **mô tả giải trình bằng văn bản** lẫn **đường dẫn ảnh chụp màn hình / file bằng chứng** (nếu trên UI người dùng đính kèm ảnh chụp màn hình, FE/Mobile gọi API upload ảnh chung để lấy link rồi ghép vào chuỗi `evidence` / `counterEvidence`).
+* **Tải lên Tệp Bằng chứng Thực tế (`POST /api/v1/disputes/evidence-upload`):**
+  * Để đảm bảo tính xác thực cao khi Admin đối soát, cả bên nguyên đơn (khi mở khiếu nại) và bên bị đơn (khi gửi đối chất) đều được phép tải lên các tệp bằng chứng thực tế: **Ảnh chụp màn hình (`.jpg`, `.jpeg`, `.png`, `.webp`)**, **Tài liệu (`.pdf`, `.doc`, `.docx`, `.txt`)**, **Âm thanh (`.mp3`, `.wav`, `.m4a`)**, hoặc **Video (`.mp4`, `.mov`, `.webm`)**, dung lượng tối đa **`25MB`/tệp**.
+  * **Endpoint Upload:** `POST /api/v1/disputes/evidence-upload` (`Content-Type: multipart/form-data`, trường `file`).
+  * **Response:**
+    ```json
+    {
+      "fileUrl": "https://res.cloudinary.com/.../history-podcast/disputes/evidence/...",
+      "fileName": "bang-chung-kich-ban.pdf",
+      "fileSize": 412800,
+      "contentType": "application/pdf"
+    }
+    ```
+* **Kiểu dữ liệu Bằng chứng trong Request & Response (`evidence`, `counterEvidence`, `attachmentUrls`):**
+  * Khi gọi `POST /api/v1/disputes` hoặc `POST /api/v1/disputes/{id}/counter-evidence`, Client truyền nội dung giải trình văn bản vào `evidence` / `counterEvidence` và truyền danh sách các `fileUrl` vừa tải lên vào mảng **`attachmentUrls: List<String>`**.
+  * Backend tự động lưu trữ đồng bộ vào cột `TEXT` trong Database (`disputes` table) và khi trả về **`DisputeResponse`**, Backend tự động bóc tách sẵn thành 2 mảng **`evidenceUrls: List<String>`** (danh sách link tệp bằng chứng của bên nguyên đơn) và **`counterEvidenceUrls: List<String>`** (danh sách link tệp bằng chứng của bên bị đơn) để Web/Mobile hiển thị danh sách tệp trực tiếp mà không phải tự cắt chuỗi.
 
 1. **Mở tranh chấp (`POST /api/v1/disputes`):**
    * Áp dụng khi Milestone đang `IN_PROGRESS`, `SUBMITTED` hoặc `APPROVED` (trong thời gian giữ tiền 3 ngày).
@@ -356,15 +373,23 @@ Sau khi kiểm tra, Khách hàng có **3 hành động trên giai đoạn đó**
    {
      "milestoneId": 205,
      "reason": "Sản phẩm bàn giao thiếu phần bản đồ 2D đã cam kết trong yêu cầu giai đoạn 2",
-     "evidence": "Đã yêu cầu bổ sung qua 2 lần sửa bài nhưng bản v3 vẫn thiếu phân cảnh bản đồ"
+     "evidence": "Đã yêu cầu bổ sung qua 2 lần sửa bài nhưng bản v3 vẫn thiếu phân cảnh bản đồ",
+     "attachmentUrls": [
+       "https://res.cloudinary.com/.../history-podcast/disputes/evidence/anh-chup-yeu-cau.png",
+       "https://res.cloudinary.com/.../history-podcast/disputes/evidence/doi-chieu-kich-ban.pdf"
+     ]
    }
    ```
    * **Kết quả:** Milestone chuyển sang `DISPUTED`, tiền ký quỹ chuyển sang `FROZEN` (tạm dừng mọi bộ đếm tự động giải ngân).
 2. **Bên còn lại gửi bằng chứng đối chất (`POST /api/v1/disputes/{id}/counter-evidence`):**
+   * Chỉ thành viên của hợp đồng mới có quyền gửi đối chất khi `dispute.status == OPEN` (bắt buộc có ít nhất nội dung `counterEvidence` hoặc `attachmentUrls`).
    * **Request Body (`CounterEvidenceRequest`):**
    ```json
    {
-     "counterEvidence": "Tôi đã bổ sung bản đồ ở phút 08:15 trong bản v3 đã tải lên hệ thống"
+     "counterEvidence": "Tôi đã bổ sung bản đồ ở phút 08:15 trong bản v3 đã tải lên hệ thống",
+     "attachmentUrls": [
+       "https://res.cloudinary.com/.../history-podcast/disputes/evidence/minh-chung-phut-08-15.png"
+     ]
    }
    ```
 3. **Admin phân xử (`POST /api/v1/disputes/{id}/resolve`):**
@@ -609,6 +634,43 @@ Dưới đây là các quy chuẩn thiết kế và xử lý nghiệp vụ quan 
 
 ---
 
+### 6.5. Lưu ý Tích hợp API Backend Mới Cập nhật Dành cho Web & Mobile
+
+Dưới đây là 5 điểm cập nhật quan trọng ở phía Backend mà đội ngũ **Web** và **Mobile** cần lưu ý khi gọi API và đọc dữ liệu trả về:
+
+1. **Quyền hạn `ADMIN` trên hệ thống Hợp đồng (`Read-Only` — Chỉ xem, không sửa):**
+   * Khi gọi **`GET /api/v1/contracts/me`** bằng tài khoản có vai trò `ADMIN`, Backend trả về **toàn bộ danh sách hợp đồng trên toàn hệ thống** (hỗ trợ lọc theo query `status` và phân trang `page`, `size`).
+   * `ADMIN` có quyền gọi các API đọc dữ liệu: `GET /api/v1/contracts/me`, `GET /api/v1/contracts/{id}`, `GET /api/v1/milestones/contract/{contractId}`, `GET /api/v1/deliverables/{id}/view` và `/download` để tra cứu và đối soát.
+   * `ADMIN` **không có quyền** gọi các API chỉnh sửa hợp đồng, sửa/xóa Milestone, nộp sản phẩm hay nghiệm thu/giải ngân sớm thay cho người dùng (Backend sẽ trả về `403 CONTRACT_ACCESS_DENIED`). `ADMIN` chỉ can thiệp dòng tiền thông qua API phân xử tranh chấp `POST /api/v1/disputes/{id}/resolve`.
+
+2. **Response của `GET /api/v1/contracts/{id}` đã đính kèm sẵn `deliverables` và `reviews` trong từng Milestone:**
+   * Trong `ContractResponse` trả về từ `GET /api/v1/contracts/{id}` (và `GET /api/v1/contracts/me`), mỗi phần tử trong mảng `milestones[]` đã chứa sẵn:
+     * `deliverables`: Danh sách toàn bộ các phiên bản tệp bàn giao (`v1, v2...`) kèm `fileUrl`, `previewUrl`, `downloadUrl`.
+     * `reviews`: Danh sách đánh giá của giai đoạn đó (`MilestoneReviewResponse[]`).
+   * Web và Mobile có thể đọc trực tiếp `milestone.deliverables` và `milestone.reviews` từ kết quả `GET /api/v1/contracts/{id}` mà không cần gọi lặp thêm API phụ cho từng mốc.
+
+3. **API Giải ngân sớm do Khách hàng chủ động (`POST /api/v1/milestones/{id}/release-early`):**
+   * **Điều kiện gọi:** Chỉ khả dụng khi `milestone.status == "APPROVED"` và `milestone.escrowStatus == "HELD"` (đang trong thời gian giữ đối soát 3 ngày và không có tranh chấp).
+   * **Quyền gọi:** Chỉ tài khoản **Khách đặt nội dung (`Customer / Requester`)** của hợp đồng mới được phép gọi (không cần truyền Request Body). Nếu `Creator` hoặc `ADMIN` gọi sẽ nhận lỗi `403 CONTRACT_ACCESS_DENIED`.
+   * **Kết quả:** Khoản thực nhận 95% (`netAmount`) được cộng ngay vào ví khả dụng của Creator, Milestone chuyển sang `status = "RELEASED"`, `escrowStatus = "RELEASED"`, `releasedAt = <timestamp>`. Nếu đây là mốc cuối cùng của hợp đồng thì `contract.status` và `commission.status` cũng tự động chuyển sang `"COMPLETED"`.
+
+4. **Quy trình Upload & Đính kèm Tệp Bằng chứng Khiếu nại / Đối chất (`POST /api/v1/disputes/evidence-upload`):**
+   * Khi người dùng mở khiếu nại (`POST /api/v1/disputes`) hoặc gửi phản hồi đối chất (`POST /api/v1/disputes/{id}/counter-evidence`) có kèm tệp minh chứng (Ảnh `.jpg/.png/.webp`, Tài liệu `.pdf/.doc/.docx/.txt`, Âm thanh `.mp3/.wav`, Video `.mp4/.mov` tối đa `25MB`):
+     * **Quy tắc giao diện bắt buộc:** Trên cả Web và Mobile, hộp thoại Mở khiếu nại và Gửi bằng chứng đối chất **bắt buộc phải có nút bấm mở trình chọn tệp trực tiếp từ thiết bị (`Chọn tệp bằng chứng từ thiết bị`)**, tuyệt đối không bắt người dùng tự gõ hay dán đường dẫn URL (`https://...`).
+     * **Bước 1:** Khi người dùng chọn tệp từ máy, gọi `POST /api/v1/disputes/evidence-upload` (`Content-Type: multipart/form-data`, field `file`) cho từng tệp để nhận `data.fileUrl`.
+     * **Bước 2:** Truyền danh sách `fileUrl` nhận được vào mảng `attachmentUrls: ["https://..."]` trong body của `POST /api/v1/disputes` hoặc `POST /api/v1/disputes/{id}/counter-evidence`.
+   * Khi hiển thị chi tiết khiếu nại (`DisputeResponse`), Web và Mobile lấy trực tiếp 2 mảng **`evidenceUrls: string[]`** (tệp bằng chứng của bên nguyên đơn) và **`counterEvidenceUrls: string[]`** (tệp bằng chứng đối chất của bên bị đơn) do Backend bóc tách sẵn để hiển thị danh sách tệp đính kèm.
+
+5. **Cơ chế Xem & Tải File Bàn giao (`MilestoneDeliverableResponse`) không bị lỗi 404/401:**
+   * Backend đã tự động phân loại các tệp tài liệu/nén (`.pdf`, `.doc`, `.docx`, `.zip`, `.rar`, `.txt`) sang `resource_type = "raw"` trên Cloudinary kết hợp lưu bản sao cục bộ (`uploads/deliverables/`) để tránh lỗi Cloudinary chặn tải file PDF qua nhánh `image`.
+   * Mỗi phần tử `MilestoneDeliverableResponse` trả về đầy đủ 3 đường dẫn:
+     * `fileUrl`: Đường dẫn gốc trên Cloud Storage (`https://res.cloudinary.com/...`).
+     * `previewUrl`: `/api/v1/deliverables/{id}/view` (Stream xem trực tiếp `inline`).
+     * `downloadUrl`: `/api/v1/deliverables/{id}/download` (Stream tải về máy `attachment`).
+   * **Lưu ý xác thực cho Mobile & Web:** Hai đường dẫn `previewUrl` và `downloadUrl` của Backend có kiểm tra JWT (`validateAccess`), nên khi gọi qua 2 đường dẫn này bắt buộc phải gọi bằng HTTP Client có gắn Header `Authorization: Bearer <token>` (nhận `blob`/`bytes`), **không mở trực tiếp `/api/v1/deliverables/{id}/view` bằng trình duyệt ngoài** (vì trình duyệt ngoài không gửi kèm JWT token). Nếu cần mở bằng trình xem ngoài không truyền Header thì sử dụng trường `fileUrl`.
+
+---
+
 ## 7. Bảng Tổng hợp Toàn bộ API Endpoints (Complete API Reference)
 
 ### 7.1. Đơn Đặt làm Nội dung (`CommissionController`)
@@ -635,15 +697,15 @@ Dưới đây là các quy chuẩn thiết kế và xử lý nghiệp vụ quan 
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/v1/contracts` | Creator | Creator lập & gửi Lộ trình Milestone tổng (`1..20` mốc). Hợp đồng sang `PENDING`. |
 | `PUT` | `/api/v1/contracts/{id}` | Creator | Creator chỉnh sửa toàn bộ lộ trình Milestone & gửi lại khi đang `PENDING` hoặc `REJECTED`. |
-| `GET` | `/api/v1/contracts/{id}` | Customer / Creator / Admin | Xem chi tiết hợp đồng kèm toàn bộ danh sách Milestone, tiến độ và điều khoản. |
-| `GET` | `/api/v1/contracts/me` | Authenticated | Lấy danh sách hợp đồng của tôi (lọc theo `status`). |
+| `GET` | `/api/v1/contracts/{id}` | Customer / Creator / Admin (Read-Only) | Xem chi tiết hợp đồng kèm toàn bộ danh sách Milestone (có sẵn `deliverables` và `reviews`), tiến độ và điều khoản. |
+| `GET` | `/api/v1/contracts/me` | Customer / Creator / Admin (Read-Only) | Lấy danh sách hợp đồng của tôi (nếu là `ADMIN` sẽ trả về toàn bộ hợp đồng trên hệ thống, hỗ trợ lọc theo `status`). |
 | `GET` | `/api/v1/contracts/my-milestones` | Authenticated | Lấy danh sách các Milestone của tôi (lọc theo `status`, `contractId`). |
 | `GET` | `/api/v1/contracts/me/milestone-financials` | Authenticated | Xem thống kê tài chính Milestone cá nhân (Thu nhập thực nhận 95%, tiền đang giữ trong Escrow, hoàn tiền...). |
 | `POST` | `/api/v1/contracts/{id}/accept` | Customer | **Khách duyệt Lộ trình Milestone Tổng:** Hợp đồng sang `ACTIVE`, mở khóa Milestone #1 sang `UNFUNDED`. |
 | `POST` | `/api/v1/contracts/{id}/reject` | Customer | **Khách từ chối Lộ trình Tổng để thương lượng lại:** Hợp đồng sang `REJECTED`. |
 | `POST` | `/api/v1/contracts/{id}/cancel` | Customer / Creator | Hủy hợp đồng khi còn ở `PENDING` hoặc `REJECTED` (trước khi nạp cọc). |
 
-### 7.4. Tầng 2 — Chỉnh sửa lẻ, Đóng cọc & Duyệt Nghiệm thu Từng Giai đoạn (`MilestoneController`)
+### 7.4. Tầng 2 — Chỉnh sửa lẻ, Đóng cọc, Duyệt Nghiệm thu & Giải ngân sớm (`MilestoneController`)
 | Method | Endpoint | Quyền hạn | Mô tả |
 | :--- | :--- | :--- | :--- |
 | `PUT` | `/api/v1/milestones/{id}` | Creator | Sửa thông tin 1 Milestone lẻ khi hợp đồng đang `PENDING` / `REJECTED` (tự tính lại tổng tiền hợp đồng). |
@@ -651,6 +713,7 @@ Dưới đây là các quy chuẩn thiết kế và xử lý nghiệp vụ quan 
 | `POST` | `/api/v1/milestones/{id}/fund` | Customer | **Nạp tiền ký quỹ cho giai đoạn đang `UNFUNDED`:** Trừ ví Khách -> Escrow `HELD`, chuyển mốc sang `IN_PROGRESS`. |
 | `POST` | `/api/v1/milestones/{id}/submit` | Creator | Nộp ghi chú / sản phẩm bàn giao cho giai đoạn -> Chuyển mốc sang `SUBMITTED`. |
 | `POST` | `/api/v1/milestones/{id}/approve` | Customer | **Duyệt nghiệm thu giai đoạn:** Chuyển mốc sang `APPROVED` (giữ tiền 3 ngày) & **mở khóa ngay mốc tiếp theo sang `UNFUNDED`**. |
+| `POST` | `/api/v1/milestones/{id}/release-early` | Customer | **Giải ngân sớm cho Creator (bỏ qua 3 ngày chờ đối soát):** Áp dụng khi mốc đang `APPROVED` (`escrowStatus = HELD`), chuyển ngay 95% tiền vào ví khả dụng của Creator (`RELEASED`). |
 | `POST` | `/api/v1/milestones/{id}/request-revision` | Customer | **Yêu cầu sửa lại giai đoạn:** Tối đa 2 lần miễn phí, cộng +2 ngày hạn sửa, chuyển mốc về `IN_PROGRESS`. |
 | `POST` | `/api/v1/milestones/{id}/cancel-overdue` | Customer | **Hủy giai đoạn trễ hạn `dueAt`:** Hoàn trả ngay 100% tiền ký quỹ của giai đoạn đó về ví Khách hàng. |
 | `GET` | `/api/v1/milestones/{id}` | Customer / Creator / Admin | Xem chi tiết 1 giai đoạn Milestone. |
@@ -659,10 +722,10 @@ Dưới đây là các quy chuẩn thiết kế và xử lý nghiệp vụ quan 
 ### 7.5. Tải lên & Xem/Tải File Thành phẩm Bàn giao (`MilestoneDeliverableController`)
 | Method | Endpoint | Quyền hạn | Mô tả |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/milestones/{milestoneId}/deliverables` | Creator | **Upload trực tiếp file thành phẩm (`multipart/form-data`):** Tự đánh version (`v1, v2...`) & chuyển mốc sang `SUBMITTED`. |
+| `POST` | `/api/v1/milestones/{milestoneId}/deliverables` | Creator | **Upload trực tiếp file thành phẩm (`multipart/form-data`):** Tự đánh version (`v1, v2...`), trả kèm `fileUrl`, `previewUrl`, `downloadUrl` & chuyển mốc sang `SUBMITTED`. |
 | `GET` | `/api/v1/milestones/{milestoneId}/deliverables` | Customer / Creator / Admin | Lấy danh sách các phiên bản file thành phẩm đã nộp của một giai đoạn. |
-| `GET` | `/api/v1/deliverables/{id}/view` | Customer / Creator / Admin | Xem/Nghe trực tiếp file sản phẩm trên trình duyệt/App (`inline` stream bảo mật). |
-| `GET` | `/api/v1/deliverables/{id}/download` | Customer / Creator / Admin | Tải file sản phẩm gốc về thiết bị (`attachment`). |
+| `GET` | `/api/v1/deliverables/{id}/view` | Customer / Creator / Admin | Xem/Nghe trực tiếp file sản phẩm trên trình duyệt/App (`inline` stream bảo mật, yêu cầu Header `Authorization: Bearer <token>`). |
+| `GET` | `/api/v1/deliverables/{id}/download` | Customer / Creator / Admin | Tải file sản phẩm gốc về thiết bị (`attachment`, yêu cầu Header `Authorization: Bearer <token>`). |
 
 ### 7.6. Đánh giá Từng Giai đoạn & Đánh giá Hợp đồng (`MilestoneReviewController` & `ReviewController`)
 | Method | Endpoint | Quyền hạn | Mô tả |
@@ -674,14 +737,15 @@ Dưới đây là các quy chuẩn thiết kế và xử lý nghiệp vụ quan 
 | `GET` | `/api/v1/reviews/contract/{contractId}` | Authenticated | Xem đánh giá tổng kết của một hợp đồng. |
 | `GET` | `/api/v1/reviews/user/{userId}` | Public / Authenticated | Xem danh sách đánh giá uy tín của một người dùng. |
 
-### 7.7. Khiếu nại & Phân xử Tranh chấp (`DisputeController`)
+### 7.7. Khiếu nại, Upload Bằng chứng & Phân xử Tranh chấp (`DisputeController`)
 | Method | Endpoint | Quyền hạn | Mô tả |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/v1/disputes` | Customer / Creator | Mở tranh chấp cho một Milestone -> Đóng băng tiền ký quỹ (`FROZEN`), chuyển mốc sang `DISPUTED`. |
-| `POST` | `/api/v1/disputes/{id}/counter-evidence` | Bên bị khiếu nại | Gửi giải trình và bằng chứng phản hồi. |
+| `POST` | `/api/v1/disputes/evidence-upload` | Customer / Creator | **Tải lên tệp bằng chứng (`multipart/form-data`, field `file`):** Hỗ trợ Ảnh, PDF, DOCX, Audio, Video (tối đa `25MB`) -> Trả về `fileUrl` để truyền vào `attachmentUrls`. |
+| `POST` | `/api/v1/disputes` | Customer / Creator | Mở tranh chấp cho một Milestone (truyền `milestoneId`, `reason`, `evidence`, `attachmentUrls`) -> Đóng băng tiền ký quỹ (`FROZEN`), chuyển mốc sang `DISPUTED`. |
+| `POST` | `/api/v1/disputes/{id}/counter-evidence` | Customer / Creator (Thành viên HĐ) | Gửi giải trình (`counterEvidence`) và danh sách tệp bằng chứng đối chất (`attachmentUrls`). |
 | `POST` | `/api/v1/disputes/{id}/resolve` | Admin | Admin phân xử: `RELEASE_TO_CREATOR` (95%/5%), `REFUND_TO_REQUESTER` (100% về Khách), hoặc `SPLIT` (chia %). |
-| `GET` | `/api/v1/disputes/{id}` | Customer / Creator / Admin | Xem chi tiết hồ sơ tranh chấp. |
-| `GET` | `/api/v1/disputes/contract/{contractId}` | Customer / Creator / Admin | Xem danh sách tranh chấp của một hợp đồng. |
+| `GET` | `/api/v1/disputes/{id}` | Customer / Creator / Admin | Xem chi tiết hồ sơ tranh chấp (trả kèm `evidenceUrls` và `counterEvidenceUrls`). |
+| `GET` | `/api/v1/disputes/contract/{contractId}` | Customer / Creator / Admin | Xem danh sách tranh chấp của một hợp đồng (trả kèm `evidenceUrls` và `counterEvidenceUrls`). |
 | `GET` | `/api/v1/disputes` | Admin | Admin lấy danh sách tất cả tranh chấp trên hệ thống (lọc theo `OPEN` / `RESOLVED`). |
 
 ### 7.8. Chính sách Nền tảng & Quản trị Doanh thu (`BookingEscrowConfigController` & `AdminRevenueController`)
