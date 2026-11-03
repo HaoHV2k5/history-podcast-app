@@ -38,7 +38,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: '01', label: 'Tổng quan', to: '/admin/overview', icon: LayoutDashboard },
       { id: '02', label: 'Kiểm duyệt nội dung', to: '/admin/moderation', icon: ShieldAlert },
-      { id: '03', label: 'Xác thực định danh', to: '/admin/kyc', icon: UserCheck },
+      { id: '03', label: 'Xác thực KYC', to: '/admin/kyc', icon: UserCheck },
     ],
   },
   {

@@ -26,7 +26,7 @@ const ROUTE_NAME_MAP: Record<string, string> = {
   admin: 'Quản trị',
   overview: 'Tổng quan',
   moderation: 'Kiểm duyệt nội dung',
-  kyc: 'Xác thực định danh',
+  kyc: 'Xác thực KYC',
   users: 'Người dùng',
   channels: 'Kênh phát thanh',
   membership: 'Gói hội viên',
