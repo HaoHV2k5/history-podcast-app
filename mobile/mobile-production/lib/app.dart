@@ -412,87 +412,45 @@ class _HomeShellState extends State<HomeShell> {
           const SizedBox(height: 28),
           SectionTitle(
             title: 'Tập mới xuất bản',
-            trailing: remoteEpisodes.length > 3
-                ? InkWell(
-                    key: const Key('toggle-all-episodes-btn'),
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () =>
-                        setState(() => showAllEpisodes = !showAllEpisodes),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 2,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            showAllEpisodes
-                                ? 'Thu gọn'
-                                : 'Xem tất cả (${remoteEpisodes.length})',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Palette.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          Icon(
-                            showAllEpisodes
-                                ? CupertinoIcons.chevron_up
-                                : CupertinoIcons.chevron_right,
-                            size: 13,
-                            color: Palette.red,
-                          ),
-                        ],
+            trailing: InkWell(
+              key: const Key('toggle-all-episodes-btn'),
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => LatestEpisodesPage(state: widget.state),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 2,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Xem tất cả (${remoteEpisodes.length})',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Palette.red,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  )
-                : Text(
-                    '${remoteEpisodes.length} tập',
-                    style: const TextStyle(fontSize: 12, color: Palette.muted),
-                  ),
-          ),
-          const SizedBox(height: 12),
-          ...(showAllEpisodes ? remoteEpisodes : remoteEpisodes.take(3)).map(
-            (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
-          ),
-          if (remoteEpisodes.length > 3) ...[
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              child: OutlinedButton.icon(
-                key: const Key('expand-all-episodes-bottom-btn'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Palette.red,
-                  side: BorderSide(color: Palette.red.withValues(alpha: 0.3)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                ),
-                onPressed: () =>
-                    setState(() => showAllEpisodes = !showAllEpisodes),
-                icon: Icon(
-                  showAllEpisodes
-                      ? CupertinoIcons.chevron_up
-                      : CupertinoIcons.chevron_down,
-                  size: 15,
-                  color: Palette.red,
-                ),
-                label: Text(
-                  showAllEpisodes
-                      ? 'Thu gọn danh sách tập'
-                      : 'Xem toàn bộ ${remoteEpisodes.length} tập mới nhất',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Palette.red,
-                  ),
+                    const SizedBox(width: 2),
+                    const Icon(
+                      CupertinoIcons.chevron_right,
+                      size: 13,
+                      color: Palette.red,
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 12),
+          ...remoteEpisodes.take(3).map(
+            (e) => EpisodeRow(episode: e, onTap: () => detail(e)),
+          ),
         ],
         if (remoteChannels.isNotEmpty) ...[
           const SizedBox(height: 24),
@@ -1056,6 +1014,165 @@ class CollectionPage extends StatelessWidget {
   }
 }
 
+class LatestEpisodesPage extends StatefulWidget {
+  const LatestEpisodesPage({super.key, required this.state});
+  final AppState state;
+
+  @override
+  State<LatestEpisodesPage> createState() => _LatestEpisodesPageState();
+}
+
+class _LatestEpisodesPageState extends State<LatestEpisodesPage> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  void detail(Episode e) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EpisodePage(episode: e, state: widget.state),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final allItems = remoteEpisodes.isNotEmpty ? remoteEpisodes : episodes;
+    final filtered = _query.isEmpty
+        ? allItems
+        : allItems.where((e) {
+            final q = _query.toLowerCase();
+            return e.title.toLowerCase().contains(q) ||
+                e.description.toLowerCase().contains(q) ||
+                e.channel.toLowerCase().contains(q) ||
+                e.category.toLowerCase().contains(q);
+          }).toList();
+
+    return Scaffold(
+      backgroundColor: Palette.paper,
+      appBar: AppBar(
+        title: const Text(
+          'Tập mới xuất bản',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: Palette.paper,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: TextField(
+              key: const Key('episodes-search-input'),
+              controller: _searchCtrl,
+              onChanged: (val) => setState(() => _query = val.trim()),
+              decoration: InputDecoration(
+                prefixIcon: const Icon(
+                  CupertinoIcons.search,
+                  size: 20,
+                  color: Palette.muted,
+                ),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(
+                          CupertinoIcons.clear_circled_solid,
+                          size: 18,
+                          color: Palette.muted,
+                        ),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                hintText: 'Tìm kiếm tập podcast...',
+                hintStyle: const TextStyle(fontSize: 14, color: Palette.muted),
+                filled: true,
+                fillColor: Palette.soft,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Palette.line),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Palette.line),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Palette.red, width: 1.5),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  _query.isEmpty
+                      ? 'Tổng cộng ${filtered.length} tập'
+                      : 'Tìm thấy ${filtered.length} tập phù hợp',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Palette.muted,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.search,
+                            size: 48,
+                            color: Palette.muted,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Không tìm thấy tập nào phù hợp với "$_query"',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Palette.muted,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, i) => EpisodeRow(
+                      episode: filtered[i],
+                      onTap: () => detail(filtered[i]),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _VideoMetaRow extends StatelessWidget {
   const _VideoMetaRow({
     required this.icon,
@@ -1499,11 +1616,14 @@ class _EpisodePageState extends State<EpisodePage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            'Bản chép lời & Kịch bản (Transcript)',
-                            style: TextStyle(fontWeight: FontWeight.w500),
+                          const Expanded(
+                            child: Text(
+                              'Bản chép lời & Kịch bản (Transcript)',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
                           ),
-                          if (e.isVideo)
+                          if (e.isVideo) ...[
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -1521,6 +1641,7 @@ class _EpisodePageState extends State<EpisodePage> {
                                 ),
                               ),
                             ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -1581,7 +1702,6 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
   final controller = TextEditingController();
   bool submitting = false;
   String? error;
-  String? success;
 
   @override
   void dispose() {
@@ -1595,7 +1715,6 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
     setState(() {
       submitting = true;
       error = null;
-      success = null;
     });
     try {
       final err = await widget.state.addComment(widget.episode.id, txt);
@@ -1605,7 +1724,6 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
       } else {
         controller.clear();
         FocusManager.instance.primaryFocus?.unfocus();
-        setState(() => success = 'Đã lưu bình luận trên thiết bị.');
       }
     } catch (_) {
       if (mounted) {
@@ -1655,7 +1773,6 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
           readOnly: submitting,
           onChanged: (_) => setState(() {
             error = null;
-            success = null;
           }),
           maxLines: 3,
           minLines: 1,
@@ -1688,20 +1805,6 @@ class _EpisodeCommentsSectionState extends State<EpisodeCommentsSection> {
             child: Text(
               error!,
               style: const TextStyle(color: Palette.red, fontSize: 12),
-            ),
-          ),
-        ],
-        if (success != null) ...[
-          const SizedBox(height: 6),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              success!,
-              style: const TextStyle(
-                color: Palette.ink,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
             ),
           ),
         ],
@@ -1870,6 +1973,66 @@ class PlayerPage extends StatefulWidget {
 }
 
 class _PlayerPageState extends State<PlayerPage> {
+  @override
+  void initState() {
+    super.initState();
+    final cur = widget.state.current;
+    if (cur != null) {
+      widget.state.loadEpisodeEngagement(cur.id);
+    }
+  }
+
+  void commentsSheet(BuildContext context, Episode e) {
+    widget.state.loadEpisodeEngagement(e.id);
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Palette.paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => ListenableBuilder(
+        listenable: widget.state,
+        builder: (ctx, _) => DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, scrollController) => SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Bình luận (${widget.state.getComments(e.id).length})',
+                        style: editorial(22),
+                      ),
+                      IconButton(
+                        tooltip: 'Đóng',
+                        icon: const Icon(CupertinoIcons.xmark, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  EpisodeCommentsSection(episode: e, state: widget.state),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void speedSheet(BuildContext context) => showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -2130,10 +2293,12 @@ class _PlayerPageState extends State<PlayerPage> {
             ),
           );
         }
-        final chapter = e.chapters.lastWhere(
-          (c) => c.seconds <= state.position,
-          orElse: () => e.chapters.first,
-        );
+        final chapter = e.chapters.isNotEmpty
+            ? e.chapters.lastWhere(
+                (c) => c.seconds <= state.position,
+                orElse: () => e.chapters.first,
+              )
+            : Chapter(e.title, 0);
         return Scaffold(
           appBar: AppBar(
             leading: IconButton(
@@ -2315,6 +2480,23 @@ class _PlayerPageState extends State<PlayerPage> {
                         color: state.isLiked(e.id) ? Palette.red : Palette.ink,
                       ),
                       onPressed: () => state.toggleLike(e.id),
+                    ),
+                    IconButton(
+                      key: const Key('player-comments-btn'),
+                      tooltip:
+                          'Bình luận (${state.getComments(e.id).length})',
+                      icon: Badge.count(
+                        count: state.getComments(e.id).length,
+                        isLabelVisible:
+                            state.getComments(e.id).isNotEmpty,
+                        backgroundColor: Palette.red,
+                        child: const Icon(
+                          CupertinoIcons.chat_bubble_2,
+                          size: 20,
+                          color: Palette.ink,
+                        ),
+                      ),
+                      onPressed: () => commentsSheet(context, e),
                     ),
                     TextButton(
                       onPressed: () => speedSheet(context),

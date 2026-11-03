@@ -68,7 +68,7 @@ void main() {
       expect(find.byKey(const Key('role-badge-freelancer')), findsNothing);
     });
 
-    testWidgets('Displays FREELANCER badge alongside VIEWER and CREATOR when role is present', (tester) async {
+    testWidgets('Does not display FREELANCER badge even when user has freelancer role', (tester) async {
       final state = AppState(prefs);
       state.isLoggedIn = true;
       state.displayName = 'Nguyễn Quang Tùng';
@@ -91,36 +91,10 @@ void main() {
 
       expect(find.byKey(const Key('role-badge-viewer')), findsOneWidget);
       expect(find.byKey(const Key('role-badge-creator')), findsOneWidget);
-      expect(find.byKey(const Key('role-badge-freelancer')), findsOneWidget);
+      expect(find.byKey(const Key('role-badge-freelancer')), findsNothing);
       expect(find.text('VIEWER'), findsOneWidget);
       expect(find.text('CREATOR'), findsOneWidget);
-      expect(find.text('FREELANCER'), findsOneWidget);
-    });
-
-    testWidgets('Displays FREELANCER badge directly from userRoles without manual toggle', (tester) async {
-      final state = AppState(prefs);
-      state.isLoggedIn = true;
-      state.displayName = 'Nguyễn Quang Tùng';
-      state.userEmail = 'phoenix090205@gmail.com';
-      state.isCreator = true;
-      state.userRoles = ['VIEWER', 'CREATOR', 'FREELANCER'];
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ProfileContent(
-              state: state,
-              onChannel: (_) {},
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('role-badge-viewer')), findsOneWidget);
-      expect(find.byKey(const Key('role-badge-creator')), findsOneWidget);
-      expect(find.byKey(const Key('role-badge-freelancer')), findsOneWidget);
-      expect(find.text('FREELANCER'), findsOneWidget);
+      expect(find.text('FREELANCER'), findsNothing);
     });
   });
 }

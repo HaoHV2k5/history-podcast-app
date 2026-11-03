@@ -41,34 +41,37 @@ void main() {
     },
   );
 
-  test('OTP cooldown, attempt limit and resend reset are enforced', () {
+  test('OTP cooldown, attempt limit and resend reset are enforced', () async {
     var time = DateTime(2026, 10, 1);
-    final flow = DemoPasswordRecovery(now: () => time)..request('a@b.test');
+    final flow = DemoPasswordRecovery(now: () => time);
+    await flow.request('a@b.test');
     expect(flow.resendSeconds, 30);
-    expect(() => flow.request('a@b.test'), throwsStateError);
-    expect(() => flow.verify('12'), throwsStateError);
+    expect(flow.request('a@b.test'), throwsStateError);
+    expect(flow.verify('12'), throwsStateError);
     expect(flow.attempts, 0);
     for (var i = 0; i < 5; i++) {
-      expect(() => flow.verify('000000'), throwsStateError);
+      expect(flow.verify('000000'), throwsStateError);
     }
-    expect(() => flow.verify('889900'), throwsStateError);
+    expect(flow.verify('889900'), throwsStateError);
     time = time.add(const Duration(seconds: 30));
-    flow.request('a@b.test');
+    await flow.request('a@b.test');
     expect(flow.attempts, 0);
-    flow.verify('889900');
+    await flow.verify('889900');
     expect(flow.hasGrant, isTrue);
-    expect(() => flow.verify('889900'), throwsStateError);
+    expect(flow.verify('889900'), throwsStateError);
   });
 
-  test('expired OTP and expired reset grant cannot set a password', () {
+  test('expired OTP and expired reset grant cannot set a password', () async {
     var time = DateTime(2026, 10, 1);
-    final flow = DemoPasswordRecovery(now: () => time)..request('a@b.test');
-    time = time.add(const Duration(minutes: 2));
-    expect(() => flow.verify('889900'), throwsStateError);
-    flow.request('a@b.test');
-    flow.verify('889900');
-    time = time.add(const Duration(minutes: 5));
-    expect(() => flow.complete('secret12', 'secret12'), throwsStateError);
+    final flow = DemoPasswordRecovery(now: () => time);
+    await flow.request('a@b.test');
+    time = time.add(const Duration(minutes: 5, seconds: 1));
+    expect(flow.verify('889900'), throwsStateError);
+    time = DateTime(2026, 10, 1, 12);
+    await flow.request('a@b.test');
+    await flow.verify('889900');
+    time = time.add(const Duration(minutes: 10, seconds: 1));
+    expect(flow.complete('secret12', 'secret12'), throwsStateError);
   });
 
   test(

@@ -10,6 +10,7 @@ class ChannelModel {
   final String? status;
   final String? createdAt;
   final String? updatedAt;
+  final int followerCount;
 
   ChannelModel({
     required this.id,
@@ -21,6 +22,7 @@ class ChannelModel {
     this.status,
     this.createdAt,
     this.updatedAt,
+    this.followerCount = 0,
   });
 
   factory ChannelModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,9 @@ class ChannelModel {
       status: json['status']?.toString(),
       createdAt: json['createdAt']?.toString(),
       updatedAt: json['updatedAt']?.toString(),
+      followerCount: (json['followerCount'] as num?)?.toInt() ??
+          (json['followersCount'] as num?)?.toInt() ??
+          0,
     );
   }
 }
@@ -216,5 +221,36 @@ class ChannelRepository {
     );
     final data = res['data'] as Map<String, dynamic>;
     return MembershipPlanModel.fromJson(data);
+  }
+
+  // --- Follow Channels (Đồng bộ theo dõi kênh với Backend) ---
+
+  /// Theo dõi kênh (POST /api/v1/channels/{id}/follow)
+  Future<void> followChannel(int channelId) async {
+    await client.post('/api/v1/channels/$channelId/follow');
+  }
+
+  /// Bỏ theo dõi kênh (DELETE /api/v1/channels/{id}/follow)
+  Future<void> unfollowChannel(int channelId) async {
+    await client.delete('/api/v1/channels/$channelId/follow');
+  }
+
+  /// Lấy danh sách các kênh đang theo dõi (GET /api/v1/channels/followed)
+  Future<List<ChannelModel>> getFollowedChannels() async {
+    final res = await client.get('/api/v1/channels/followed');
+    final data = res['data'];
+    if (data is List) {
+      return data
+          .map((e) => ChannelModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } else if (data is Map) {
+      final rawItems = data['items'] ?? data['content'];
+      if (rawItems is List) {
+        return rawItems
+            .map((e) => ChannelModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    }
+    return [];
   }
 }

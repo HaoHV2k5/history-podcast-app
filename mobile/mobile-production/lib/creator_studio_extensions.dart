@@ -536,10 +536,8 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
   String _creationMode = 'ai_prompt'; // 'ai_prompt' | 'manual_script'
 
   // Step 1: Script Input
-  final _topicCtrl = TextEditingController(
-    text: 'Đại Lễ Dời Đô Năm 1010 (Lý Thái Tổ)',
-  );
-  final _scriptCtrl = TextEditingController(text: kSampleHistoricalScript);
+  final _topicCtrl = TextEditingController();
+  final _scriptCtrl = TextEditingController();
   String _selectedTone = 'Hào sảng, sử thi';
   int _durationSec = 60;
   String _selectedDynasty = 'all';
@@ -596,6 +594,92 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
     super.dispose();
   }
 
+  void _showErrorDialog(String raw) {
+    String title = 'Chủ đề chưa phù hợp';
+    String reason = '';
+
+    final reasonMatch = RegExp(
+      r'Lý do:\s*([^\n]+(?:\n(?!\n|Hệ thống)[^\n]+)*)',
+      caseSensitive: false,
+    ).firstMatch(raw);
+
+    if (reasonMatch != null && reasonMatch.group(1) != null) {
+      title = 'Chủ đề chưa được hỗ trợ';
+      reason = reasonMatch.group(1)!.trim();
+    } else if (raw.contains('CHỦ ĐỀ BỊ TỪ CHỐI') ||
+        raw.contains('LÝ - TRẦN') ||
+        raw.contains('Lý - Trần') ||
+        raw.contains('ngoài phạm vi')) {
+      title = 'Chủ đề nằm ngoài phạm vi';
+      reason =
+          'Hệ thống hiện chuyên sâu hỗ trợ các nhân vật và sự kiện lịch sử thuộc triều đại nhà Lý (1009–1225) và nhà Trần (1225–1400). Vui lòng thử lại với chủ đề trong giai đoạn này.';
+    } else if (raw.contains('Gemini API Key') || raw.contains('API Key')) {
+      title = 'Cần cấu hình API Key';
+      reason =
+          'Bạn chưa cấu hình Google Gemini API Key cá nhân. Vui lòng mở Cài đặt (⚙️) ở góc trên và nhập API Key của bạn để tiếp tục.';
+    } else {
+      title = 'Không thể tạo kịch bản';
+      reason = raw
+          .replaceFirst(RegExp(r'^Lỗi[^:]*:\s*', caseSensitive: false), '')
+          .replaceFirst('⚠️', '')
+          .trim();
+      if (reason.length > 200) {
+        final firstSentence = reason.split(RegExp(r'[\.\n]')).first.trim();
+        if (firstSentence.length >= 15) {
+          reason = '$firstSentence.';
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(
+              CupertinoIcons.exclamationmark_triangle_fill,
+              color: Palette.red,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          reason,
+          style: const TextStyle(
+            fontSize: 13,
+            height: 1.45,
+            color: Palette.ink,
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: FilledButton.styleFrom(
+              backgroundColor: Palette.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _runStep(Future<void> Function() action) async {
     setState(() {
       _busy = true;
@@ -605,9 +689,11 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
       await action();
     } catch (e) {
       if (mounted) {
-        setState(
-          () => _statusNote = e.toString().replaceFirst('Exception: ', ''),
-        );
+        final raw = e
+            .toString()
+            .replaceFirst('Exception: ', '')
+            .replaceFirst('StateError: ', '');
+        _showErrorDialog(raw);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -633,8 +719,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
       final url = await widget.state.uploadStudioSceneImage(bytes, filename);
       setState(() {
         _sceneImages[sceneNo.toString()] = url;
-        _statusNote =
-            'Đã tải ảnh phân cảnh $sceneNo lên Cloudinary thành công!';
+        _statusNote = 'Đã tải ảnh phân cảnh $sceneNo lên thành công!';
       });
     });
   }
@@ -658,7 +743,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
       final url = await widget.state.uploadStudioSceneImage(bytes, filename);
       setState(() {
         _coverImageUrl = url;
-        _statusNote = 'Đã tải ảnh bìa Podcast lên Cloudinary thành công!';
+        _statusNote = 'Đã tải ảnh bìa Podcast lên thành công!';
       });
     });
   }
@@ -682,7 +767,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
       final url = await widget.state.uploadStudioSceneImage(bytes, filename);
       setState(() {
         _thumbnailUrl = url;
-        _statusNote = 'Đã tải ảnh Thumbnail 16:9 lên Cloudinary thành công!';
+        _statusNote = 'Đã tải ảnh hình thu nhỏ 16:9 lên thành công!';
       });
     });
   }
@@ -1485,7 +1570,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
-                                      'Video Podcast (Khuyên dùng)',
+                                      'Video Podcast',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight:
@@ -1580,13 +1665,30 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Palette.soft,
+                    color: Colors.green.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Palette.line),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.3),
+                    ),
                   ),
-                  child: Text(
-                    _statusNote!,
-                    style: const TextStyle(fontSize: 12, color: Palette.red),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        CupertinoIcons.checkmark_circle_fill,
+                        color: Colors.green,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _statusNote!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -1663,14 +1765,6 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
     Map<String, dynamic>? storyboard,
     Map<String, dynamic>? verification,
   ) {
-    final activeHistorical = kHistoricalTopicSuggestions.firstWhere(
-      (item) =>
-          item.title == _topicCtrl.text ||
-          item.shortTitle == _topicCtrl.text ||
-          _topicCtrl.text.contains(item.shortTitle),
-      orElse: () => kHistoricalTopicSuggestions.first,
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1816,166 +1910,17 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               setState(() {});
             },
           ),
-          const SizedBox(height: 12),
-
-          // Suggested Topics Header & Dynasty Filter
-          const Text(
-            'Gợi ý chủ đề phổ biến',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              ChoiceChip(
-                label: const Text('Tất cả', style: TextStyle(fontSize: 11)),
-                selected: _selectedDynasty == 'all',
-                onSelected: (_) => setState(() => _selectedDynasty = 'all'),
-              ),
-              ChoiceChip(
-                label: const Text(
-                  'Triều Lý (1009 – 1225)',
-                  style: TextStyle(fontSize: 11),
-                ),
-                selected: _selectedDynasty == 'ly',
-                onSelected: (_) => setState(() => _selectedDynasty = 'ly'),
-              ),
-              ChoiceChip(
-                label: const Text(
-                  'Triều Trần (1225 – 1400)',
-                  style: TextStyle(fontSize: 11),
-                ),
-                selected: _selectedDynasty == 'tran',
-                onSelected: (_) => setState(() => _selectedDynasty = 'tran'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Suggested Topic Cards
-          LayoutBuilder(
-            builder: (ctx, constraints) {
-              final cardW = max((constraints.maxWidth - 8) / 2, 120.0);
-              return Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: kHistoricalTopicSuggestions
-                    .where(
-                      (item) =>
-                          _selectedDynasty == 'all' ||
-                          item.dynasty == _selectedDynasty,
-                    )
-                    .map((item) {
-                      final sel =
-                          _topicCtrl.text == item.title ||
-                          _topicCtrl.text == item.shortTitle;
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            _topicCtrl.text = item.title;
-                            _renderTitleCtrl.text = item.title;
-                            _durationSec = item.suggestedDuration;
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          width: cardW,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: sel
-                                ? Palette.red.withValues(alpha: 0.08)
-                                : Palette.paper,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: sel ? Palette.red : Palette.line,
-                              width: sel ? 1.5 : 1,
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.shortTitle,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: sel ? Palette.red : Palette.ink,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                item.cardSubtitle,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Palette.muted,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    })
-                    .toList(),
-              );
-            },
-          ),
           const SizedBox(height: 14),
 
-          // Narrative Settings: Tone & Duration
+          // Duration Setting
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Phong cách kể chuyện (tùy chọn):',
-                style: TextStyle(fontSize: 11, color: Palette.muted),
-              ),
-              const SizedBox(height: 4),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                value: _selectedTone,
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                ),
-                style: const TextStyle(fontSize: 12, color: Palette.ink),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Hào sảng, sử thi',
-                    child: Text(
-                      'Hào sảng, sử thi',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Điềm đạm, chiêm nghiệm',
-                    child: Text(
-                      'Điềm đạm, chiêm nghiệm',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Kịch tính, dồn dập',
-                    child: Text(
-                      'Kịch tính, dồn dập',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-                onChanged: (v) {
-                  if (v != null) setState(() => _selectedTone = v);
-                },
-              ),
-              const SizedBox(height: 10),
-              const Text(
                 'Thời lượng mục tiêu:',
                 style: TextStyle(fontSize: 11, color: Palette.muted),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -1992,111 +1937,6 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-
-          // RAG Historical Scope Excerpt Box
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Palette.soft,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Palette.line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(
-                      CupertinoIcons.book_fill,
-                      color: Palette.red,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Tư liệu RAG: ${activeHistorical.sourceBook}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Palette.red,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '“${activeHistorical.excerpt}”',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontStyle: FontStyle.italic,
-                    height: 1.45,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Topic selection status
-          if (_topicCtrl.text.trim().isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Palette.soft,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Palette.line),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    CupertinoIcons.info_circle,
-                    size: 14,
-                    color: Palette.muted,
-                  ),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Vui lòng nhập chủ đề hoặc chọn một thẻ gợi ý.',
-                      style: TextStyle(fontSize: 11, color: Palette.muted),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Palette.red.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Palette.red.withValues(alpha: 0.25)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    CupertinoIcons.checkmark_circle_fill,
-                    size: 14,
-                    color: Palette.red,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Chủ đề: ${_topicCtrl.text.trim()}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Palette.red,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           const SizedBox(height: 16),
 
           // Action CTA: Generate Storyboard
@@ -2230,9 +2070,19 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
             onPressed: _busy || _scriptCtrl.text.trim().isEmpty
                 ? null
                 : () => _runStep(() async {
-                    final topic = _topicCtrl.text.trim().isNotEmpty
-                        ? _topicCtrl.text.trim()
-                        : 'Kịch bản lịch sử tự biên tập';
+                    final script = _scriptCtrl.text.trim();
+                    final topic = script.isNotEmpty
+                        ? script
+                        : (_topicCtrl.text.trim().isNotEmpty
+                            ? _topicCtrl.text.trim()
+                            : 'Kịch bản lịch sử tự biên tập');
+                    if (_renderTitleCtrl.text.trim().isEmpty) {
+                      _renderTitleCtrl.text = _topicCtrl.text.trim().isNotEmpty
+                          ? _topicCtrl.text.trim()
+                          : (script.length > 50
+                              ? '${script.substring(0, 50)}...'
+                              : script);
+                    }
                     await widget.state.generateAiStoryboard(
                       topic: topic,
                       durationSec: _durationSec,
@@ -2358,7 +2208,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                   label: Text(
                     _coverImageUrl != null
                         ? 'Đổi ảnh bìa Podcast'
-                        : 'Tải ảnh bìa Podcast lên Cloudinary',
+                        : 'Tải ảnh bìa Podcast lên',
                   ),
                 ),
               ],
@@ -2426,7 +2276,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                   label: Text(
                     _thumbnailUrl != null
                         ? 'Đổi ảnh Thumbnail 16:9'
-                        : 'Tải Thumbnail 16:9 lên Cloudinary',
+                        : 'Tải Thumbnail 16:9 lên',
                   ),
                 ),
               ],
@@ -2522,7 +2372,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       label: Text(
                         uploadedUrl != null
                             ? 'Đổi ảnh phân cảnh'
-                            : 'Tải ảnh cảnh lên Cloudinary',
+                            : 'Tải ảnh cảnh lên',
                       ),
                     ),
                   ],
@@ -3001,7 +2851,7 @@ class _AiWhiteboardPipelinePageState extends State<AiWhiteboardPipelinePage> {
                       style: TextStyle(fontSize: 10, color: Palette.ink),
                     ),
                     Text(
-                      '2. Tải & tiền xử lý tư liệu ảnh Cloudinary',
+                      '2. Tải & tiền xử lý tư liệu ảnh minh họa',
                       style: TextStyle(fontSize: 10, color: Palette.ink),
                     ),
                     Text(

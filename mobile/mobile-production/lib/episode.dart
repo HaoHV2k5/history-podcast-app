@@ -239,6 +239,7 @@ class Channel {
     this.coverImage = '',
     this.monthlyPrice,
     this.hasBackendPlan = false,
+    this.followerCount = 0,
   });
   final String name, initial, image, description;
   final int? id;
@@ -246,6 +247,7 @@ class Channel {
   final String coverImage;
   final double? monthlyPrice;
   final bool hasBackendPlan;
+  final int followerCount;
   List<Episode> get content => allEpisodes
       .where((e) =>
           e.channel.trim().toLowerCase() == name.trim().toLowerCase() ||
@@ -285,6 +287,9 @@ List<Channel> get channels {
         coverImage: coverImg,
         monthlyPrice: existing.monthlyPrice ?? c.monthlyPrice,
         hasBackendPlan: existing.hasBackendPlan || c.hasBackendPlan,
+        followerCount: existing.followerCount > 0
+            ? existing.followerCount
+            : c.followerCount,
       );
     }
   }

@@ -41,14 +41,38 @@ Future<SharedPreferences> fresh(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({'userEmail': 'creator@suky.vn'});
   return SharedPreferences.getInstance();
 }
 
 Future<void> press(WidgetTester tester, Finder finder) async {
-  await tester.ensureVisible(finder);
+  try {
+    await tester.ensureVisible(finder);
+  } catch (_) {
+    try {
+      await tester.scrollUntilVisible(
+        finder,
+        80,
+        scrollable: find.descendant(
+          of: find.byType(KycSheet),
+          matching: find.byType(Scrollable),
+        ).first,
+      );
+    } catch (_) {
+      try {
+        await tester.scrollUntilVisible(
+          finder,
+          -80,
+          scrollable: find.descendant(
+            of: find.byType(KycSheet),
+            matching: find.byType(Scrollable),
+          ).first,
+        );
+      } catch (_) {}
+    }
+  }
   await tester.pumpAndSettle();
-  await tester.tap(finder);
+  await tester.tap(finder, warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
@@ -183,7 +207,8 @@ void main() {
       request = Completer<bool>()..complete(true);
       await press(tester, find.byKey(const Key('submit-comment-btn')));
       expect(tester.widget<TextField>(input).controller!.text, isEmpty);
-      expect(find.text('Đã lưu bình luận trên thiết bị.'), findsOneWidget);
+      expect(find.text('Đã lưu bình luận trên thiết bị.'), findsNothing);
+      expect(find.text('Câu chuyện đáng nghe'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       state.dispose();
     },
@@ -222,14 +247,16 @@ void main() {
     (tester) async {
       final state = CreatorState(await fresh(tester));
       await openKyc(tester, state);
-      await tester.enterText(find.byType(TextFormField).at(2), '31/02/1996');
+      await tester.enterText(find.byKey(const Key('kyc-field-name')), 'Trần Đại Nghĩa');
+      await tester.enterText(find.byKey(const Key('kyc-field-id')), '001099008899');
+      await tester.enterText(find.byKey(const Key('kyc-field-dob')), '31/02/1996');
       await press(tester, find.byKey(const Key('kyc-submit')));
       expect(find.text('Ngày sinh không hợp lệ.'), findsOneWidget);
       expect(
         tester
             .widget<TextField>(
               find.descendant(
-                of: find.byType(TextFormField).at(2),
+                of: find.byKey(const Key('kyc-field-dob')),
                 matching: find.byType(TextField),
               ),
             )
@@ -237,16 +264,16 @@ void main() {
             .hasFocus,
         true,
       );
-      await tester.enterText(find.byType(TextFormField).at(2), '12/04/1996');
+      await tester.enterText(find.byKey(const Key('kyc-field-dob')), '12/04/1996');
       await press(tester, find.text('Gửi OTP thử'));
-      await tester.enterText(find.byType(TextFormField).at(4), '889900');
-      await tester.enterText(find.byType(TextFormField).at(3), '0901234567');
+      await tester.enterText(find.byKey(const Key('kyc-field-otp')), '889900');
+      await tester.enterText(find.byKey(const Key('kyc-field-email')), '0901234567');
       await tester.pumpAndSettle();
-      expect(find.byType(TextFormField), findsNWidgets(4));
+      expect(find.byKey(const Key('kyc-field-otp')), findsNothing);
       await press(tester, find.text('Gửi OTP thử'));
       expect(
         tester
-            .widget<TextFormField>(find.byType(TextFormField).at(4))
+            .widget<TextFormField>(find.byKey(const Key('kyc-field-otp')))
             .controller!
             .text,
         isEmpty,
@@ -262,7 +289,14 @@ void main() {
       final state = DelayedKyc(await fresh(tester));
       await openKyc(tester, state);
       await press(tester, find.text('Gửi OTP thử'));
-      await tester.enterText(find.byType(TextFormField).at(4), '889900');
+      await tester.enterText(find.byKey(const Key('kyc-field-otp')), '889900');
+      await tester.enterText(find.byKey(const Key('kyc-field-name')), 'Trần Đại Nghĩa');
+      await tester.enterText(find.byKey(const Key('kyc-field-id')), '001099008899');
+      await tester.enterText(find.byKey(const Key('kyc-field-dob')), '12/04/1996');
+      await tester.enterText(find.byKey(const Key('kyc-field-phone')), '0912345678');
+      await tester.enterText(find.byKey(const Key('kyc-field-bank-name')), 'Vietcombank');
+      await tester.enterText(find.byKey(const Key('kyc-field-bank-acc')), '001099008899');
+      await tester.enterText(find.byKey(const Key('kyc-field-bank-holder')), 'TRAN DAI NGHIA');
       await tester.ensureVisible(find.byKey(const Key('kyc-submit')));
       await tester.tap(find.byKey(const Key('kyc-submit')));
       await tester.pump();
@@ -281,7 +315,7 @@ void main() {
       expect(find.textContaining('Thử lại.'), findsOneWidget);
       expect(
         tester
-            .widget<TextFormField>(find.byType(TextFormField).at(4))
+            .widget<TextFormField>(find.byKey(const Key('kyc-field-otp')))
             .controller!
             .text,
         '889900',

@@ -114,4 +114,70 @@ void main() {
     expect(find.byKey(const Key('host-mic-toggle')), findsNothing);
     expect(find.byKey(const Key('host-camera-toggle')), findsNothing);
   });
+
+  testWidgets('LivestreamRoomPage handles ended livestream session correctly for viewer',
+      (tester) async {
+    tester.view.physicalSize = const Size(414, 896);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    SharedPreferences.setMockInitialValues({'onboardingDone': true});
+    final prefs = await SharedPreferences.getInstance();
+    final state = AppState(prefs);
+
+    final session = LivestreamSessionModel(
+      id: 993,
+      channelId: 1,
+      channelName: 'Sử Ký Tiền Lê',
+      title: 'Chiến dịch Điện Biên Phủ 1954',
+      agoraChannelName: 'livestream_session_993',
+      status: 'ENDED',
+      viewerCount: 0,
+    );
+    state.activeLivestreams.add(session);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LivestreamRoomPage(
+          session: session,
+          state: state,
+          isHost: false,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // 1. Badge displays 'ĐÃ KẾT THÚC' instead of 'ĐANG PHÁT SÓNG'
+    expect(find.text('ĐÃ KẾT THÚC'), findsOneWidget);
+    expect(find.text('ĐANG PHÁT SÓNG'), findsNothing);
+
+    // 2. Camera label CAM TRƯỚC / SAU is hidden
+    expect(find.textContaining('CAM '), findsNothing);
+
+    // 3. Center displays 'Buổi phát sóng trực tiếp đã kết thúc'
+    expect(find.text('Buổi phát sóng trực tiếp đã kết thúc'), findsOneWidget);
+    expect(find.text('Đang chờ Creator bật luồng phát...'), findsNothing);
+
+    // 4. Return to livestream list button is visible
+    final returnBtn = find.byKey(const Key('return-livestream-list-btn'));
+    expect(returnBtn, findsOneWidget);
+    expect(find.text('Quay lại danh sách phòng live'), findsOneWidget);
+
+    // 5. Chat input disabled with hint 'Phiên phát sóng đã kết thúc'
+    final chatInputFinder = find.byKey(const Key('livestream-chat-input'));
+    expect(chatInputFinder, findsOneWidget);
+    final textField = tester.widget<TextField>(chatInputFinder);
+    expect(textField.enabled, isFalse);
+    expect(textField.decoration?.hintText, 'Phiên phát sóng đã kết thúc');
+
+    // 6. Send button disabled
+    final sendBtnFinder = find.byKey(const Key('livestream-chat-send'));
+    expect(sendBtnFinder, findsOneWidget);
+    final sendBtn = tester.widget<FilledButton>(sendBtnFinder);
+    expect(sendBtn.onPressed, isNull);
+  });
 }

@@ -398,6 +398,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
   bool _sendingChat = false;
   int _lastChatTimestamp = 0;
   bool _isFullscreen = false;
+  bool _isSessionEnded = false;
 
   // Agora RTC Engine State
   RtcEngine? _agoraEngine;
@@ -494,6 +495,18 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       return;
     }
 
+    if (!widget.isHost && widget.session.status.toUpperCase() == 'ENDED') {
+      if (mounted) {
+        setState(() {
+          _joining = false;
+          _isSessionEnded = true;
+          _remoteHostUid = null;
+          _joinError = null;
+        });
+      }
+      return;
+    }
+
     try {
       final token = await widget.state.joinLivestream(
         widget.session,
@@ -501,6 +514,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
       );
       _joinedServer = true;
       await _pollChats();
+      if (_isSessionEnded) return;
       _chatPollTimer?.cancel();
       _chatPollTimer = Timer.periodic(
         const Duration(seconds: 2),
@@ -631,6 +645,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                   debugPrint('[Agora Viewer] Host left: $remoteUid');
                   if (mounted && _remoteHostUid == remoteUid) {
                     setState(() => _remoteHostUid = null);
+                    unawaited(_pollChats());
                   }
                 },
             onUserMuteVideo:
@@ -948,8 +963,14 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
           latest.status.toUpperCase() == 'ENDED' &&
           mounted &&
           !widget.isHost) {
+        _chatPollTimer?.cancel();
+        unawaited(_cleanupAgora());
+        widget.state.activeLivestreams.removeWhere((s) => s.id == widget.session.id);
         setState(() {
-          _joinError = 'Phiên phát sóng đã kết thúc bởi người kể chuyện.';
+          _isSessionEnded = true;
+          _remoteHostUid = null;
+          _joinError = null;
+          _isAgoraJoined = false;
         });
       }
     } catch (_) {}
@@ -1314,10 +1335,13 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                         child: TextField(
                           key: const Key('livestream-chat-input'),
                           controller: _chatCtrl,
+                          enabled: !_isSessionEnded,
                           textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _sendMessage(),
-                          decoration: const InputDecoration(
-                            hintText: 'Gửi câu hỏi hoặc bình luận trực tiếp…',
+                          onSubmitted: _isSessionEnded ? null : (_) => _sendMessage(),
+                          decoration: InputDecoration(
+                            hintText: _isSessionEnded
+                                ? 'Phiên phát sóng đã kết thúc'
+                                : 'Gửi câu hỏi hoặc bình luận trực tiếp…',
                             isDense: true,
                           ),
                         ),
@@ -1325,7 +1349,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                       const SizedBox(width: 10),
                       FilledButton(
                         key: const Key('livestream-chat-send'),
-                        onPressed: _sendingChat ? null : _sendMessage,
+                        onPressed: (_sendingChat || _isSessionEnded) ? null : _sendMessage,
                         child: const Text('Gửi'),
                       ),
                     ],
@@ -1409,8 +1433,10 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                 child: Text(
                   _joining
                       ? 'Đang kết nối Agora RTC…'
-                      : (_joinError ??
-                            '${_token?.agoraChannelName ?? session.agoraChannelName} · ${mediaState.isScreenSharing ? "Chia sẻ màn hình" : (mediaState.isCameraOn ? "Camera Video" : "Audio Only")}'),
+                      : (_isSessionEnded
+                            ? 'Phiên phát sóng đã kết thúc'
+                            : (_joinError ??
+                                '${_token?.agoraChannelName ?? session.agoraChannelName} · ${mediaState.isScreenSharing ? "Chia sẻ màn hình" : (mediaState.isCameraOn ? "Camera Video" : "Audio Only")}')),
                   style: const TextStyle(fontSize: 11, color: Palette.muted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -1566,7 +1592,9 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (mediaState.isScreenSharing)
+            if (_isSessionEnded)
+              _buildCameraCanvas(mediaState, session, channelName)
+            else if (mediaState.isScreenSharing)
               _buildScreenShareCanvas(mediaState, session)
             else if (mediaState.isCameraOn)
               _buildCameraCanvas(mediaState, session, channelName)
@@ -1583,21 +1611,23 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: Palette.red,
+                      color: _isSessionEnded ? const Color(0xFF6B7280) : Palette.red,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          CupertinoIcons.dot_radiowaves_left_right,
+                          _isSessionEnded
+                              ? CupertinoIcons.stop_circle_fill
+                              : CupertinoIcons.dot_radiowaves_left_right,
                           size: 11,
                           color: Palette.paper,
                         ),
-                        SizedBox(width: 4),
+                        const SizedBox(width: 4),
                         Text(
-                          'ĐANG PHÁT SÓNG',
-                          style: TextStyle(
+                          _isSessionEnded ? 'ĐÃ KẾT THÚC' : 'ĐANG PHÁT SÓNG',
+                          style: const TextStyle(
                             fontSize: 9.5,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
@@ -1607,56 +1637,58 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  if (mediaState.isScreenSharing)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0284C7),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            CupertinoIcons.device_laptop,
-                            size: 11,
-                            color: Palette.paper,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'CHIA SẺ MÀN HÌNH',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
+                  if (!_isSessionEnded) ...[
+                    const SizedBox(width: 6),
+                    if (mediaState.isScreenSharing)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.device_laptop,
+                              size: 11,
                               color: Palette.paper,
                             ),
+                            SizedBox(width: 4),
+                            Text(
+                              'CHIA SẺ MÀN HÌNH',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Palette.paper,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (mediaState.isCameraOn)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'CAM ${mediaState.isFrontCamera ? "TRƯỚC" : "SAU"} · 1080p',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                            color: Palette.paper,
                           ),
-                        ],
-                      ),
-                    )
-                  else if (mediaState.isCameraOn)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        'CAM ${mediaState.isFrontCamera ? "TRƯỚC" : "SAU"} · 1080p',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                          color: Palette.paper,
                         ),
                       ),
-                    ),
+                  ],
                 ],
               ),
             ),
@@ -1665,7 +1697,7 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
               right: 6,
               child: Row(
                 children: [
-                  if (!widget.isHost) ...[
+                  if (!widget.isHost && !_isSessionEnded) ...[
                     IconButton(
                       key: const Key('viewer-audio-toggle'),
                       icon: Icon(
@@ -1687,24 +1719,25 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                     ),
                     const SizedBox(width: 4),
                   ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _isAgoraJoined ? 'AGORA RTC · HD' : 'HD 60FPS',
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w500,
+                  if (!_isSessionEnded)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _isAgoraJoined ? 'AGORA RTC · HD' : 'HD 60FPS',
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
                   const SizedBox(width: 4),
                   IconButton(
                     icon: Icon(
@@ -1743,17 +1776,20 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
   ) {
     final isAgoraHostActive =
         widget.isHost &&
+        !_isSessionEnded &&
         _agoraEngine != null &&
         _isAgoraJoined &&
         mediaState.isCameraOn;
 
     final isRealCameraActive =
+        !_isSessionEnded &&
         _cameraController != null &&
         _cameraController!.value.isInitialized &&
         mediaState.isCameraOn;
 
     final isAgoraRemoteActive =
         !widget.isHost &&
+        !_isSessionEnded &&
         _agoraEngine != null &&
         _isAgoraJoined &&
         _remoteHostUid != null &&
@@ -2130,17 +2166,20 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
   ) {
     final isAgoraHostActive =
         widget.isHost &&
+        !_isSessionEnded &&
         _agoraEngine != null &&
         _isAgoraJoined &&
         mediaState.isCameraOn;
 
     final isRealCameraActive =
+        !_isSessionEnded &&
         _cameraController != null &&
         _cameraController!.value.isInitialized &&
         mediaState.isCameraOn;
 
     final isAgoraRemoteActive =
         !widget.isHost &&
+        !_isSessionEnded &&
         _agoraEngine != null &&
         _isAgoraJoined &&
         _remoteHostUid != null &&
@@ -2261,7 +2300,70 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                     'Kênh $channelName · Người kể chuyện',
                     style: const TextStyle(fontSize: 10, color: Colors.white60),
                   ),
-                  if (!widget.isHost) ...[
+                  if (_isSessionEnded) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Flexible(
+                            child: Text(
+                              'Buổi phát sóng trực tiếp đã kết thúc',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      key: const Key('return-livestream-list-btn'),
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Palette.red,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      icon: const Icon(CupertinoIcons.arrow_left, size: 13, color: Colors.white),
+                      label: const Text(
+                        'Quay lại danh sách phòng live',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ] else if (!widget.isHost) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -2289,17 +2391,20 @@ class _LivestreamRoomPageState extends State<LivestreamRoomPage> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            _isAgoraJoined
-                                ? (_remoteHostUid != null
-                                      ? (_remoteVideoMuted
-                                            ? 'Creator tạm tắt camera · Đang phát tiếng'
-                                            : 'Đang kết nối luồng phát sóng')
-                                      : 'Đang chờ Creator bật luồng phát...')
-                                : 'Đang kết nối Agora RTC...',
-                            style: const TextStyle(
-                              fontSize: 10.5,
-                              color: Colors.white70,
+                          Flexible(
+                            child: Text(
+                              _isAgoraJoined
+                                  ? (_remoteHostUid != null
+                                        ? (_remoteVideoMuted
+                                              ? 'Creator tạm tắt camera · Đang phát tiếng'
+                                              : 'Đang kết nối luồng phát sóng')
+                                        : 'Đang chờ Creator bật luồng phát...')
+                                  : 'Đang kết nối Agora RTC...',
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.white70,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
