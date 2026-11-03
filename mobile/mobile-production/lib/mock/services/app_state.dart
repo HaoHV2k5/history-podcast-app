@@ -313,6 +313,7 @@ class AppState extends ChangeNotifier {
         if (profile.fullName.trim().isNotEmpty) {
           displayName = profile.fullName.trim();
           await preferences.setString('displayName', displayName);
+          _updateCommentAuthorNames(displayName);
         }
         if (profile.email.isNotEmpty) {
           userEmail = profile.email;
@@ -514,6 +515,7 @@ class AppState extends ChangeNotifier {
                 coverImage: m.coverUrl ?? '',
                 monthlyPrice: plan?.monthlyPrice,
                 hasBackendPlan: plan != null && plan.isActive,
+                followerCount: m.followerCount,
               ),
             );
           }
@@ -533,6 +535,17 @@ class AppState extends ChangeNotifier {
 
     if (isLoggedIn) {
       await refreshProfile();
+      if (channelRepository != null) {
+        try {
+          final followedList = await channelRepository!.getFollowedChannels();
+          for (final fc in followedList) {
+            if (fc.name.trim().isNotEmpty) {
+              followed.add(fc.name.trim());
+            }
+          }
+          unawaited(preferences.setStringList('followedChannels', followed.toList()));
+        } catch (_) {}
+      }
     }
 
     if (walletRepository != null) {
@@ -580,10 +593,21 @@ class AppState extends ChangeNotifier {
         final realComments = await commentRepository!.getComments();
         for (final rc in realComments) {
           final epId = rc.artifactId?.toString() ?? '1';
+          final resolvedAuthor = (rc.authorName != null &&
+                  rc.authorName!.trim().isNotEmpty &&
+                  rc.authorName != 'Người nghe')
+              ? rc.authorName!.trim()
+              : ((currentUserId != null &&
+                      rc.userId == currentUserId &&
+                      displayName.isNotEmpty &&
+                      displayName != 'Người nghe')
+                  ? displayName
+                  : (rc.authorName ??
+                      (displayName != 'Người nghe' ? displayName : 'Người nghe')));
           final epCmt = EpisodeComment(
             id: rc.id.toString(),
             episodeId: epId,
-            authorName: rc.authorName ?? 'Người nghe',
+            authorName: resolvedAuthor,
             content: rc.textBody,
             timeAgo: rc.createdAt != null
                 ? rc.createdAt!.split('T').first
@@ -591,7 +615,10 @@ class AppState extends ChangeNotifier {
             isFlagged: rc.status?.toUpperCase() == 'FLAGGED',
           );
           final list = _comments.putIfAbsent(epId, () => []);
-          if (!list.any((c) => c.id == epCmt.id)) {
+          final idx = list.indexWhere((c) => c.id == epCmt.id);
+          if (idx >= 0) {
+            list[idx] = epCmt;
+          } else {
             list.insert(0, epCmt);
           }
         }
@@ -655,13 +682,14 @@ class AppState extends ChangeNotifier {
       final currentBase = apiClient!.baseUrl;
       String? fallbackUrl;
       if (currentBase.contains('10.0.2.2')) {
-        fallbackUrl = 'http://192.168.1.123:8080';
+        fallbackUrl = 'http://192.168.1.133:8080';
       } else if (currentBase.contains('192.168.1.115') ||
           currentBase.contains('192.168.1.72') ||
           currentBase.contains('172.18.1.206') ||
           currentBase.contains('10.87.31.229') ||
-          currentBase.contains('192.168.1.80')) {
-        fallbackUrl = 'http://192.168.1.123:8080';
+          currentBase.contains('192.168.1.80') ||
+          currentBase.contains('192.168.1.123')) {
+        fallbackUrl = 'http://192.168.1.133:8080';
       }
       if (fallbackUrl != null) {
         apiClient!.updateBaseUrl(fallbackUrl);
@@ -688,17 +716,35 @@ class AppState extends ChangeNotifier {
         final list = await commentRepository!.getComments(artifactId: artId);
         final bucket = _comments.putIfAbsent(episodeId, () => []);
         for (final rc in list) {
+          final resolvedAuthor = (rc.authorName != null &&
+                  rc.authorName!.trim().isNotEmpty &&
+                  rc.authorName != 'Người nghe')
+              ? rc.authorName!.trim()
+              : ((currentUserId != null &&
+                      rc.userId == currentUserId &&
+                      displayName.isNotEmpty &&
+                      displayName != 'Người nghe')
+                  ? displayName
+                  : (rc.authorName ??
+                      (displayName != 'Người nghe' ? displayName : 'Người nghe')));
           final epCmt = EpisodeComment(
             id: rc.id.toString(),
             episodeId: episodeId,
-            authorName: rc.authorName ?? 'Người nghe',
+            authorName: resolvedAuthor,
             content: rc.textBody,
             timeAgo: rc.createdAt != null
                 ? rc.createdAt!.split('T').first
                 : 'Vừa xong',
             isFlagged: rc.status?.toUpperCase() == 'FLAGGED',
           );
-          if (!bucket.any((c) => c.id == epCmt.id)) {
+          final idx = bucket.indexWhere((c) => c.id == epCmt.id);
+          if (idx >= 0) {
+            if (bucket[idx].authorName != epCmt.authorName ||
+                bucket[idx].content != epCmt.content) {
+              bucket[idx] = epCmt;
+              changed = true;
+            }
+          } else {
             bucket.insert(0, epCmt);
             changed = true;
           }
@@ -1275,7 +1321,21 @@ class AppState extends ChangeNotifier {
     if (rawUserComments != null) {
       for (final raw in rawUserComments) {
         try {
-          final cmt = EpisodeComment.fromJson(raw);
+          var cmt = EpisodeComment.fromJson(raw);
+          if ((cmt.authorName == 'Người nghe' || cmt.authorName.isEmpty) &&
+              displayName.isNotEmpty &&
+              displayName != 'Người nghe') {
+            cmt = EpisodeComment(
+              id: cmt.id,
+              episodeId: cmt.episodeId,
+              authorName: displayName,
+              content: cmt.content,
+              timeAgo: cmt.timeAgo,
+              isFlagged: cmt.isFlagged,
+              likes: cmt.likes,
+              isLiked: cmt.isLiked,
+            );
+          }
           final list = _comments.putIfAbsent(cmt.episodeId, () => []);
           // Replace or insert
           final idx = list.indexWhere((it) => it.id == cmt.id);
@@ -1285,6 +1345,27 @@ class AppState extends ChangeNotifier {
             list.insert(0, cmt);
           }
         } catch (_) {}
+      }
+    }
+  }
+
+  void _updateCommentAuthorNames(String newName) {
+    if (newName.isEmpty || newName == 'Người nghe') return;
+    for (final entry in _comments.entries) {
+      final list = entry.value;
+      for (int i = 0; i < list.length; i++) {
+        if (list[i].authorName == 'Người nghe' || list[i].authorName.isEmpty) {
+          list[i] = EpisodeComment(
+            id: list[i].id,
+            episodeId: list[i].episodeId,
+            authorName: newName,
+            content: list[i].content,
+            timeAgo: list[i].timeAgo,
+            isFlagged: list[i].isFlagged,
+            likes: list[i].likes,
+            isLiked: list[i].isLiked,
+          );
+        }
       }
     }
   }
@@ -1334,7 +1415,7 @@ class AppState extends ChangeNotifier {
   }) async {
     final id = identifier.trim();
     if (id.isEmpty) {
-      throw ArgumentError('Nhập email hoặc số điện thoại.');
+      throw ArgumentError('Nhập email.');
     }
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
@@ -1431,6 +1512,7 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
+      _updateCommentAuthorNames(displayName);
       notifyListeners();
       unawaited(initRealBackend());
       return;
@@ -1475,7 +1557,7 @@ class AppState extends ChangeNotifier {
     final n = name.trim();
     final id = identifier.trim();
     if (n.isEmpty) throw ArgumentError('Nhập họ tên của bạn.');
-    if (id.isEmpty) throw ArgumentError('Nhập email hoặc số điện thoại.');
+    if (id.isEmpty) throw ArgumentError('Nhập email.');
     if (password.length < 6) {
       throw ArgumentError('Mật khẩu cần ít nhất 6 ký tự.');
     }
@@ -1525,6 +1607,7 @@ class AppState extends ChangeNotifier {
       checkoutStates.clear();
       await preferences.remove('memberships');
       await preferences.remove('checkoutStates');
+      _updateCommentAuthorNames(displayName);
       notifyListeners();
       unawaited(initRealBackend());
       return;
@@ -1712,20 +1795,29 @@ class AppState extends ChangeNotifier {
     _sendingComments.add(episodeId);
     try {
       String createdId = 'cmt-${DateTime.now().microsecondsSinceEpoch}';
+      String resolvedAuthor = (displayName.trim().isNotEmpty && displayName != 'Người nghe')
+          ? displayName.trim()
+          : (userEmail != null && userEmail!.contains('@') ? userEmail!.split('@').first : 'Người nghe');
 
       if (commentRepository != null) {
         final artId = int.tryParse(episodeId);
         final res = await commentRepository!.createComment(
           artifactId: artId,
           textBody: content,
+          userId: currentUserId,
         );
         createdId = res.id.toString();
+        if (res.authorName != null &&
+            res.authorName!.trim().isNotEmpty &&
+            res.authorName != 'Người nghe') {
+          resolvedAuthor = res.authorName!.trim();
+        }
       }
 
       final comment = EpisodeComment(
         id: createdId,
         episodeId: episodeId,
-        authorName: displayName,
+        authorName: resolvedAuthor,
         content: content,
         timeAgo: 'Vừa xong',
       );
@@ -2015,10 +2107,58 @@ class AppState extends ChangeNotifier {
   }
 
   void toggleFollow(String channel) {
-    followed.contains(channel)
-        ? followed.remove(channel)
-        : followed.add(channel);
+    final isFollowing = followed.contains(channel);
+    if (isFollowing) {
+      followed.remove(channel);
+    } else {
+      followed.add(channel);
+    }
     unawaited(preferences.setStringList('followedChannels', followed.toList()));
+
+    final target = channel.trim().toLowerCase();
+    int? channelId;
+    for (final c in channels) {
+      if (c.name.trim().toLowerCase() == target && c.id != null) {
+        channelId = c.id;
+        break;
+      }
+    }
+    if (channelId == null) {
+      for (final c in remoteChannels) {
+        if (c.name.trim().toLowerCase() == target && c.id != null) {
+          channelId = c.id;
+          break;
+        }
+      }
+    }
+
+    final idx = remoteChannels.indexWhere((c) => c.name.trim().toLowerCase() == target);
+    if (idx >= 0) {
+      final old = remoteChannels[idx];
+      final newCount = (old.followerCount + (isFollowing ? -1 : 1)).clamp(0, 9999999);
+      remoteChannels[idx] = Channel(
+        old.name,
+        old.initial,
+        old.image,
+        old.description,
+        id: old.id,
+        creatorId: old.creatorId,
+        coverImage: old.coverImage,
+        monthlyPrice: old.monthlyPrice,
+        hasBackendPlan: old.hasBackendPlan,
+        followerCount: newCount,
+      );
+    }
+
+    if (isLoggedIn && isLiveBackend && channelRepository != null && channelId != null) {
+      final id = channelId;
+      if (isFollowing) {
+        unawaited(channelRepository!.unfollowChannel(id).catchError((_) {}));
+      } else {
+        unawaited(channelRepository!.followChannel(id).catchError((_) {}));
+      }
+    }
+
     notifyListeners();
   }
 

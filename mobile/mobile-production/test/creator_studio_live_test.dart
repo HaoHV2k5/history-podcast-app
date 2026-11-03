@@ -341,6 +341,11 @@ void main() {
       // Thẩm định kịch bản sử liệu (AI Shield)
       await tester.tap(find.text('Kịch bản có sẵn'));
       await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('ai-script-input')),
+        kSampleHistoricalScript,
+      );
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('verify-script-btn')),
         80,
@@ -367,6 +372,12 @@ void main() {
 
       // Bước 2: Phân cảnh & Hình ảnh
       expect(find.text('Phân cảnh & Hình ảnh'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Tiếp tục: Chọn giọng ->'),
+        80,
+        scrollable: aiScrollable,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Tiếp tục: Chọn giọng ->'));
       await tester.pumpAndSettle();
 
@@ -376,6 +387,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(settingsSaved, isTrue);
 
+      await tester.scrollUntilVisible(
+        find.text('Tiếp tục: Kết xuất video ->'),
+        80,
+        scrollable: aiScrollable,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Tiếp tục: Kết xuất video ->'));
       await tester.pumpAndSettle();
 

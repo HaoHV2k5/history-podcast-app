@@ -138,7 +138,8 @@ export const creatorStudioApi = {
   previewVoice: async (request: CreatorVoicePreviewRequest): Promise<ApiResponse<CreatorVoicePreviewResponse>> => {
     const res = await apiClient.post<ApiResponse<CreatorVoicePreviewResponse>>(
       '/api/v1/creator/studio/voices/preview',
-      request
+      request,
+      { timeout: 60000 }
     );
     if (res.data && res.data.success === false) {
       throw new BusinessApiError(
@@ -156,7 +157,8 @@ export const creatorStudioApi = {
   generateStoryboard: async (request: CreatorStoryboardRequest): Promise<ApiResponse<StoryboardResponse>> => {
     const res = await apiClient.post<ApiResponse<StoryboardResponse>>(
       '/api/v1/creator/studio/storyboard',
-      request
+      request,
+      { timeout: 120000 }
     );
     if (res.data && res.data.success === false) {
       throw new BusinessApiError(
@@ -174,7 +176,8 @@ export const creatorStudioApi = {
   verifyScript: async (request: VerifyScriptRequest): Promise<ApiResponse<ScriptVerificationResponse>> => {
     const res = await apiClient.post<ApiResponse<ScriptVerificationResponse>>(
       '/api/v1/creator/studio/verify-script',
-      request
+      request,
+      { timeout: 120000 }
     );
     if (res.data && res.data.success === false) {
       throw new BusinessApiError(
@@ -214,7 +217,8 @@ export const creatorStudioApi = {
   renderVideo: async (request: CreatorRenderRequest): Promise<ApiResponse<CreatorRenderResponse>> => {
     const res = await apiClient.post<ApiResponse<CreatorRenderResponse>>(
       '/api/v1/creator/studio/render',
-      request
+      request,
+      { timeout: 120000 }
     );
     if (res.data && res.data.success === false) {
       throw new BusinessApiError(

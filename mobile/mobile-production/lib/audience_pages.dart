@@ -63,6 +63,7 @@ class _ChannelPageState extends State<ChannelPage> {
     widget.state.loadChannelMembershipPlan(widget.channel.name);
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
+      widget.state.refreshLivestreams();
     }
     _resolveChannelAndReviews();
   }
@@ -115,6 +116,15 @@ class _ChannelPageState extends State<ChannelPage> {
   }
 
   void _openCommissionSheet(Channel c) {
+    if (!widget.state.isLoggedIn) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => AuthSheet(state: widget.state),
+      );
+      return;
+    }
     final chId = _resolvedChannelId ?? c.id ?? 1;
     final crId = _resolvedCreatorId ?? c.creatorId ?? 2;
     showModalBottomSheet<void>(
@@ -175,6 +185,9 @@ class _ChannelPageState extends State<ChannelPage> {
         coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
         monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
         hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
+        followerCount: remoteMatch.followerCount > 0
+            ? remoteMatch.followerCount
+            : (widget.channel.followerCount > 0 ? widget.channel.followerCount : baseC.followerCount),
       );
 
       final followed = widget.state.followed.contains(c.name);
@@ -235,7 +248,7 @@ class _ChannelPageState extends State<ChannelPage> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
+              '${c.followerCount > 0 ? "${c.followerCount} người theo dõi · " : ""}${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
               style: const TextStyle(color: Palette.muted, fontSize: 12),
             ),
             const SizedBox(height: 20),
@@ -1014,6 +1027,7 @@ class _MembershipPageState extends State<MembershipPage> {
     widget.state.loadChannelMembershipPlan(widget.channel.name);
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
+      widget.state.refreshLivestreams();
     }
   }
 
@@ -1384,6 +1398,15 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     TextButton(
                       onPressed: () async {
+                        if (!widget.state.isLoggedIn) {
+                          await showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            showDragHandle: true,
+                            builder: (_) => AuthSheet(state: widget.state),
+                          );
+                          return;
+                        }
                         await Navigator.push(
                           context,
                           MaterialPageRoute<void>(
@@ -1659,7 +1682,11 @@ class _ProfileContentState extends State<ProfileContent> {
   void initState() {
     super.initState();
     if (widget.state.isLoggedIn) {
-      widget.state.refreshProfile();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.state.refreshProfile();
+        }
+      });
     }
   }
 
@@ -1698,26 +1725,6 @@ class _ProfileContentState extends State<ProfileContent> {
           borderColor: const Color(0xFF8D6E63),
           backgroundColor: const Color(0xFFFAF6F2),
           textColor: const Color(0xFF4E342E),
-        ),
-      );
-    }
-
-    // 3. FREELANCER (khi tài khoản có vai trò FREELANCER / NARRATOR)
-    final hasFreelancer = state.isFreelancer ||
-        state.userRoles.any((r) =>
-            r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR') ||
-        state.preferences.getBool('isFreelancer') == true ||
-        state.preferences.getBool('isFreelancerActiveV1') == true ||
-        state.preferences.getString('narratorFreelancerProfileV1') != null;
-
-    if (hasFreelancer) {
-      badges.add(
-        _buildRolePill(
-          key: const Key('role-badge-freelancer'),
-          label: 'FREELANCER',
-          borderColor: const Color(0xFF00796B),
-          backgroundColor: const Color(0xFFE0F2F1).withValues(alpha: 0.6),
-          textColor: const Color(0xFF004D40),
         ),
       );
     }
@@ -1948,6 +1955,10 @@ class _ProfileContentState extends State<ProfileContent> {
             ? 'Số dư khả dụng: ${_formatVndPrice(state.walletAvailableBalance.toDouble())}'
             : 'Số dư và lịch sử giao dịch',
         onTap: () async {
+          if (!state.isLoggedIn) {
+            _openAuth(context);
+            return;
+          }
           await Navigator.push(
             context,
             MaterialPageRoute<void>(
@@ -1992,12 +2003,18 @@ class _ProfileContentState extends State<ProfileContent> {
         icon: CupertinoIcons.pencil_outline,
         title: 'Không gian sáng tạo',
         subtitle: 'Dành cho người kể và người đọc',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => CreativeWorkspacePage(state: state),
-          ),
-        ),
+        onTap: () {
+          if (!state.isLoggedIn) {
+            _openAuth(context);
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => CreativeWorkspacePage(state: state),
+            ),
+          );
+        },
       ),
       _PersonalLink(
         key: const Key('open-settings'),
@@ -2351,7 +2368,7 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   void _showServerConfig() {
-    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.133:8080';
     final controller = TextEditingController(text: currentUrl);
     showDialog(
       context: context,
@@ -2373,7 +2390,7 @@ class _AuthSheetState extends State<AuthSheet> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Palette.soft,
-                hintText: 'http://192.168.1.123:8080',
+                hintText: 'http://192.168.1.133:8080',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -2385,8 +2402,8 @@ class _AuthSheetState extends State<AuthSheet> {
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Wi-Fi máy tính (192.168.1.123)', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://192.168.1.123:8080',
+                  label: const Text('Wi-Fi máy tính (192.168.1.133)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://192.168.1.133:8080',
                 ),
                 ActionChip(
                   label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
@@ -2571,11 +2588,11 @@ class _AuthSheetState extends State<AuthSheet> {
               key: const Key('auth-identifier'),
               controller: identifierCtrl,
               decoration: const InputDecoration(
-                labelText: 'Email hoặc số điện thoại',
-                hintText: 'nghechuyen@suky.vn hoặc 0901234567',
+                labelText: 'Email',
+                hintText: 'nghechuyen@suky.vn',
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Nhập email hoặc SĐT' : null,
+                  v == null || v.trim().isEmpty ? 'Nhập email' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(

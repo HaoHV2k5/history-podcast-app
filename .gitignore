@@ -75,3 +75,6 @@ tool/data/
 **/outputs/
 *.mp4
 !tool_video_v5/examples/scene-01-monkey-mountain-banana-whiteboard.mp4
+.taste-skill/
+DESIGN.md
+

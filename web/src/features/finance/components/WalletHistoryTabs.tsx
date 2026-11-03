@@ -23,6 +23,8 @@ interface WalletHistoryTabsProps {
   transactions: WalletTransactionItem[];
   withdrawals: WithdrawalItem[];
   bankAccounts: BankAccountItem[];
+  primaryBankId?: number | null;
+  onSelectPrimaryBank?: (bankId: number) => void;
   isLoadingTx?: boolean;
   isLoadingWithdrawals?: boolean;
   isLoadingBanks?: boolean;
@@ -39,6 +41,8 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
   transactions,
   withdrawals,
   bankAccounts,
+  primaryBankId,
+  onSelectPrimaryBank,
   isLoadingTx = false,
   isLoadingWithdrawals = false,
   isLoadingBanks = false,
@@ -97,6 +101,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
     <section
       aria-label="Lịch sử giao dịch và tài khoản liên kết"
       className="space-y-4"
+      data-ui="wallet-history-tabs"
       data-motion-target="history-tabs-container"
     >
       {/* ─── TAB NAVIGATION BAR ─── */}
@@ -534,44 +539,63 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {bankAccounts.map((b) => (
-                <div
-                  key={b.id}
-                  className="rounded-2xl border border-[#EBE4D8] bg-white p-5 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#981B1E]">{b.bankName}</span>
-                      {b.verified !== false && (
-                        <span className="flex items-center gap-1 text-[10px] font-semibold text-[#168A4E] bg-[#EDFDF2] px-2 py-0.5 rounded-full border border-[#A6E9B9]">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Đã xác minh
-                        </span>
-                      )}
+              {bankAccounts.map((b) => {
+                const isPrimary =
+                  b.id === primaryBankId || (!primaryBankId && b.id === bankAccounts[0]?.id);
+                return (
+                  <div
+                    key={b.id}
+                    className={cn(
+                      'rounded-2xl border bg-white p-5 shadow-2xs hover:shadow-xs transition-[box-shadow,border-color] space-y-4 flex flex-col justify-between',
+                      isPrimary
+                        ? 'border-[#168A4E] ring-1 ring-[#168A4E]/30 bg-[#FAFDFB]'
+                        : 'border-[#EBE4D8]'
+                    )}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#981B1E]">{b.bankName}</span>
+                        <div className="flex items-center gap-1.5">
+                          {isPrimary ? (
+                            <span className="flex items-center gap-1 text-[10px] font-semibold text-[#168A4E] bg-[#EDFDF2] px-2 py-0.5 rounded-full border border-[#A6E9B9]">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Thẻ chính
+                            </span>
+                          ) : onSelectPrimaryBank ? (
+                            <button
+                              type="button"
+                              onClick={() => onSelectPrimaryBank(b.id)}
+                              className="text-[11px] font-semibold text-[#786D66] hover:text-[#981B1E] hover:underline cursor-pointer"
+                            >
+                              Đặt làm thẻ chính
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="font-mono text-base font-bold text-[#1F1A19] tracking-wider">
+                        {maskAccountNumber(b.accountNumber)}
+                      </div>
+                      <div className="text-xs text-[#786D66] font-medium font-sans">
+                        {b.accountHolderName}
+                      </div>
                     </div>
-                    <div className="font-mono text-base font-bold text-[#1F1A19] tracking-wider">
-                      {maskAccountNumber(b.accountNumber)}
-                    </div>
-                    <div className="text-xs text-[#786D66] uppercase tracking-wider font-semibold">
-                      {b.accountHolderName}
-                    </div>
-                  </div>
 
-                  <div className="pt-3 border-t border-[#EBE4D8] flex items-center justify-between text-[11px] text-[#786D66]">
-                    <span>Thêm ngày {formatDate(b.createdAt)}</span>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteBank(b.id)}
-                      disabled={isDeletingBank}
-                      aria-label={`Xóa tài khoản ngân hàng ${b.bankName}`}
-                      className="p-1.5 rounded-lg text-[#786D66] hover:text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
-                      title="Xóa tài khoản này"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="pt-3 border-t border-[#EBE4D8] flex items-center justify-between text-[11px] text-[#786D66]">
+                      <span>Thêm ngày {formatDate(b.createdAt)}</span>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteBank(b.id)}
+                        disabled={isDeletingBank}
+                        aria-label={`Xóa tài khoản ngân hàng ${b.bankName}`}
+                        className="p-1.5 rounded-lg text-[#786D66] hover:text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
+                        title="Xóa tài khoản này"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

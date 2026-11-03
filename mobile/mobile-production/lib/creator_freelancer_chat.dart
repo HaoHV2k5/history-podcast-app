@@ -1299,11 +1299,10 @@ class CreatorFreelancerChatHubSheet extends StatefulWidget {
 }
 
 class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHubSheet> {
-  int _activeTab = 0; // 0: Tất cả, 1: Hợp đồng, 2: Đơn đặt nội dung, 3: Kết nối nhanh
   String _viewFilter = 'ALL'; // 'ALL' (Tất cả) | 'BY_PARTNER' (Theo khách) | 'ACTIVE' (Đang chạy) | 'ENDED' (Kết thúc)
-  final _quickContractCtrl = TextEditingController();
-  final _quickPostCtrl = TextEditingController();
-  final _quickApplicantCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  bool _loadingRemote = false;
   List<ContractModel> _remoteContracts = [];
   List<HireRequestModel> _remoteCommissions = [];
 
@@ -1319,33 +1318,42 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
 
   @override
   void dispose() {
-    _quickContractCtrl.dispose();
-    _quickPostCtrl.dispose();
-    _quickApplicantCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _fetchContracts() async {
-    if (widget.contractRepository != null) {
-      try {
-        final list = await widget.contractRepository!.getMyContracts();
-        if (mounted) setState(() => _remoteContracts = list);
-      } catch (_) {}
+    final hasRemoteRepo =
+        widget.contractRepository != null || widget.hireRequestRepository != null;
+    if (hasRemoteRepo && mounted) {
+      setState(() => _loadingRemote = true);
     }
-    if (widget.hireRequestRepository != null) {
-      try {
-        final results = await Future.wait([
-          widget.hireRequestRepository!.getMySent(),
-          widget.hireRequestRepository!.getMyReceived(),
-        ]);
-        final merged = <int, HireRequestModel>{};
-        for (final item in [...results[0], ...results[1]]) {
-          merged[item.id] = item;
-        }
-        if (mounted) {
-          setState(() => _remoteCommissions = merged.values.toList());
-        }
-      } catch (_) {}
+    try {
+      if (widget.contractRepository != null) {
+        try {
+          final list = await widget.contractRepository!.getMyContracts();
+          if (mounted) setState(() => _remoteContracts = list);
+        } catch (_) {}
+      }
+      if (widget.hireRequestRepository != null) {
+        try {
+          final results = await Future.wait([
+            widget.hireRequestRepository!.getMySent(),
+            widget.hireRequestRepository!.getMyReceived(),
+          ]);
+          final merged = <int, HireRequestModel>{};
+          for (final item in [...results[0], ...results[1]]) {
+            merged[item.id] = item;
+          }
+          if (mounted) {
+            setState(() => _remoteCommissions = merged.values.toList());
+          }
+        } catch (_) {}
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRemote = false);
+      }
     }
   }
 
@@ -1430,17 +1438,54 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
 
   bool _matchesStatusFilter(String rawStatus) {
     final s = rawStatus.toUpperCase();
-    final isEnded = s == 'COMPLETED' || s == 'CANCELLED';
+    final isEnded = s == 'COMPLETED' || s == 'CANCELLED' || s == 'REJECTED';
     if (_viewFilter == 'ACTIVE') return !isEnded;
     if (_viewFilter == 'ENDED') return isEnded;
     return true;
   }
 
+  bool _matchesContractSearch(ContractModel c) {
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final haystack = [
+      '#${c.id}',
+      c.id.toString(),
+      c.title,
+      c.effectiveRequesterName,
+      c.creatorFullName ?? '',
+      c.channelName ?? '',
+    ].join(' ').toLowerCase();
+    return haystack.contains(q);
+  }
+
+  bool _matchesOrderSearch(ContractOrder o) {
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final haystack = [
+      o.id,
+      o.draftTitle,
+      o.narratorName,
+      o.channelName,
+    ].join(' ').toLowerCase();
+    return haystack.contains(q);
+  }
+
+  bool _matchesCommissionSearch(HireRequestModel comm) {
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final haystack = [
+      '#${comm.id}',
+      comm.id.toString(),
+      comm.title ?? '',
+      comm.channelName ?? '',
+      comm.creatorFullName ?? '',
+      comm.effectiveRequesterName,
+    ].join(' ').toLowerCase();
+    return haystack.contains(q);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final totalContracts = _remoteContracts.isNotEmpty ? _remoteContracts.length : widget.contractOrders.length;
-    final totalApps = _remoteCommissions.length + widget.myApplications.length + widget.myPosts.fold<int>(0, (sum, p) => sum + p.applicationCount);
-
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -1470,7 +1515,7 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Hội thoại Tuyển dụng & Hợp đồng', style: editorial(21)),
+                        Text('Tin nhắn Đặt hàng & Hợp đồng', style: editorial(21)),
                         const SizedBox(height: 2),
                         const Text(
                           'Phòng chat 1-1 xác thực giữa Khách đặt nội dung và Creator',
@@ -1489,6 +1534,40 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
               ),
               const SizedBox(height: 10),
 
+              // Thanh tìm kiếm hội thoại (Mục 12)
+              TextField(
+                key: const Key('chat-hub-search-input'),
+                controller: _searchCtrl,
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: 'Tìm theo tên đối tác, tiêu đề dự án, mã hợp đồng...',
+                  hintStyle: const TextStyle(fontSize: 12.5, color: Palette.muted),
+                  prefixIcon: const Icon(CupertinoIcons.search, size: 16, color: Palette.muted),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(CupertinoIcons.clear_circled_solid, size: 16),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  filled: true,
+                  fillColor: Palette.soft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
               // 4 Tab lọc nằm gọn trên 1 hàng ngang (Không thanh cuộn ngang - Section 6.4.6)
               Row(
                 children: [
@@ -1496,11 +1575,8 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
                     child: _buildCompactFilterTab(
                       key: const Key('chat-hub-filter-all'),
                       label: 'Tất cả',
-                      selected: _viewFilter == 'ALL' && _activeTab != 3,
-                      onTap: () => setState(() {
-                        _viewFilter = 'ALL';
-                        if (_activeTab == 3) _activeTab = 0;
-                      }),
+                      selected: _viewFilter == 'ALL',
+                      onTap: () => setState(() => _viewFilter = 'ALL'),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1508,11 +1584,8 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
                     child: _buildCompactFilterTab(
                       key: const Key('chat-hub-filter-partner'),
                       label: 'Theo khách',
-                      selected: _viewFilter == 'BY_PARTNER' && _activeTab != 3,
-                      onTap: () => setState(() {
-                        _viewFilter = 'BY_PARTNER';
-                        if (_activeTab == 3) _activeTab = 0;
-                      }),
+                      selected: _viewFilter == 'BY_PARTNER',
+                      onTap: () => setState(() => _viewFilter = 'BY_PARTNER'),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1520,11 +1593,8 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
                     child: _buildCompactFilterTab(
                       key: const Key('chat-hub-filter-active'),
                       label: 'Đang chạy',
-                      selected: _viewFilter == 'ACTIVE' && _activeTab != 3,
-                      onTap: () => setState(() {
-                        _viewFilter = 'ACTIVE';
-                        if (_activeTab == 3) _activeTab = 0;
-                      }),
+                      selected: _viewFilter == 'ACTIVE',
+                      onTap: () => setState(() => _viewFilter = 'ACTIVE'),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -1532,49 +1602,9 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
                     child: _buildCompactFilterTab(
                       key: const Key('chat-hub-filter-ended'),
                       label: 'Kết thúc',
-                      selected: _viewFilter == 'ENDED' && _activeTab != 3,
-                      onTap: () => setState(() {
-                        _viewFilter = 'ENDED';
-                        if (_activeTab == 3) _activeTab = 0;
-                      }),
+                      selected: _viewFilter == 'ENDED',
+                      onTap: () => setState(() => _viewFilter = 'ENDED'),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // Category Row (giữ đầy đủ keys cho widget test & kết nối ID nhanh)
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  ChoiceChip(
-                    key: const Key('chat-hub-tab-all'),
-                    label: const Text('Mọi nguồn', style: TextStyle(fontSize: 11)),
-                    selected: _activeTab == 0,
-                    visualDensity: VisualDensity.compact,
-                    onSelected: (_) => setState(() => _activeTab = 0),
-                  ),
-                  ChoiceChip(
-                    key: const Key('chat-hub-tab-contracts'),
-                    label: Text('HĐ ($totalContracts)', style: const TextStyle(fontSize: 11)),
-                    selected: _activeTab == 1,
-                    visualDensity: VisualDensity.compact,
-                    onSelected: (_) => setState(() => _activeTab = 1),
-                  ),
-                  ChoiceChip(
-                    key: const Key('chat-hub-tab-apps'),
-                    label: Text('Đơn ($totalApps)', style: const TextStyle(fontSize: 11)),
-                    selected: _activeTab == 2,
-                    visualDensity: VisualDensity.compact,
-                    onSelected: (_) => setState(() => _activeTab = 2),
-                  ),
-                  ChoiceChip(
-                    key: const Key('chat-hub-tab-quick'),
-                    label: const Text('Kết nối ID ⚡', style: TextStyle(fontSize: 11)),
-                    selected: _activeTab == 3,
-                    visualDensity: VisualDensity.compact,
-                    onSelected: (_) => setState(() => _activeTab = 3),
                   ),
                 ],
               ),
@@ -1583,8 +1613,8 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
 
               // Content Body
               Expanded(
-                child: _activeTab == 3
-                    ? _buildQuickConnectTab()
+                child: _loadingRemote
+                    ? const Center(child: CircularProgressIndicator())
                     : _buildConversationsList(),
               ),
             ],
@@ -1627,19 +1657,38 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
   }
 
   Widget _buildConversationsList() {
-    final showContracts = _activeTab == 0 || _activeTab == 1;
-    final showApps = _activeTab == 0 || _activeTab == 2;
+    final contractIds = _remoteContracts.map((c) => c.id).toSet();
+    final contractHireReqIds = _remoteContracts
+        .where((c) => c.hireRequestId != null)
+        .map((c) => c.hireRequestId!)
+        .toSet();
 
     final filteredContracts = _remoteContracts
-        .where((c) => _matchesStatusFilter(c.status))
+        .where((c) => _matchesStatusFilter(c.status) && _matchesContractSearch(c))
         .toList();
-    final filteredCommissions = _remoteCommissions
-        .where((c) => _matchesStatusFilter(c.status))
-        .toList();
+    final filteredOrders = _remoteContracts.isEmpty
+        ? widget.contractOrders
+            .where((o) => _matchesOrderSearch(o))
+            .toList()
+        : <ContractOrder>[];
 
-    final hasContracts = filteredContracts.isNotEmpty || widget.contractOrders.isNotEmpty;
+    // Mục 7: Lọc bỏ các đơn đặt hàng đã có hợp đồng nằm trong _remoteContracts để không bị nhân đôi 2 thẻ
+    final filteredCommissions = _remoteCommissions.where((comm) {
+      if ((comm.contractId != null && contractIds.contains(comm.contractId)) ||
+          contractHireReqIds.contains(comm.id) ||
+          (comm.status.toUpperCase() == 'CONTRACT_SENT' &&
+              comm.contractId != null &&
+              _remoteContracts.isNotEmpty)) {
+        return false;
+      }
+      return _matchesStatusFilter(comm.status) && _matchesCommissionSearch(comm);
+    }).toList();
+
+    final hasContracts = filteredContracts.isNotEmpty || filteredOrders.isNotEmpty;
     final hasCommissions = filteredCommissions.isNotEmpty;
-    final hasApps = hasCommissions || widget.myApplications.isNotEmpty || widget.myPosts.any((p) => p.applicationCount > 0);
+    final hasApps = hasCommissions ||
+        widget.myApplications.isNotEmpty ||
+        widget.myPosts.any((p) => p.applicationCount > 0);
 
     if (!hasContracts && !hasApps) {
       return Center(
@@ -1661,17 +1710,9 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
               Text('Chưa có hội thoại nào', style: editorial(19)),
               const SizedBox(height: 8),
               const Text(
-                'Bạn chưa có hợp đồng hoặc đơn đặt nội dung nào mở phòng chat. Bạn có thể chuyển sang tab "Kết nối ID ⚡" để mở phòng chat trực tiếp với bất kỳ ID nào.',
+                'Bạn chưa có hợp đồng hoặc đơn đặt nội dung nào phù hợp với bộ lọc hiện tại.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12.5, color: Palette.muted, height: 1.5),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                key: const Key('switch-quick-connect-btn'),
-                style: FilledButton.styleFrom(backgroundColor: Palette.red),
-                onPressed: () => setState(() => _activeTab = 3),
-                icon: const Icon(CupertinoIcons.bolt_fill, size: 14),
-                label: const Text('Mở kết nối ID nhanh'),
               ),
             ],
           ),
@@ -1707,18 +1748,18 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
       padding: const EdgeInsets.symmetric(vertical: 12),
       children: [
         // Hợp đồng
-        if (showContracts && hasContracts) ...[
+        if (hasContracts) ...[
           const Eyebrow('HỢP ĐỒNG & LỘ TRÌNH MILESTONE'),
           const SizedBox(height: 8),
           if (filteredContracts.isNotEmpty)
             ...filteredContracts.map((c) => _buildRemoteContractCard(c))
           else
-            ...widget.contractOrders.map((o) => _buildContractOrderCard(o)),
+            ...filteredOrders.map((o) => _buildContractOrderCard(o)),
           const SizedBox(height: 16),
         ],
 
         // Đơn đặt làm nội dung (Commission)
-        if (showApps && hasCommissions) ...[
+        if (hasCommissions) ...[
           const Eyebrow('ĐƠN ĐẶT LÀM NỘI DUNG (COMMISSION)'),
           const SizedBox(height: 8),
           ...filteredCommissions.map((comm) {
@@ -1790,7 +1831,7 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
         ],
 
         // Ứng tuyển bài đăng của tôi
-        if (showApps && widget.myPosts.any((p) => p.applicationCount > 0)) ...[
+        if (widget.myPosts.any((p) => p.applicationCount > 0)) ...[
           const Eyebrow('ỨNG VIÊN BÀI ĐĂNG CỦA TÔI'),
           const SizedBox(height: 8),
           ...widget.myPosts.where((p) => p.applicationCount > 0).map(
@@ -1849,7 +1890,7 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
         ],
 
         // Đơn đã nộp của tôi (vai trò Freelancer)
-        if (showApps && widget.myApplications.isNotEmpty) ...[
+        if (widget.myApplications.isNotEmpty) ...[
           const Eyebrow('ĐƠN ĐÃ NỘP CỦA TÔI (FREELANCER)'),
           const SizedBox(height: 8),
           ...widget.myApplications.map(
@@ -2055,142 +2096,6 @@ class _CreatorFreelancerChatHubSheetState extends State<CreatorFreelancerChatHub
             ),
             icon: const Icon(CupertinoIcons.chat_bubble_fill, size: 12),
             label: const Text('Mở chat', style: TextStyle(fontSize: 11.5)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickConnectTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Palette.soft,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Palette.line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(CupertinoIcons.bolt_fill, size: 16, color: Palette.red),
-                    const SizedBox(width: 8),
-                    Text('Kết nối nhanh theo Hợp đồng', style: editorial(16)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Nhập contractId để gọi API POST /api/v1/chats/conversation',
-                  style: TextStyle(fontSize: 12, color: Palette.muted),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('quick-contract-id-input'),
-                  controller: _quickContractCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã hợp đồng (contractId)',
-                    hintText: 'Ví dụ: 1',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const Key('quick-connect-contract-btn'),
-                    style: FilledButton.styleFrom(backgroundColor: Palette.red),
-                    onPressed: () {
-                      final id = int.tryParse(_quickContractCtrl.text.trim());
-                      if (id != null) {
-                        _openChatWithContract(contractId: id, title: 'Hợp đồng #$id');
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Vui lòng nhập contractId hợp lệ')),
-                        );
-                      }
-                    },
-                    icon: const Icon(CupertinoIcons.chat_bubble_2_fill, size: 14),
-                    label: const Text('Mở phòng chat Hợp đồng'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Palette.soft,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Palette.line),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(CupertinoIcons.person_2_fill, size: 16, color: Color(0xFF2E7D32)),
-                    const SizedBox(width: 8),
-                    Text('Kết nối nhanh theo Ứng tuyển', style: editorial(16)),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Nhập postId và applicantId để xác thực phòng chat',
-                  style: TextStyle(fontSize: 12, color: Palette.muted),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('quick-post-id-input'),
-                  controller: _quickPostCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã bài đăng (postId)',
-                    hintText: 'Ví dụ: 1',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  key: const Key('quick-applicant-id-input'),
-                  controller: _quickApplicantCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Mã ứng viên (applicantId)',
-                    hintText: 'Ví dụ: 3',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const Key('quick-connect-applicant-btn'),
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2E7D32)),
-                    onPressed: () {
-                      final pid = int.tryParse(_quickPostCtrl.text.trim());
-                      final aid = int.tryParse(_quickApplicantCtrl.text.trim());
-                      if (pid != null && aid != null) {
-                        _openChatWithApplicant(postId: pid, applicantId: aid);
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Vui lòng nhập postId và applicantId hợp lệ')),
-                        );
-                      }
-                    },
-                    icon: const Icon(CupertinoIcons.chat_bubble_2_fill, size: 14),
-                    label: const Text('Mở phòng chat Ứng tuyển'),
-                  ),
-                ),
-              ],
-            ),
           ),
         ],
       ),

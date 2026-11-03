@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -20,7 +19,7 @@ void main() {
     late SharedPreferences prefs;
 
     setUp(() async {
-      SharedPreferences.setMockInitialValues({});
+      SharedPreferences.setMockInitialValues({'isLoggedIn': true});
       prefs = await SharedPreferences.getInstance();
     });
 
@@ -116,34 +115,64 @@ void main() {
       expect(savedJson!.contains('Xin chào Trần Nam, bản thu xong chưa bạn?'), isTrue);
     });
 
-    testWidgets('Chat Hub: Filter tabs and Quick Connect opens Chat Sheet', (tester) async {
+    testWidgets('Chat Hub: Search input, filter tabs, and deduplicated contract/commission list', (tester) async {
       tester.view.physicalSize = const Size(800, 1000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
       final mockHttp = MockClient((req) async {
-        if (req.url.path == '/api/v1/chats/conversation') {
+        if (req.url.path == '/api/v1/contracts/me') {
           return http.Response(
             jsonEncode({
               'success': true,
-              'message': 'OK',
-              'data': {
-                'conversationId': 'post_88_applicant_77',
-                'partnerId': 77,
-                'partnerName': 'Lê Thu Thảo',
-                'partnerEmail': 'thao@example.com',
-                'partnerAvatarUrl': null,
-                'partnerRole': 'NARRATOR',
-                'contextType': 'APPLICATION',
-                'contextId': 88,
-              },
+              'data': [
+                {
+                  'id': 301,
+                  'hireRequestId': 501,
+                  'title': 'Hợp đồng Sử Việt Tập 1',
+                  'requesterId': 10,
+                  'requesterFullName': 'Lê Thu Thảo',
+                  'creatorId': 20,
+                  'creatorFullName': 'Creator Test',
+                  'totalAmount': 500000,
+                  'status': 'ACTIVE',
+                }
+              ],
             }),
             200,
             headers: {'content-type': 'application/json; charset=utf-8'},
           );
         }
-        return http.Response('{"success": false}', 404);
+        if (req.url.path == '/api/v1/commissions/my-received') {
+          return http.Response(
+            jsonEncode({
+              'success': true,
+              'data': [
+                {
+                  'id': 501,
+                  'contractId': 301,
+                  'title': 'Hợp đồng Sử Việt Tập 1',
+                  'requesterId': 10,
+                  'requesterFullName': 'Lê Thu Thảo',
+                  'creatorId': 20,
+                  'status': 'CONTRACT_SENT',
+                },
+                {
+                  'id': 502,
+                  'title': 'Đơn thảo luận Khởi nghĩa Lam Sơn',
+                  'requesterId': 11,
+                  'requesterFullName': 'Nguyễn Minh Quân',
+                  'creatorId': 20,
+                  'status': 'ACCEPTED',
+                }
+              ],
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }
+        return http.Response('{"success": true, "data": []}', 200);
       });
 
       final apiClient = ApiClient(
@@ -152,6 +181,7 @@ void main() {
         httpClient: mockHttp,
       );
       final chatRepo = ChatRepository(client: apiClient);
+      final contractRepo = ContractRepository(client: apiClient);
 
       await tester.pumpWidget(
         MaterialApp(
@@ -159,6 +189,7 @@ void main() {
           home: Scaffold(
             body: CreatorFreelancerChatHubSheet(
               chatRepository: chatRepo,
+              contractRepository: contractRepo,
               preferences: prefs,
               isCreator: true,
               currentUserName: 'Creator Test',
@@ -169,34 +200,21 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Hiển thị tiêu đề Chat Hub
-      expect(find.text('Hội thoại Tuyển dụng & Hợp đồng'), findsOneWidget);
+      // Hiển thị tiêu đề Chat Hub mới (không có dòng tab V1 thừa)
+      expect(find.text('Tin nhắn Đặt hàng & Hợp đồng'), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-search-input')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-all')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-partner')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-active')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-ended')), findsOneWidget);
 
-      // Chuyển sang tab "Kết nối ID ⚡"
-      final quickTabFinder = find.byKey(const Key('chat-hub-tab-quick'));
-      expect(quickTabFinder, findsOneWidget);
-      await tester.tap(quickTabFinder);
+      // Kiểm tra tìm kiếm theo tên đối tác
+      await tester.enterText(
+        find.byKey(const Key('chat-hub-search-input')),
+        'Lê Thu Thảo',
+      );
       await tester.pumpAndSettle();
-
-      // Nhập Post ID và Applicant ID
-      final postIdInput = find.byKey(const Key('quick-post-id-input'));
-      final applicantIdInput = find.byKey(const Key('quick-applicant-id-input'));
-      expect(postIdInput, findsOneWidget);
-      expect(applicantIdInput, findsOneWidget);
-
-      await tester.enterText(postIdInput, '88');
-      await tester.enterText(applicantIdInput, '77');
-      await tester.pumpAndSettle();
-
-      // Bấm nút "Mở phòng chat Ứng tuyển"
-      final startChatBtn = find.byKey(const Key('quick-connect-applicant-btn'));
-      expect(startChatBtn, findsOneWidget);
-      await tester.tap(startChatBtn);
-      await tester.pumpAndSettle();
-
-      // Đã mở màn hình Chat Sheet với đối tác
-      expect(find.text('Lê Thu Thảo'), findsAtLeastNWidgets(1));
-      expect(find.textContaining('post_88_applicant_77'), findsOneWidget);
+      expect(find.textContaining('Hợp đồng Sử Việt Tập 1'), findsOneWidget);
     });
 
     testWidgets('Marketplace: "Trò chuyện" button is present next to "Đăng tin" and opens Hub', (tester) async {
@@ -266,11 +284,11 @@ void main() {
       await tester.tap(chatBtnFinder);
       await tester.pumpAndSettle();
 
-      expect(find.text('Hội thoại Tuyển dụng & Hợp đồng'), findsOneWidget);
-      expect(find.byKey(const Key('chat-hub-tab-all')), findsOneWidget);
-      expect(find.byKey(const Key('chat-hub-tab-contracts')), findsOneWidget);
-      expect(find.byKey(const Key('chat-hub-tab-apps')), findsOneWidget);
-      expect(find.byKey(const Key('chat-hub-tab-quick')), findsOneWidget);
+      expect(find.text('Tin nhắn Đặt hàng & Hợp đồng'), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-all')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-partner')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-active')), findsOneWidget);
+      expect(find.byKey(const Key('chat-hub-filter-ended')), findsOneWidget);
     });
 
     testWidgets('Chat Sheet enters Read-Only Archive mode when contract is COMPLETED', (tester) async {

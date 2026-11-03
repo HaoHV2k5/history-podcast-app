@@ -4,7 +4,7 @@ import { Sparkles, FileText, Check } from 'lucide-react';
 export type CreationMode = 'ai_prompt' | 'manual_script';
 
 interface StudioCreationMethodToggleProps {
-  creationMode: CreationMode;
+  creationMode?: CreationMode | null;
   onSelectMode: (mode: CreationMode) => void;
 }
 

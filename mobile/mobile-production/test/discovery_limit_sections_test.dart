@@ -55,31 +55,36 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: SuKyApp(state: state)));
     await tester.pumpAndSettle();
 
-    // 1. Verify initially: 4th, 5th, 6th episodes are NOT rendered in the list
+    // 1. Verify initially: 4th, 5th, 6th episodes are NOT rendered in the home list
     expect(find.text('Tập Lịch Sử Thứ 4'), findsNothing);
     expect(find.text('Tập Lịch Sử Thứ 5'), findsNothing);
     expect(find.text('Tập Lịch Sử Thứ 6'), findsNothing);
 
-    // Verify Expand Episodes button exists
-    expect(find.byKey(const Key('expand-all-episodes-bottom-btn')), findsOneWidget);
-    expect(find.text('Xem toàn bộ 6 tập mới nhất'), findsOneWidget);
+    // Verify bottom expand button is removed
+    expect(find.byKey(const Key('expand-all-episodes-bottom-btn')), findsNothing);
 
-    // Tap Expand Episodes
-    await tester.ensureVisible(find.byKey(const Key('expand-all-episodes-bottom-btn')));
-    await tester.tap(find.byKey(const Key('expand-all-episodes-bottom-btn')));
+    // Verify "Xem tất cả" button exists and navigates to LatestEpisodesPage
+    expect(find.byKey(const Key('toggle-all-episodes-btn')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('toggle-all-episodes-btn')));
     await tester.pumpAndSettle();
 
-    // Verify all 6 episodes are now visible
+    // In LatestEpisodesPage: all 6 episodes are visible
+    expect(find.byType(LatestEpisodesPage), findsOneWidget);
     expect(find.text('Tập Lịch Sử Thứ 4'), findsOneWidget);
     expect(find.text('Tập Lịch Sử Thứ 5'), findsOneWidget);
     expect(find.text('Tập Lịch Sử Thứ 6'), findsOneWidget);
-    expect(find.text('Thu gọn danh sách tập'), findsOneWidget);
 
-    // Tap Collapse Episodes
-    await tester.tap(find.byKey(const Key('expand-all-episodes-bottom-btn')));
+    // Test Search in LatestEpisodesPage
+    expect(find.byKey(const Key('episodes-search-input')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('episodes-search-input')), 'Thứ 4');
     await tester.pumpAndSettle();
-    expect(find.text('Tập Lịch Sử Thứ 4'), findsNothing);
+    expect(find.text('Tập Lịch Sử Thứ 4'), findsOneWidget);
     expect(find.text('Tập Lịch Sử Thứ 5'), findsNothing);
+
+    // Pop back to home
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byType(LatestEpisodesPage), findsNothing);
 
     // 2. Verify Channels: initially 4th and 5th channels are NOT rendered
     expect(find.text('Kênh Sử Ký 1'), findsOneWidget);

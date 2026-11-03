@@ -7,12 +7,16 @@ import 'package:su_ky_mobile_production/discovery_carousel.dart';
 import 'package:su_ky_mobile_production/home_navigation.dart';
 import 'package:su_ky_mobile_production/main.dart';
 
-Future<AppState> setup(WidgetTester tester, {bool reduced = false}) async {
+Future<AppState> setup(
+  WidgetTester tester, {
+  bool reduced = false,
+  bool loggedIn = true,
+}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({'isLoggedIn': loggedIn});
   final app = AppState(await SharedPreferences.getInstance());
   await tester.pumpWidget(
     MaterialApp(

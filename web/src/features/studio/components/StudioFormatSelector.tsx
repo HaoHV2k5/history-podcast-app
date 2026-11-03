@@ -3,7 +3,7 @@ import { Volume2, Layers, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface StudioFormatSelectorProps {
-  renderMode: 'audio_podcast' | 'whiteboard';
+  renderMode?: 'audio_podcast' | 'whiteboard' | null;
   setRenderMode?: (mode: 'audio_podcast' | 'whiteboard') => void;
 }
 
@@ -20,7 +20,9 @@ export const StudioFormatSelector: React.FC<StudioFormatSelectorProps> = ({
         <span className="text-[11px] text-muted hidden md:inline">
           {renderMode === 'audio_podcast'
             ? 'Kể chuyện truyền cảm • Chỉ cần 1 ảnh bìa dọc/vuông'
-            : 'Hoạt họa diễn họa vẽ tay • Khung hình chuẩn 16:9'}
+            : renderMode === 'whiteboard'
+            ? 'Hoạt họa diễn họa vẽ tay • Khung hình chuẩn 16:9'
+            : 'Chọn định dạng podcast hoặc video để bắt đầu'}
         </span>
       </div>
 

@@ -17,12 +17,12 @@ class DemoPasswordRecovery {
 
   static String? validateIdentifier(String value) {
     final id = value.trim();
-    if (id.isEmpty) return 'Nhập email hoặc số điện thoại.';
+    if (id.isEmpty) return 'Nhập email.';
     if (RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(id) ||
         RegExp(r'^(?:0\d{9}|\+84\d{9})$').hasMatch(id)) {
       return null;
     }
-    return 'Nhập email hợp lệ hoặc SĐT 10 số / +84.';
+    return 'Nhập email hợp lệ.';
   }
 
   String get maskedIdentifier {
@@ -74,6 +74,9 @@ class DemoPasswordRecovery {
     if (expired) {
       throw StateError('Mã đã hết hạn. Hãy gửi lại mã.');
     }
+    if (attempts >= 5) {
+      throw StateError('Đã thử sai 5 lần. Hãy gửi lại mã.');
+    }
     if (!RegExp(r'^\d{6}$').hasMatch(code)) {
       throw StateError('Nhập đủ 6 chữ số.');
     }
@@ -94,7 +97,11 @@ class DemoPasswordRecovery {
 
     if (code != '889900') {
       attempts++;
-      throw StateError('Mã OTP chưa chính xác.');
+      throw StateError(
+        attempts >= 5
+            ? 'Đã thử sai 5 lần. Hãy gửi lại mã.'
+            : 'Mã chưa đúng. Còn ${5 - attempts} lần thử.',
+      );
     }
     verifiedAt = now();
   }

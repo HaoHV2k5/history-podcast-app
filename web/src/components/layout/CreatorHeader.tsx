@@ -12,7 +12,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/authStore';
-import { CreatorModerationNotificationPopover } from '@/features/moderation/components/CreatorModerationNotificationPopover';
+import { CreatorWalletBadge } from './CreatorWalletBadge';
 
 interface CreatorHeaderProps {
   onToggleMobileMenu?: () => void;
@@ -101,14 +101,6 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
 
       {/* Right: Quick workspace switch (if dual-role) + User Profile Dropdown */}
       <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-        <div
-          title="Trạng thái hệ thống: Phòng thu trực tuyến đang sẵn sàng"
-          className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-300/60 bg-emerald-50 text-emerald-700 text-[11px] font-medium select-none shadow-2xs"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Creator Studio Online</span>
-        </div>
-
         {/* Switch to Admin Workspace for Dual-Role Users */}
         {isAdmin && (
           <Button
@@ -125,8 +117,8 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
           </Button>
         )}
 
-        {/* Creator Moderation Notification & Lifecycle Tracking Center */}
-        <CreatorModerationNotificationPopover />
+        {/* Authenticated Creator Wallet Badge */}
+        <CreatorWalletBadge />
 
         {/* Authenticated Creator Profile Dropdown */}
         {currentUser ? (

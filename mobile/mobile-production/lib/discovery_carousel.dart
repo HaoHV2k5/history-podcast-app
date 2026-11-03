@@ -144,16 +144,13 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
           '${e3.channel} · ${e3.duration}',
           'Khám phá tập',
           e3.image,
-          Palette.soft,
-          Palette.ink,
+          const Color(0xFF2C2420),
+          Palette.paper,
           () => widget.onEpisode(e3),
         ),
       ];
       final cardWidth = constraints.maxWidth * .97 - 8;
-      final showImage =
-          cardWidth >= 280 && MediaQuery.textScalerOf(context).scale(1) < 1.4;
-      final imageWidth = showImage ? cardWidth * .50 : 0.0;
-      final textWidth = showImage ? (cardWidth * 0.50 - 32) : (cardWidth - 36);
+      final textWidth = cardWidth - 36;
       double measure(String text, TextStyle style) {
         final painter = TextPainter(
           text: TextSpan(
@@ -188,7 +185,7 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
           (measure('Khám phá tập', const TextStyle(fontSize: 12, height: 1.5)) +
                   20)
               .clamp(44.0, double.infinity);
-      final height =
+      final measuredTextHeight =
           32 +
           labelHeight +
           12 +
@@ -197,6 +194,7 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
           captionHeight +
           10 +
           actionHeight;
+      final height = (measuredTextHeight + 110).clamp(360.0, double.infinity);
       final current = page % cards.length;
       return Focus(
         onFocusChange: (focused) {
@@ -232,15 +230,38 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                             borderRadius: BorderRadius.circular(12),
                             child: Material(
                               color: card.background,
-                              child: Row(
+                              child: Stack(
+                                fit: StackFit.expand,
                                 children: [
-                                  Expanded(
-                                    flex: 1,
+                                  ArtworkImage(
+                                    card.image,
+                                    fit: BoxFit.cover,
+                                    excludeFromSemantics: true,
+                                  ),
+                                  DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.black.withValues(alpha: 0.08),
+                                          card.background.withValues(alpha: 0.52),
+                                          card.background.withValues(alpha: 0.95),
+                                        ],
+                                        stops: const [0.0, 0.38, 0.88],
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
                                             card.label,
@@ -248,23 +269,25 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                               fontSize: 10,
                                               height: 1.5,
                                               letterSpacing: 1.1,
-                                              fontWeight: FontWeight.w500,
-                                              color: card.foreground,
+                                              fontWeight: FontWeight.w600,
+                                              color: card.foreground
+                                                  .withValues(alpha: 0.9),
                                             ),
                                           ),
-                                          const SizedBox(height: 12),
+                                          const SizedBox(height: 8),
                                           SizedBox(
                                             height: titleHeight,
                                             child: Text(
                                               card.title,
                                               style: titleStyle.copyWith(
                                                 color: card.foreground,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                               maxLines: 3,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          const SizedBox(height: 10),
+                                          const SizedBox(height: 6),
                                           SizedBox(
                                             height: captionHeight,
                                             child: Text(
@@ -277,7 +300,7 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          const SizedBox(height: 10),
+                                          const SizedBox(height: 6),
                                           SizedBox(
                                             height: actionHeight,
                                             child: TextButton(
@@ -300,9 +323,11 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                                       style: const TextStyle(
                                                         fontSize: 12,
                                                         height: 1.5,
-                                                        fontWeight: FontWeight.w600,
+                                                        fontWeight:
+                                                            FontWeight.w600,
                                                       ),
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -318,18 +343,6 @@ class _DiscoveryCarouselState extends State<DiscoveryCarousel>
                                       ),
                                     ),
                                   ),
-                                  if (showImage)
-                                    Expanded(
-                                      flex: 1,
-                                      child: SizedBox(
-                                        height: height,
-                                        child: ArtworkImage(
-                                          card.image,
-                                          fit: BoxFit.cover,
-                                          excludeFromSemantics: true,
-                                        ),
-                                      ),
-                                    ),
                                 ],
                               ),
                             ),

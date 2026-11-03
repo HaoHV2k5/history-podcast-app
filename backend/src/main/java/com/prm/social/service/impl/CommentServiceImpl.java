@@ -6,12 +6,16 @@ import com.prm.social.entity.Comment;
 import com.prm.social.mapper.CommentMapper;
 import com.prm.social.repository.CommentRepository;
 import com.prm.social.service.CommentService;
+import com.prm.identity.entity.User;
+import com.prm.identity.repository.UserRepository;
+import com.prm.common.util.SecurityUtils;
 import com.prm.common.exception.ResourceNotFoundException;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -22,11 +26,24 @@ public class CommentServiceImpl implements CommentService {
     private final CommentRepository repository;
     private final CommentMapper mapper;
     private final EntityManager entityManager;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
     public List<CommentResponse> findAll() {
-        return repository.findAll().stream()
+        return findAll(null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CommentResponse> findAll(Long artifactId) {
+        List<Comment> list;
+        if (artifactId != null) {
+            list = repository.findByArtifactIdWithUser(artifactId);
+        } else {
+            list = repository.findAllWithUser();
+        }
+        return list.stream()
                 .map(mapper::toResponse)
                 .toList();
     }
@@ -46,10 +63,21 @@ public class CommentServiceImpl implements CommentService {
             entity.setArtifact(entityManager.getReference(com.prm.channel.entity.Artifact.class, request.getArtifactId()));
         }
         if (request.getUserId() != null) {
-            entity.setUser(entityManager.getReference(com.prm.identity.entity.User.class, request.getUserId()));
+            userRepository.findById(request.getUserId()).ifPresentOrElse(
+                entity::setUser,
+                () -> SecurityUtils.getCurrentUserEmailOptional().flatMap(userRepository::findByEmail).ifPresent(entity::setUser)
+            );
+        } else {
+            SecurityUtils.getCurrentUserEmailOptional().flatMap(userRepository::findByEmail).ifPresent(entity::setUser);
         }
         if (request.getParentCommentId() != null) {
-            entity.setParentComment(entityManager.getReference(com.prm.social.entity.Comment.class, request.getParentCommentId()));
+            entity.setParentComment(entityManager.getReference(Comment.class, request.getParentCommentId()));
+        }
+        if (entity.getCreatedAt() == null) {
+            entity.setCreatedAt(Instant.now());
+        }
+        if (entity.getStatus() == null) {
+            entity.setStatus("ACTIVE");
         }
         Comment saved = repository.save(entity);
         return mapper.toResponse(saved);
@@ -64,10 +92,10 @@ public class CommentServiceImpl implements CommentService {
             entity.setArtifact(entityManager.getReference(com.prm.channel.entity.Artifact.class, request.getArtifactId()));
         }
         if (request.getUserId() != null) {
-            entity.setUser(entityManager.getReference(com.prm.identity.entity.User.class, request.getUserId()));
+            entity.setUser(entityManager.getReference(User.class, request.getUserId()));
         }
         if (request.getParentCommentId() != null) {
-            entity.setParentComment(entityManager.getReference(com.prm.social.entity.Comment.class, request.getParentCommentId()));
+            entity.setParentComment(entityManager.getReference(Comment.class, request.getParentCommentId()));
         }
         Comment updated = repository.save(entity);
         return mapper.toResponse(updated);

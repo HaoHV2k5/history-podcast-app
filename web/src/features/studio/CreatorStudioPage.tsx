@@ -41,6 +41,7 @@ import { Step4RenderStudio } from './components/Step4RenderStudio';
 import type { CreationMode } from './components/StudioCreationMethodToggle';
 import { StudioHeader } from './components/StudioHeader';
 import { StudioWorkflowStepper } from './components/StudioWorkflowStepper';
+import { StudioApiKeyOnboardingModal } from './components/StudioApiKeyOnboardingModal';
 import {
   StepTransitionConfirmationDialog,
   StepTransitionModalState,
@@ -148,7 +149,7 @@ export const CreatorStudioPage: React.FC = () => {
   }, [activeTab]);
 
   // Step 1: Script & Storyboard Generator State
-  const [creationMode, setCreationMode] = useState<CreationMode>('ai_prompt');
+  const [creationMode, setCreationMode] = useState<CreationMode | null>(null);
   const [scriptTopic, setScriptTopic] = useState('');
   const [scriptContent, setScriptContent] = useState('');
   const [storyboardDuration, setStoryboardDuration] = useState<number>(60);
@@ -178,7 +179,7 @@ export const CreatorStudioPage: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Step 4: Video Rendering State
-  const [renderMode, setRenderMode] = useState<'whiteboard' | 'audio_podcast'>('audio_podcast');
+  const [renderMode, setRenderMode] = useState<'whiteboard' | 'audio_podcast' | null>(null);
   const [renderTitle, setRenderTitle] = useState('');
   const [renderDurationSec, setRenderDurationSec] = useState<number>(60);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -205,6 +206,16 @@ export const CreatorStudioPage: React.FC = () => {
   const [ttsEngineInput, setTtsEngineInput] = useState('edge-tts');
   const [settingsSuccessMsg, setSettingsSuccessMsg] = useState<string | null>(null);
 
+  // First-Time Creator AI Onboarding Modal State
+  // Luôn hiển thị pop-up khi mở trang, chỉ tắt vĩnh viễn khi người dùng tick "Không hiển thị lại nữa"
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(() => {
+    try {
+      return localStorage.getItem('su_ky_dont_show_api_onboarding') !== 'true';
+    } catch {
+      return true;
+    }
+  });
+
   // 1. Fetch Creator AI Settings
   const { data: settingsResponse } = useQuery({
     queryKey: ['creator', 'studio-settings'],
@@ -222,6 +233,29 @@ export const CreatorStudioPage: React.FC = () => {
       }
     }
   }, [settings]);
+
+  const handleCloseOnboarding = (dontShowAgain?: boolean) => {
+    if (dontShowAgain) {
+      try {
+        localStorage.setItem('su_ky_dont_show_api_onboarding', 'true');
+      } catch {
+        // ignore
+      }
+    }
+    setIsOnboardingModalOpen(false);
+  };
+
+  const handleOpenSettingsFromOnboarding = (dontShowAgain?: boolean) => {
+    if (dontShowAgain) {
+      try {
+        localStorage.setItem('su_ky_dont_show_api_onboarding', 'true');
+      } catch {
+        // ignore
+      }
+    }
+    setIsOnboardingModalOpen(false);
+    setIsSettingsOpen(true);
+  };
 
   // 2. Fetch Voices Catalog
   const { data: voicesResponse } = useQuery({
@@ -246,11 +280,12 @@ export const CreatorStudioPage: React.FC = () => {
 
   // Storyboard Generation Mutation (RAG + Gemini)
   const generateStoryboardMutation = useMutation({
-    mutationFn: (payload: { topic: string; durationSec: number }) =>
+    mutationFn: (payload: { topic: string; durationSec: number; keepOriginalScript?: boolean }) =>
       creatorStudioApi.generateStoryboard({
         topic: payload.topic,
         durationSec: payload.durationSec,
         geminiApiKey: settings?.geminiApiKey || undefined,
+        keepOriginalScript: payload.keepOriginalScript,
       }),
     onSuccess: (response) => {
       const sbData = response.data as unknown as StoryboardResponse;
@@ -470,19 +505,30 @@ export const CreatorStudioPage: React.FC = () => {
 
   // Step 1: Submit to generate storyboard
   const handleStartStoryboard = () => {
+    if (creationMode === 'manual_script') {
+      if (!scriptTopic.trim() || !scriptContent.trim()) return;
+    } else {
+      if (!scriptTopic.trim()) return;
+    }
+
     const topicToUse =
       creationMode === 'manual_script'
-        ? (scriptContent.trim() || scriptTopic.trim())
-        : (scriptTopic.trim() || scriptContent.trim());
+        ? (scriptTopic.trim() ? `${scriptTopic.trim()}: ${scriptContent.trim()}` : scriptContent.trim())
+        : (
+            scriptTopic.trim() && scriptContent.trim()
+              ? `${scriptTopic.trim()} - ${scriptContent.trim()}`
+              : (scriptTopic.trim() || scriptContent.trim())
+          );
     if (!topicToUse) return;
     if (!renderTitle && scriptTopic) {
-      setRenderTitle(scriptTopic);
+      setRenderTitle(scriptTopic.trim());
     } else if (!renderTitle) {
       setRenderTitle(topicToUse.slice(0, 80));
     }
     generateStoryboardMutation.mutate({
       topic: topicToUse,
       durationSec: storyboardDuration,
+      keepOriginalScript: creationMode === 'manual_script',
     });
   };
 
@@ -510,7 +556,7 @@ export const CreatorStudioPage: React.FC = () => {
     const payload: CreatorRenderRequest = {
       title: renderTitle.trim() || scriptTopic || 'Tác Phẩm Video Lịch Sử',
       durationSec: renderDurationSec || storyboardDuration || 60,
-      renderMode,
+      renderMode: renderMode || 'audio_podcast',
       ttsEngine: finalEngine,
       voiceName: selectedVoiceId || 'vi-VN-NamMinhNeural',
       thumbnailUrl: thumbnailUrl || coverImageUrl || sceneImages['1'] || '',
@@ -743,14 +789,25 @@ export const CreatorStudioPage: React.FC = () => {
               <strong>Lưu ý:</strong> Bạn chưa thiết lập Google Gemini API Key cá nhân. Hãy thêm API Key để tự động viết kịch bản sử liệu qua RAG và sinh phân cảnh.
             </span>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setIsSettingsOpen(true)}
-            className="text-xs shrink-0 bg-accent text-canvas hover:bg-accent/90 h-7 px-2.5 cursor-pointer"
-          >
-            <Key className="h-3 w-3 mr-1" />
-            <span>Nhập API Key ngay</span>
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsOnboardingModalOpen(true)}
+              className="text-xs h-7 px-2.5 bg-white border-amber-300/80 text-amber-900 hover:bg-amber-50 cursor-pointer"
+            >
+              <span>Xem hướng dẫn lấy Key</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-xs bg-accent text-canvas hover:bg-accent/90 h-7 px-2.5 cursor-pointer"
+            >
+              <Key className="h-3 w-3 mr-1" />
+              <span>Nhập API Key ngay</span>
+            </Button>
+          </div>
         </div>
       )}
 
@@ -806,7 +863,7 @@ export const CreatorStudioPage: React.FC = () => {
         {/* Step 2: Storyboard Review, Prompt & Scene Image Upload */}
         {activeTab === 'storyboard' && (
           <Step2StoryboardScenes
-            renderMode={renderMode}
+            renderMode={renderMode || 'audio_podcast'}
             storyboard={generatedStoryboard}
             scriptContent={scriptContent}
             setScriptContent={setScriptContent}
@@ -858,8 +915,8 @@ export const CreatorStudioPage: React.FC = () => {
         {/* Step 4: Video Render Studio, 6-Step Monitoring & Submit Moderation */}
         {activeTab === 'render' && (
           <Step4RenderStudio
-            renderMode={renderMode}
-            setRenderMode={setRenderMode}
+            renderMode={renderMode || 'audio_podcast'}
+            setRenderMode={setRenderMode as (mode: 'whiteboard' | 'audio_podcast') => void}
             renderTitle={renderTitle || scriptTopic || 'Tác Phẩm Lịch Sử Mới'}
             setRenderTitle={setRenderTitle}
             renderDurationSec={renderDurationSec || storyboardDuration || 60}
@@ -1092,6 +1149,13 @@ export const CreatorStudioPage: React.FC = () => {
         modalState={transitionModal}
         onClose={() => setTransitionModal(null)}
         onConfirmContinue={handleConfirmTransition}
+      />
+
+      {/* 7. First-Time Creator AI Onboarding Modal */}
+      <StudioApiKeyOnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={handleCloseOnboarding}
+        onOpenSettings={handleOpenSettingsFromOnboarding}
       />
     </div>
   );

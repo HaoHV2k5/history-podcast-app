@@ -254,6 +254,8 @@ void main() {
         membershipRepository: MembershipRepository(client: apiClient),
         livestreamRepository: LivestreamRepository(client: apiClient),
       );
+      state.isLoggedIn = true;
+      state.isCreator = true;
 
       await state.initRealBackend();
       expect(state.activeLivestreams.length, 2);
