@@ -70,26 +70,8 @@ class WalletState extends ChangeNotifier {
       try {
         final allBanks = await walletRepository!.getBankAccounts();
         remoteBanks = (resolvedUserId != null && resolvedUserId > 0)
-            ? allBanks.where((b) => b.userId == 0 || b.userId == resolvedUserId).toList()
-            : allBanks;
-        if (remoteBanks.isEmpty && kycRepository != null) {
-          try {
-            final kyc = await kycRepository!.getMyKycProfile();
-            if (kyc != null &&
-                kyc.bankName.trim().isNotEmpty &&
-                kyc.bankAccountNumber.trim().isNotEmpty) {
-              final newBank = await walletRepository!.createBankAccount(
-                bankName: kyc.bankName.trim(),
-                accountNumber: kyc.bankAccountNumber.trim(),
-                accountHolderName: kyc.bankAccountHolder.trim().isNotEmpty
-                    ? kyc.bankAccountHolder.trim()
-                    : kyc.fullName.trim(),
-                userId: resolvedUserId,
-              );
-              remoteBanks = [newBank];
-            }
-          } catch (_) {}
-        }
+            ? allBanks.where((b) => b.userId == resolvedUserId).toList()
+            : <BankAccountData>[];
         if (remoteBanks.isNotEmpty) {
           final firstBank = remoteBanks.first;
           wallet(owner)['bank'] = {

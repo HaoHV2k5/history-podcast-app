@@ -20,6 +20,7 @@ import 'core/api/post_repository.dart';
 import 'core/api/contract_repository.dart';
 import 'core/api/hire_request_repository.dart';
 import 'commission_milestone_workspace.dart';
+import 'audience_pages.dart';
 import 'app_state.dart';
 
 part 'mock/fixtures/narrators.dart';
@@ -1397,6 +1398,15 @@ class _RecruitmentMarketplaceViewState
 
   /// Mở Trung tâm Trò chuyện (Chat Hub) kết nối POST /api/v1/chats/conversation
   void openChatHubSheet() {
+    if (!widget.state.isLoggedIn) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => AuthSheet(state: widget.state),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -2625,6 +2635,15 @@ class _RecruitmentMarketplaceViewState
                           visualDensity: VisualDensity.compact,
                         ),
                         onPressed: () {
+                          if (!widget.state.isLoggedIn) {
+                            showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              showDragHandle: true,
+                              builder: (_) => AuthSheet(state: widget.state),
+                            );
+                            return;
+                          }
                           showModalBottomSheet<void>(
                             context: context,
                             isScrollControlled: true,
@@ -2639,7 +2658,7 @@ class _RecruitmentMarketplaceViewState
                             ),
                           );
                         },
-                        icon: const Icon(CupertinoIcons.sparkles, size: 14),
+                        icon: const Icon(CupertinoIcons.plus_circle, size: 14),
                         label: const Text(
                           'Đặt làm nội dung',
                           style: TextStyle(
@@ -2651,52 +2670,6 @@ class _RecruitmentMarketplaceViewState
                     ],
                   ),
                 ],
-              ),
-              const SizedBox(height: 14),
-
-              // Banner Trung tâm Đặt làm Nội dung & Lộ trình Ký quỹ 2 Tầng (Milestone Escrow)
-              Container(
-                key: const Key('commission-milestone-hero-banner'),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8E7),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE6C27A)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          CupertinoIcons.sparkles,
-                          size: 16,
-                          color: Color(0xFFB45309),
-                        ),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Đặt làm Nội dung theo yêu cầu & Ký quỹ Milestone 2 Tầng',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF78350F),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Khách đặt đề tài với kênh -> Creator mở Chat 1-1 -> Lập lộ trình 1..20 mốc (Tầng 1) -> Đóng cọc & nghiệm thu cuốn chiếu từng mốc (Tầng 2).',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF78350F),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 14),
 

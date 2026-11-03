@@ -1,4 +1,6 @@
 import 'api_client.dart';
+import 'milestone_repository.dart'
+    show MilestoneDeliverableModel, MilestoneReviewModel, RevisionRequestItemModel;
 
 class BookingEscrowPolicyModel {
   final int contractAcceptHours;
@@ -87,6 +89,9 @@ class MilestoneModel {
   final String? fundedAt;
   final String? releasedAt;
   final String? refundedAt;
+  final List<MilestoneDeliverableModel> deliverables;
+  final List<MilestoneReviewModel> reviews;
+  final List<RevisionRequestItemModel> revisionRequests;
 
   MilestoneModel({
     required this.id,
@@ -114,11 +119,17 @@ class MilestoneModel {
     this.fundedAt,
     this.releasedAt,
     this.refundedAt,
+    this.deliverables = const [],
+    this.reviews = const [],
+    this.revisionRequests = const [],
   });
 
   factory MilestoneModel.fromJson(Map<String, dynamic> json) {
     final reqText = (json['requirement'] ?? json['description'])?.toString();
     final due = (json['dueAt'] ?? json['dueDate'])?.toString();
+    final rawDeliverables = json['deliverables'];
+    final rawReviews = json['reviews'];
+    final rawRevisionRequests = json['revisionRequests'];
     return MilestoneModel(
       id: (json['id'] as num).toInt(),
       contractId: (json['contractId'] as num?)?.toInt(),
@@ -145,6 +156,21 @@ class MilestoneModel {
       fundedAt: json['fundedAt']?.toString(),
       releasedAt: json['releasedAt']?.toString(),
       refundedAt: json['refundedAt']?.toString(),
+      deliverables: (rawDeliverables is List)
+          ? rawDeliverables
+              .map((e) => MilestoneDeliverableModel.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : const [],
+      reviews: (rawReviews is List)
+          ? rawReviews
+              .map((e) => MilestoneReviewModel.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : const [],
+      revisionRequests: (rawRevisionRequests is List)
+          ? rawRevisionRequests
+              .map((e) => RevisionRequestItemModel.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : const [],
     );
   }
 }

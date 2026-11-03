@@ -154,6 +154,16 @@ String contractStageProgressLabel(
     return 'Hợp đồng đã huỷ';
   }
   if (status == 'ACTIVE') {
+    final doneMs = msList
+        .where(
+          (m) =>
+              m.status.toUpperCase() == 'APPROVED' ||
+              m.status.toUpperCase() == 'RELEASED',
+        )
+        .length;
+    if (doneMs == total && total > 0) {
+      return 'Đã nghiệm thu $doneMs/$total mốc - Chờ đối soát giải ngân';
+    }
     for (var i = 0; i < msList.length; i++) {
       final m = msList[i];
       final mStatus = m.status.toUpperCase();
@@ -832,8 +842,10 @@ class _CreateOrEditMilestoneRoadmapSheetState
               ),
               const Divider(height: 18),
               Expanded(
-                child: ListView(
-                  children: [
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                     // PHẦN A — Thông tin chung của Hợp đồng
                     const Eyebrow('PHẦN A · THÔNG TIN CHUNG CỦA HỢP ĐỒNG'),
                     const SizedBox(height: 8),
@@ -1066,6 +1078,7 @@ class _CreateOrEditMilestoneRoadmapSheetState
                       ),
                     ),
                   ],
+                  ),
                 ),
               ),
               if (_error != null) ...[
@@ -1138,9 +1151,6 @@ class _ContractMilestoneRoadmapSheetState
   bool _busy = false;
   String? _error;
 
-  /// Cho phép chuyển góc nhìn thử nghiệm nếu muốn kiểm tra cả 2 phía
-  String? _roleOverride; // 'CUSTOMER' | 'CREATOR'
-
   /// Section 6.4.5: Thu gọn mô tả dài còn 2 dòng mặc định
   bool _descExpanded = false;
 
@@ -1182,6 +1192,11 @@ class _ContractMilestoneRoadmapSheetState
     _contract = widget.initialContract;
     if (_contract != null) {
       _milestones = _mapContractMilestones(_contract!);
+      for (final m in _milestones) {
+        if (m.deliverables.isNotEmpty) {
+          _deliverablesByMilestone[m.id] = m.deliverables;
+        }
+      }
     }
     _refreshDetail();
   }
@@ -1211,13 +1226,15 @@ class _ContractMilestoneRoadmapSheetState
             fundedAt: cm.fundedAt,
             releasedAt: cm.releasedAt,
             refundedAt: cm.refundedAt,
+            deliverables: cm.deliverables,
+            reviews: cm.reviews,
+            revisionRequests: cm.revisionRequests,
           ),
         )
         .toList();
   }
 
   bool get _isCreator {
-    if (_roleOverride != null) return _roleOverride == 'CREATOR';
     final uid = widget.state.currentUserId;
     final c = _contract;
     if (uid != null && c != null) {
@@ -1239,6 +1256,11 @@ class _ContractMilestoneRoadmapSheetState
         final detail = await _contractRepo!.getContractById(widget.contractId);
         _contract = detail;
         _milestones = _mapContractMilestones(detail);
+        for (final m in _milestones) {
+          if (m.deliverables.isNotEmpty) {
+            _deliverablesByMilestone[m.id] = m.deliverables;
+          }
+        }
       }
       if (_milestoneRepo != null) {
         try {
@@ -1246,12 +1268,19 @@ class _ContractMilestoneRoadmapSheetState
               await _milestoneRepo!.getMilestonesByContract(widget.contractId);
           if (ms.isNotEmpty) {
             _milestones = ms;
+            for (final m in _milestones) {
+              if (m.deliverables.isNotEmpty) {
+                _deliverablesByMilestone[m.id] = m.deliverables;
+              }
+            }
           }
         } catch (_) {}
         for (final m in _milestones) {
           try {
             final dels = await _milestoneRepo!.getDeliverablesByMilestone(m.id);
-            _deliverablesByMilestone[m.id] = dels;
+            if (dels.isNotEmpty || !_deliverablesByMilestone.containsKey(m.id)) {
+              _deliverablesByMilestone[m.id] = dels;
+            }
           } catch (_) {}
         }
       }
@@ -1848,43 +1877,17 @@ class _ContractMilestoneRoadmapSheetState
     );
   }
 
-  /// Khách mở khiếu nại / tranh chấp trên Milestone đang SUBMITTED (POST /api/v1/disputes)
-  Future<void> _promptOpenDispute(MilestoneModel m) async {
+  /// Khách hàng bấm "Giải ngân ngay" khi Milestone đang APPROVED & HELD (POST /api/v1/milestones/{id}/release-early - Mục 15)
+  Future<void> _promptReleaseEarlyMilestone(MilestoneModel m) async {
     final orderNo = m.orderNo ?? 1;
-    final reasonCtrl = TextEditingController();
-    final evidenceCtrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
-        title: Text('Mở khiếu nại giai đoạn #$orderNo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Tiền ký quỹ của giai đoạn này sẽ được đóng băng (DISPUTED) để Admin phân xử công bằng.',
-              style: TextStyle(fontSize: 12, color: Palette.muted),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Lý do khiếu nại (reason) *',
-                hintText:
-                    'VD: Sản phẩm bàn giao sai lệch hoàn toàn với kịch bản cam kết...',
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: evidenceCtrl,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Bằng chứng / Ghi chú đối chiếu (evidence)',
-                hintText:
-                    'Mô tả chi tiết điểm sai lệch hoặc dẫn chứng trong phòng Chat 1-1...',
-              ),
-            ),
-          ],
+        title: const Text('Xác nhận giải ngân ngay'),
+        content: const Text(
+          'Bạn có chắc chắn muốn bỏ qua thời gian giữ đối soát 3 ngày và chuyển 95% tiền ký quỹ cho Nhà sáng tạo ngay lập tức? Thao tác này không thể hoàn tác.',
+          style: TextStyle(fontSize: 13, height: 1.45),
         ),
         actions: [
           TextButton(
@@ -1892,11 +1895,207 @@ class _ContractMilestoneRoadmapSheetState
             child: const Text('Hủy'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Palette.red),
+            key: const Key('confirm-release-early-btn'),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Gửi khiếu nại'),
+            child: const Text('Xác nhận giải ngân'),
           ),
         ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    await _runAction(
+      () async {
+        await _milestoneRepo!.releaseEarlyMilestone(m.id);
+      },
+      successMessage:
+          'Đã giải ngân ngay 95% tiền ký quỹ giai đoạn #$orderNo vào ví của Nhà sáng tạo!',
+    );
+  }
+
+  /// Mở khiếu nại / tranh chấp trên Milestone (POST /api/v1/disputes + POST /api/v1/disputes/evidence-upload - Mục 9 & 16)
+  Future<void> _promptOpenDispute(MilestoneModel m) async {
+    final orderNo = m.orderNo ?? 1;
+    final reasonCtrl = TextEditingController();
+    final evidenceCtrl = TextEditingController();
+    final uploadedFiles = <({String name, String url})>[];
+    bool uploadingFile = false;
+    String? uploadError;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Mở khiếu nại giai đoạn #$orderNo'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Tiền ký quỹ của giai đoạn này sẽ được đóng băng (FROZEN) để Admin phân xử công bằng.',
+                    style: TextStyle(fontSize: 12, color: Palette.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('dispute-reason-input'),
+                    controller: reasonCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Lý do khiếu nại *',
+                      hintText:
+                          'VD: Sản phẩm bàn giao sai lệch hoàn toàn với kịch bản cam kết...',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    key: const Key('dispute-evidence-note-input'),
+                    controller: evidenceCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Mô tả chi tiết bằng chứng',
+                      hintText:
+                          'Mô tả chi tiết điểm sai lệch hoặc thỏa thuận trong phòng Chat 1-1...',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    key: const Key('pick-dispute-evidence-file-btn'),
+                    onPressed: uploadingFile
+                        ? null
+                        : () async {
+                            try {
+                              final files = await FilePicker.pickFiles(
+                                type: FileType.any,
+                              );
+                              if (files.isEmpty) {
+                                return;
+                              }
+                              setDialogState(() {
+                                uploadingFile = true;
+                                uploadError = null;
+                              });
+                              for (final f in files) {
+                                final bytes = await f.xFile.readAsBytes();
+                                if (bytes.isEmpty) continue;
+                                if (_disputeRepo != null) {
+                                  final fileUrl =
+                                      await _disputeRepo!.uploadEvidenceFile(
+                                    fileBytes: bytes,
+                                    filename: f.name,
+                                  );
+                                  uploadedFiles
+                                      .add((name: f.name, url: fileUrl));
+                                }
+                              }
+                              setDialogState(() => uploadingFile = false);
+                            } catch (e) {
+                              setDialogState(() {
+                                uploadingFile = false;
+                                uploadError = e
+                                    .toString()
+                                    .replaceFirst('Exception: ', '');
+                              });
+                            }
+                          },
+                    icon: uploadingFile
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(CupertinoIcons.paperclip, size: 15),
+                    label: Text(
+                      uploadingFile
+                          ? 'Đang tải tệp bằng chứng lên...'
+                          : 'Chọn tệp bằng chứng từ thiết bị',
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Hỗ trợ ảnh (PNG, JPG, WEBP), tài liệu (PDF, DOC, TXT), âm thanh/video (MP3, WAV, MP4) hoặc tệp nén (ZIP, RAR). Tối đa 25MB/tệp.',
+                    style: TextStyle(fontSize: 11, color: Palette.muted),
+                  ),
+                  if (uploadError != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      uploadError!,
+                      style: const TextStyle(fontSize: 11.5, color: Palette.red),
+                    ),
+                  ],
+                  if (uploadedFiles.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    for (var i = 0; i < uploadedFiles.length; i++)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Palette.soft,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Palette.line),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              CupertinoIcons.doc_fill,
+                              size: 14,
+                              color: Palette.red,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                uploadedFiles[i].name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                setDialogState(() => uploadedFiles.removeAt(i));
+                              },
+                              icon: const Icon(
+                                CupertinoIcons.xmark_circle_fill,
+                                size: 16,
+                                color: Palette.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              key: const Key('submit-open-dispute-btn'),
+              style: FilledButton.styleFrom(backgroundColor: Palette.red),
+              onPressed: uploadingFile ? null : () => Navigator.pop(ctx, true),
+              child: const Text('Gửi khiếu nại'),
+            ),
+          ],
+        ),
       ),
     );
     final reason = reasonCtrl.text.trim();
@@ -1905,6 +2104,7 @@ class _ContractMilestoneRoadmapSheetState
     evidenceCtrl.dispose();
     if (confirmed != true || reason.isEmpty) return;
 
+    final attachmentUrls = uploadedFiles.map((f) => f.url).toList();
     await _runAction(
       () async {
         await _disputeRepo!.openDispute(
@@ -1912,6 +2112,7 @@ class _ContractMilestoneRoadmapSheetState
           contractId: widget.contractId,
           reason: reason,
           evidence: evidence.isNotEmpty ? evidence : null,
+          attachmentUrls: attachmentUrls.isNotEmpty ? attachmentUrls : null,
         );
       },
       successMessage:
@@ -1919,44 +2120,232 @@ class _ContractMilestoneRoadmapSheetState
     );
   }
 
-  /// Creator gửi bằng chứng đối chất khiếu nại (POST /api/v1/disputes/{id}/counter-evidence)
+  /// Gửi bằng chứng đối chất khiếu nại (POST /api/v1/disputes/{id}/counter-evidence - Mục 9 & 16)
   Future<void> _promptCounterEvidence(DisputeModel d) async {
     final counterCtrl = TextEditingController(text: d.counterEvidenceUrl ?? '');
+    final uploadedFiles = <({String name, String url})>[
+      for (final url in d.counterEvidenceUrls)
+        (name: url.split('/').last, url: url),
+    ];
+    bool uploadingFile = false;
+    String? uploadError;
+
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Gửi bằng chứng đối chất Khiếu nại #${d.id}'),
-        content: TextField(
-          controller: counterCtrl,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Bằng chứng phản biện của Creator (counterEvidence) *',
-            hintText:
-                'Trình bày rõ quá trình thực hiện, các phiên bản file đã nộp và thỏa thuận trong Chat 1-1...',
+      useRootNavigator: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text('Gửi bằng chứng đối chất Khiếu nại #${d.id}'),
+          content: SizedBox(
+            width: 460,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    key: const Key('counter-evidence-note-input'),
+                    controller: counterCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Nội dung giải trình đối chất *',
+                      hintText:
+                          'Trình bày rõ quá trình thực hiện, các phiên bản file đã nộp và thỏa thuận trong Chat 1-1...',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    key: const Key('pick-counter-evidence-file-btn'),
+                    onPressed: uploadingFile
+                        ? null
+                        : () async {
+                            try {
+                              final files = await FilePicker.pickFiles(
+                                type: FileType.any,
+                              );
+                              if (files.isEmpty) {
+                                return;
+                              }
+                              setDialogState(() {
+                                uploadingFile = true;
+                                uploadError = null;
+                              });
+                              for (final f in files) {
+                                final bytes = await f.xFile.readAsBytes();
+                                if (bytes.isEmpty) continue;
+                                if (_disputeRepo != null) {
+                                  final fileUrl =
+                                      await _disputeRepo!.uploadEvidenceFile(
+                                    fileBytes: bytes,
+                                    filename: f.name,
+                                  );
+                                  uploadedFiles
+                                      .add((name: f.name, url: fileUrl));
+                                }
+                              }
+                              setDialogState(() => uploadingFile = false);
+                            } catch (e) {
+                              setDialogState(() {
+                                uploadingFile = false;
+                                uploadError = e
+                                    .toString()
+                                    .replaceFirst('Exception: ', '');
+                              });
+                            }
+                          },
+                    icon: uploadingFile
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(CupertinoIcons.paperclip, size: 15),
+                    label: Text(
+                      uploadingFile
+                          ? 'Đang tải tệp đối chất lên...'
+                          : 'Chọn tệp bằng chứng từ thiết bị',
+                    ),
+                  ),
+                  if (uploadError != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      uploadError!,
+                      style: const TextStyle(fontSize: 11.5, color: Palette.red),
+                    ),
+                  ],
+                  if (uploadedFiles.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    for (var i = 0; i < uploadedFiles.length; i++)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Palette.soft,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Palette.line),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              CupertinoIcons.doc_fill,
+                              size: 14,
+                              color: Color(0xFF1976D2),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                uploadedFiles[i].name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                setDialogState(() => uploadedFiles.removeAt(i));
+                              },
+                              icon: const Icon(
+                                CupertinoIcons.xmark_circle_fill,
+                                size: 16,
+                                color: Palette.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              key: const Key('submit-counter-evidence-btn'),
+              style: FilledButton.styleFrom(backgroundColor: Palette.red),
+              onPressed: uploadingFile ? null : () => Navigator.pop(ctx, true),
+              child: const Text('Gửi bằng chứng'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Palette.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Gửi bằng chứng'),
-          ),
-        ],
       ),
     );
     final text = counterCtrl.text.trim();
     counterCtrl.dispose();
-    if (confirmed != true || text.isEmpty) return;
+    if (confirmed != true || (text.isEmpty && uploadedFiles.isEmpty)) return;
 
+    final attachmentUrls = uploadedFiles.map((f) => f.url).toList();
     await _runAction(
       () async {
-        await _disputeRepo!.submitCounterEvidence(d.id, counterEvidence: text);
+        await _disputeRepo!.submitCounterEvidence(
+          d.id,
+          counterEvidence: text.isNotEmpty ? text : 'Đính kèm tệp bằng chứng đối chất',
+          attachmentUrls: attachmentUrls.isNotEmpty ? attachmentUrls : null,
+        );
       },
       successMessage: 'Đã gửi bằng chứng đối chất lên hệ thống phân xử.',
+    );
+  }
+
+  void _showEvidenceAttachmentDialog(String rawUrl) {
+    final fullUrl = rawUrl.startsWith('http')
+        ? rawUrl
+        : '${widget.state.apiClient?.baseUrl ?? "http://localhost:8080"}$rawUrl';
+    final lower = rawUrl.toLowerCase();
+    final isImage = lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.gif');
+    showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        title: Text('Tệp bằng chứng: ${rawUrl.split('/').last}'),
+        content: SizedBox(
+          width: 460,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isImage)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      fullUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => Text('Đường dẫn tệp: $fullUrl'),
+                    ),
+                  )
+                else
+                  SelectableText(
+                    'Đường dẫn tệp đính kèm:\n$fullUrl',
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2231,88 +2620,50 @@ class _ContractMilestoneRoadmapSheetState
               ),
               const SizedBox(height: 8),
 
-              // Thanh chuyển đổi nhanh Phòng Chat 1-1 & Vai trò hiển thị
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                alignment: WrapAlignment.spaceBetween,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Góc nhìn:',
-                        style: TextStyle(fontSize: 11.5, color: Palette.muted),
-                      ),
-                      const SizedBox(width: 6),
-                      ChoiceChip(
-                        key: const Key('role-view-customer-chip'),
-                        label: const Text(
-                          'Khách đặt (Requester)',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                        selected: _isRequester,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (_) =>
-                            setState(() => _roleOverride = 'CUSTOMER'),
-                      ),
-                      const SizedBox(width: 6),
-                      ChoiceChip(
-                        key: const Key('role-view-creator-chip'),
-                        label: const Text(
-                          'Chủ kênh (Creator)',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                        selected: _isCreator,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (_) =>
-                            setState(() => _roleOverride = 'CREATOR'),
-                      ),
-                    ],
+              // Thanh mở nhanh Phòng Chat 1-1 (Đã xóa nút Góc nhìn thủ công - Mục 6)
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  key: const Key('open-contract-chat-1on1-btn'),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: Palette.red,
+                    side: const BorderSide(color: Palette.red),
                   ),
-                  OutlinedButton.icon(
-                    key: const Key('open-contract-chat-1on1-btn'),
-                    style: OutlinedButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      foregroundColor: Palette.red,
-                      side: const BorderSide(color: Palette.red),
-                    ),
-                    onPressed: () {
-                      showModalBottomSheet<void>(
-                        context: context,
-                        useRootNavigator: true,
-                        isScrollControlled: true,
-                        useSafeArea: true,
-                        backgroundColor: Palette.paper,
-                        builder: (_) => CreatorFreelancerChatSheet(
-                          chatRepository: widget.state.chatRepository ??
-                              widget.state.creatorState.chatRepository,
-                          contractRepository: _contractRepo,
-                          hireRequestId: c?.hireRequestId,
-                          contractId: widget.contractId,
-                          contractStatus: c?.status,
-                          topicTitle: c?.title,
-                          channelName: c?.channelName,
-                          partnerName: _isCreator
-                              ? (c?.effectiveRequesterName ?? 'Khách đặt nội dung')
-                              : (c?.creatorFullName ?? 'Chủ kênh'),
-                          senderRole: _isCreator ? 'CREATOR' : 'CUSTOMER',
-                          senderName: widget.state.displayName,
-                          currentUserId: widget.state.currentUserId,
-                          preferences: widget.state.preferences,
-                        ),
-                      );
-                    },
-                    icon: const Icon(CupertinoIcons.chat_bubble_2_fill, size: 14),
-                    label: Text(
-                      (status == 'COMPLETED' || status == 'CANCELLED')
-                          ? 'Xem lịch sử chat'
-                          : 'Phòng Chat 1-1',
-                      style: const TextStyle(fontSize: 12),
-                    ),
+                  onPressed: () {
+                    showModalBottomSheet<void>(
+                      context: context,
+                      useRootNavigator: true,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      backgroundColor: Palette.paper,
+                      builder: (_) => CreatorFreelancerChatSheet(
+                        chatRepository: widget.state.chatRepository ??
+                            widget.state.creatorState.chatRepository,
+                        contractRepository: _contractRepo,
+                        hireRequestId: c?.hireRequestId,
+                        contractId: widget.contractId,
+                        contractStatus: c?.status,
+                        topicTitle: c?.title,
+                        channelName: c?.channelName,
+                        partnerName: _isCreator
+                            ? (c?.effectiveRequesterName ?? 'Khách đặt nội dung')
+                            : (c?.creatorFullName ?? 'Chủ kênh'),
+                        senderRole: _isCreator ? 'CREATOR' : 'CUSTOMER',
+                        senderName: widget.state.displayName,
+                        currentUserId: widget.state.currentUserId,
+                        preferences: widget.state.preferences,
+                      ),
+                    );
+                  },
+                  icon: const Icon(CupertinoIcons.chat_bubble_2_fill, size: 14),
+                  label: Text(
+                    (status == 'COMPLETED' || status == 'CANCELLED')
+                        ? 'Xem lịch sử chat'
+                        : 'Phòng Chat 1-1',
+                    style: const TextStyle(fontSize: 12),
                   ),
-                ],
+                ),
               ),
               const Divider(height: 16),
 
@@ -2390,8 +2741,8 @@ class _ContractMilestoneRoadmapSheetState
                                       ),
                                       child: Text(
                                         _descExpanded
-                                            ? 'Thu gọn ▴'
-                                            : 'Xem đầy đủ ▾',
+                                            ? 'Thu gọn'
+                                            : 'Xem đầy đủ',
                                         style: const TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w700,
@@ -2668,7 +3019,7 @@ class _ContractMilestoneRoadmapSheetState
                         ),
                       ],
 
-                      // Khiếu nại đang diễn ra (nếu có)
+                      // Khiếu nại đang diễn ra (nếu có - Mục 9 & 16)
                       if (_disputes.isNotEmpty) ...[
                         const Eyebrow('KHIẾU NẠI & PHÂN XỬ TRANH CHẤP'),
                         const SizedBox(height: 8),
@@ -2694,34 +3045,85 @@ class _ContractMilestoneRoadmapSheetState
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Lý do từ Khách: ${d.reason}',
+                                  'Lý do khiếu nại (${d.raisedByName ?? "Bên khởi kiện"}): ${d.reason}',
                                   style: const TextStyle(fontSize: 12.5),
                                 ),
                                 if (d.evidenceUrl != null &&
                                     d.evidenceUrl!.isNotEmpty)
-                                  Text(
-                                    'Bằng chứng Khách: ${d.evidenceUrl}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Palette.muted,
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 3),
+                                    child: Text(
+                                      'Bằng chứng ban đầu: ${d.evidenceUrl}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Palette.muted,
+                                      ),
                                     ),
                                   ),
+                                if (d.evidenceUrls.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      for (final url in d.evidenceUrls)
+                                        ActionChip(
+                                          visualDensity: VisualDensity.compact,
+                                          avatar: const Icon(
+                                            CupertinoIcons.paperclip,
+                                            size: 13,
+                                            color: Palette.red,
+                                          ),
+                                          label: Text(
+                                            url.split('/').last,
+                                            style: const TextStyle(fontSize: 11),
+                                          ),
+                                          onPressed: () =>
+                                              _showEvidenceAttachmentDialog(url),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                                 if (d.counterEvidenceUrl != null &&
                                     d.counterEvidenceUrl!.isNotEmpty)
                                   Padding(
-                                    padding: const EdgeInsets.only(top: 4),
+                                    padding: const EdgeInsets.only(top: 6),
                                     child: Text(
-                                      'Đối chất từ Creator: ${d.counterEvidenceUrl}',
+                                      'Giải trình đối chất: ${d.counterEvidenceUrl}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF1976D2),
                                       ),
                                     ),
                                   ),
+                                if (d.counterEvidenceUrls.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: [
+                                      for (final url in d.counterEvidenceUrls)
+                                        ActionChip(
+                                          visualDensity: VisualDensity.compact,
+                                          avatar: const Icon(
+                                            CupertinoIcons.paperclip,
+                                            size: 13,
+                                            color: Color(0xFF1976D2),
+                                          ),
+                                          label: Text(
+                                            url.split('/').last,
+                                            style: const TextStyle(fontSize: 11),
+                                          ),
+                                          onPressed: () =>
+                                              _showEvidenceAttachmentDialog(url),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                                 if (d.resolution != null &&
                                     d.resolution!.isNotEmpty)
                                   Padding(
-                                    padding: const EdgeInsets.only(top: 4),
+                                    padding: const EdgeInsets.only(top: 6),
                                     child: Text(
                                       'Phán quyết Admin: ${d.resolution}',
                                       style: const TextStyle(
@@ -2731,20 +3133,26 @@ class _ContractMilestoneRoadmapSheetState
                                       ),
                                     ),
                                   ),
-                                const SizedBox(height: 8),
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    visualDensity: VisualDensity.compact,
+                                if (d.status.toUpperCase() == 'OPEN' &&
+                                    (widget.state.currentUserId == null ||
+                                        d.raisedByUserId !=
+                                            widget.state.currentUserId)) ...[
+                                  const SizedBox(height: 8),
+                                  OutlinedButton.icon(
+                                    key: Key('counter-evidence-btn-${d.id}'),
+                                    style: OutlinedButton.styleFrom(
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    onPressed: _busy
+                                        ? null
+                                        : () => _promptCounterEvidence(d),
+                                    icon: const Icon(
+                                      CupertinoIcons.doc_text_search,
+                                      size: 14,
+                                    ),
+                                    label: const Text('Gửi bằng chứng đối chất'),
                                   ),
-                                  onPressed: _busy
-                                      ? null
-                                      : () => _promptCounterEvidence(d),
-                                  icon: const Icon(
-                                    CupertinoIcons.doc_text_search,
-                                    size: 14,
-                                  ),
-                                  label: const Text('Gửi bằng chứng đối chất'),
-                                ),
+                                ],
                               ],
                             ),
                           ),
@@ -3030,6 +3438,35 @@ class _ContractMilestoneRoadmapSheetState
     );
   }
 
+  String _escrowStatusLabel(String rawEscrow, String mStatus) {
+    final e = rawEscrow.toUpperCase();
+    if (e == 'HELD') return 'Đang giữ Ký quỹ';
+    if (e == 'FROZEN') return 'Đóng băng tranh chấp';
+    if (e == 'RELEASED') return 'Đã giải ngân';
+    if (e == 'REFUNDED') return 'Đã hoàn tiền';
+    if (e == 'UNFUNDED' || e == 'NONE' || e.isEmpty) {
+      if (mStatus == 'IN_PROGRESS' || mStatus == 'SUBMITTED' || mStatus == 'APPROVED') {
+        return 'Đang giữ Ký quỹ';
+      }
+      if (mStatus == 'RELEASED') return 'Đã giải ngân';
+      return 'Chưa nạp cọc';
+    }
+    return e;
+  }
+
+  Color _escrowStatusColor(String rawEscrow, String mStatus) {
+    final e = rawEscrow.toUpperCase();
+    if (e == 'HELD') return const Color(0xFFD97706);
+    if (e == 'FROZEN') return Palette.red;
+    if (e == 'RELEASED') return const Color(0xFF2E7D32);
+    if (e == 'REFUNDED') return const Color(0xFF1976D2);
+    if (mStatus == 'IN_PROGRESS' || mStatus == 'SUBMITTED' || mStatus == 'APPROVED') {
+      return const Color(0xFFD97706);
+    }
+    if (mStatus == 'RELEASED') return const Color(0xFF2E7D32);
+    return Palette.muted;
+  }
+
   Widget _buildMilestoneCard(
     MilestoneModel m,
     int fallbackOrder,
@@ -3037,6 +3474,21 @@ class _ContractMilestoneRoadmapSheetState
   ) {
     final orderNo = m.orderNo ?? fallbackOrder;
     final mStatus = m.status.toUpperCase();
+    final rawEscrow = (m.escrowStatus ?? '').toUpperCase();
+    final effectiveEscrow = rawEscrow.isNotEmpty
+        ? rawEscrow
+        : (mStatus == 'IN_PROGRESS' ||
+                mStatus == 'SUBMITTED' ||
+                mStatus == 'APPROVED'
+            ? 'HELD'
+            : (mStatus == 'RELEASED' ? 'RELEASED' : 'UNFUNDED'));
+    final hasOpenDispute = _disputes.any(
+      (d) => d.milestoneId == m.id && d.status.toUpperCase() == 'OPEN',
+    );
+    final canOpenDispute = !hasOpenDispute &&
+        (mStatus == 'IN_PROGRESS' ||
+            mStatus == 'SUBMITTED' ||
+            mStatus == 'APPROVED');
     final deliverables = _deliverablesByMilestone[m.id] ?? m.deliverables;
     final revisions = m.revisionRequests;
     final canRequestMoreRevisions =
@@ -3174,8 +3626,10 @@ class _ContractMilestoneRoadmapSheetState
             spacing: 8,
             runSpacing: 6,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -3195,7 +3649,6 @@ class _ContractMilestoneRoadmapSheetState
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 7,
@@ -3216,6 +3669,30 @@ class _ContractMilestoneRoadmapSheetState
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
                         color: milestoneStatusColor(mStatus),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    key: Key('milestone-escrow-badge-${m.id}'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _escrowStatusColor(rawEscrow, mStatus)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: _escrowStatusColor(rawEscrow, mStatus)
+                            .withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Text(
+                      'Ký quỹ: ${_escrowStatusLabel(rawEscrow, mStatus)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: _escrowStatusColor(rawEscrow, mStatus),
                       ),
                     ),
                   ),
@@ -3298,12 +3775,39 @@ class _ContractMilestoneRoadmapSheetState
                 'Lượt sửa: ${m.revisionsUsed ?? 0}/${m.maxRevisions ?? 2}',
                 style: const TextStyle(fontSize: 11.5, color: Palette.muted),
               ),
-              if (m.dueAt != null)
+              if (m.fundDueAt != null && m.fundDueAt!.isNotEmpty)
+                Text(
+                  'Hạn đóng cọc (48h): ${m.fundDueAt!.split("T").first}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFFD97706),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              if (m.dueAt != null && m.dueAt!.isNotEmpty)
                 Text(
                   'Hạn bàn giao: ${m.dueAt!.split("T").first}',
                   style: const TextStyle(
                     fontSize: 11.5,
                     color: Palette.red,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              if (m.reviewDueAt != null && m.reviewDueAt!.isNotEmpty)
+                Text(
+                  'Hạn nghiệm thu (72h): ${m.reviewDueAt!.split("T").first}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF7C3AED),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              if (m.releaseAt != null && m.releaseAt!.isNotEmpty)
+                Text(
+                  'Giải ngân đối soát: ${m.releaseAt!.split("T").first}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF2E7D32),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -3476,7 +3980,7 @@ class _ContractMilestoneRoadmapSheetState
             // 1. WAITING
             if (mStatus == 'WAITING')
               const Text(
-                '🔒 Giai đoạn này sẽ tự động mở khóa sang UNFUNDED ngay sau khi giai đoạn trước được Khách duyệt nghiệm thu.',
+                'Giai đoạn này sẽ tự động mở khóa sang UNFUNDED ngay sau khi giai đoạn trước được Khách duyệt nghiệm thu.',
                 style: TextStyle(fontSize: 11.5, color: Palette.muted),
               ),
 
@@ -3534,12 +4038,12 @@ class _ContractMilestoneRoadmapSheetState
                 )
               else
                 const Text(
-                  '⏳ Đang chờ Khách hàng nạp tiền ký quỹ (Escrow) cho giai đoạn này trước khi bạn bắt đầu sản xuất.',
+                  'Đang chờ Khách hàng nạp tiền ký quỹ (Escrow) cho giai đoạn này trước khi bạn bắt đầu sản xuất.',
                   style: TextStyle(fontSize: 12, color: Color(0xFFD97706)),
                 ),
             ],
 
-            // 3. IN_PROGRESS -> Creator nộp file (tự động lên SUBMITTED), Khách có thể hủy nếu trễ hạn
+            // 3. IN_PROGRESS -> Creator nộp file (tự động lên SUBMITTED), Khách có thể hủy nếu trễ hạn, cả 2 bên có thể Mở khiếu nại (Mục 9)
             if (mStatus == 'IN_PROGRESS') ...[
               Wrap(
                 spacing: 8,
@@ -3583,11 +4087,25 @@ class _ContractMilestoneRoadmapSheetState
                         'Hủy giai đoạn trễ hạn (Hoàn 100%)',
                       ),
                     ),
+                  if (canOpenDispute)
+                    OutlinedButton.icon(
+                      key: Key('open-dispute-milestone-btn-${m.id}'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Palette.red,
+                        side: const BorderSide(color: Palette.red),
+                      ),
+                      onPressed: _busy ? null : () => _promptOpenDispute(m),
+                      icon: const Icon(
+                        CupertinoIcons.exclamationmark_shield_fill,
+                        size: 14,
+                      ),
+                      label: const Text('Mở khiếu nại'),
+                    ),
                 ],
               ),
             ],
 
-            // 4. SUBMITTED -> Khách nghiệm thu (Approve / Request Revision / Open Dispute)
+            // 4. SUBMITTED -> Khách nghiệm thu (Approve / Request Revision / Open Dispute), Creator nộp bổ sung / Mở khiếu nại (Mục 9)
             if (mStatus == 'SUBMITTED') ...[
               if (_isRequester)
                 Wrap(
@@ -3629,19 +4147,20 @@ class _ContractMilestoneRoadmapSheetState
                           'Yêu cầu chỉnh sửa (${m.revisionsUsed ?? 0}/${m.maxRevisions ?? 2})',
                         ),
                       ),
-                    OutlinedButton.icon(
-                      key: Key('open-dispute-milestone-btn-${m.id}'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Palette.red,
-                        side: const BorderSide(color: Palette.red),
+                    if (canOpenDispute)
+                      OutlinedButton.icon(
+                        key: Key('open-dispute-milestone-btn-${m.id}'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Palette.red,
+                          side: const BorderSide(color: Palette.red),
+                        ),
+                        onPressed: _busy ? null : () => _promptOpenDispute(m),
+                        icon: const Icon(
+                          CupertinoIcons.exclamationmark_shield_fill,
+                          size: 14,
+                        ),
+                        label: const Text('Mở khiếu nại'),
                       ),
-                      onPressed: _busy ? null : () => _promptOpenDispute(m),
-                      icon: const Icon(
-                        CupertinoIcons.exclamationmark_shield_fill,
-                        size: 14,
-                      ),
-                      label: const Text('Mở khiếu nại / Tranh chấp'),
-                    ),
                   ],
                 )
               else
@@ -3651,7 +4170,7 @@ class _ContractMilestoneRoadmapSheetState
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text(
-                      '✅ Đã nộp sản phẩm! Khách hàng có 72 giờ để nghiệm thu (quá 72 giờ tự động APPROVED).',
+                      'Đã nộp sản phẩm! Khách hàng có 72 giờ để nghiệm thu (quá 72 giờ tự động APPROVED).',
                       style: TextStyle(fontSize: 12, color: Color(0xFF7C3AED)),
                     ),
                     OutlinedButton.icon(
@@ -3662,26 +4181,74 @@ class _ContractMilestoneRoadmapSheetState
                       icon: const Icon(CupertinoIcons.cloud_upload, size: 14),
                       label: const Text('Nộp bổ sung bản mới'),
                     ),
+                    if (canOpenDispute)
+                      OutlinedButton.icon(
+                        key: Key('open-dispute-milestone-btn-${m.id}'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Palette.red,
+                          side: const BorderSide(color: Palette.red),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: _busy ? null : () => _promptOpenDispute(m),
+                        icon: const Icon(
+                          CupertinoIcons.exclamationmark_shield_fill,
+                          size: 14,
+                        ),
+                        label: const Text('Mở khiếu nại'),
+                      ),
                   ],
                 ),
             ],
 
-            // 5. APPROVED / RELEASED -> Đối soát 3 ngày & Đánh giá giai đoạn
+            // 5. APPROVED / RELEASED -> Đối soát 3 ngày, Giải ngân ngay (Mục 15), Mở khiếu nại (Mục 9) & Đánh giá giai đoạn
             if (mStatus == 'APPROVED' || mStatus == 'RELEASED') ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Text(
+                mStatus == 'RELEASED'
+                    ? 'Đã giải ngân 95% (${formatVndAmount(m.netAmount ?? (m.amount * 0.95))}) vào số dư khả dụng của Creator.'
+                    : 'Đã nghiệm thu! Khoản thực nhận 95% (${formatVndAmount(m.netAmount ?? (m.amount * 0.95))}) đang giữ đối soát 3 ngày trước khi tự động cộng vào Ví khả dụng.',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF2E7D32),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      mStatus == 'RELEASED'
-                          ? '💰 Đã giải ngân 95% (${formatVndAmount(m.netAmount ?? (m.amount * 0.95))}) vào số dư khả dụng của Creator.'
-                          : '🛡️ Đã nghiệm thu! Khoản thực nhận 95% (${formatVndAmount(m.netAmount ?? (m.amount * 0.95))}) đang giữ đối soát 3 ngày trước khi tự động cộng vào Ví khả dụng.',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF2E7D32),
+                  if (_isRequester &&
+                      mStatus == 'APPROVED' &&
+                      effectiveEscrow == 'HELD')
+                    FilledButton.icon(
+                      key: Key('release-early-milestone-btn-${m.id}'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E7D32),
+                        visualDensity: VisualDensity.compact,
                       ),
+                      onPressed:
+                          _busy ? null : () => _promptReleaseEarlyMilestone(m),
+                      icon: const Icon(
+                        CupertinoIcons.checkmark_shield_fill,
+                        size: 14,
+                      ),
+                      label: const Text('Giải ngân ngay'),
                     ),
-                  ),
+                  if (canOpenDispute)
+                    OutlinedButton.icon(
+                      key: Key('open-dispute-milestone-btn-${m.id}'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Palette.red,
+                        side: const BorderSide(color: Palette.red),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: _busy ? null : () => _promptOpenDispute(m),
+                      icon: const Icon(
+                        CupertinoIcons.exclamationmark_shield_fill,
+                        size: 14,
+                      ),
+                      label: const Text('Mở khiếu nại'),
+                    ),
                   TextButton.icon(
                     onPressed: _busy ? null : () => _promptReview(milestone: m),
                     icon: const Icon(
@@ -3734,6 +4301,9 @@ class _CommissionManagementSectionState
     extends State<CommissionManagementSection> {
   int _subTab = 0; // 0: Đơn tôi đã đặt (Khách), 1: Đơn kênh nhận được (Creator)
   bool _busy = false;
+  String _searchQuery = '';
+  String _statusFilter = 'ALL';
+  String _sortBy = 'NEWEST';
 
   HireRequestRepository? get _repo =>
       widget.state.hireRequestRepository ??
@@ -3815,11 +4385,21 @@ class _CommissionManagementSectionState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Đã chấp nhận đơn "${item.title ?? "#${item.id}"}"! Phòng Chat 1-1 đã mở để hai bên thống nhất lộ trình.',
+            'Đã chấp nhận đơn "${item.title ?? "#${item.id}"}". Hãy lập Lộ trình Milestone để gửi Khách hàng duyệt.',
           ),
         ),
       );
-      _openChatForCommission(item, asCreator: true);
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Palette.paper,
+        builder: (_) => CreateOrEditMilestoneRoadmapSheet(
+          state: widget.state,
+          commission: item,
+          onSaved: widget.onRefresh,
+        ),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -3907,11 +4487,59 @@ class _CommissionManagementSectionState
     }
   }
 
+  String _effectiveCommissionStatus(HireRequestModel item) {
+    final linkedContract = _findLinkedContract(item);
+    final effectiveContractId = item.contractId ?? linkedContract?.id;
+    final rawStatus = item.status.toUpperCase();
+    return (effectiveContractId != null && rawStatus == 'ACCEPTED')
+        ? 'CONTRACT_SENT'
+        : rawStatus;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final items = _subTab == 0
+    final rawItems = _subTab == 0
         ? widget.sentCommissions
         : widget.receivedCommissions;
+
+    final pendingCount = rawItems
+        .where((i) => _effectiveCommissionStatus(i) == 'PENDING')
+        .length;
+    final acceptedCount = rawItems
+        .where((i) => _effectiveCommissionStatus(i) == 'ACCEPTED')
+        .length;
+    final contractSentCount = rawItems
+        .where((i) => _effectiveCommissionStatus(i) == 'CONTRACT_SENT')
+        .length;
+
+    final query = _searchQuery.trim().toLowerCase();
+    final items = rawItems.where((i) {
+      final st = _effectiveCommissionStatus(i);
+      if (_statusFilter != 'ALL') {
+        if (_statusFilter == 'REJECTED_CANCELLED') {
+          if (st != 'REJECTED' && st != 'CANCELLED') return false;
+        } else if (st != _statusFilter) {
+          return false;
+        }
+      }
+      if (query.isNotEmpty) {
+        final hay =
+            '${i.id} ${i.title ?? ""} ${i.description ?? ""} ${i.channelName ?? ""} ${i.effectiveRequesterName} ${i.creatorFullName ?? ""}'
+                .toLowerCase();
+        if (!hay.contains(query)) return false;
+      }
+      return true;
+    }).toList();
+
+    items.sort((a, b) {
+      if (_sortBy == 'OLDEST') return a.id.compareTo(b.id);
+      if (_sortBy == 'TITLE_AZ') {
+        return (a.title ?? '').toLowerCase().compareTo(
+              (b.title ?? '').toLowerCase(),
+            );
+      }
+      return b.id.compareTo(a.id);
+    });
 
     final pendingContractsForViewer = widget.contracts
         .where((c) => c.status.toUpperCase() == 'PENDING')
@@ -4008,137 +4636,212 @@ class _CommissionManagementSectionState
               ),
             ),
         ],
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: Palette.soft,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Palette.line),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  key: const Key('subtab-my-sent-commissions'),
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    setState(() => _subTab = 0);
+                    widget.onRefresh();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 7,
+                    ),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _subTab == 0
+                          ? Palette.white
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: _subTab == 0
+                          ? Border.all(color: Palette.line)
+                          : null,
+                    ),
+                    child: Text(
+                      'Tôi đã đặt (${widget.sentCommissions.length})',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _subTab == 0
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: _subTab == 0 ? Palette.red : Palette.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: InkWell(
+                  key: const Key('subtab-my-received-commissions'),
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () {
+                    setState(() => _subTab = 1);
+                    widget.onRefresh();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 7,
+                    ),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _subTab == 1
+                          ? Palette.white
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6),
+                      border: _subTab == 1
+                          ? Border.all(color: Palette.line)
+                          : null,
+                    ),
+                    child: Text(
+                      'Kênh nhận được (${widget.receivedCommissions.length})',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _subTab == 1
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: _subTab == 1 ? Palette.red : Palette.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Thanh thống kê nhanh trạng thái đơn (Mục 14)
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            _summaryCountChip(
+              'Chờ duyệt: $pendingCount',
+              const Color(0xFFD97706),
+            ),
+            _summaryCountChip(
+              'Đang thảo luận: $acceptedCount',
+              const Color(0xFF1976D2),
+            ),
+            _summaryCountChip(
+              'Đã gửi hợp đồng: $contractSentCount',
+              const Color(0xFF7C3AED),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        // Thanh tìm kiếm + lọc + sắp xếp (Mục 11)
         Row(
           children: [
             Expanded(
+              child: TextField(
+                key: const Key('commission-search-input'),
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: 'Tìm tiêu đề, kênh, đối tác hoặc mã #ID...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Palette.muted),
+                  prefixIcon: const Icon(
+                    CupertinoIcons.search,
+                    size: 15,
+                    color: Palette.muted,
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  filled: true,
+                  fillColor: Palette.soft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                ),
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButtonHideUnderline(
               child: Container(
-                padding: const EdgeInsets.all(3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Palette.soft,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Palette.line),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        key: const Key('subtab-my-sent-commissions'),
-                        borderRadius: BorderRadius.circular(6),
-                        onTap: () {
-                          setState(() => _subTab = 0);
-                          widget.onRefresh();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 7,
-                          ),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _subTab == 0
-                                ? Palette.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                            border: _subTab == 0
-                                ? Border.all(color: Palette.line)
-                                : null,
-                          ),
-                          child: Text(
-                            'Tôi đã đặt (${widget.sentCommissions.length})',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: _subTab == 0
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: _subTab == 0 ? Palette.red : Palette.muted,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: InkWell(
-                        key: const Key('subtab-my-received-commissions'),
-                        borderRadius: BorderRadius.circular(6),
-                        onTap: () {
-                          setState(() => _subTab = 1);
-                          widget.onRefresh();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 7,
-                          ),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: _subTab == 1
-                                ? Palette.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                            border: _subTab == 1
-                                ? Border.all(color: Palette.line)
-                                : null,
-                          ),
-                          child: Text(
-                            'Kênh nhận được (${widget.receivedCommissions.length})',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: _subTab == 1
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: _subTab == 1 ? Palette.red : Palette.muted,
-                            ),
-                          ),
-                        ),
-                      ),
+                child: DropdownButton<String>(
+                  key: const Key('commission-sort-dropdown'),
+                  value: _sortBy,
+                  isDense: true,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.ink,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'NEWEST', child: Text('Mới nhất')),
+                    DropdownMenuItem(value: 'OLDEST', child: Text('Cũ nhất')),
+                    DropdownMenuItem(
+                      value: 'TITLE_AZ',
+                      child: Text('Tiêu đề A-Z'),
                     ),
                   ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _sortBy = val);
+                  },
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              key: const Key('new-commission-from-hub-btn'),
-              style: FilledButton.styleFrom(
-                backgroundColor: Palette.red,
-                visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 9,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  useSafeArea: true,
-                  backgroundColor: Palette.paper,
-                  builder: (_) => SelectChannelForCommissionSheet(
-                    state: widget.state,
-                    onCommissionCreated: () {
-                      setState(() => _subTab = 0);
-                      widget.onRefresh();
-                    },
-                  ),
-                );
-              },
-              icon: const Icon(CupertinoIcons.add, size: 13),
-              label: const Text(
-                'Đặt tại kênh',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final entry in const [
+                ('ALL', 'Tất cả'),
+                ('PENDING', 'Chờ duyệt'),
+                ('ACCEPTED', 'Đã chấp nhận'),
+                ('CONTRACT_SENT', 'Đã gửi hợp đồng'),
+                ('COMPLETED', 'Đã hoàn tất'),
+                ('REJECTED_CANCELLED', 'Đã từ chối/Đã hủy'),
+              ]) ...[
+                ChoiceChip(
+                  key: Key('commission-filter-${entry.$1}'),
+                  label: Text(entry.$2, style: const TextStyle(fontSize: 11.5)),
+                  selected: _statusFilter == entry.$1,
+                  selectedColor: Palette.red.withValues(alpha: 0.14),
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) =>
+                      setState(() => _statusFilter = entry.$1),
+                ),
+                const SizedBox(width: 6),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         if (widget.loading)
           const Padding(
             padding: EdgeInsets.all(32.0),
@@ -4155,21 +4858,23 @@ class _CommissionManagementSectionState
             child: Column(
               children: [
                 const Icon(
-                  CupertinoIcons.sparkles,
+                  CupertinoIcons.doc_text,
                   size: 38,
                   color: Palette.muted,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  _subTab == 0
-                      ? 'Bạn chưa đặt làm nội dung nào'
-                      : 'Kênh chưa nhận đơn đặt nội dung nào',
+                  rawItems.isEmpty
+                      ? (_subTab == 0
+                          ? 'Bạn chưa đặt làm nội dung nào'
+                          : 'Kênh chưa nhận đơn đặt nội dung nào')
+                      : 'Không có đơn phù hợp với bộ lọc',
                   style: editorial(18),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   _subTab == 0
-                      ? 'Bạn có thể truy cập bất kỳ Kênh kể chuyện nào hoặc bấm nút "Đặt làm nội dung tại Kênh" để gửi đề tài mong muốn cho Creator.'
+                      ? 'Bạn có thể truy cập bất kỳ Kênh kể chuyện nào hoặc bấm nút "Đặt làm nội dung" để gửi đề tài mong muốn cho Creator.'
                       : 'Khi người nghe gửi yêu cầu đặt làm Video / Podcast lẻ hoặc Series nhiều tập tại kênh của bạn, đơn sẽ xuất hiện tại đây.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
@@ -4185,6 +4890,25 @@ class _CommissionManagementSectionState
           for (final item in items)
             _buildCommissionCard(item, isCreatorView: _subTab == 1),
       ],
+    );
+  }
+
+  Widget _summaryCountChip(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
     );
   }
 
@@ -4518,7 +5242,7 @@ class _CommissionManagementSectionState
 }
 
 /// Khu vực Hợp đồng & Tiến độ Milestone 2 Tầng + Thống kê Tài chính Ký quỹ
-class MilestoneContractsSection extends StatelessWidget {
+class MilestoneContractsSection extends StatefulWidget {
   const MilestoneContractsSection({
     super.key,
     required this.state,
@@ -4533,6 +5257,19 @@ class MilestoneContractsSection extends StatelessWidget {
   final MilestoneFinancialSummaryModel? financials;
   final bool loading;
   final Future<void> Function() onRefresh;
+
+  @override
+  State<MilestoneContractsSection> createState() =>
+      _MilestoneContractsSectionState();
+}
+
+class _MilestoneContractsSectionState extends State<MilestoneContractsSection> {
+  String _searchQuery = '';
+  String _statusFilter = 'ALL';
+  String _sortBy = 'NEWEST';
+
+  AppState get state => widget.state;
+  Future<void> Function() get onRefresh => widget.onRefresh;
 
   void _openContractDetail(BuildContext context, ContractModel c) {
     showModalBottomSheet<void>(
@@ -4551,7 +5288,34 @@ class MilestoneContractsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fin = financials;
+    final fin = widget.financials;
+    final query = _searchQuery.trim().toLowerCase();
+    final filteredContracts = widget.contracts.where((c) {
+      final st = c.status.toUpperCase();
+      if (_statusFilter != 'ALL') {
+        if (_statusFilter == 'PENDING') {
+          if (!isContractNegotiating(st)) return false;
+        } else if (st != _statusFilter) {
+          return false;
+        }
+      }
+      if (query.isNotEmpty) {
+        final hay =
+            '${c.id} ${c.title} ${c.description ?? ""} ${c.channelName ?? ""} ${c.effectiveRequesterName} ${c.creatorFullName ?? ""}'
+                .toLowerCase();
+        if (!hay.contains(query)) return false;
+      }
+      return true;
+    }).toList();
+
+    filteredContracts.sort((a, b) {
+      if (_sortBy == 'OLDEST') return a.id.compareTo(b.id);
+      if (_sortBy == 'TITLE_AZ') {
+        return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+      }
+      return b.id.compareTo(a.id);
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -4574,7 +5338,7 @@ class MilestoneContractsSection extends StatelessWidget {
                 children: [
                   _finTile(
                     'Đang giữ Ký quỹ (Escrow)',
-                    formatVndAmount(fin?.escrowLocked ?? 0),
+                    formatVndAmount(fin?.escrowHeldAmount ?? 0),
                     const Color(0xFFD97706),
                   ),
                   _finTile(
@@ -4597,14 +5361,109 @@ class MilestoneContractsSection extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        // Thanh tìm kiếm + lọc + sắp xếp Hợp đồng (Mục 11)
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: const Key('contract-search-input'),
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: 'Tìm hợp đồng theo tên, kênh, đối tác hoặc #ID...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Palette.muted),
+                  prefixIcon: const Icon(
+                    CupertinoIcons.search,
+                    size: 15,
+                    color: Palette.muted,
+                  ),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  filled: true,
+                  fillColor: Palette.soft,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Palette.line),
+                  ),
+                ),
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(width: 8),
+            DropdownButtonHideUnderline(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Palette.soft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Palette.line),
+                ),
+                child: DropdownButton<String>(
+                  key: const Key('contract-sort-dropdown'),
+                  value: _sortBy,
+                  isDense: true,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.ink,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'NEWEST', child: Text('Mới nhất')),
+                    DropdownMenuItem(value: 'OLDEST', child: Text('Cũ nhất')),
+                    DropdownMenuItem(
+                      value: 'TITLE_AZ',
+                      child: Text('Tiêu đề A-Z'),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setState(() => _sortBy = val);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final entry in const [
+                ('ALL', 'Tất cả'),
+                ('PENDING', 'Chờ duyệt'),
+                ('ACTIVE', 'Đang thực hiện'),
+                ('COMPLETED', 'Đã hoàn tất'),
+                ('CANCELLED', 'Đã hủy'),
+              ]) ...[
+                ChoiceChip(
+                  key: Key('contract-filter-${entry.$1}'),
+                  label: Text(entry.$2, style: const TextStyle(fontSize: 11.5)),
+                  selected: _statusFilter == entry.$1,
+                  selectedColor: Palette.red.withValues(alpha: 0.14),
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (_) =>
+                      setState(() => _statusFilter = entry.$1),
+                ),
+                const SizedBox(width: 6),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
 
-        if (loading)
+        if (widget.loading)
           const Padding(
             padding: EdgeInsets.all(32.0),
             child: Center(child: CircularProgressIndicator()),
           )
-        else if (contracts.isEmpty)
+        else if (filteredContracts.isEmpty)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 34),
             decoration: BoxDecoration(
@@ -4620,7 +5479,12 @@ class MilestoneContractsSection extends StatelessWidget {
                   color: Palette.muted,
                 ),
                 const SizedBox(height: 12),
-                Text('Chưa có Hợp đồng Milestone nào', style: editorial(18)),
+                Text(
+                  widget.contracts.isEmpty
+                      ? 'Chưa có Hợp đồng Milestone nào'
+                      : 'Không có Hợp đồng phù hợp với bộ lọc',
+                  style: editorial(18),
+                ),
                 const SizedBox(height: 6),
                 const Text(
                   'Sau khi Creator chấp nhận đơn đặt nội dung và lập Lộ trình Milestone Tổng, hợp đồng sẽ hiển thị tại đây để Khách hàng duyệt (Tầng 1) và đóng cọc cuốn chiếu từng giai đoạn (Tầng 2).',
@@ -4635,7 +5499,7 @@ class MilestoneContractsSection extends StatelessWidget {
             ),
           )
         else
-          for (final c in contracts) _buildContractCard(context, c),
+          for (final c in filteredContracts) _buildContractCard(context, c),
       ],
     );
   }

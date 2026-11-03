@@ -1385,8 +1385,19 @@ QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRO
    - Râu ông nọ cắm cằm bà kia hoặc mâu thuẫn sử học nghiêm trọng (ví dụ: Lý Thường Kiệt đánh giặc Mông - Nguyên thời Trần, Lý Thái Tổ đánh trận Bạch Đằng 1288, v.v.).
    - QUY TẮC BẮT BUỘC: Dù bài viết có 90-99% nội dung đúng về nhà Lý hoặc nhà Trần, nhưng NẾU CÓ DÙ CHỈ MỘT CÂU/CỤM TỪ cố ý hoặc vô tình chèn nhân vật sai trái/ngoại lai/lạc thời kỳ (như 'Trương Liêu', 'Lưu Bị', 'Đinh Bộ Lĩnh') -> BẮT BUỘC PHẢI TỪ CHỐI (in_scope = false) và vạch rõ tên các nhân vật sai phạm trong lý do!
 
-Trả về JSON thuần túy (không bọc trong markdown):
-{{"in_scope": true, "reason": "giải thích ngắn 1 câu tiếng Việt rõ ràng, chỉ đích danh nhân vật hoặc chi tiết sai phạm nếu có"}}"""
+    Trả về JSON thuần túy (không bọc trong markdown):
+    {{
+      "in_scope": true,
+      "reason": "giải thích ngắn 1-2 câu tiếng Việt rõ ràng, chỉ đích danh nhân vật hoặc chi tiết sai phạm nếu có",
+      "errors": [
+        {{
+          "wrong": "từ hoặc cụm từ sai trong văn bản (ví dụ: '1012')",
+          "correct": "từ hoặc cụm từ chuẩn sử học thay thế (ví dụ: '1010')",
+          "explanation": "giải thích sử học ngắn gọn"
+        }}
+      ],
+      "suggested_text": "toàn văn nội dung người dùng sau khi đã tự động sửa các lỗi sai về niên đại, nhân vật, sự kiện, giữ trọn vẹn mạch văn"
+    }}"""
 
     if not api_key:
         other_dynasties_keywords = [
@@ -1460,14 +1471,37 @@ def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: in
     scope_result = check_history_scope_llm(raw_input, api_key)
     if not scope_result.get("in_scope", True):
         reason = scope_result.get("reason", "Chủ đề không thuộc thời kỳ triều đại nhà Lý hoặc nhà Trần.")
-        print(f"[ScopeGate] 🚫 TỪ CHỐI đề tài ngoài phạm vi Lý - Trần: '{raw_input}' - Lý do: {reason}")
-        raise OutOfScopeHistoryError(
-            f"⚠️ CHỦ ĐỀ BỊ TỪ CHỐI (CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN):\n\n"
-            f"Đề tài: \"{raw_input}\"\n"
-            f"Lý do: {reason}\n\n"
-            f"Hệ thống hiện được giới hạn chuyên biệt: CHỈ TẠO VIDEO CHO CÁC SỰ KIỆN, NHÂN VẬT THUỘC THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) trong kho sách sử đã nạp.\n"
-            f"Mọi thời kỳ lịch sử khác hoặc thông tin ngoài phạm vi này đều bị chặn."
+        errors_list = scope_result.get("errors", [])
+        suggested_text = scope_result.get("suggested_text", "")
+
+        err_parts = [
+            "⚠️ CHỦ ĐỀ BỊ TỪ CHỐI (CHỈ HỖ TRỢ THỜI KỲ LÝ - TRẦN):\n",
+            f"Đề tài: \"{raw_input}\"",
+            f"Lý do: {reason}\n"
+        ]
+
+        if errors_list and isinstance(errors_list, list):
+            err_parts.append("Chi tiết các điểm cần hiệu đính:")
+            for e_item in errors_list:
+                if isinstance(e_item, dict):
+                    w = str(e_item.get("wrong", "")).strip()
+                    c = str(e_item.get("correct", "")).strip()
+                    exp = str(e_item.get("explanation", "")).strip()
+                    if w and c:
+                        err_parts.append(f"- ❌ Sai: \"{w}\" ➔  Đúng: \"{c}\" ({exp})")
+            err_parts.append("")
+
+        if suggested_text and str(suggested_text).strip():
+            err_parts.append(f"Bản đính chính đề xuất:\n{str(suggested_text).strip()}\n")
+
+        err_parts.append(
+            "Hệ thống hiện được giới hạn chuyên biệt: CHỈ TẠO VIDEO CHO CÁC SỰ KIỆN, NHÂN VẬT THUỘC THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) trong kho sách sử đã nạp.\n"
+            "Mọi thời kỳ lịch sử khác hoặc thông tin ngoài phạm vi này đều bị chặn."
         )
+
+        full_err_message = "\n".join(err_parts)
+        print(f"[ScopeGate] 🚫 TỪ CHỐI đề tài ngoài phạm vi Lý - Trần: '{raw_input}' - Lý do: {reason}")
+        raise OutOfScopeHistoryError(full_err_message)
 
     # ── BƯỚC 2: TRA CỨU SỬ LIỆU BẮT BUỘC TRONG KHO SÁCH doc/ (MANDATORY RAG) ──
     citations = []

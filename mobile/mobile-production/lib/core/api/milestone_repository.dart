@@ -17,6 +17,7 @@ class MilestoneDeliverableModel {
   final int? versionNo;
   final int? uploadedById;
   final String? uploadedByFullName;
+  final String? fileUrl;
   final String? downloadUrl;
   final String? previewUrl;
   final String? createdAt;
@@ -38,6 +39,7 @@ class MilestoneDeliverableModel {
     this.versionNo,
     this.uploadedById,
     this.uploadedByFullName,
+    this.fileUrl,
     this.downloadUrl,
     this.previewUrl,
     this.createdAt,
@@ -61,6 +63,7 @@ class MilestoneDeliverableModel {
       versionNo: ((json['versionNo'] ?? json['versionNumber']) as num?)?.toInt(),
       uploadedById: (json['uploadedById'] as num?)?.toInt(),
       uploadedByFullName: json['uploadedByFullName']?.toString(),
+      fileUrl: json['fileUrl']?.toString(),
       downloadUrl: json['downloadUrl']?.toString(),
       previewUrl: json['previewUrl']?.toString(),
       createdAt: json['createdAt']?.toString(),
@@ -352,6 +355,13 @@ class MilestoneRepository {
   /// POST /api/v1/milestones/{id}/approve
   Future<MilestoneModel> approveMilestone(int id) async {
     final res = await client.post('/api/v1/milestones/$id/approve', body: {});
+    final data = res['data'] as Map<String, dynamic>;
+    return MilestoneModel.fromJson(data);
+  }
+
+  /// POST /api/v1/milestones/{id}/release-early
+  Future<MilestoneModel> releaseEarlyMilestone(int id) async {
+    final res = await client.post('/api/v1/milestones/$id/release-early', body: {});
     final data = res['data'] as Map<String, dynamic>;
     return MilestoneModel.fromJson(data);
   }
