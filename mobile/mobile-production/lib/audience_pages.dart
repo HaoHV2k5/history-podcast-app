@@ -63,6 +63,7 @@ class _ChannelPageState extends State<ChannelPage> {
     widget.state.loadChannelMembershipPlan(widget.channel.name);
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
+      widget.state.refreshLivestreams();
     }
     _resolveChannelAndReviews();
   }
@@ -175,6 +176,9 @@ class _ChannelPageState extends State<ChannelPage> {
         coverImage: bannerImage.isNotEmpty ? bannerImage : baseC.coverImage,
         monthlyPrice: remoteMatch.monthlyPrice ?? widget.channel.monthlyPrice ?? baseC.monthlyPrice,
         hasBackendPlan: remoteMatch.hasBackendPlan || widget.channel.hasBackendPlan || baseC.hasBackendPlan,
+        followerCount: remoteMatch.followerCount > 0
+            ? remoteMatch.followerCount
+            : (widget.channel.followerCount > 0 ? widget.channel.followerCount : baseC.followerCount),
       );
 
       final followed = widget.state.followed.contains(c.name);
@@ -235,7 +239,7 @@ class _ChannelPageState extends State<ChannelPage> {
             ),
             const SizedBox(height: 14),
             Text(
-              '${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
+              '${c.followerCount > 0 ? "${c.followerCount} người theo dõi · " : ""}${c.content.length} tập · ${c.content.where((e) => e.membersOnly).length} tập dành cho hội viên${seriesList.isNotEmpty ? ' · ${seriesList.length} series' : ''}',
               style: const TextStyle(color: Palette.muted, fontSize: 12),
             ),
             const SizedBox(height: 20),
@@ -1014,6 +1018,7 @@ class _MembershipPageState extends State<MembershipPage> {
     widget.state.loadChannelMembershipPlan(widget.channel.name);
     if (widget.state.isLiveBackend) {
       widget.state.refreshWalletBalance();
+      widget.state.refreshLivestreams();
     }
   }
 
@@ -1698,26 +1703,6 @@ class _ProfileContentState extends State<ProfileContent> {
           borderColor: const Color(0xFF8D6E63),
           backgroundColor: const Color(0xFFFAF6F2),
           textColor: const Color(0xFF4E342E),
-        ),
-      );
-    }
-
-    // 3. FREELANCER (khi tài khoản có vai trò FREELANCER / NARRATOR)
-    final hasFreelancer = state.isFreelancer ||
-        state.userRoles.any((r) =>
-            r.toUpperCase() == 'FREELANCER' || r.toUpperCase() == 'NARRATOR') ||
-        state.preferences.getBool('isFreelancer') == true ||
-        state.preferences.getBool('isFreelancerActiveV1') == true ||
-        state.preferences.getString('narratorFreelancerProfileV1') != null;
-
-    if (hasFreelancer) {
-      badges.add(
-        _buildRolePill(
-          key: const Key('role-badge-freelancer'),
-          label: 'FREELANCER',
-          borderColor: const Color(0xFF00796B),
-          backgroundColor: const Color(0xFFE0F2F1).withValues(alpha: 0.6),
-          textColor: const Color(0xFF004D40),
         ),
       );
     }
@@ -2571,11 +2556,11 @@ class _AuthSheetState extends State<AuthSheet> {
               key: const Key('auth-identifier'),
               controller: identifierCtrl,
               decoration: const InputDecoration(
-                labelText: 'Email hoặc số điện thoại',
-                hintText: 'nghechuyen@suky.vn hoặc 0901234567',
+                labelText: 'Email',
+                hintText: 'nghechuyen@suky.vn',
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Nhập email hoặc SĐT' : null,
+                  v == null || v.trim().isEmpty ? 'Nhập email' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(

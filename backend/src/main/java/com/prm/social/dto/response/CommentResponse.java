@@ -16,4 +16,6 @@ public class CommentResponse {
     private String textBody;
     private String status;
     private Instant createdAt;
+    private String authorName;
+    private String authorAvatarUrl;
 }

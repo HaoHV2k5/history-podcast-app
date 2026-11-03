@@ -13,8 +13,11 @@ import 'narrator_state.dart';
 import 'publication_page.dart';
 import 'studio_pages.dart';
 import 'wallet_page.dart';
+import 'app.dart';
 import 'audience_pages.dart';
+import 'core/api/livestream_repository.dart';
 import 'episode.dart';
+import 'livestream_page.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key, required this.state});
@@ -27,6 +30,16 @@ class _NotificationPageState extends State<NotificationPage> {
   bool unreadOnly = false;
   late final seen =
       (widget.state.preferences.getStringList('seenUpdatesV1') ?? []).toSet();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.state.isLiveBackend) {
+      widget.state.refreshLivestreams();
+      widget.state.refreshCatalog();
+    }
+  }
+
   Future<void> open(Map<String, String> item) async {
     seen.add(item['id']!);
     await widget.state.preferences.setStringList(
@@ -35,6 +48,49 @@ class _NotificationPageState extends State<NotificationPage> {
     );
     if (!mounted) return;
     setState(() {});
+
+    if (item['kind'] == 'livestream') {
+      final sId = int.tryParse(item['sessionId'] ?? '');
+      LivestreamSessionModel? session;
+      if (sId != null) {
+        try {
+          session = widget.state.activeLivestreams.firstWhere((s) => s.id == sId);
+        } catch (_) {}
+      }
+      if (session != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => LivestreamRoomPage(session: session!, state: widget.state),
+          ),
+        );
+        if (mounted) setState(() {});
+        return;
+      }
+    }
+
+    if (item['kind'] == 'episode') {
+      final epId = item['episodeId'] ?? '';
+      Episode? ep;
+      try {
+        ep = remoteEpisodes.firstWhere((e) => e.id == epId);
+      } catch (_) {
+        try {
+          ep = allEpisodes.firstWhere((e) => e.id == epId);
+        } catch (_) {}
+      }
+      if (ep != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+            builder: (_) => EpisodePage(episode: ep!, state: widget.state),
+          ),
+        );
+        if (mounted) setState(() {});
+        return;
+      }
+    }
+
     final Widget page = switch (item['kind']) {
       'membership' => MembershipPage(
         channel: channelByName(item['title']!),
@@ -97,6 +153,35 @@ class _NotificationPageState extends State<NotificationPage> {
         n = NarratorProfileState(widget.state.preferences),
         jobs = NarratorState(c);
     final items = <Map<String, String>>[
+      for (final live in widget.state.activeLivestreams.where(
+        (s) =>
+            s.status.toUpperCase() == 'LIVE' &&
+            widget.state.followed.any(
+              (f) =>
+                  f.trim().toLowerCase() == s.channelName.trim().toLowerCase(),
+            ),
+      ))
+        {
+          'id': 'live:${live.id}',
+          'title': 'Kênh ${live.channelName} đang phát trực tiếp',
+          'detail': '${live.title} · Nhấn để vào phòng phát sóng trực tiếp',
+          'kind': 'livestream',
+          'sessionId': live.id.toString(),
+        },
+      for (final ep in remoteEpisodes
+          .where(
+            (e) => widget.state.followed.any(
+              (f) => f.trim().toLowerCase() == e.channel.trim().toLowerCase(),
+            ),
+          )
+          .take(5))
+        {
+          'id': 'ep:${ep.id}',
+          'title': 'Tập mới từ kênh ${ep.channel}',
+          'detail': '${ep.title} · ${ep.duration}',
+          'kind': 'episode',
+          'episodeId': ep.id,
+        },
       if (n.review.name != 'draft')
         {
           'id': 'profile:${n.id}:${n.review.name}:${n.reason}',

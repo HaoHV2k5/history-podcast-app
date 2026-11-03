@@ -101,19 +101,19 @@ class KycProfile {
   bool get isApproved => status == KycStatus.approved;
 
   factory KycProfile.fixtureApproved() => const KycProfile(
-    fullName: 'Nguyễn Văn Sử',
-    idNumber: '001099012345',
-    dob: '15/08/1995',
-    phone: '0901234567',
-    contactEmail: 'creator@suky.vn',
-    userEmail: 'creator@suky.vn',
-    verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
-    otpVerifiedAt: '16:23 27/10/2026',
-    portfolioUrl: 'https://porfolio.eraidev.id.vn',
-    bio: 'Kênh podcast lịch sử Việt Nam chính thống.',
-    bankName: 'Vietcombank',
-    bankAccountNumber: '001099012345',
-    bankAccountHolder: 'NGUYEN VAN SU',
+    fullName: '',
+    idNumber: '',
+    dob: '',
+    phone: '',
+    contactEmail: '',
+    userEmail: '',
+    verificationMethod: 'Xác thực qua hộp thư Email',
+    otpVerifiedAt: '',
+    portfolioUrl: '',
+    bio: '',
+    bankName: '',
+    bankAccountNumber: '',
+    bankAccountHolder: '',
     idFrontUploaded: true,
     idBackUploaded: true,
     selfiePassed: true,
@@ -278,8 +278,6 @@ class CreatorState extends ChangeNotifier {
           data['channelCategory'] as String? ?? 'Lịch sử Việt Nam';
       if (data['kyc'] != null) {
         kyc = KycProfile.fromJson(data['kyc'] as Map<String, dynamic>);
-      } else if (demoVerified) {
-        kyc = KycProfile.fixtureApproved();
       }
       drafts = (data['drafts'] as List? ?? [])
           .map((j) => CreatorDraft.fromJson(j as Map<String, dynamic>))
@@ -336,9 +334,6 @@ class CreatorState extends ChangeNotifier {
         channel = myChan.name;
         channelDescription = myChan.description;
         demoVerified = true;
-        if (!kyc.isApproved) {
-          kyc = KycProfile.fixtureApproved();
-        }
         try {
           membershipPlan = await channelRepository!.getChannelMembershipPlan(
             myChan.id,
@@ -361,8 +356,8 @@ class CreatorState extends ChangeNotifier {
           };
           kyc = KycProfile(
             fullName: remoteKyc.fullName,
-            idNumber: kyc.idNumber.isEmpty ? '001099012345' : kyc.idNumber,
-            dob: kyc.dob.isEmpty ? '15/08/1995' : kyc.dob,
+            idNumber: kyc.idNumber,
+            dob: kyc.dob,
             phone: remoteKyc.phone,
             contactEmail: remoteKyc.contactEmail,
             userEmail: remoteKyc.userEmail ?? '',
@@ -472,11 +467,13 @@ class CreatorState extends ChangeNotifier {
 
   String? _otpPhone;
 
-  void requestDemoOtp(String phone) {
-    if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
-      throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
+  void requestDemoOtp(String contact) {
+    final trimmed = contact.trim();
+    if (!RegExp(r'^[\w\.\-+]+@[\w\.\-]+\.\w+$').hasMatch(trimmed) &&
+        !RegExp(r'^0[35789]\d{8}$').hasMatch(trimmed)) {
+      throw StateError('Nhập địa chỉ email hợp lệ.');
     }
-    _otpPhone = phone.trim();
+    _otpPhone = trimmed;
   }
 
   void _requireCreator({bool needsChannel = true}) {
@@ -540,10 +537,15 @@ class CreatorState extends ChangeNotifier {
     if (!RegExp(r'^0[35789]\d{8}$').hasMatch(phone.trim())) {
       throw StateError('Nhập số điện thoại Việt Nam hợp lệ.');
     }
-    if (_otpPhone != phone.trim() || otp == null || otp.trim() != '889900') {
-      throw StateError(
-        'Vui lòng gửi và nhập mã OTP xác thực hợp lệ cho số điện thoại này.',
-      );
+    if (!isLiveBackend) {
+      if ((_otpPhone != phone.trim() &&
+              (contactEmail == null || _otpPhone != contactEmail.trim())) ||
+          otp == null ||
+          otp.trim() != '889900') {
+        throw StateError(
+          'Vui lòng gửi và nhập mã OTP xác thực hợp lệ.',
+        );
+      }
     }
 
     final effectiveEmail =
@@ -569,7 +571,7 @@ class CreatorState extends ChangeNotifier {
       phone: phone.trim(),
       contactEmail: effectiveEmail,
       userEmail: preferences.getString('userEmail') ?? effectiveEmail,
-      verificationMethod: 'OTP Hộp thư Email (Brevo HTTPS)',
+      verificationMethod: 'Xác thực qua hộp thư Email',
       otpVerifiedAt: _auditTime(),
       portfolioUrl: portfolioUrl?.trim() ?? '',
       bio: bio?.trim() ?? '',
@@ -581,17 +583,19 @@ class CreatorState extends ChangeNotifier {
       selfiePassed: selfie,
       status: KycStatus.pending,
     );
-    if (kycRepository != null) {
-      try {
-        await kycRepository!.submitKyc(
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          contactEmail: effectiveEmail,
-          bankName: effectiveBankName,
-          bankAccountNumber: effectiveBankAcc,
-          bankAccountHolder: effectiveBankHolder,
-        );
-      } catch (_) {}
+    if (isLiveBackend && kycRepository != null) {
+      await kycRepository!.submitKyc(
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        contactEmail: effectiveEmail,
+        bankName: effectiveBankName,
+        bankAccountNumber: effectiveBankAcc,
+        bankAccountHolder: effectiveBankHolder,
+        bio: (bio != null && bio.trim().isNotEmpty) ? bio.trim() : null,
+        portfolioUrl: (portfolioUrl != null && portfolioUrl.trim().isNotEmpty)
+            ? portfolioUrl.trim()
+            : null,
+      );
     }
     await _commit(verified: false, kycProfile: newKyc);
     _otpPhone = null;

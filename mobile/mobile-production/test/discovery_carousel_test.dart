@@ -139,7 +139,7 @@ void main() {
     },
   );
 
-  testWidgets('carousel card divides text and image 50/50 in width', (
+  testWidgets('carousel card displays full artwork background', (
     tester,
   ) async {
     await setup(tester, reduced: true);
@@ -149,11 +149,11 @@ void main() {
     expect(artworkFinder, findsWidgets);
 
     final artworkSize = tester.getSize(artworkFinder.first);
-    final rowFinder = find.ancestor(of: artworkFinder.first, matching: find.byType(Row)).first;
-    final rowSize = tester.getSize(rowFinder);
+    final carouselFinder = find.byKey(const Key('discovery-carousel'));
+    final carouselSize = tester.getSize(carouselFinder);
 
-    // Image width should be exactly 50% of the Row width
-    expect((artworkSize.width / rowSize.width - 0.50).abs(), lessThan(0.01));
+    // Image width should cover the card
+    expect(artworkSize.width, greaterThanOrEqualTo(carouselSize.width * 0.9));
     await tester.pumpWidget(const SizedBox());
   });
 }
