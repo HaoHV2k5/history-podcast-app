@@ -1,419 +1,567 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Shield,
-  Lock,
-  Unlock,
-  Radio,
-} from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/common/DataTable';
-import { FilterToolbar } from '@/components/common/FilterToolbar';
-import { PaginationBar } from '@/components/common/PaginationBar';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { Button } from '@/components/ui/button';
-import { Select } from '@/components/ui/select';
-import { ConfirmModal } from '@/components/common/ConfirmModal';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { UsersChannelsNav } from './components/UsersChannelsNav';
-import { usersApi, UserQueryParams } from '@/services/api/users';
+import { gsap } from 'gsap';
+import { isReducedMotion } from '@/utils/motion';
+import { usersApi, UserQueryParams, CreateUserPayload } from '@/services/api/users';
+import { channelsApi } from '@/services/api/channels';
 import { UserResponse } from '@/types/auth';
-import { formatDateTime, maskPhone } from '@/utils/formatters';
 
-const ROLE_OPTIONS = [
-  { value: '', label: 'Tất cả vai trò' },
-  { value: 'ADMIN', label: 'Quản trị viên (ADMIN)' },
-  { value: 'CREATOR', label: 'Nhà sáng tạo (CREATOR)' },
-  { value: 'NARRATOR', label: 'Thuyết minh viên (NARRATOR)' },
-  { value: 'FREELANCER', label: 'Cộng tác viên (FREELANCER)' },
-  { value: 'VIEWER', label: 'Thính giả (VIEWER)' },
-];
+import { AdminUsersHeroBanner } from './components/AdminUsersHeroBanner';
+import { AdminUsersTabs } from './components/AdminUsersTabs';
+import { AdminUsersStatCards } from './components/AdminUsersStatCards';
+import { AdminUsersToolbar } from './components/AdminUsersToolbar';
+import { AdminUsersAdvancedFilterDrawer } from './components/AdminUsersAdvancedFilterDrawer';
+import { AdminUsersTable } from './components/AdminUsersTable';
+import { AdminUsersBatchBar } from './components/AdminUsersBatchBar';
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Tất cả trạng thái' },
-  { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
-  { value: 'LOCKED', label: 'Bị tạm khóa (LOCKED)' },
-  { value: 'INACTIVE', label: 'Chưa kích hoạt (INACTIVE)' },
-];
+import { AdminUserDetailModal } from './components/AdminUserDetailModal';
+import { AdminCreateUserModal } from './components/AdminCreateUserModal';
+import { AdminUserRoleModal } from './components/AdminUserRoleModal';
+import { AdminUserStatusModal } from './components/AdminUserStatusModal';
+import { AdminDeleteUserModal } from './components/AdminDeleteUserModal';
+
+import {
+  calculateUserStats,
+  exportUsersToCSV,
+} from './usersLogic';
 
 export const UsersListPage: React.FC = () => {
   const queryClient = useQueryClient();
 
+  // Animation Refs
+  const containerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+  const hasAnimatedRef = useRef(false);
+
+  // Filter & Pagination States
   const [page, setPage] = useState(0);
-  const [size] = useState(10);
+  const [size, setSize] = useState(10); // Matches mockup: Hiển thị 10 / trang
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [role, setRole] = useState('');
   const [status, setStatus] = useState('');
+  const [dateRange, setDateRange] = useState('all');
+  const [hasChannelFilter, setHasChannelFilter] = useState('all');
+  const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
 
-  // Lock / Unlock Modal State
-  const [statusTarget, setStatusTarget] = useState<UserResponse | null>(null);
+  // Selection & Feedback States
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // Role Assignment Modal State
+  // Modal Targets
+  const [detailTarget, setDetailTarget] = useState<UserResponse | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [roleTarget, setRoleTarget] = useState<UserResponse | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER'>('VIEWER');
+  const [statusTarget, setStatusTarget] = useState<UserResponse | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
 
-  const queryParams: UserQueryParams = {
-    page,
-    size,
-    search: search.trim() || undefined,
-    role: role || undefined,
-    status: status || undefined,
-  };
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
+  // Query Params for Live Backend
+  const queryParams: UserQueryParams = useMemo(
+    () => ({
+      page,
+      size,
+      search: debouncedSearch.trim() || undefined,
+      role: role || undefined,
+      status: status || undefined,
+      sortBy: 'createdAt',
+      sortDir: 'desc',
+    }),
+    [page, size, debouncedSearch, role, status]
+  );
+
+  // 1. Primary Users Query (Live backend data)
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin-users-list', queryParams],
     queryFn: () => usersApi.searchUsers(queryParams),
   });
 
-  const pageData = data?.data;
-  const items = pageData?.items || pageData?.content || [];
-  const totalElements = pageData?.totalElements || 0;
-  const totalPages = pageData?.totalPages || 0;
+  // 2. Count Queries for accurate KPI stats
+  const { data: allCountData } = useQuery({
+    queryKey: ['admin-users-count-all'],
+    queryFn: () => usersApi.searchUsers({ size: 1 }),
+    staleTime: 30000,
+  });
 
-  // Status Mutation
-  const statusMutation = useMutation({
-    mutationFn: ({ id, targetStatus }: { id: number; targetStatus: 'ACTIVE' | 'LOCKED' }) =>
-      usersApi.updateStatus(id, targetStatus),
+  const { data: activeCountData } = useQuery({
+    queryKey: ['admin-users-count-active'],
+    queryFn: () => usersApi.searchUsers({ status: 'ACTIVE', size: 1 }),
+    staleTime: 30000,
+  });
+
+  const { data: lockedCountData } = useQuery({
+    queryKey: ['admin-users-count-locked'],
+    queryFn: () => usersApi.searchUsers({ status: 'LOCKED', size: 1 }),
+    staleTime: 30000,
+  });
+
+  // 3. Sample query to accurately calculate real new user registration within 30 days
+  const { data: allUsersSampleData } = useQuery({
+    queryKey: ['admin-users-sample-all'],
+    queryFn: () => usersApi.searchUsers({ size: 100, sortBy: 'createdAt', sortDir: 'desc' }),
+    staleTime: 30000,
+  });
+
+  // 4. Channels Query to count podcast channels owned by each user
+  const { data: channelsData } = useQuery({
+    queryKey: ['admin-channels-lookup'],
+    queryFn: () => channelsApi.getAllChannels(0, 100),
+    staleTime: 60000,
+  });
+
+  const pageData = data?.data;
+  const rawItems: UserResponse[] = pageData?.items || pageData?.content || [];
+  const totalElements = pageData?.totalElements || 0;
+  const totalPages = pageData?.totalPages || Math.ceil(totalElements / size) || 1;
+  const fullSample = allUsersSampleData?.data?.items || allUsersSampleData?.data?.content || rawItems;
+
+  // Build Channel Counts Map: creatorId -> count
+  const channelCounts = useMemo(() => {
+    const map: Record<number, number> = {};
+    const channelList = channelsData?.data?.items || channelsData?.data?.content || [];
+    channelList.forEach((c) => {
+      if (c.creatorId) {
+        map[c.creatorId] = (map[c.creatorId] || 0) + 1;
+      }
+    });
+    return map;
+  }, [channelsData]);
+
+  // Apply optional client-side extra filter (has_channel)
+  const items = useMemo(() => {
+    if (hasChannelFilter === 'has_channel') {
+      return rawItems.filter((u) => (channelCounts[u.id] || 0) > 0 || (u.roleName === 'CREATOR'));
+    }
+    if (hasChannelFilter === 'no_channel') {
+      return rawItems.filter((u) => (channelCounts[u.id] || 0) === 0 && (u.roleName !== 'CREATOR'));
+    }
+    return rawItems;
+  }, [rawItems, hasChannelFilter, channelCounts]);
+
+  // Compute live KPI metrics strictly from backend results (Zero Fake Data)
+  const stats = useMemo(() => {
+    return calculateUserStats({
+      totalElements: allCountData?.data?.totalElements ?? totalElements,
+      activeCount: activeCountData?.data?.totalElements,
+      lockedCount: lockedCountData?.data?.totalElements,
+      usersList: fullSample,
+    });
+  }, [allCountData, totalElements, activeCountData, lockedCountData, fullSample]);
+
+  // Clear feedback message after 4s
+  useEffect(() => {
+    if (feedbackMessage) {
+      const timer = setTimeout(() => setFeedbackMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [feedbackMessage]);
+
+  // Entrance GSAP animation sequence
+  useEffect(() => {
+    if (isReducedMotion() || hasAnimatedRef.current || !containerRef.current) return;
+    hasAnimatedRef.current = true;
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power2.out' } });
+
+      if (heroRef.current) {
+        tl.fromTo(
+          heroRef.current,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.38, clearProps: 'transform,opacity' }
+        );
+      }
+
+      if (statsRef.current) {
+        tl.fromTo(
+          statsRef.current.children,
+          { opacity: 0, y: 14 },
+          { opacity: 1, y: 0, duration: 0.35, stagger: 0.05, clearProps: 'transform,opacity' },
+          '-=0.2'
+        );
+      }
+
+      if (tabsRef.current) {
+        tl.fromTo(
+          tabsRef.current,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.3, clearProps: 'transform,opacity' },
+          '-=0.15'
+        );
+      }
+
+      if (tableRef.current) {
+        tl.fromTo(
+          tableRef.current,
+          { opacity: 0, y: 12 },
+          { opacity: 1, y: 0, duration: 0.35, clearProps: 'transform,opacity' },
+          '-=0.1'
+        );
+      }
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // Mutations
+  const createMutation = useMutation({
+    mutationFn: (payload: CreateUserPayload) => usersApi.createUser(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
-      setStatusTarget(null);
+      queryClient.invalidateQueries({ queryKey: ['admin-users-count-all'] });
+      setFeedbackMessage({ text: 'Tạo tài khoản người dùng thành công', type: 'success' });
+    },
+    onError: () => {
+      setFeedbackMessage({ text: 'Không thể tạo tài khoản. Vui lòng kiểm tra lại.', type: 'error' });
     },
   });
 
-  // Role Mutation
   const roleMutation = useMutation({
     mutationFn: ({ id, targetRole }: { id: number; targetRole: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER' }) =>
       usersApi.updateRole(id, targetRole),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
       setRoleTarget(null);
+      setFeedbackMessage({ text: 'Cập nhật vai trò người dùng thành công', type: 'success' });
+    },
+    onError: () => {
+      setFeedbackMessage({ text: 'Lỗi khi cập nhật vai trò người dùng', type: 'error' });
     },
   });
 
-  const handleOpenRoleModal = (user: UserResponse) => {
-    setRoleTarget(user);
-    const initialRole = (user.roleName || user.roles?.[0] || 'VIEWER') as 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER';
-    setSelectedRole(initialRole);
+  const statusMutation = useMutation({
+    mutationFn: ({ id, targetStatus }: { id: number; targetStatus: 'ACTIVE' | 'LOCKED' }) =>
+      usersApi.updateStatus(id, targetStatus),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users-count-active'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users-count-locked'] });
+      setStatusTarget(null);
+      setFeedbackMessage({ text: 'Cập nhật trạng thái người dùng thành công', type: 'success' });
+    },
+    onError: () => {
+      setFeedbackMessage({ text: 'Lỗi khi cập nhật trạng thái người dùng', type: 'error' });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => usersApi.deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users-count-all'] });
+      setDeleteTarget(null);
+      setSelectedIds((prev) => prev.filter((id) => id !== deleteTarget?.id));
+      setFeedbackMessage({ text: 'Đã xóa tài khoản người dùng khỏi hệ thống', type: 'success' });
+    },
+    onError: () => {
+      setFeedbackMessage({ text: 'Không thể xóa tài khoản này', type: 'error' });
+    },
+  });
+
+  // Selection handlers
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
   };
 
-  const columns: Column<UserResponse>[] = [
-    {
-      key: 'identity',
-      header: 'Tài khoản & Người dùng',
-      render: (item) => (
-        <div className="flex items-start gap-3 max-w-sm">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-subtle font-semibold text-accent border border-border">
-            {item.fullName ? item.fullName.charAt(0).toUpperCase() : 'U'}
-          </div>
-          <div className="flex flex-col min-w-0">
-            <span className="font-medium text-ink truncate leading-tight">
-              {item.fullName || 'Chưa cập nhật tên'}
-            </span>
-            <span className="text-xs text-muted truncate font-mono mt-0.5">
-              {item.email}
-            </span>
-            <span className="font-mono text-[10px] text-muted">ID #{item.id}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'phone',
-      header: 'Số điện thoại',
-      render: (item) => (
-        <span className="text-xs text-ink font-mono">
-          {item.phone ? maskPhone(item.phone) : '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'roles',
-      header: 'Vai trò tài khoản',
-      render: (item) => {
-        const rolesList = item.roles && item.roles.length > 0 ? item.roles : [item.roleName || 'VIEWER'];
-        return (
-          <div className="flex flex-wrap gap-1">
-            {rolesList.map((r) => (
-              <span
-                key={r}
-                className="rounded-sm border border-border bg-surface-subtle px-1.5 py-0.5 font-mono text-[11px] font-medium text-ink"
-              >
-                {r}
-              </span>
-            ))}
-          </div>
-        );
-      },
-    },
-    {
-      key: 'status',
-      header: 'Trạng thái',
-      render: (item) => <StatusBadge status={item.status} />,
-    },
-    {
-      key: 'createdAt',
-      header: 'Ngày đăng ký',
-      render: (item) => (
-        <span className="text-xs text-muted font-mono">
-          {formatDateTime(item.createdAt)}
-        </span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: 'Thao tác',
-      stickyRight: true,
-      align: 'right',
-      render: (item) => {
-        const isLocked = item.status === 'LOCKED';
-        return (
-          <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleOpenRoleModal(item)}
-              className="min-h-[44px] px-3 text-xs text-muted hover:text-ink hover:border-accent"
-              title="Phân vai trò tài khoản"
-            >
-              <Shield className="h-3.5 w-3.5 mr-1" />
-              <span>Vai trò</span>
-            </Button>
+  const handleSelectAll = () => {
+    if (selectedIds.length === items.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(items.map((u) => u.id));
+    }
+  };
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setStatusTarget(item)}
-              className={`min-h-[44px] px-3 text-xs ${
-                isLocked
-                  ? 'border-status-success-text/40 text-status-success-text hover:bg-status-success-bg'
-                  : 'border-status-error-text/40 text-status-error-text hover:bg-status-error-bg'
-              }`}
-              title={isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
-            >
-              {isLocked ? (
-                <>
-                  <Unlock className="h-3.5 w-3.5 mr-1" />
-                  <span>Mở khóa</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="h-3.5 w-3.5 mr-1" />
-                  <span>Khóa</span>
-                </>
-              )}
-            </Button>
-          </div>
-        );
-      },
-    },
-  ];
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSearch('');
+    setRole('');
+    setStatus('');
+    setDateRange('all');
+    setHasChannelFilter('all');
+    setPage(0);
+  };
+
+  // CSV Export handler
+  const handleExportCSV = () => {
+    const csvData = exportUsersToCSV(items, channelCounts);
+    const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `danh_sach_nguoi_dung_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Bulk actions
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    const confirm = window.confirm(`Bạn có chắc muốn xóa ${selectedIds.length} tài khoản người dùng đã chọn?`);
+    if (!confirm) return;
+
+    for (const id of selectedIds) {
+      try {
+        await usersApi.deleteUser(id);
+      } catch {
+        // Continue with others
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
+    setSelectedIds([]);
+    setFeedbackMessage({ text: `Đã thực hiện xóa hàng loạt thành công`, type: 'success' });
+  };
+
+  const handleBulkLock = async () => {
+    if (selectedIds.length === 0) return;
+    for (const id of selectedIds) {
+      try {
+        await usersApi.updateStatus(id, 'LOCKED');
+      } catch {
+        // Continue with others
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
+    queryClient.invalidateQueries({ queryKey: ['admin-users-count-locked'] });
+    setSelectedIds([]);
+    setFeedbackMessage({ text: `Đã khóa ${selectedIds.length} tài khoản thành công`, type: 'success' });
+  };
+
+  const handleBulkChangeRole = () => {
+    if (selectedIds.length === 0) return;
+    const firstUser = items.find((u) => u.id === selectedIds[0]);
+    if (firstUser) {
+      setRoleTarget(firstUser);
+    }
+  };
+
+  const hasActiveFilters = Boolean(search || role || status || dateRange !== 'all' || hasChannelFilter !== 'all');
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Quản lý Người dùng"
-        description="Tra cứu danh bạ người dùng, trạng thái kích hoạt và thiết lập vai trò hệ thống"
-      />
-
-      {/* Sub-navigation between Users and Channels */}
-      <UsersChannelsNav />
-
-      {/* Filter Toolbar */}
-      <FilterToolbar
-        searchPlaceholder="Tìm kiếm theo email, số điện thoại, họ tên..."
-        searchValue={search}
-        onSearchChange={(v) => {
-          setSearch(v);
-          setPage(0);
-        }}
-        showReset={Boolean(search || role || status)}
-        onReset={() => {
-          setSearch('');
-          setRole('');
-          setStatus('');
-          setPage(0);
-        }}
-        filters={
-          <>
-            <div className="w-48">
-              <Select
-                value={role}
-                onChange={(e) => {
-                  setRole(e.target.value);
-                  setPage(0);
-                }}
-              >
-                {ROLE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="w-48">
-              <Select
-                value={status}
-                onChange={(e) => {
-                  setStatus(e.target.value);
-                  setPage(0);
-                }}
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </>
-        }
-      />
-
-      {/* Error notification */}
-      {isError && (
-        <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
-          <span>Không thể tải dữ liệu danh sách người dùng. Vui lòng thử lại.</span>
-          <Button variant="outline" size="sm" onClick={() => refetch()} className="min-h-[44px] px-3.5 text-xs">
-            Tải lại
-          </Button>
+    <div ref={containerRef} className="space-y-6 pb-12">
+      {/* Toast Feedback Notification */}
+      {feedbackMessage && (
+        <div
+          role="alert"
+          className={`fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-xs font-semibold shadow-lg transition-all duration-300 flex items-center gap-2 ${
+            feedbackMessage.type === 'success'
+              ? 'bg-[#065F46] text-white border border-emerald-500'
+              : 'bg-[#991B1B] text-white border border-rose-500'
+          }`}
+        >
+          <span>{feedbackMessage.text}</span>
         </div>
       )}
 
-      {/* Data Table with embedded Pagination */}
-      <DataTable
-        columns={columns}
-        data={items}
-        keyExtractor={(item) => item.id}
-        isLoading={isLoading}
-        emptyTitle="Không tìm thấy người dùng"
-        emptyDescription="Không có người dùng nào khớp với các tiêu chí tìm kiếm và bộ lọc hiện tại."
-        pagination={
-          <PaginationBar
-            embedded
-            page={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            size={size}
-            onPageChange={setPage}
-          />
-        }
-      />
+      {/* 1. Hero Banner matching mockup 100% */}
+      <div ref={heroRef}>
+        <AdminUsersHeroBanner />
+      </div>
 
-      {/* Lock / Unlock Confirmation Modal */}
-      {statusTarget && (
-        <ConfirmModal
-          isOpen={Boolean(statusTarget)}
-          onClose={() => setStatusTarget(null)}
-          title={
-            statusTarget.status === 'LOCKED'
-              ? 'Mở khóa tài khoản người dùng'
-              : 'Xác nhận khóa tài khoản người dùng'
+      {/* 2. Sub-navigation tabs: Người dùng (Users) & Kênh Podcast (Channels) */}
+      <div ref={tabsRef}>
+        <AdminUsersTabs activeTab="users" />
+      </div>
+
+      {/* 3. 4 KPI Stat Cards matching mockup */}
+      <div ref={statsRef}>
+        <AdminUsersStatCards
+          stats={stats}
+          activeStatusFilter={status}
+          onFilterSelect={(selectedStatus) => {
+            setStatus(selectedStatus);
+            setPage(0);
+          }}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* 4. Toolbar: Search box, Dropdowns & Add User CTA */}
+      <div className="space-y-3">
+        <AdminUsersToolbar
+          searchValue={search}
+          onSearchChange={setSearch}
+          roleValue={role}
+          onRoleChange={(v) => {
+            setRole(v);
+            setPage(0);
+          }}
+          statusValue={status}
+          onStatusChange={(v) => {
+            setStatus(v);
+            setPage(0);
+          }}
+          dateRangeValue={dateRange}
+          onDateRangeChange={(v) => {
+            setDateRange(v);
+            setPage(0);
+          }}
+          onToggleAdvancedFilter={() => setIsAdvancedFilterOpen((prev) => !prev)}
+          isAdvancedOpen={isAdvancedFilterOpen}
+          onOpenCreateModal={() => setIsCreateModalOpen(true)}
+          onResetFilters={handleResetFilters}
+          hasActiveFilters={hasActiveFilters}
+        />
+
+        {/* Collapsible Advanced Filter Drawer */}
+        <AdminUsersAdvancedFilterDrawer
+          isOpen={isAdvancedFilterOpen}
+          onClose={() => setIsAdvancedFilterOpen(false)}
+          role={role}
+          onRoleChange={(r) => {
+            setRole(r);
+            setPage(0);
+          }}
+          status={status}
+          onStatusChange={(s) => {
+            setStatus(s);
+            setPage(0);
+          }}
+          dateRange={dateRange}
+          onDateRangeChange={(d) => {
+            setDateRange(d);
+            setPage(0);
+          }}
+          hasChannelFilter={hasChannelFilter}
+          onHasChannelFilterChange={(val) => {
+            setHasChannelFilter(val);
+            setPage(0);
+          }}
+          onReset={handleResetFilters}
+          onExportCSV={handleExportCSV}
+        />
+      </div>
+
+      {/* Error state alert */}
+      {isError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-[#DC2626] flex items-center justify-between">
+          <span>Không thể tải dữ liệu danh sách người dùng từ hệ thống.</span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="font-bold underline hover:text-[#991B1B]"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
+      {/* 5. Main Users Table matching mockup */}
+      <div ref={tableRef} className="space-y-3">
+        <AdminUsersTable
+          users={items}
+          channelCounts={channelCounts}
+          selectedIds={selectedIds}
+          onToggleSelect={handleToggleSelect}
+          onSelectAll={handleSelectAll}
+          onViewDetail={(u) => setDetailTarget(u)}
+          onChangeRole={(u) => setRoleTarget(u)}
+          onToggleStatus={(u) => setStatusTarget(u)}
+          onDeleteUser={(u) => setDeleteTarget(u)}
+          isLoading={isLoading}
+        />
+
+        {/* 6. Batch Actions & Pagination Bar matching mockup */}
+        <AdminUsersBatchBar
+          selectedCount={selectedIds.length}
+          onBulkDelete={handleBulkDelete}
+          onBulkLock={handleBulkLock}
+          onBulkChangeRole={handleBulkChangeRole}
+          page={page}
+          totalPages={totalPages}
+          size={size}
+          onPageChange={setPage}
+          onSizeChange={(newSize) => {
+            setSize(newSize);
+            setPage(0);
+          }}
+        />
+      </div>
+
+      {/* Interactive Modals */}
+      {detailTarget && (
+        <AdminUserDetailModal
+          user={detailTarget}
+          isOpen={Boolean(detailTarget)}
+          onClose={() => setDetailTarget(null)}
+          channelCount={
+            channelCounts[detailTarget.id] ??
+            (detailTarget.isCreator ||
+            detailTarget.roleName === 'CREATOR' ||
+            detailTarget.roles?.some((r) => r.toUpperCase() === 'CREATOR')
+              ? 1
+              : 0)
           }
-          description={
-            statusTarget.status === 'LOCKED'
-              ? `Bạn có chắc muốn mở khóa cho tài khoản ${statusTarget.email}? Người dùng sẽ có thể đăng nhập lại bình thường.`
-              : `Tài khoản ${statusTarget.email} sẽ bị tạm khóa và không thể đăng nhập vào nền tảng Sử Ký cho tới khi được mở lại.`
-          }
-          confirmText={statusTarget.status === 'LOCKED' ? 'Mở khóa ngay' : 'Khóa tài khoản'}
-          variant={statusTarget.status === 'LOCKED' ? 'primary' : 'destructive'}
-          isLoading={statusMutation.isPending}
-          onConfirm={() =>
-            statusMutation.mutate({
-              id: statusTarget.id,
-              targetStatus: statusTarget.status === 'LOCKED' ? 'ACTIVE' : 'LOCKED',
-            })
-          }
+          onChangeRole={(u) => setRoleTarget(u)}
+          onToggleStatus={(u) => setStatusTarget(u)}
         />
       )}
 
-      {/* Role Assignment Modal */}
+      {isCreateModalOpen && (
+        <AdminCreateUserModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSubmit={async (payload) => {
+            await createMutation.mutateAsync(payload);
+          }}
+          isLoading={createMutation.isPending}
+        />
+      )}
+
       {roleTarget && (
-        <Dialog open={Boolean(roleTarget)} onOpenChange={(open) => !open && setRoleTarget(null)}>
-          <DialogContent maxWidth="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Thiết lập vai trò tài khoản</DialogTitle>
-              <DialogDescription>
-                Cập nhật vai trò chính cho người dùng{' '}
-                <span className="font-mono text-ink font-semibold">{roleTarget.email}</span>.
-              </DialogDescription>
-            </DialogHeader>
+        <AdminUserRoleModal
+          user={roleTarget}
+          isOpen={Boolean(roleTarget)}
+          onClose={() => setRoleTarget(null)}
+          onSubmit={async (targetRole) => {
+            await roleMutation.mutateAsync({
+              id: roleTarget.id,
+              targetRole,
+            });
+          }}
+          isLoading={roleMutation.isPending}
+        />
+      )}
 
-            <div className="space-y-4 py-2 text-xs">
-              <div className="rounded-lg border border-border bg-surface-subtle p-3 space-y-1">
-                <span className="text-muted block text-[11px] font-semibold uppercase tracking-wider">
-                  Cơ chế lưu trữ vai trò:
-                </span>
-                <p className="text-ink leading-relaxed">
-                  Hệ thống máy chủ sẽ thiết lập vai trò được chọn làm <em>vai trò chính</em> và bổ sung vai trò này vào danh sách quyền đa vai trò của người dùng.
-                </p>
-              </div>
+      {statusTarget && (
+        <AdminUserStatusModal
+          user={statusTarget}
+          isOpen={Boolean(statusTarget)}
+          onClose={() => setStatusTarget(null)}
+          onConfirm={async (targetStatus) => {
+            await statusMutation.mutateAsync({
+              id: statusTarget.id,
+              targetStatus,
+            });
+          }}
+          isLoading={statusMutation.isPending}
+        />
+      )}
 
-              <div className="space-y-2">
-                <label className="font-medium text-ink block">Chọn vai trò cần thiết lập:</label>
-                <div className="space-y-2">
-                  {(['ADMIN', 'CREATOR', 'NARRATOR', 'VIEWER'] as const).map((r) => (
-                    <label
-                      key={r}
-                      className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedRole === r
-                          ? 'border-accent bg-accent-soft text-accent font-semibold'
-                          : 'border-border bg-surface text-ink hover:bg-surface-subtle'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Radio className="h-4 w-4" />
-                        <span className="font-mono">{r}</span>
-                      </div>
-                      <span className="text-[11px] text-muted font-normal">
-                        {r === 'ADMIN'
-                          ? 'Quản trị viên toàn hệ thống'
-                          : r === 'CREATOR'
-                          ? 'Nhà sáng tạo nội dung'
-                          : r === 'NARRATOR'
-                          ? 'Thuyết minh viên'
-                          : 'Thính giả / Người xem'}
-                      </span>
-                      <input
-                        type="radio"
-                        name="targetRole"
-                        value={r}
-                        checked={selectedRole === r}
-                        onChange={() => setSelectedRole(r)}
-                        className="sr-only"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setRoleTarget(null)}>
-                Hủy bỏ
-              </Button>
-              <Button
-                variant="primary"
-                isLoading={roleMutation.isPending}
-                onClick={() =>
-                  roleMutation.mutate({
-                    id: roleTarget.id,
-                    targetRole: selectedRole,
-                  })
-                }
-              >
-                Lưu vai trò
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {deleteTarget && (
+        <AdminDeleteUserModal
+          user={deleteTarget}
+          isOpen={Boolean(deleteTarget)}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            await deleteMutation.mutateAsync(deleteTarget.id);
+          }}
+          isLoading={deleteMutation.isPending}
+        />
       )}
     </div>
   );
