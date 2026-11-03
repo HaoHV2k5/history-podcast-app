@@ -1,248 +1,391 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Mic, Play, Volume2, Globe, Info } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/common/DataTable';
-import { FilterToolbar } from '@/components/common/FilterToolbar';
-import { PaginationBar } from '@/components/common/PaginationBar';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import gsap from 'gsap';
 import { narratorsApi } from '@/services/api/narrators';
-import { NarratorProfileItem, NarratorDemoItem } from '@/types/narrator';
-import { formatDateTime } from '@/utils/formatters';
+import { usersApi } from '@/services/api/users';
+import {
+  AdminNarratorRow,
+  buildAdminNarratorRows,
+  calculateNarratorKPIs,
+  filterAdminNarratorRows,
+  exportNarratorsToCSV,
+} from './narratorsLogic';
+import { AdminNarratorsHeroBanner } from './components/AdminNarratorsHeroBanner';
+import { AdminNarratorsStatCards } from './components/AdminNarratorsStatCards';
+import { AdminNarratorsStatusTabs } from './components/AdminNarratorsStatusTabs';
+import { AdminNarratorsFilterToolbar } from './components/AdminNarratorsFilterToolbar';
+import { AdminNarratorsTable } from './components/AdminNarratorsTable';
+import { AdminNarratorDetailModal } from './components/AdminNarratorDetailModal';
+import { AdminNarratorReasonModal } from './components/AdminNarratorReasonModal';
+import { AlertCircle, RotateCw, CheckCircle2 } from 'lucide-react';
 
 export const NarratorsListPage: React.FC = () => {
+  const queryClient = useQueryClient();
+
+  // GSAP animation refs
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
+
+  // Search & Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusTab, setStatusTab] = useState('ALL');
+  const [voiceFilter, setVoiceFilter] = useState('all');
+  const [statusDropdown, setStatusDropdown] = useState('ALL');
+  const [dateRangePreset, setDateRangePreset] = useState('all');
+  const [customDateStart, setCustomDateStart] = useState<string | undefined>(undefined);
+  const [customDateEnd, setCustomDateEnd] = useState<string | undefined>(undefined);
+
+  // Pagination states
   const [page, setPage] = useState(0);
-  const [size] = useState(10);
-  const [search, setSearch] = useState('');
+  const [pageSize, setPageSize] = useState(10);
 
-  // Selected Narrator for Audio Demo Preview
-  const [selectedNarrator, setSelectedNarrator] = useState<NarratorProfileItem | null>(null);
+  // Modal inspection states
+  const [selectedNarrator, setSelectedNarrator] = useState<AdminNarratorRow | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const { data: narratorsData, isLoading: narratorsLoading, isError, refetch } = useQuery({
+  // Action reason prompt modal state (for Reject)
+  const [reasonModalState, setReasonModalState] = useState<{
+    isOpen: boolean;
+    narrator: AdminNarratorRow | null;
+  }>({
+    isOpen: false,
+    narrator: null,
+  });
+
+  // Action feedback message state
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  // Auto-dismiss feedback message after 5 seconds
+  useEffect(() => {
+    if (actionFeedback) {
+      const timer = setTimeout(() => setActionFeedback(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionFeedback]);
+
+  // 1. Fetch Live Narrator Profiles from Backend (Zero Fake Data)
+  const {
+    data: narratorsResponse,
+    isLoading: isNarratorsLoading,
+    isError: isNarratorsError,
+    refetch: refetchNarrators,
+    isFetching: isNarratorsFetching,
+  } = useQuery({
     queryKey: ['admin-narrators'],
     queryFn: () => narratorsApi.getAllNarrators(),
   });
 
-  const { data: demosData } = useQuery({
+  // 2. Fetch Live Audio Demos from Backend
+  const { data: demosResponse } = useQuery({
     queryKey: ['admin-narrator-demos'],
     queryFn: () => narratorsApi.getAllDemos(),
   });
 
-  const rawNarrators = narratorsData?.data || [];
-  const allDemos = demosData?.data || [];
+  // 3. Fetch Live Users to join user profile information
+  const { data: usersResponse } = useQuery({
+    queryKey: ['admin-narrators-users'],
+    queryFn: () => usersApi.searchUsers({ page: 0, size: 100 }),
+    staleTime: 60000,
+  });
 
-  const filteredNarrators = search.trim()
-    ? rawNarrators.filter(
-        (n) =>
-          n.id.toString().includes(search.trim()) ||
-          n.userId.toString().includes(search.trim()) ||
-          n.languages?.toLowerCase().includes(search.toLowerCase()) ||
-          n.bio?.toLowerCase().includes(search.toLowerCase())
-      )
-    : rawNarrators;
+  const rawNarrators = useMemo(() => {
+    return narratorsResponse?.data || [];
+  }, [narratorsResponse]);
 
-  const totalElements = filteredNarrators.length;
-  const totalPages = Math.ceil(totalElements / size);
-  const paginatedNarrators = filteredNarrators.slice(page * size, (page + 1) * size);
+  const rawDemos = useMemo(() => {
+    return demosResponse?.data || [];
+  }, [demosResponse]);
 
-  // Find demos for selected narrator
-  const currentDemos: NarratorDemoItem[] = selectedNarrator
-    ? allDemos.filter((d) => d.narratorProfileId === selectedNarrator.id)
-    : [];
+  const userList = useMemo(() => {
+    const pageData = usersResponse?.data;
+    return pageData?.items || pageData?.content || [];
+  }, [usersResponse]);
 
-  const columns: Column<NarratorProfileItem>[] = [
-    {
-      key: 'identity',
-      header: 'Thuyết minh viên',
-      render: (item) => {
-        const demoCount = allDemos.filter((d) => d.narratorProfileId === item.id).length;
-        return (
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
-              <Mic className="h-5 w-5" />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="font-mono text-xs font-semibold text-ink">
-                Hồ sơ Thuyết minh #{item.id}
-              </span>
-              <span className="text-xs text-muted font-mono">
-                User ID #{item.userId}
-              </span>
-              {demoCount > 0 && (
-                <span className="text-[10px] text-accent font-medium mt-0.5 inline-flex items-center gap-1">
-                  <Volume2 className="h-3 w-3" />
-                  {demoCount} tệp ghi âm mẫu
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      },
+  // Join narrators with live user profiles & audio demos strictly from real backend data (Zero Fake Data)
+  const allRows: AdminNarratorRow[] = useMemo(() => {
+    return buildAdminNarratorRows(rawNarrators, userList, rawDemos);
+  }, [rawNarrators, userList, rawDemos]);
+
+  // Calculate live financial KPIs strictly from real records
+  const kpis = useMemo(() => {
+    return calculateNarratorKPIs(allRows);
+  }, [allRows]);
+
+  // Filtered rows based on current filters
+  const filteredRows = useMemo(() => {
+    return filterAdminNarratorRows(allRows, {
+      searchQuery,
+      statusTab,
+      voiceGender: voiceFilter,
+      statusDropdown,
+      dateRangePreset,
+      customDateStart,
+      customDateEnd,
+    });
+  }, [allRows, searchQuery, statusTab, voiceFilter, statusDropdown, dateRangePreset, customDateStart, customDateEnd]);
+
+  // Paginated rows
+  const paginatedRows = useMemo(() => {
+    const start = page * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
+
+  // Reset pagination when any filter changes
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, statusTab, voiceFilter, statusDropdown, dateRangePreset, customDateStart, customDateEnd]);
+
+  // GSAP Entrance Animations
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power2.out', duration: 0.45 } });
+
+      if (heroRef.current) {
+        tl.from(heroRef.current, { y: -15, opacity: 0 });
+      }
+      if (statsRef.current) {
+        tl.from(statsRef.current.children, { y: 15, opacity: 0, stagger: 0.08 }, '-=0.2');
+      }
+      if (tabsRef.current) {
+        tl.from(tabsRef.current, { y: 10, opacity: 0 }, '-=0.15');
+      }
+      if (toolbarRef.current) {
+        tl.from(toolbarRef.current, { y: 10, opacity: 0 }, '-=0.15');
+      }
+      if (tableRef.current) {
+        tl.from(tableRef.current, { y: 15, opacity: 0 }, '-=0.15');
+      }
+    }, pageContainerRef);
+
+    return () => ctx.revert();
+  }, []);
+
+  // Approve Mutation
+  const approveMutation = useMutation({
+    mutationFn: async (row: AdminNarratorRow) => {
+      return narratorsApi.updateNarrator(row.id, {
+        userId: row.userId,
+        bio: row.bio,
+        languages: row.languagesRaw,
+        baseRate: row.baseRate,
+        status: 'APPROVED',
+      });
     },
-    {
-      key: 'languages',
-      header: 'Chuyên môn & Giọng đọc',
-      render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-ink">
-          <Globe className="h-3.5 w-3.5 text-muted shrink-0" />
-          <span>{item.languages || 'Tiếng Việt (Toàn quốc)'}</span>
-        </div>
-      ),
+    onSuccess: (_, row) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-narrators'] });
+      setActionFeedback({
+        type: 'success',
+        message: `Đã phê duyệt thành công hồ sơ của Thuyết minh viên "${row.fullName}" (#${row.id}).`,
+      });
+      setIsDetailModalOpen(false);
     },
-    {
-      key: 'bio',
-      header: 'Tiểu sử tóm tắt',
-      render: (item) => (
-        <p className="text-xs text-muted max-w-xs truncate" title={item.bio}>
-          {item.bio || 'Chưa cung cấp thông tin giới thiệu'}
-        </p>
-      ),
+    onError: (err: unknown) => {
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+          ?.message ||
+        (err as Error)?.message ||
+        'Vui lòng thử lại.';
+      setActionFeedback({
+        type: 'error',
+        message: `Lỗi phê duyệt hồ sơ: ${errorMsg}`,
+      });
     },
-    {
-      key: 'status',
-      header: 'Trạng thái',
-      render: (item) => <StatusBadge status={item.status} />,
+  });
+
+  // Reject Mutation
+  const rejectMutation = useMutation({
+    mutationFn: async ({ row, reason: _reason }: { row: AdminNarratorRow; reason: string }) => {
+      return narratorsApi.updateNarrator(row.id, {
+        userId: row.userId,
+        bio: row.bio,
+        languages: row.languagesRaw,
+        baseRate: row.baseRate,
+        status: 'REJECTED',
+      });
     },
-    {
-      key: 'createdAt',
-      header: 'Ngày gia nhập',
-      render: (item) => (
-        <span className="text-xs text-muted font-mono">
-          {formatDateTime(item.createdAt)}
-        </span>
-      ),
+    onSuccess: (_, { row }) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-narrators'] });
+      setActionFeedback({
+        type: 'success',
+        message: `Đã cập nhật trạng thái từ chối hồ sơ "${row.fullName}" (#${row.id}).`,
+      });
+      setReasonModalState({ isOpen: false, narrator: null });
+      setIsDetailModalOpen(false);
     },
-    {
-      key: 'actions',
-      header: 'Bản thu mẫu',
-      stickyRight: true,
-      align: 'right',
-      render: (item) => {
-        const demoCount = allDemos.filter((d) => d.narratorProfileId === item.id).length;
-        return (
-          <Button
-            variant="outline"
-            disabled={demoCount === 0}
-            onClick={() => setSelectedNarrator(item)}
-            className="min-h-[44px] px-3 text-xs text-muted hover:text-ink hover:border-accent disabled:opacity-40"
-          >
-            <Play className="h-3.5 w-3.5 mr-1.5" />
-            <span>Nghe mẫu ({demoCount})</span>
-          </Button>
-        );
-      },
+    onError: (err: unknown) => {
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+          ?.message ||
+        (err as Error)?.message ||
+        'Vui lòng thử lại.';
+      setActionFeedback({
+        type: 'error',
+        message: `Lỗi từ chối hồ sơ: ${errorMsg}`,
+      });
     },
-  ];
+  });
+
+  const handleOpenDetail = (row: AdminNarratorRow) => {
+    setSelectedNarrator(row);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleApprove = (row: AdminNarratorRow) => {
+    approveMutation.mutate(row);
+  };
+
+  const handleRejectPrompt = (row: AdminNarratorRow) => {
+    setReasonModalState({
+      isOpen: true,
+      narrator: row,
+    });
+  };
+
+  const handleRejectSubmit = (row: AdminNarratorRow, reason: string) => {
+    rejectMutation.mutate({ row, reason });
+  };
+
+  const handleExportCSV = () => {
+    const csvContent = exportNarratorsToCSV(filteredRows);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `danh_ba_thuyet_minh_su_ky_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Danh bạ Thuyết minh viên"
-        description="Tra cứu danh bạ nghệ sĩ giọng đọc và thẩm định các tệp demo ghi âm phục vụ sản xuất nội dung"
-      />
-
-      <div className="rounded-xl border border-border bg-surface-subtle p-3.5 text-xs text-muted flex items-start gap-2.5">
-        <Info className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-        <div className="space-y-0.5">
-          <span className="font-semibold text-ink block">Quy chuẩn vận hành Hệ thống (Milestone Escrow Flow):</span>
-          <p className="leading-relaxed">
-            Hệ thống đã nâng cấp toàn diện sang quy trình Đặt hàng theo Lộ trình Milestone (Commission & Milestone Escrow Flow). Các hợp đồng dịch vụ nội dung và giọng đọc được quản lý và đối soát tập trung tại mục <strong>Hợp đồng thu âm</strong> và <strong>Ký quỹ Escrow</strong>.
-          </p>
-        </div>
+    <div ref={pageContainerRef} className="space-y-6 pb-12 font-sans">
+      {/* 1. Hero Banner */}
+      <div ref={heroRef}>
+        <AdminNarratorsHeroBanner />
       </div>
 
-      <FilterToolbar
-        searchPlaceholder="Tìm theo mã hồ sơ, mã user, giọng đọc, ngôn ngữ..."
-        searchValue={search}
-        onSearchChange={(v) => {
-          setSearch(v);
-          setPage(0);
-        }}
-        showReset={Boolean(search)}
-        onReset={() => {
-          setSearch('');
-          setPage(0);
-        }}
-      />
-
-      {isError && (
-        <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
-          <span>Không thể tải danh bạ thuyết minh viên. Vui lòng thử lại.</span>
-          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
-            Tải lại
-          </Button>
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div
+          className={`flex items-center justify-between rounded-xl p-3.5 text-xs font-medium border shadow-xs transition-all ${
+            actionFeedback.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionFeedback(null)}
+            className="text-stone-400 hover:text-stone-700 ml-4 font-semibold"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      <DataTable
-        columns={columns}
-        data={paginatedNarrators}
-        keyExtractor={(item) => item.id}
-        isLoading={narratorsLoading}
-        emptyTitle="Chưa có hồ sơ thuyết minh viên"
-        emptyDescription="Hồ sơ giọng đọc được đăng ký sẽ xuất hiện tại đây."
-        pagination={
-          <PaginationBar
-            embedded
-            page={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            size={size}
-            onPageChange={setPage}
-          />
-        }
+      {/* Error State Banner */}
+      {isNarratorsError && (
+        <div className="flex items-center justify-between rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span>Không thể kết nối máy chủ để tải danh bạ thuyết minh viên. Vui lòng thử lại.</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetchNarrators()}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-rose-200 text-xs font-medium text-rose-700 hover:bg-rose-100 transition-colors"
+          >
+            <RotateCw className="h-3 w-3" />
+            <span>Tải lại</span>
+          </button>
+        </div>
+      )}
+
+      {/* 2. Stat Cards */}
+      <div ref={statsRef}>
+        <AdminNarratorsStatCards kpis={kpis} isLoading={isNarratorsLoading} />
+      </div>
+
+      {/* 3. Status Tabs */}
+      <div ref={tabsRef}>
+        <AdminNarratorsStatusTabs activeTab={statusTab} onTabChange={setStatusTab} kpis={kpis} />
+      </div>
+
+      {/* 4. Filter Toolbar */}
+      <div ref={toolbarRef}>
+        <AdminNarratorsFilterToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          voiceGenderFilter={voiceFilter}
+          onVoiceGenderChange={setVoiceFilter}
+          statusFilter={statusDropdown}
+          onStatusFilterChange={setStatusDropdown}
+          dateRangePreset={dateRangePreset}
+          onDateRangePresetChange={setDateRangePreset}
+          customDateStart={customDateStart}
+          customDateEnd={customDateEnd}
+          onCustomDateChange={(start, end) => {
+            setCustomDateStart(start);
+            setCustomDateEnd(end);
+          }}
+          onRefresh={() => {
+            refetchNarrators();
+          }}
+          isRefreshing={isNarratorsFetching}
+          onExportCSV={handleExportCSV}
+        />
+      </div>
+
+      {/* 5. Data Table */}
+      <div ref={tableRef}>
+        <AdminNarratorsTable
+          rows={paginatedRows}
+          totalElements={filteredRows.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          onViewDetail={handleOpenDetail}
+          onApprove={handleApprove}
+          onReject={handleRejectPrompt}
+          isLoading={isNarratorsLoading}
+        />
+      </div>
+
+      {/* Detail Inspection Modal */}
+      <AdminNarratorDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        narrator={selectedNarrator}
+        onApprove={handleApprove}
+        onReject={handleRejectPrompt}
+        isProcessing={approveMutation.isPending || rejectMutation.isPending}
       />
 
-      {/* Audio Demo Player Modal */}
-      {selectedNarrator && (
-        <Dialog open={Boolean(selectedNarrator)} onOpenChange={(open) => !open && setSelectedNarrator(null)}>
-          <DialogContent maxWidth="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Volume2 className="h-5 w-5 text-accent" />
-                <span>Bản thu mẫu của Thuyết minh #{selectedNarrator.id}</span>
-              </DialogTitle>
-              <DialogDescription>
-                Danh sách các tệp demo giọng đọc đã được tải lên phục vụ đối soát chất lượng âm thanh.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-3 py-2">
-              {currentDemos.length > 0 ? (
-                currentDemos.map((demo) => (
-                  <div key={demo.id} className="rounded-lg border border-border bg-surface-subtle p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-xs text-ink truncate max-w-[200px]">
-                        {demo.title || `Bản thu #${demo.id}`}
-                      </span>
-                      <span className="font-mono text-[10px] text-muted">
-                        {formatDateTime(demo.uploadedAt)}
-                      </span>
-                    </div>
-
-                    <audio controls className="w-full h-8" preload="none">
-                      <source src={demo.fileUrl} type="audio/mpeg" />
-                      Trình duyệt không hỗ trợ phát âm thanh.
-                    </audio>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-muted text-center py-4">
-                  Không có tệp thu âm mẫu nào khả dụng.
-                </p>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Rejection Reason Modal */}
+      <AdminNarratorReasonModal
+        isOpen={reasonModalState.isOpen}
+        onClose={() => setReasonModalState({ isOpen: false, narrator: null })}
+        narrator={reasonModalState.narrator}
+        onSubmit={handleRejectSubmit}
+        isSubmitting={rejectMutation.isPending}
+      />
     </div>
   );
 };
