@@ -10,7 +10,9 @@ class DisputeModel {
   final String? raisedByName;
   final String reason;
   final String? evidenceUrl;
+  final List<String> evidenceUrls;
   final String? counterEvidenceUrl;
+  final List<String> counterEvidenceUrls;
   final String? counterNote;
   final String status;
   final String? result;
@@ -32,7 +34,9 @@ class DisputeModel {
     this.raisedByName,
     required this.reason,
     this.evidenceUrl,
+    this.evidenceUrls = const [],
     this.counterEvidenceUrl,
+    this.counterEvidenceUrls = const [],
     this.counterNote,
     required this.status,
     this.result,
@@ -46,6 +50,8 @@ class DisputeModel {
   });
 
   factory DisputeModel.fromJson(Map<String, dynamic> json) {
+    final rawEvUrls = json['evidenceUrls'];
+    final rawCounterEvUrls = json['counterEvidenceUrls'];
     return DisputeModel(
       id: (json['id'] as num).toInt(),
       contractId: (json['contractId'] as num?)?.toInt() ?? 0,
@@ -56,7 +62,13 @@ class DisputeModel {
       raisedByName: (json['raisedByUserFullName'] ?? json['raisedByName'])?.toString(),
       reason: (json['reason'] ?? '').toString(),
       evidenceUrl: (json['evidence'] ?? json['evidenceUrl'])?.toString(),
+      evidenceUrls: (rawEvUrls is List)
+          ? rawEvUrls.map((e) => e.toString()).toList()
+          : const [],
       counterEvidenceUrl: (json['counterEvidence'] ?? json['counterEvidenceUrl'])?.toString(),
+      counterEvidenceUrls: (rawCounterEvUrls is List)
+          ? rawCounterEvUrls.map((e) => e.toString()).toList()
+          : const [],
       counterNote: json['counterNote']?.toString(),
       status: (json['status'] ?? 'OPEN').toString(),
       result: json['result']?.toString(),
@@ -76,6 +88,21 @@ class DisputeRepository {
 
   DisputeRepository({required this.client});
 
+  /// Upload tệp bằng chứng khiếu nại / đối chất (POST /api/v1/disputes/evidence-upload)
+  Future<String> uploadEvidenceFile({
+    required List<int> fileBytes,
+    required String filename,
+  }) async {
+    final res = await client.multipartPost(
+      '/api/v1/disputes/evidence-upload',
+      fileField: 'file',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
+    final data = res['data'] as Map<String, dynamic>;
+    return data['fileUrl'].toString();
+  }
+
   /// 1. Mở khiếu nại / tranh chấp (POST /api/v1/disputes)
   Future<DisputeModel> openDispute({
     int? contractId,
@@ -83,6 +110,7 @@ class DisputeRepository {
     required String reason,
     String? evidence,
     String? evidenceUrl,
+    List<String>? attachmentUrls,
   }) async {
     final effectiveEvidence = evidence ?? evidenceUrl;
     final payload = {
@@ -91,6 +119,8 @@ class DisputeRepository {
       'reason': reason,
       if (effectiveEvidence != null && effectiveEvidence.isNotEmpty)
         'evidence': effectiveEvidence,
+      if (attachmentUrls != null && attachmentUrls.isNotEmpty)
+        'attachmentUrls': attachmentUrls,
     };
     final res = await client.post('/api/v1/disputes', body: payload);
     final data = res['data'] as Map<String, dynamic>;
@@ -103,6 +133,7 @@ class DisputeRepository {
     String? counterEvidence,
     String? counterEvidenceUrl,
     String? counterNote,
+    List<String>? attachmentUrls,
   }) async {
     final effectiveCounter = [
       if (counterEvidence != null && counterEvidence.trim().isNotEmpty)
@@ -116,6 +147,8 @@ class DisputeRepository {
       'counterEvidence': effectiveCounter,
       if (counterEvidenceUrl != null) 'counterEvidenceUrl': counterEvidenceUrl,
       if (counterNote != null) 'counterNote': counterNote,
+      if (attachmentUrls != null && attachmentUrls.isNotEmpty)
+        'attachmentUrls': attachmentUrls,
     };
     final res = await client.post('/api/v1/disputes/$disputeId/counter-evidence', body: payload);
     final data = res['data'] as Map<String, dynamic>;

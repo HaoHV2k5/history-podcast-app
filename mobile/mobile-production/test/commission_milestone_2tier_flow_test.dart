@@ -40,6 +40,7 @@ void main() {
     bool contractAccepted = false;
     bool milestone1Funded = false;
     bool milestone1Approved = false;
+    bool milestone1ReleasedEarly = false;
     bool deliverableViewedWithAuth = false;
 
     String commissionStatus = 'PENDING';
@@ -365,6 +366,22 @@ void main() {
           'title': 'Giai đoạn 1: Đề cương & Kịch bản chi tiết',
           'amount': 200000,
           'status': 'APPROVED',
+          'escrowStatus': 'HELD',
+        }));
+      }
+
+      // 14. POST /api/v1/milestones/901/release-early -> Giải ngân sớm
+      if (path == '/api/v1/milestones/901/release-early' && method == 'POST') {
+        milestone1ReleasedEarly = true;
+        m1Status = 'RELEASED';
+        return jsonRes(ok({
+          'id': 901,
+          'contractId': 900,
+          'orderNo': 1,
+          'title': 'Giai đoạn 1: Đề cương & Kịch bản chi tiết',
+          'amount': 200000,
+          'status': 'RELEASED',
+          'escrowStatus': 'RELEASED',
         }));
       }
 
@@ -449,25 +466,8 @@ void main() {
     await tester.tap(find.byKey(const Key('accept-commission-btn-501')));
     await tester.pumpAndSettle();
     expect(commissionAccepted, isTrue);
-    // Phòng Chat 1-1 tự động mở và hiển thị Policy Banner Vị trí 2
-    expect(find.byKey(const Key('chat-escrow-policy-banner')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('close-chat-sheet-btn')));
-    await tester.pumpAndSettle();
 
-    // PHẦN 3: Kiểm tra Form 2 (CreateOrEditMilestoneRoadmapSheet) + Bảng tạm tính tự động 95%/5%
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: appTheme(),
-        home: Scaffold(
-          body: CreateOrEditMilestoneRoadmapSheet(
-            state: appState,
-            commission: receivedList.first,
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
+    // PHẦN 3: Ngay sau khi bấm Chấp nhận đơn, Form 2 (CreateOrEditMilestoneRoadmapSheet) tự động mở + Bảng tạm tính 95%/5%
     expect(find.byKey(const Key('roadmap-realtime-summary-box')), findsOneWidget);
     expect(find.text('600.000đ'), findsWidgets); // Tổng 200k + 400k = 600k
     expect(find.text('570.000đ'), findsWidgets); // Thực nhận 95% = 570k
@@ -531,8 +531,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(milestone1Approved, isTrue);
 
-    // Ngay sau khi duyệt Mốc #1, nút "Nạp tiền ký quỹ giai đoạn #2" xuất hiện!
+    // Ngay sau khi duyệt Mốc #1, nút "Nạp tiền ký quỹ giai đoạn #2" và nút "Giải ngân ngay" (Mục 15) xuất hiện!
     expect(find.byKey(const Key('fund-milestone-btn-902')), findsOneWidget);
+
+    // Mở lại Mốc #1 (vì sau khi APPROVED nó tự động thu gọn thông minh) để bấm "Giải ngân ngay"
+    await tester.tap(find.byKey(const Key('toggle-all-milestones-collapse-btn')));
+    await tester.pumpAndSettle();
+
+    final releaseEarlyBtn = find.byKey(const Key('release-early-milestone-btn-901'));
+    expect(releaseEarlyBtn, findsOneWidget);
+    await tester.ensureVisible(releaseEarlyBtn);
+    await tester.tap(releaseEarlyBtn);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-release-early-btn')));
+    await tester.pumpAndSettle();
+    expect(milestone1ReleasedEarly, isTrue);
   });
 
   testWidgets(

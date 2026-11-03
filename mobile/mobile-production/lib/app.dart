@@ -129,10 +129,9 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> selectTab(int value) async {
     if (value == index) return;
     FocusManager.instance.primaryFocus?.unfocus();
-
     // Khi người dùng chưa đăng nhập:
-    // Bấm vào Trực tiếp (1) hoặc Tạo video (2) -> hiển thị ngay màn hình đăng nhập
-    if ((value == 1 || value == 2) && !widget.state.isLoggedIn) {
+    // Bấm vào Trực tiếp (1), Sáng tạo (2) hoặc Đặt hàng (3) -> hiển thị ngay màn hình đăng nhập
+    if ((value == 1 || value == 2 || value == 3) && !widget.state.isLoggedIn) {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
@@ -148,7 +147,6 @@ class _HomeShellState extends State<HomeShell> {
       }
       return;
     }
-
     setState(() => index = value);
   }
 

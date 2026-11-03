@@ -116,6 +116,15 @@ class _ChannelPageState extends State<ChannelPage> {
   }
 
   void _openCommissionSheet(Channel c) {
+    if (!widget.state.isLoggedIn) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => AuthSheet(state: widget.state),
+      );
+      return;
+    }
     final chId = _resolvedChannelId ?? c.id ?? 1;
     final crId = _resolvedCreatorId ?? c.creatorId ?? 2;
     showModalBottomSheet<void>(
@@ -1389,6 +1398,15 @@ class _MembershipPageState extends State<MembershipPage> {
                     ),
                     TextButton(
                       onPressed: () async {
+                        if (!widget.state.isLoggedIn) {
+                          await showModalBottomSheet<void>(
+                            context: context,
+                            isScrollControlled: true,
+                            showDragHandle: true,
+                            builder: (_) => AuthSheet(state: widget.state),
+                          );
+                          return;
+                        }
                         await Navigator.push(
                           context,
                           MaterialPageRoute<void>(
@@ -1664,7 +1682,11 @@ class _ProfileContentState extends State<ProfileContent> {
   void initState() {
     super.initState();
     if (widget.state.isLoggedIn) {
-      widget.state.refreshProfile();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          widget.state.refreshProfile();
+        }
+      });
     }
   }
 
@@ -1933,6 +1955,10 @@ class _ProfileContentState extends State<ProfileContent> {
             ? 'Số dư khả dụng: ${_formatVndPrice(state.walletAvailableBalance.toDouble())}'
             : 'Số dư và lịch sử giao dịch',
         onTap: () async {
+          if (!state.isLoggedIn) {
+            _openAuth(context);
+            return;
+          }
           await Navigator.push(
             context,
             MaterialPageRoute<void>(
@@ -1977,12 +2003,18 @@ class _ProfileContentState extends State<ProfileContent> {
         icon: CupertinoIcons.pencil_outline,
         title: 'Không gian sáng tạo',
         subtitle: 'Dành cho người kể và người đọc',
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute<void>(
-            builder: (_) => CreativeWorkspacePage(state: state),
-          ),
-        ),
+        onTap: () {
+          if (!state.isLoggedIn) {
+            _openAuth(context);
+            return;
+          }
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => CreativeWorkspacePage(state: state),
+            ),
+          );
+        },
       ),
       _PersonalLink(
         key: const Key('open-settings'),
