@@ -1,178 +1,276 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftRight, Calendar } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/common/DataTable';
-import { FilterToolbar } from '@/components/common/FilterToolbar';
-import { PaginationBar } from '@/components/common/PaginationBar';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { Button } from '@/components/ui/button';
+import gsap from 'gsap';
 import { transactionsApi } from '@/services/api/transactions';
-import { WalletTransactionItem } from '@/types/transaction';
-import { formatDateTime, formatVND } from '@/utils/formatters';
-
-const formatTxnType = (type: string) => {
-  switch (type?.toUpperCase()) {
-    case 'TOPUP':
-      return 'Nạp tiền vào ví';
-    case 'WITHDRAW':
-      return 'Rút tiền về ngân hàng';
-    case 'MEMBERSHIP':
-      return 'Đăng ký Hội viên';
-    case 'DONATION':
-      return 'Ủng hộ tác giả';
-    case 'ESCROW_LOCK':
-      return 'Ký quỹ Hợp đồng';
-    case 'ESCROW_RELEASE':
-      return 'Giải ngân Hợp đồng';
-    case 'REFUND':
-      return 'Hoàn trả tiền';
-    default:
-      return type || 'Khác';
-  }
-};
+import { usersApi } from '@/services/api/users';
+import {
+  AdminTransactionRow,
+  buildAdminTransactionRows,
+  calculateTransactionsKPIs,
+  calculateDateRangeBounds,
+  filterAdminTransactionRows,
+  exportTransactionsToCSV,
+} from './transactionsLogic';
+import { AdminTransactionsHeroBanner } from './components/AdminTransactionsHeroBanner';
+import { AdminTransactionsStatCards } from './components/AdminTransactionsStatCards';
+import { AdminTransactionsFilterToolbar } from './components/AdminTransactionsFilterToolbar';
+import { AdminTransactionsTable } from './components/AdminTransactionsTable';
+import { AdminTransactionDetailModal } from './components/AdminTransactionDetailModal';
+import { Button } from '@/components/ui/button';
+import { AlertCircle, RotateCw } from 'lucide-react';
 
 export const TransactionsPage: React.FC = () => {
-  const [page, setPage] = useState(0);
-  const [size] = useState(10);
-  const [search, setSearch] = useState('');
+  // GSAP animation container
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  // Filter & Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateRangePreset, setDateRangePreset] = useState('all');
+  const [customDateStart, setCustomDateStart] = useState<string | undefined>(undefined);
+  const [customDateEnd, setCustomDateEnd] = useState<string | undefined>(undefined);
+
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Modal inspection state
+  const [selectedTransaction, setSelectedTransaction] = useState<AdminTransactionRow | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // 1. Fetch Live Wallet Transactions (Zero Fake Data)
+  const {
+    data: txResponse,
+    isLoading: isTxLoading,
+    isError: isTxError,
+    refetch: refetchTx,
+    isFetching: isTxFetching,
+  } = useQuery({
     queryKey: ['admin-wallet-transactions'],
     queryFn: () => transactionsApi.getAllTransactions(),
   });
 
-  const rawItems = data?.data || [];
+  // 2. Fetch Live Users to join user profile information
+  const { data: usersResponse } = useQuery({
+    queryKey: ['admin-transactions-users'],
+    queryFn: () => usersApi.searchUsers({ page: 0, size: 50 }),
+    staleTime: 60000,
+  });
 
-  const filteredItems = search.trim()
-    ? rawItems.filter(
-        (t) =>
-          t.id.toString().includes(search.trim()) ||
-          t.walletId.toString().includes(search.trim()) ||
-          t.merchantTxnRef?.toLowerCase().includes(search.toLowerCase()) ||
-          t.description?.toLowerCase().includes(search.toLowerCase())
-      )
-    : rawItems;
+  const rawTransactions = useMemo(() => txResponse?.data || [], [txResponse]);
+  const userList = useMemo(() => {
+    const pageData = usersResponse?.data;
+    return pageData?.items || pageData?.content || [];
+  }, [usersResponse]);
 
-  const totalElements = filteredItems.length;
-  const totalPages = Math.ceil(totalElements / size);
-  const paginatedItems = filteredItems.slice(page * size, (page + 1) * size);
+  // Join raw transactions with user profiles
+  const allRows: AdminTransactionRow[] = useMemo(() => {
+    return buildAdminTransactionRows(rawTransactions, userList);
+  }, [rawTransactions, userList]);
 
-  const columns: Column<WalletTransactionItem>[] = [
-    {
-      key: 'id',
-      header: 'Mã GD & Ví',
-      render: (item) => (
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-subtle text-muted">
-            <ArrowLeftRight className="h-4 w-4" />
-          </div>
-          <div className="flex flex-col font-mono text-xs">
-            <span className="font-semibold text-ink">GD #{item.id}</span>
-            <span className="text-[11px] text-muted">Ví ID #{item.walletId}</span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'type',
-      header: 'Loại biến động',
-      render: (item) => (
-        <div className="flex flex-col text-xs">
-          <span className="font-medium text-ink">{formatTxnType(item.type)}</span>
-          <span className="font-mono text-[10px] text-muted uppercase">{item.type}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'amount',
-      header: 'Số tiền',
-      align: 'right',
-      render: (item) => (
-        <span className="font-mono tabular-nums text-xs font-semibold text-ink">
-          {formatVND(item.amount)}
-        </span>
-      ),
-    },
-    {
-      key: 'reference',
-      header: 'Tham chiếu & Cổng',
-      render: (item) => (
-        <div className="flex flex-col text-xs max-w-xs">
-          <span className="font-mono text-[11px] text-ink truncate">
-            {item.merchantTxnRef || item.gatewayTxnNo || '—'}
-          </span>
-          <span className="text-[11px] text-muted truncate">
-            {item.gatewayProvider || item.description || 'Hệ thống nội bộ'}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Trạng thái',
-      render: (item) => <StatusBadge status={item.status} />,
-    },
-    {
-      key: 'createdAt',
-      header: 'Thời điểm ghi sổ',
-      render: (item) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted font-mono tabular-nums">
-          <Calendar className="h-3.5 w-3.5 text-muted" />
-          <span>{formatDateTime(item.createdAt)}</span>
-        </div>
-      ),
-    },
-  ];
+  // Calculate live financial KPIs strictly from backend data
+  const kpis = useMemo(() => {
+    return calculateTransactionsKPIs(rawTransactions);
+  }, [rawTransactions]);
+
+  // Date bounds calculation
+  const dateBounds = useMemo(() => {
+    return calculateDateRangeBounds(dateRangePreset, customDateStart, customDateEnd);
+  }, [dateRangePreset, customDateStart, customDateEnd]);
+
+  // Date range label for the toolbar popover button
+  const dateRangeLabel = useMemo(() => {
+    if (dateRangePreset === '7d') return '7 ngày qua';
+    if (dateRangePreset === '30d') return '30 ngày qua';
+    if (dateRangePreset === '90d') return '90 ngày qua';
+    if (dateRangePreset === 'custom') {
+      if (customDateStart && customDateEnd) return `${customDateStart} → ${customDateEnd}`;
+      if (customDateStart) return `Từ ${customDateStart}`;
+      if (customDateEnd) return `Đến ${customDateEnd}`;
+      return 'Tùy chỉnh';
+    }
+    return 'Khoảng thời gian';
+  }, [dateRangePreset, customDateStart, customDateEnd]);
+
+  // Filtered rows
+  const filteredRows = useMemo(() => {
+    return filterAdminTransactionRows(allRows, searchQuery, typeFilter, statusFilter, dateBounds);
+  }, [allRows, searchQuery, typeFilter, statusFilter, dateBounds]);
+
+  // Paginated rows
+  const totalElements = filteredRows.length;
+  const paginatedRows = useMemo(() => {
+    return filteredRows.slice(page * pageSize, (page + 1) * pageSize);
+  }, [filteredRows, page, pageSize]);
+
+  // Filter status flag
+  const isFiltered = Boolean(
+    searchQuery.trim() ||
+      typeFilter !== 'all' ||
+      statusFilter !== 'all' ||
+      dateRangePreset !== 'all'
+  );
+
+  // Reset all filters
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('all');
+    setStatusFilter('all');
+    setDateRangePreset('all');
+    setCustomDateStart(undefined);
+    setCustomDateEnd(undefined);
+    setPage(0);
+  };
+
+  // Date range change handler (with toggle-off support)
+  const handleDateRangeChange = (preset: string, start?: string, end?: string) => {
+    setDateRangePreset(preset);
+    setCustomDateStart(start);
+    setCustomDateEnd(end);
+    setPage(0);
+  };
+
+  // Export CSV handler
+  const handleExportCSV = () => {
+    if (filteredRows.length === 0) return;
+    const csvContent = exportTransactionsToCSV(filteredRows);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `su_ky_bien_dong_so_du_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Open detail modal
+  const handleSelectRow = (row: AdminTransactionRow) => {
+    setSelectedTransaction(row);
+    setIsModalOpen(true);
+  };
+
+  // GSAP entrance animation
+  useEffect(() => {
+    if (pageContainerRef.current) {
+      const targets = [
+        heroRef.current,
+        statsRef.current,
+        toolbarRef.current,
+        tableRef.current,
+      ].filter(Boolean);
+
+      gsap.fromTo(
+        targets,
+        { opacity: 0, y: 14 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.45,
+          stagger: 0.08,
+          ease: 'power2.out',
+        }
+      );
+    }
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Biến động số dư"
-        description="Sổ cái vận hành ghi nhận toàn bộ biến động tài chính nạp, rút, ký quỹ và phân phối doanh thu trên ví hệ thống"
-      />
+    <div ref={pageContainerRef} className="space-y-6 pb-12 select-text font-sans">
+      {/* 1. Hero Banner: 3 Layers matching reference mockup 100% */}
+      <div ref={heroRef}>
+        <AdminTransactionsHeroBanner />
+      </div>
 
-      <FilterToolbar
-        searchPlaceholder="Tìm theo mã giao dịch, mã ví, mã đối tác..."
-        searchValue={search}
-        onSearchChange={(v) => {
-          setSearch(v);
-          setPage(0);
-        }}
-        showReset={Boolean(search)}
-        onReset={() => {
-          setSearch('');
-          setPage(0);
-        }}
-      />
+      {/* 2. 4 Stat Cards: Financial metrics calculated strictly from live data */}
+      <div ref={statsRef}>
+        <AdminTransactionsStatCards kpis={kpis} />
+      </div>
 
-      {isError && (
-        <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
-          <span>Không thể tải dữ liệu sổ cái giao dịch ví. Vui lòng thử lại.</span>
-          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
+      {/* Error Banner with Retry */}
+      {isTxError && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/80 p-4 text-xs text-rose-800 flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
+            <span>
+              Không thể tải dữ liệu sổ cái biến động số dư ví. Vui lòng kiểm tra kết nối mạng hoặc thử lại.
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchTx()}
+            className="h-8 px-3 text-xs border-rose-300 text-rose-800 hover:bg-rose-100"
+          >
+            <RotateCw className="h-3 w-3 mr-1" />
             Tải lại
           </Button>
         </div>
       )}
 
-      <DataTable
-        columns={columns}
-        data={paginatedItems}
-        keyExtractor={(item) => item.id}
-        isLoading={isLoading}
-        emptyTitle="Chưa có biến động số dư"
-        emptyDescription="Các giao dịch ví sẽ xuất hiện tại đây khi phát sinh."
-        pagination={
-          <PaginationBar
-            embedded
-            page={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            size={size}
-            onPageChange={setPage}
-          />
-        }
+      {/* 3. Filter Toolbar: Search, Type, Status, Date Range with Toggle-off, Refresh, Export */}
+      <div ref={toolbarRef}>
+        <AdminTransactionsFilterToolbar
+          searchQuery={searchQuery}
+          onSearchChange={(v) => {
+            setSearchQuery(v);
+            setPage(0);
+          }}
+          typeFilter={typeFilter}
+          onTypeFilterChange={(v) => {
+            setTypeFilter(v);
+            setPage(0);
+          }}
+          statusFilter={statusFilter}
+          onStatusFilterChange={(v) => {
+            setStatusFilter(v);
+            setPage(0);
+          }}
+          dateRange={dateRangePreset}
+          dateRangeLabel={dateRangeLabel}
+          customStartDate={customDateStart}
+          customEndDate={customDateEnd}
+          onDateRangeChange={handleDateRangeChange}
+          onRefresh={() => refetchTx()}
+          isRefreshing={isTxFetching}
+          onExport={handleExportCSV}
+        />
+      </div>
+
+      {/* 4. Transactions Table & Pagination */}
+      <div ref={tableRef}>
+        <AdminTransactionsTable
+          rows={paginatedRows}
+          isLoading={isTxLoading}
+          onSelectRow={handleSelectRow}
+          page={page}
+          pageSize={pageSize}
+          totalElements={totalElements}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(0);
+          }}
+          isFiltered={isFiltered}
+          onResetFilters={handleResetFilters}
+        />
+      </div>
+
+      {/* 5. Transaction Detail Modal (React Portal z-[999]) */}
+      <AdminTransactionDetailModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedTransaction(null);
+        }}
+        transaction={selectedTransaction}
       />
     </div>
   );
 };
+export default TransactionsPage;
