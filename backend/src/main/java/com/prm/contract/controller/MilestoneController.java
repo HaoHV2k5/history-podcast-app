@@ -83,6 +83,14 @@ public class MilestoneController {
         return ResponseEntity.ok(ApiResponse.success("Duyệt nghiệm thu milestone thành công! Đã mở khóa giai đoạn tiếp theo", response));
     }
 
+    @PostMapping("/{id}/release-early")
+    @Operation(summary = "Người thuê giải ngân sớm cho Creator (bỏ qua thời gian giữ đối soát 3 ngày)",
+               description = "Khi Milestone đã ở trạng thái APPROVED và tiền đang giữ trong Escrow (HELD), Người đặt nội dung có thể chủ động giải ngân ngay 95% tiền về ví khả dụng của Creator mà không cần chờ hết 3 ngày đối soát")
+    public ResponseEntity<ApiResponse<MilestoneResponse>> releaseEarlyMilestone(@PathVariable Long id) {
+        MilestoneResponse response = milestoneService.releaseEarlyMilestone(id);
+        return ResponseEntity.ok(ApiResponse.success("Giải ngân sớm milestone thành công! Tiền đã được chuyển vào ví của Creator", response));
+    }
+
     @PostMapping("/{id}/cancel-overdue")
     @Operation(summary = "Người thuê hủy Milestone trễ hạn & nhận hoàn tiền 100%",
                description = "Nếu Creator trễ deadline bàn giao (IN_PROGRESS quá due_at), Người đặt nội dung được quyền hủy ngay để nhận hoàn 100% tiền ký quỹ của giai đoạn đó về ví")

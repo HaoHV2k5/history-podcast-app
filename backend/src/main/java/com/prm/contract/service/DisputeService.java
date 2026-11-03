@@ -7,10 +7,14 @@ import com.prm.contract.dto.request.OpenDisputeRequest;
 import com.prm.contract.dto.request.ResolveDisputeRequest;
 import com.prm.contract.dto.response.DisputeResponse;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 public interface DisputeService {
+
+    Map<String, Object> uploadEvidenceFile(MultipartFile file);
 
     DisputeResponse openDispute(OpenDisputeRequest request);
 

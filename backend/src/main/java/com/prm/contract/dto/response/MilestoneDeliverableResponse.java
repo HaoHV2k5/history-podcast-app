@@ -25,6 +25,7 @@ public class MilestoneDeliverableResponse {
     private Integer versionNo;
     private Long uploadedById;
     private String uploadedByFullName;
+    private String fileUrl;
     private String downloadUrl;
     private String previewUrl;
     private Instant createdAt;

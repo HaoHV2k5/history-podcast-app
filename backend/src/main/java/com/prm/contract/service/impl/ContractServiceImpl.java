@@ -10,7 +10,9 @@ import com.prm.contract.dto.request.CreateContractRequest;
 import com.prm.contract.dto.request.MilestoneItemRequest;
 import com.prm.contract.dto.request.UpdateContractRequest;
 import com.prm.contract.dto.response.ContractResponse;
+import com.prm.contract.dto.response.MilestoneDeliverableResponse;
 import com.prm.contract.dto.response.MilestoneResponse;
+import com.prm.contract.dto.response.MilestoneReviewResponse;
 import com.prm.contract.dto.response.RevisionRequestResponse;
 import com.prm.contract.dto.response.SubmissionResponse;
 import com.prm.contract.entity.Commission;
@@ -46,6 +48,8 @@ public class ContractServiceImpl implements ContractService {
     private final MilestoneRepository milestoneRepository;
     private final SubmissionRepository submissionRepository;
     private final RevisionRequestRepository revisionRequestRepository;
+    private final MilestoneDeliverableRepository deliverableRepository;
+    private final MilestoneReviewRepository milestoneReviewRepository;
     private final UserRepository userRepository;
     private final BookingEscrowProperties properties;
     private final CommissionRepository commissionRepository;
@@ -55,7 +59,7 @@ public class ContractServiceImpl implements ContractService {
         User creator = getCurrentUser();
 
         // 1. Kiểm tra vai trò Creator
-        if (!creator.hasRole(RoleEnum.CREATOR.name()) && !creator.hasRole(RoleEnum.ADMIN.name())) {
+        if (!creator.hasRole(RoleEnum.CREATOR.name())) {
             throw new AppException(ErrorCode.CREATOR_ROLE_REQUIRED, "Chỉ tài khoản Creator mới có quyền lập hợp đồng và lộ trình Milestone");
         }
 
@@ -158,7 +162,7 @@ public class ContractServiceImpl implements ContractService {
         Contract contract = contractRepository.findById(contractId)
                 .orElseThrow(() -> new AppException(ErrorCode.CONTRACT_NOT_FOUND, "Không tìm thấy hợp đồng"));
 
-        if (!contract.getCreator().getId().equals(currentUser.getId()) && !currentUser.hasRole(RoleEnum.ADMIN.name())) {
+        if (!contract.getCreator().getId().equals(currentUser.getId())) {
             throw new AppException(ErrorCode.CONTRACT_ACCESS_DENIED, "Chỉ Creator tạo hợp đồng mới có quyền chỉnh sửa lộ trình Milestone");
         }
 
@@ -341,7 +345,9 @@ public class ContractServiceImpl implements ContractService {
     @Transactional(readOnly = true)
     public PageResponse<ContractResponse> getMyContracts(ContractStatus status, Pageable pageable) {
         User currentUser = getCurrentUser();
-        Page<Contract> page = contractRepository.findMyContracts(currentUser.getId(), status, pageable);
+        Page<Contract> page = currentUser.hasRole(RoleEnum.ADMIN.name())
+                ? contractRepository.findAllContracts(status, pageable)
+                : contractRepository.findMyContracts(currentUser.getId(), status, pageable);
         List<ContractResponse> content = page.getContent().stream()
                 .map(this::toContractResponse)
                 .toList();
@@ -570,6 +576,53 @@ public class ContractServiceImpl implements ContractService {
                         .build())
                 .toList();
 
+        List<MilestoneDeliverableResponse> deliverables = deliverableRepository != null
+                ? deliverableRepository.findByMilestoneIdOrderByCreatedAtDesc(m.getId()).stream()
+                    .map(d -> MilestoneDeliverableResponse.builder()
+                            .id(d.getId())
+                            .milestoneId(m.getId())
+                            .milestoneOrderNo(m.getOrderNo())
+                            .milestoneTitle(m.getTitle())
+                            .contractId(m.getContract() != null ? m.getContract().getId() : null)
+                            .contractTitle(m.getContract() != null ? m.getContract().getTitle() : null)
+                            .title(d.getTitle())
+                            .description(d.getDescription())
+                            .fileName(d.getFileName())
+                            .fileSize(d.getFileSize())
+                            .contentType(d.getContentType())
+                            .versionNo(d.getVersionNo())
+                            .uploadedById(d.getUploadedBy() != null ? d.getUploadedBy().getId() : null)
+                            .uploadedByFullName(d.getUploadedBy() != null ? d.getUploadedBy().getFullName() : null)
+                            .fileUrl(d.getFilePath())
+                            .downloadUrl("/api/v1/deliverables/" + d.getId() + "/download")
+                            .previewUrl("/api/v1/deliverables/" + d.getId() + "/view")
+                            .createdAt(d.getCreatedAt())
+                            .build())
+                    .toList()
+                : java.util.Collections.emptyList();
+
+        List<MilestoneReviewResponse> reviews = milestoneReviewRepository != null
+                ? milestoneReviewRepository.findByMilestoneIdOrderByCreatedAtDesc(m.getId()).stream()
+                    .map(r -> MilestoneReviewResponse.builder()
+                            .id(r.getId())
+                            .milestoneId(m.getId())
+                            .milestoneOrderNo(m.getOrderNo())
+                            .milestoneTitle(m.getTitle())
+                            .contractId(m.getContract() != null ? m.getContract().getId() : null)
+                            .contractTitle(m.getContract() != null ? m.getContract().getTitle() : null)
+                            .reviewerId(r.getReviewer() != null ? r.getReviewer().getId() : null)
+                            .reviewerFullName(r.getReviewer() != null ? r.getReviewer().getFullName() : null)
+                            .reviewerAvatarUrl(r.getReviewer() != null ? r.getReviewer().getAvatarUrl() : null)
+                            .revieweeId(r.getReviewee() != null ? r.getReviewee().getId() : null)
+                            .revieweeFullName(r.getReviewee() != null ? r.getReviewee().getFullName() : null)
+                            .revieweeAvatarUrl(r.getReviewee() != null ? r.getReviewee().getAvatarUrl() : null)
+                            .rating(r.getRating())
+                            .comment(r.getComment())
+                            .createdAt(r.getCreatedAt())
+                            .build())
+                    .toList()
+                : java.util.Collections.emptyList();
+
         return MilestoneResponse.builder()
                 .id(m.getId())
                 .contractId(m.getContract() != null ? m.getContract().getId() : null)
@@ -597,6 +650,8 @@ public class ContractServiceImpl implements ContractService {
                 .refundedAt(m.getRefundedAt())
                 .submissions(submissions)
                 .revisionRequests(revisions)
+                .deliverables(deliverables)
+                .reviews(reviews)
                 .createdAt(m.getCreatedAt())
                 .updatedAt(m.getUpdatedAt())
                 .build();

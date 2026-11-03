@@ -22,6 +22,8 @@ public interface MilestoneService {
 
     MilestoneResponse approveMilestone(Long milestoneId);
 
+    MilestoneResponse releaseEarlyMilestone(Long milestoneId);
+
     MilestoneResponse cancelOverdueMilestone(Long milestoneId);
 
     List<MilestoneResponse> getMilestonesByContract(Long contractId);

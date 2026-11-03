@@ -29,6 +29,12 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
             Pageable pageable
     );
 
+    @Query("SELECT c FROM Contract c WHERE (:status IS NULL OR c.status = :status)")
+    Page<Contract> findAllContracts(
+            @Param("status") ContractStatus status,
+            Pageable pageable
+    );
+
     List<Contract> findByStatusAndAcceptDueAtBefore(ContractStatus status, Instant now);
 
     boolean existsByFreelancerIdAndStatusIn(Long freelancerId, Collection<ContractStatus> statuses);

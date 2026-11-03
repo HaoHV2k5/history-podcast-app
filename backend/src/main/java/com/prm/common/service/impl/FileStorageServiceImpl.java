@@ -221,16 +221,37 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (file.getSize() > 25 * 1024 * 1024) { // 25MB
             throw new AppException(ErrorCode.FILE_TOO_LARGE, "Dung lượng tệp không được vượt quá 25MB");
         }
+
+        String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "deliverable.bin";
+        String safeFileName = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+        java.nio.file.Path localDir = java.nio.file.Paths.get("uploads", "deliverables");
+        java.nio.file.Path localBackupPath = null;
+        try {
+            java.nio.file.Files.createDirectories(localDir);
+            localBackupPath = localDir.resolve(System.currentTimeMillis() + "_" + safeFileName);
+            java.nio.file.Files.write(localBackupPath, file.getBytes());
+        } catch (Exception ex) {
+            log.warn("Could not write local deliverable cache for {}: {}", originalFilename, ex.getMessage());
+        }
+
         if (!isConfigured) {
-            log.warn("Cloudinary not configured, returning simulated deliverable URL for file {}", file.getOriginalFilename());
-            return "https://storage.local/deliverables/" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+            log.warn("Cloudinary not configured, using local deliverable path for file {}", originalFilename);
+            return localBackupPath != null ? localBackupPath.toAbsolutePath().toString() : ("uploads/deliverables/" + safeFileName);
         }
 
         String targetFolder = buildTargetFolder(folder);
+        String lowerName = originalFilename.toLowerCase();
+        String contentType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
+        boolean isDocumentOrArchive = lowerName.endsWith(".pdf") || lowerName.endsWith(".doc") || lowerName.endsWith(".docx")
+                || lowerName.endsWith(".zip") || lowerName.endsWith(".rar") || lowerName.endsWith(".txt")
+                || contentType.contains("pdf") || contentType.contains("msword")
+                || contentType.contains("officedocument") || contentType.contains("zip");
+
         try {
             Map<String, Object> params = new java.util.HashMap<>();
             params.put("folder", targetFolder);
-            params.put("resource_type", "auto");
+            // Dùng resource_type = "raw" cho PDF/DOCX/ZIP để tránh chính sách chặn tải PDF qua nhánh image của Cloudinary
+            params.put("resource_type", isDocumentOrArchive ? "raw" : "auto");
             params.put("use_filename", true);
             params.put("unique_filename", true);
 
@@ -240,9 +261,25 @@ public class FileStorageServiceImpl implements FileStorageService {
             if (!StringUtils.hasText(secureUrl)) {
                 throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Không nhận được URL từ dịch vụ lưu trữ");
             }
-            log.info("Uploaded raw deliverable file '{}' to Cloudinary path '{}': {}", file.getOriginalFilename(), targetFolder, secureUrl);
+
+            // Lưu thêm bản cache theo tên basename của secureUrl để khi stream qua /view hoặc /download đọc trực tiếp cực nhanh
+            try {
+                String urlBaseName = secureUrl.substring(secureUrl.lastIndexOf('/') + 1);
+                String cleanBaseName = urlBaseName.replaceAll("[^a-zA-Z0-9._-]", "_");
+                if (!cleanBaseName.isBlank()) {
+                    java.nio.file.Files.write(localDir.resolve(cleanBaseName), file.getBytes());
+                }
+            } catch (Exception ignore) {
+            }
+
+            log.info("Uploaded deliverable file '{}' (resource_type={}) to Cloudinary path '{}': {}",
+                    originalFilename, isDocumentOrArchive ? "raw" : "auto", targetFolder, secureUrl);
             return secureUrl;
         } catch (IOException e) {
+            if (localBackupPath != null && java.nio.file.Files.exists(localBackupPath)) {
+                log.warn("Cloudinary upload failed, falling back to local file path: {}", localBackupPath);
+                return localBackupPath.toAbsolutePath().toString();
+            }
             log.error("Failed to upload deliverable file to cloud storage", e);
             throw new AppException(ErrorCode.FILE_UPLOAD_FAILED, "Lỗi khi truyền dữ liệu tệp sản phẩm: " + e.getMessage());
         }
