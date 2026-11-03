@@ -208,5 +208,32 @@ class MilestoneDeliverableServiceTest {
         assertEquals(1, responses.size());
         assertEquals("Script Diagram", responses.get(0).getTitle());
         assertEquals(10L, responses.get(0).getContractId());
+        assertEquals("url1", responses.get(0).getFileUrl());
+    }
+
+    @Test
+    @DisplayName("Xem/Tải file PDF bàn giao cũ (storage.local hoặc link bị chặn) vẫn trả về stream PDF hợp lệ không lỗi 404")
+    void testDownloadDeliverable_PdfFallbackNo404() throws Exception {
+        MilestoneDeliverable deliverable = MilestoneDeliverable.builder()
+                .id(999L)
+                .milestone(milestone)
+                .uploadedBy(creator)
+                .title("Kịch bản tập 1")
+                .fileName("MLN122-Nhom1.pdf")
+                .contentType("application/pdf")
+                .filePath("https://storage.local/deliverables/MLN122-Nhom1.pdf")
+                .versionNo(1)
+                .createdAt(Instant.now())
+                .build();
+
+        when(deliverableRepository.findById(999L)).thenReturn(Optional.of(deliverable));
+
+        authenticateAs(requester);
+        Resource resource = deliverableService.downloadDeliverable(999L);
+        assertNotNull(resource);
+        byte[] bytes = resource.getInputStream().readAllBytes();
+        assertTrue(bytes.length > 100);
+        String header = new String(bytes, 0, 8, java.nio.charset.StandardCharsets.ISO_8859_1);
+        assertTrue(header.startsWith("%PDF-1.4"));
     }
 }
