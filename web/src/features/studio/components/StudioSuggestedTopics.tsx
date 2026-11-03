@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lightbulb, ChevronRight, Check, BookOpen, Clock, Quote, Sparkles } from 'lucide-react';
+import { Lightbulb, ChevronRight, Check, BookOpen, Clock, Quote } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -221,7 +221,7 @@ export const StudioSuggestedTopics: React.FC<StudioSuggestedTopicsProps> = ({
                     </span>
                     <Button
                       size="sm"
-                      variant={isSelected ? 'outline' : 'default'}
+                      variant={isSelected ? 'outline' : 'primary'}
                       className={`h-7 px-3 text-xs cursor-pointer ${
                         isSelected
                           ? 'border-accent text-accent hover:bg-accent/10'

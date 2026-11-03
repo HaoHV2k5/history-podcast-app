@@ -98,6 +98,29 @@ export const CreatorFinancePage: React.FC = () => {
   });
   const bankAccounts = Array.isArray(bankRes?.data) ? bankRes.data : [];
 
+  // Primary bank account selection state (persisted in localStorage)
+  const [primaryBankId, setPrimaryBankId] = useState<number | null>(() => {
+    const saved = localStorage.getItem('su_ky_primary_bank_id');
+    return saved ? Number(saved) : null;
+  });
+
+  const handleSelectPrimaryBank = (bankId: number) => {
+    setPrimaryBankId(bankId);
+    localStorage.setItem('su_ky_primary_bank_id', String(bankId));
+    const target = bankAccounts.find((b) => b.id === bankId);
+    if (target) {
+      setSuccessToast(`Đã đặt ${target.bankName} làm tài khoản ngân hàng chính.`);
+    }
+  };
+
+  useEffect(() => {
+    if (bankAccounts.length > 0) {
+      if (!primaryBankId || !bankAccounts.some((b) => b.id === primaryBankId)) {
+        setPrimaryBankId(bankAccounts[0].id);
+      }
+    }
+  }, [bankAccounts, primaryBankId]);
+
   // Withdrawals query
   const {
     data: withdrawalsRes,
@@ -373,24 +396,37 @@ export const CreatorFinancePage: React.FC = () => {
         isRefreshing={isRefetchingWallet}
       />
 
-      {/* ─── 2. TOP BALANCE & ACCOUNTS STATS CARDS ─── */}
-      <WalletBalanceCards
-        wallet={wallet}
-        bankAccounts={bankAccounts}
-        isLoading={isLoadingWallet}
-        onOpenWithdraw={() => setWithdrawOpen(true)}
-        onOpenDeposit={() => {
-          setDepositResultUrl(null);
-          setDepositOpen(true);
-        }}
-        onOpenAddBank={() => setAddBankOpen(true)}
-      />
+      {/* ─── 2. FINANCIAL OVERVIEW MATRIX (OPERATING WALLET & ESCROW) ─── */}
+      <section
+        aria-label="Tổng quan tài chính & Ký quỹ"
+        className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch"
+        data-motion-target="balance-cards"
+      >
+        <div className="lg:col-span-7 flex">
+          <WalletBalanceCards
+            wallet={wallet}
+            bankAccounts={bankAccounts}
+            primaryBankId={primaryBankId}
+            onSelectPrimaryBank={handleSelectPrimaryBank}
+            isLoading={isLoadingWallet}
+            onOpenWithdraw={() => setWithdrawOpen(true)}
+            onOpenDeposit={() => {
+              setDepositResultUrl(null);
+              setDepositOpen(true);
+            }}
+            onOpenAddBank={() => setAddBankOpen(true)}
+            className="w-full"
+          />
+        </div>
 
-      {/* ─── 2.5. MILESTONE ESCROW FINANCIALS BANNER ─── */}
-      <CreatorMilestoneEarningsBanner
-        financials={milestoneFinancials}
-        isLoading={isLoadingMilestones}
-      />
+        <div className="lg:col-span-5 flex">
+          <CreatorMilestoneEarningsBanner
+            financials={milestoneFinancials}
+            isLoading={isLoadingMilestones}
+            className="w-full"
+          />
+        </div>
+      </section>
 
       {/* ─── 3. TABS: TRANSACTIONS / WITHDRAWALS / LINKED BANKS ─── */}
       <div ref={historyTabsSectionRef}>
@@ -400,6 +436,8 @@ export const CreatorFinancePage: React.FC = () => {
           transactions={transactions}
           withdrawals={withdrawals}
           bankAccounts={bankAccounts}
+          primaryBankId={primaryBankId}
+          onSelectPrimaryBank={handleSelectPrimaryBank}
           isLoadingTx={isLoadingTx}
           isLoadingWithdrawals={isLoadingWithdrawals}
           isLoadingBanks={isLoadingBanks}
@@ -434,6 +472,7 @@ export const CreatorFinancePage: React.FC = () => {
         onOpenChange={setWithdrawOpen}
         wallet={wallet}
         bankAccounts={bankAccounts}
+        defaultBankAccountId={primaryBankId}
         onSubmitWithdraw={handleWithdrawSubmit}
         isSubmitting={withdrawMutation.isPending}
         onOpenAddBank={() => setAddBankOpen(true)}

@@ -54,6 +54,7 @@ export interface CreatorStoryboardRequest {
   topic: string;
   durationSec?: number;
   geminiApiKey?: string;
+  keepOriginalScript?: boolean;
 }
 
 export interface StoryboardElement {

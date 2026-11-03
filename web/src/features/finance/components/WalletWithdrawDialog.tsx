@@ -19,6 +19,7 @@ interface WalletWithdrawDialogProps {
   onOpenChange: (open: boolean) => void;
   wallet?: WalletItem | null;
   bankAccounts: BankAccountItem[];
+  defaultBankAccountId?: number | null;
   onSubmitWithdraw: (amount: number, bankAccountId: number) => void;
   isSubmitting?: boolean;
   onOpenAddBank: () => void;
@@ -31,6 +32,7 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
   onOpenChange,
   wallet,
   bankAccounts,
+  defaultBankAccountId,
   onSubmitWithdraw,
   isSubmitting = false,
   onOpenAddBank,
@@ -38,16 +40,20 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
   const availableBalance = wallet?.availableBalance ?? 0;
   const [amountStr, setAmountStr] = useState<string>('50000');
   const [selectedBankId, setSelectedBankId] = useState<string>(
-    bankAccounts[0]?.id ? String(bankAccounts[0].id) : ''
+    defaultBankAccountId ? String(defaultBankAccountId) : bankAccounts[0]?.id ? String(bankAccounts[0].id) : ''
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Keep selectedBankId in sync when banks change
+  // Keep selectedBankId in sync with defaultBankAccountId when dialog opens
   React.useEffect(() => {
-    if (!selectedBankId && bankAccounts[0]?.id) {
-      setSelectedBankId(String(bankAccounts[0].id));
+    if (open) {
+      if (defaultBankAccountId && bankAccounts.some((b) => b.id === defaultBankAccountId)) {
+        setSelectedBankId(String(defaultBankAccountId));
+      } else if (bankAccounts[0]?.id) {
+        setSelectedBankId(String(bankAccounts[0].id));
+      }
     }
-  }, [bankAccounts, selectedBankId]);
+  }, [open, defaultBankAccountId, bankAccounts]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
