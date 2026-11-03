@@ -47,8 +47,8 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
   Future<Widget> createApplication(RuntimeConfiguration configuration) async {
     final preferences = await SharedPreferences.getInstance();
     var savedBaseUrl = preferences.getString('custom_api_base_url')?.trim();
-    if (savedBaseUrl != null && (savedBaseUrl.contains('192.168.1.115') || savedBaseUrl.contains('10.0.2.2') || savedBaseUrl.contains('192.168.1.72') || savedBaseUrl.contains('172.18.1.206') || savedBaseUrl.contains('10.87.31.229') || savedBaseUrl.contains('192.168.1.80'))) {
-      savedBaseUrl = 'http://192.168.1.123:8080';
+    if (savedBaseUrl != null && (savedBaseUrl.contains('192.168.1.115') || savedBaseUrl.contains('10.0.2.2') || savedBaseUrl.contains('192.168.1.72') || savedBaseUrl.contains('172.18.1.206') || savedBaseUrl.contains('10.87.31.229') || savedBaseUrl.contains('192.168.1.80') || savedBaseUrl.contains('192.168.1.123'))) {
+      savedBaseUrl = 'http://192.168.1.133:8080';
       await preferences.setString('custom_api_base_url', savedBaseUrl);
     }
     String baseUrl;
@@ -58,7 +58,7 @@ class LiveBackendApplicationFactory implements BackendApplicationFactory {
       baseUrl = configuration.apiBaseUri.toString();
     } else {
       baseUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-          ? 'http://192.168.1.123:8080'
+          ? 'http://192.168.1.133:8080'
           : 'http://localhost:8080';
     }
     

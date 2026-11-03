@@ -2734,14 +2734,14 @@ class _CreatorLivestreamStudioPageState
         final lower = msg.toLowerCase();
         if (lower.contains('timeoutexception') || lower.contains('timed out')) {
           final host =
-              widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
+              widget.state.apiClient?.baseUrl ?? 'http://192.168.1.133:8080';
           msg =
               'Quá thời gian chờ kết nối máy chủ (15s). Vui lòng đảm bảo backend đang chạy tại $host và điện thoại kết nối chung Wi-Fi.';
         } else if (lower.contains('socketexception') ||
             lower.contains('connection refused') ||
             lower.contains('failed host lookup')) {
           final host =
-              widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
+              widget.state.apiClient?.baseUrl ?? 'http://192.168.1.133:8080';
           msg =
               'Không thể kết nối đến máy chủ backend ($host). Vui lòng đảm bảo backend đang chạy hoặc bấm "Đổi IP máy chủ".';
         }
@@ -2755,7 +2755,7 @@ class _CreatorLivestreamStudioPageState
 
   void _showServerConfigDialog() {
     final currentUrl =
-        widget.state.apiClient?.baseUrl ?? 'http://192.168.1.123:8080';
+        widget.state.apiClient?.baseUrl ?? 'http://192.168.1.133:8080';
     final controller = TextEditingController(text: currentUrl);
     showDialog(
       context: context,
@@ -2780,7 +2780,7 @@ class _CreatorLivestreamStudioPageState
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Palette.soft,
-                hintText: 'http://192.168.1.123:8080',
+                hintText: 'http://192.168.1.133:8080',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -2798,11 +2798,11 @@ class _CreatorLivestreamStudioPageState
               children: [
                 ActionChip(
                   label: const Text(
-                    'Máy tính Wi-Fi (192.168.1.123)',
+                    'Máy tính Wi-Fi (192.168.1.133)',
                     style: TextStyle(fontSize: 11),
                   ),
                   onPressed: () =>
-                      controller.text = 'http://192.168.1.123:8080',
+                      controller.text = 'http://192.168.1.133:8080',
                 ),
                 ActionChip(
                   label: const Text(
