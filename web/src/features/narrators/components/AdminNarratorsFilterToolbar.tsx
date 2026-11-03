@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Calendar, RotateCw, Download, Check, ChevronDown } from 'lucide-react';
+import { Search, Calendar, RotateCw, Download, Check, ChevronDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -103,14 +103,27 @@ export const AdminNarratorsFilterToolbar: React.FC<AdminNarratorsFilterToolbarPr
     <div className="relative z-30 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
       {/* 1. Large Search Input on Left */}
       <div className="relative flex-1 min-w-[240px]">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-stone-400">
+          <Search className="h-4 w-4" />
+        </div>
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Tìm kiếm theo tên, email, mã user, giọng đọc, ngôn ngữ..."
-          className="w-full rounded-xl border border-[#E7E5E4] bg-white py-2 pl-9.5 pr-4 text-xs sm:text-[13px] text-stone-900 placeholder:text-stone-400 focus:border-[#991B1B] focus:outline-none focus:ring-1 focus:ring-[#991B1B] transition-colors"
+          className="w-full rounded-xl border border-[#E7E5E4] bg-white py-2 pl-10 pr-9 sm:pr-10 text-xs sm:text-[13px] text-stone-900 placeholder:text-stone-400 focus:border-[#991B1B] focus:outline-none focus:ring-1 focus:ring-[#991B1B] transition-colors"
         />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => onSearchChange('')}
+            className="absolute inset-y-0 right-0 flex items-center pr-3 text-stone-400 hover:text-stone-600 transition-colors cursor-pointer"
+            title="Xóa tìm kiếm"
+            aria-label="Xóa tìm kiếm"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       {/* 2. Filters & Action Buttons on Right */}
