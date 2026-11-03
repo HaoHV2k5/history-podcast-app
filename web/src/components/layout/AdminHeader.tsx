@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Menu, ChevronRight, ChevronDown, LogOut, Bell } from 'lucide-react';
+import { Menu, ChevronRight, ChevronDown, LogOut } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AdminNotificationPopover } from './AdminNotificationPopover';
 
 interface AdminHeaderProps {
   onToggleMobileMenu?: () => void;
@@ -104,17 +105,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           <span>Hệ thống trực tuyến</span>
         </div>
 
-        {/* System Notification Bell with badge 2 */}
-        <button
-          type="button"
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#E7E5E4] bg-white text-stone-600 hover:text-[#1F1612] hover:bg-stone-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#991B1B]"
-          aria-label="Thông báo hệ thống (2 thông báo mới)"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-[#DC2626] text-white font-mono text-[10px] font-bold shadow-xs">
-            2
-          </span>
-        </button>
+        {/* System Notification Bell & Task Center (Live Backend Synced - Zero Fake Data) */}
+        <AdminNotificationPopover />
 
         {/* User Profile Dropdown matching mockup: Pink squircle 'D' + Demo Administrator + Quản trị viên */}
         <DropdownMenu>
