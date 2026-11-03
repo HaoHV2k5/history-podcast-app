@@ -17,7 +17,7 @@ Future<AppState> readyApp(WidgetTester tester) async {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues({'isLoggedIn': true});
   final p = await SharedPreferences.getInstance();
   await tester.runAsync(() => DemoDataService(p).load('ready'));
   final app = AppState(p);

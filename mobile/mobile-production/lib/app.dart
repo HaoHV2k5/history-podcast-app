@@ -127,6 +127,15 @@ class _HomeShellState extends State<HomeShell> {
   void selectTab(int value) {
     if (value == index) return;
     FocusManager.instance.primaryFocus?.unfocus();
+    if ((value == 1 || value == 2 || value == 3) && !widget.state.isLoggedIn) {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (_) => AuthSheet(state: widget.state),
+      );
+      return;
+    }
     setState(() => index = value);
   }
 

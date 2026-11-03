@@ -213,9 +213,14 @@ class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
           ? !busy
           : (!busy && kyc.isApproved && !pending);
       final mf = ledger.milestoneFinancials;
-      final isFreelancerRole =
+      final isCreatorRole =
+          widget.preferences.getBool('isCreator') == true ||
           (widget.preferences.getString('userRole') ?? '').toUpperCase() ==
-          'FREELANCER';
+              'CREATOR' ||
+          (widget.preferences.getStringList('userRoles') ?? []).any(
+            (r) => r.toUpperCase() == 'CREATOR',
+          );
+      final isFreelancerRole = !isCreatorRole;
 
       return Scaffold(
         backgroundColor: Palette.paper,
@@ -255,7 +260,7 @@ class _WalletPageState extends State<WalletPage> with WidgetsBindingObserver {
                       border: Border.all(color: Palette.red.withValues(alpha: 0.25)),
                     ),
                     child: Text(
-                      isFreelancerRole ? 'Freelancer Wallet' : 'Creator Wallet',
+                      isCreatorRole ? 'Ví Nhà sáng tạo' : 'Ví Khách hàng',
                       style: const TextStyle(
                         fontSize: 10.5,
                         color: Palette.red,
