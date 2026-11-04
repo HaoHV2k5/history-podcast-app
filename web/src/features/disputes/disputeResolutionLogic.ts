@@ -262,14 +262,14 @@ export function formatDisputeResult(result?: string | null): ResultPresentation 
   switch (normalized) {
     case 'RELEASE_TO_CREATOR':
       return {
-        label: 'Giải ngân cho Nhà sáng tạo (Creator)',
+        label: 'Giải ngân cho Nhà sáng tạo',
         description: 'Giải ngân 100% tiền bảo chứng (sau khấu trừ 5% phí sàn) cho Nhà sáng tạo',
         variant: 'success',
       };
     case 'REFUND_TO_REQUESTER':
       return {
-        label: 'Hoàn tiền cho Người đặt nội dung (Requester)',
-        description: 'Hoàn trả 100% tiền bảo chứng vào ví Người đặt nội dung, hợp đồng bị hủy',
+        label: 'Hoàn tiền cho Khách đặt nội dung',
+        description: 'Hoàn trả 100% tiền bảo chứng vào ví Khách đặt nội dung, hợp đồng bị hủy',
         variant: 'pending',
       };
     case 'RELEASE_TO_FREELANCER':
@@ -314,14 +314,25 @@ export function formatDisputeStatus(status?: string | null): StatusPresentation 
 
   switch (normalized) {
     case 'OPEN':
+    case 'ĐANG THỤ LÝ':
+    case 'ĐANG TRANH CHẤP':
       return {
         label: 'Đang tranh chấp (Chờ phân xử)',
         variant: 'error',
       };
     case 'RESOLVED':
+    case 'ĐÃ GIẢI QUYẾT':
+    case 'ĐÃ PHÂN XỬ':
       return {
         label: 'Đã phân xử',
         variant: 'success',
+      };
+    case 'CANCELLED':
+    case 'ĐÃ HỦY':
+    case 'DA HUY':
+      return {
+        label: 'Đã hủy',
+        variant: 'outline',
       };
     default:
       return {
