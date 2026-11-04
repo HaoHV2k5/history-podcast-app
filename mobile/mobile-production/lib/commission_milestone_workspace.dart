@@ -1707,6 +1707,8 @@ class _ContractMilestoneRoadmapSheetState
       setState(() => _busy = false);
 
       final fname = d.fileName.toLowerCase();
+      final isPdf = fname.endsWith('.pdf') ||
+          (d.contentType ?? fetched.contentType).toLowerCase().contains('pdf');
       final isImage = fname.endsWith('.png') ||
           fname.endsWith('.jpg') ||
           fname.endsWith('.jpeg') ||
@@ -1717,6 +1719,40 @@ class _ContractMilestoneRoadmapSheetState
           fname.endsWith('.json') ||
           fname.endsWith('.csv') ||
           fetched.contentType.contains('text');
+
+      if (download) {
+        try {
+          final savedPath = await FilePicker.saveFile(
+            dialogTitle: 'Lưu sản phẩm bàn giao',
+            fileName: d.fileName,
+            bytes: Uint8List.fromList(bytes),
+          );
+          if (!mounted) return;
+          if (savedPath != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Đã lưu tệp "${d.fileName}" về thiết bị ($savedPath)'),
+              ),
+            );
+            return;
+          }
+        } catch (_) {
+          // Fallback to preview dialog if platform save picker is cancelled/unsupported
+        }
+      }
+
+      String? extractedPdfPreview;
+      if (isPdf) {
+        final rawLatin = latin1.decode(bytes, allowInvalid: true);
+        final matches = RegExp(r'\(([^()]+)\)\s*Tj')
+            .allMatches(rawLatin)
+            .map((m) => m.group(1)?.trim() ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+        if (matches.isNotEmpty) {
+          extractedPdfPreview = matches.join('\n');
+        }
+      }
 
       await showDialog<void>(
         context: context,
@@ -1734,7 +1770,7 @@ class _ContractMilestoneRoadmapSheetState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Dung lượng xác thực: ${(bytes.length / 1024).toStringAsFixed(1)} KB · Loại: ${d.contentType ?? fetched.contentType}',
+                    'Dung lượng xác thực: ${(bytes.length / 1024).toStringAsFixed(1)} KB · Loại: ${isPdf ? "application/pdf" : (d.contentType ?? fetched.contentType)}',
                     style: const TextStyle(fontSize: 12, color: Palette.muted),
                   ),
                   if (d.description != null && d.description!.isNotEmpty) ...[
@@ -1773,6 +1809,49 @@ class _ContractMilestoneRoadmapSheetState
                         ),
                       ),
                     )
+                  else if (isPdf && extractedPdfPreview != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Palette.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Palette.line),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                CupertinoIcons.doc_richtext,
+                                size: 16,
+                                color: Palette.red,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  d.title ?? d.fileName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Text(
+                            extractedPdfPreview,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.5,
+                              color: Palette.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   else
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -1804,6 +1883,27 @@ class _ContractMilestoneRoadmapSheetState
             ),
           ),
           actions: [
+            OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  final savedPath = await FilePicker.saveFile(
+                    dialogTitle: 'Lưu sản phẩm bàn giao',
+                    fileName: d.fileName,
+                    bytes: Uint8List.fromList(bytes),
+                  );
+                  if (savedPath != null && ctx.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Text('Đã lưu tệp "${d.fileName}" về máy'),
+                      ),
+                    );
+                  }
+                } catch (_) {}
+              },
+              icon: const Icon(CupertinoIcons.arrow_down_to_line, size: 14),
+              label: const Text('Lưu về máy'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Đóng'),

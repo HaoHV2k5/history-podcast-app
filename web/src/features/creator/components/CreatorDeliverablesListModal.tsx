@@ -99,8 +99,8 @@ export const CreatorDeliverablesListModal: React.FC<CreatorDeliverablesListModal
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-6 bg-[#FAF8F4] rounded-2xl border border-[#DFD6C7] shadow-2xl">
-          <DialogHeader className="space-y-1.5 pb-3 border-b border-[#E5DEC9]">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto overflow-x-hidden p-6 bg-[#FAF8F4] rounded-2xl border border-[#DFD6C7] shadow-2xl">
+          <DialogHeader className="space-y-1.5 pb-3 pr-8 border-b border-[#E5DEC9]">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2 text-[#9B2C2C]">
                 <FolderOpen className="h-5 w-5" />
@@ -186,12 +186,12 @@ export const CreatorDeliverablesListModal: React.FC<CreatorDeliverablesListModal
               deliverables.map((item, idx) => (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-[#E5DEC9] bg-white p-4 shadow-2xs hover:border-[#D5CBB8] transition-all duration-200 space-y-3"
+                  className="rounded-xl border border-[#E5DEC9] bg-white p-4 shadow-2xs hover:border-[#D5CBB8] transition-all duration-200 space-y-3 overflow-hidden"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
                       <div className="mt-0.5 shrink-0">{renderFileIcon(item.fileName)}</div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-[#FBF4F3] text-[#9B2C2C] border border-[#E8D5D2]">
                             Phiên bản v{item.versionNo}
@@ -201,17 +201,17 @@ export const CreatorDeliverablesListModal: React.FC<CreatorDeliverablesListModal
                               Bản mới nhất
                             </span>
                           )}
-                          <h5 className="text-xs font-bold text-[#262522] truncate">
+                          <h5 className="text-xs font-bold text-[#262522] break-words w-full mt-0.5">
                             {item.title || item.fileName}
                           </h5>
                         </div>
-                        <p className="text-[11px] font-mono text-[#696660] mt-0.5 truncate">
+                        <p className="text-[11px] font-mono text-[#696660] mt-0.5 break-all">
                           {item.fileName} • {formatFileSize(item.fileSize)}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
                       <Button
                         size="sm"
                         variant="outline"
@@ -235,7 +235,7 @@ export const CreatorDeliverablesListModal: React.FC<CreatorDeliverablesListModal
                         ) : (
                           <Download className="h-3.5 w-3.5" />
                         )}
-                        <span className="hidden sm:inline">Tải về</span>
+                        <span>Tải về</span>
                       </Button>
                     </div>
                   </div>

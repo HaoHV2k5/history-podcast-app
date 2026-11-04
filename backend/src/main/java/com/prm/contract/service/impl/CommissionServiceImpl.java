@@ -324,11 +324,11 @@ public class CommissionServiceImpl implements CommissionService {
             Optional<Contract> contractOpt = contractRepository.findFirstByHireRequestIdOrderByIdDesc(entity.getId());
             if (contractOpt.isPresent()) {
                 contractId = contractOpt.get().getId();
-                contractStatus = contractOpt.get().getStatus() != null ? contractOpt.get().getStatus().name() : null;
+                contractStatus = contractOpt.get().getStatus() != null ? contractOpt.get().getStatus().name() : null; if ("ACTIVE".equals(contractStatus) && contractOpt.get().getMilestones() != null && !contractOpt.get().getMilestones().isEmpty() && contractOpt.get().getMilestones().stream().allMatch(m -> m.getStatus() == com.prm.contract.constant.MilestoneStatus.RELEASED)) { contractStatus = ContractStatus.COMPLETED.name(); }
             }
         }
 
-        String status = entity.getStatus() != null ? entity.getStatus().toUpperCase() : CommissionStatus.PENDING.name();
+        String status = "COMPLETED".equals(contractStatus) ? CommissionStatus.COMPLETED.name() : (entity.getStatus() != null ? entity.getStatus().toUpperCase() : CommissionStatus.PENDING.name());
         boolean chatUnlocked = CommissionStatus.ACCEPTED.name().equals(status)
                 || CommissionStatus.CONTRACT_SENT.name().equals(status)
                 || CommissionStatus.COMPLETED.name().equals(status);

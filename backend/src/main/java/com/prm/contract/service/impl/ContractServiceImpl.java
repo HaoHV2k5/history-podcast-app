@@ -543,7 +543,7 @@ public class ContractServiceImpl implements ContractService {
                 .platformFee(c.getPlatformFee())
                 .netAmount(c.getNetAmount())
                 .termsText(c.getTermsText())
-                .status(c.getStatus())
+                .status(c.getStatus() == ContractStatus.ACTIVE && !milestoneResponses.isEmpty() && milestoneResponses.stream().allMatch(m -> m.getStatus() == MilestoneStatus.RELEASED) ? ContractStatus.COMPLETED : c.getStatus())
                 .acceptedAt(c.getAcceptedAt())
                 .acceptDueAt(c.getAcceptDueAt())
                 .milestones(milestoneResponses)
