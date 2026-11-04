@@ -67,16 +67,16 @@ export const SeriesCategoryTabs: React.FC<SeriesCategoryTabsProps> = ({
             onClick={() => onSelectCategory(cat.key)}
             title={`Lọc theo chủ đề: ${cat.label} (${count} tuyển tập)`}
             className={cn(
-              'group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-medium transition-all duration-150 cursor-pointer shrink-0 border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D24] active:scale-[0.98]',
+              'group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-medium transition-all duration-150 cursor-pointer shrink-0 border focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8B2635] active:scale-[0.98]',
               isActive
-                ? 'bg-white border-[#A31D24] text-[#A31D24] ring-1 ring-[#A31D24]/20 shadow-xs font-semibold'
-                : 'bg-white/90 hover:bg-white border-[#EBE4D8] text-[#5C524F] hover:text-[#1C1615] hover:border-stone-300'
+                ? 'bg-white border-[#8B2635] text-[#8B2635] ring-1 ring-[#8B2635]/20 shadow-xs font-semibold'
+                : 'bg-white/90 hover:bg-white border-[#E7E2D9] text-[#5C524F] hover:text-[#1C1615] hover:border-stone-300'
             )}
           >
             <Icon
               className={cn(
                 'h-4 w-4 shrink-0 transition-colors',
-                isActive ? 'text-[#A31D24]' : 'text-stone-400 group-hover:text-stone-600'
+                isActive ? 'text-[#8B2635]' : 'text-stone-400 group-hover:text-stone-600'
               )}
             />
             <span>{cat.label}</span>
@@ -84,7 +84,7 @@ export const SeriesCategoryTabs: React.FC<SeriesCategoryTabsProps> = ({
               className={cn(
                 'inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-mono leading-none transition-colors',
                 isActive
-                  ? 'bg-[#FDF2F2] text-[#A31D24] font-semibold'
+                  ? 'bg-[#FDF2F4] text-[#8B2635] font-semibold'
                   : 'bg-[#F5F2EB] text-[#786C68] group-hover:bg-[#EAE4D9]'
               )}
             >

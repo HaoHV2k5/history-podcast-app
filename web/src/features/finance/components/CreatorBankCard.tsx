@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { Plus, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
 import { BankAccountItem } from '@/types/wallet';
 import {
   resolveBankCardTheme,
@@ -13,6 +13,7 @@ import gsap from 'gsap';
 interface CreatorBankCardProps {
   bankAccount?: BankAccountItem | null;
   bankAccounts?: BankAccountItem[];
+  isPrimary?: boolean;
   onSelectPrimaryBank?: (bankId: number) => void;
   onAddBank?: () => void;
   className?: string;
@@ -20,7 +21,7 @@ interface CreatorBankCardProps {
 
 export const CreatorBankCard: React.FC<CreatorBankCardProps> = ({
   bankAccount,
-  bankAccounts = [],
+  isPrimary = true,
   onSelectPrimaryBank,
   onAddBank,
   className,
@@ -107,68 +108,89 @@ export const CreatorBankCard: React.FC<CreatorBankCardProps> = ({
         className
       )}
     >
-      {/* Subtle Archival Watermark Pattern */}
-      <div className="absolute -right-8 -bottom-8 w-40 h-40 rounded-full bg-white/[0.03] pointer-events-none" />
-      <div className="absolute top-0 right-1/4 w-32 h-32 rounded-full bg-white/[0.02] pointer-events-none" />
+      {/* Subtle Archival Watermark Pattern (SVG dot grid) */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.08]"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern id="card-dot-pattern" width="16" height="16" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" fill="#FFFFFF" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#card-dot-pattern)" />
+      </svg>
 
-      {/* Top Row: EMV Chip, Contactless Wave & Official Bank Logo */}
-      <div className="flex items-center justify-between relative z-10 shrink-0">
-        <div className="flex items-center gap-2.5">
-          {/* Metallic Gold EMV Chip */}
-          <div className="w-8 h-6 rounded-sm bg-[#D4AF37] border border-[#B89628] p-0.5 shadow-xs relative overflow-hidden flex flex-col justify-between shrink-0">
-            <div className="h-[1px] w-full bg-[#8E7118]/60" />
-            <div className="h-[1px] w-full bg-[#8E7118]/60" />
-            <div className="absolute inset-y-0 left-1/2 w-[1px] bg-[#8E7118]/60 -translate-x-1/2" />
+      {/* Decorative ambient glass light reflection */}
+      <div
+        className="absolute -right-12 -top-12 w-48 h-48 rounded-full bg-white/5 blur-xl pointer-events-none"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full bg-black/20 blur-xl pointer-events-none"
+        aria-hidden="true"
+      />
+
+      {/* Top Row: Chip, Contactless & Bank Brand */}
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-2">
+          {/* Authentic Metallic EMV Gold Chip */}
+          <div className="w-10 h-7 rounded-md bg-[#D4AF37] border border-[#F3E2B8]/60 flex flex-col justify-between p-1 relative overflow-hidden">
+            <div className="w-full h-[1px] bg-black/25" />
+            <div className="flex justify-between w-full">
+              <div className="w-1.5 h-2 rounded-[1px] border border-black/25" />
+              <div className="w-1.5 h-2 rounded-[1px] border border-black/25" />
+            </div>
+            <div className="w-full h-[1px] bg-black/25" />
           </div>
 
-          {/* Contactless Waves Icon */}
+          {/* Contactless Wave Icon */}
           <svg
-            className="w-4 h-4 text-white/50 shrink-0"
+            className="w-4 h-4 text-white/50"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
+            strokeLinejoin="round"
             aria-hidden="true"
           >
-            <path d="M8.5 16.5a5 5 0 0 1 0-9" />
-            <path d="M12 19a8.5 8.5 0 0 1 0-14" />
-            <path d="M15.5 21.5a12 12 0 0 1 0-19" />
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-2.5" />
+            <path d="M5 18a6 6 0 0 0 6-6c0-3.3-1.5-5-2.5-6" />
+            <path d="M2 21a9.5 9.5 0 0 0 10-9.5C12 7 9.5 4.5 8 3" />
           </svg>
         </div>
 
-        {/* Bank Logo or Badge */}
-        <div className="flex items-center justify-end h-6 max-w-[130px] shrink-0">
-          {!imgFailed && theme.logoUrl ? (
+        {/* Bank Brand Logo */}
+        <div className="flex items-center gap-2">
+          {theme.logoUrl && !imgFailed ? (
             <img
               src={theme.logoUrl}
               alt={theme.shortName}
               onError={() => setImgFailed(true)}
-              className="h-6 max-h-6 max-w-[110px] object-contain brightness-0 invert opacity-95 transition-opacity"
+              className="h-5 max-w-[90px] object-contain brightness-0 invert"
             />
           ) : (
-            <span className="text-xs font-bold text-white tracking-wide truncate">
+            <span className="font-serif font-black text-sm tracking-wider text-white/95">
               {theme.shortName}
             </span>
           )}
         </div>
       </div>
 
-      {/* Middle Row: Fixed Height Account Number with Eye Toggle */}
-      <div className="relative z-10 my-auto py-1 shrink-0">
-        <div className="flex items-center justify-between mb-1 h-5">
-          <span className="text-[10px] text-white/60 font-medium block">
+      {/* Middle Row: Masked Card Number with Toggle Eye */}
+      <div className="relative z-10 space-y-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-white/60 tracking-wider font-medium">
             Số tài khoản thụ hưởng
           </span>
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowFullNumber((prev) => !prev);
-            }}
+            onClick={() => setShowFullNumber((prev) => !prev)}
             aria-label={showFullNumber ? 'Ẩn bớt số tài khoản' : 'Hiện đầy đủ số tài khoản'}
             title={showFullNumber ? 'Ẩn bớt số tài khoản' : 'Hiện đầy đủ số tài khoản'}
-            className="inline-flex items-center gap-1 text-[10px] text-white/70 hover:text-white px-1.5 py-0.5 rounded-md hover:bg-white/10 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1 text-[10px] text-white/80 hover:text-white px-2 py-0.5 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 transition-colors cursor-pointer"
           >
             {showFullNumber ? (
               <>
@@ -183,49 +205,41 @@ export const CreatorBankCard: React.FC<CreatorBankCardProps> = ({
             )}
           </button>
         </div>
-        <div className="font-mono text-base sm:text-[17px] font-bold tracking-wider text-white tabular-nums drop-shadow-xs whitespace-nowrap overflow-hidden text-ellipsis leading-none h-6 flex items-center">
+        <div className="font-mono text-base sm:text-[17px] font-bold tracking-wider text-white tabular-nums whitespace-nowrap overflow-hidden text-ellipsis leading-none h-6 flex items-center">
           {cardNumberDisplay}
         </div>
       </div>
 
-      {/* Bottom Row: Cardholder Name & Primary Card Badge / Switcher */}
-      <div className="flex items-end justify-between relative z-10 pt-2 border-t border-white/10 shrink-0">
-        <div className="min-w-0 pr-2">
-          <span className="text-[10px] text-white/50 font-medium block">
+      {/* Bottom Row: Cardholder Name & Primary Card Badge */}
+      <div className="flex items-end justify-between relative z-10 pt-2 border-t border-white/10 shrink-0 gap-2">
+        <div className="min-w-0 pr-1">
+          <span className="text-[9px] uppercase tracking-wider text-white/50 font-medium block whitespace-nowrap">
             Chủ tài khoản
           </span>
-          <div className="text-xs font-semibold text-white truncate max-w-[160px] tracking-wide">
+          <div className="text-xs sm:text-[13px] font-bold text-white truncate max-w-[170px] tracking-wide font-sans">
             {cardHolderName}
           </div>
         </div>
 
-        {/* Primary Card Selector / Badge */}
-        {bankAccounts.length > 1 && onSelectPrimaryBank ? (
-          <div className="relative shrink-0">
-            <select
-              aria-label="Chọn thẻ ngân hàng chính nhận tiền"
-              title="Nhấp để đổi thẻ ngân hàng chính"
-              value={bankAccount.id}
-              onChange={(e) => onSelectPrimaryBank(Number(e.target.value))}
-              className="appearance-none bg-white/15 hover:bg-white/20 text-white text-[10px] font-semibold pl-4 pr-5 py-0.5 rounded-full border border-white/20 cursor-pointer focus:outline-none transition-colors"
-            >
-              {bankAccounts.map((b) => (
-                <option key={b.id} value={b.id} className="text-[#1F1A19] bg-white">
-                  {b.bankName} (•• {b.accountNumber.slice(-4)}) {b.id === bankAccount.id ? '— Mặc định' : ''}
-                </option>
-              ))}
-            </select>
-            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-emerald-400 pointer-events-none" />
-            <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 text-white/70 pointer-events-none" />
-          </div>
-        ) : (
-          <div className="shrink-0 flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/15">
+        {/* Primary Status or Action Button */}
+        {isPrimary ? (
+          <div className="shrink-0 flex items-center gap-1.5 bg-emerald-500/20 px-2.5 py-1 rounded-full border border-emerald-400/40 shadow-2xs whitespace-nowrap">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            <span className="text-[10px] font-semibold text-white/90">
+            <span className="text-[10px] font-semibold text-emerald-300 tracking-wide">
               Thẻ chính
             </span>
           </div>
-        )}
+        ) : onSelectPrimaryBank ? (
+          <button
+            type="button"
+            onClick={() => onSelectPrimaryBank(bankAccount.id)}
+            title="Nhấp để đặt thẻ này làm tài khoản chính"
+            className="shrink-0 inline-flex items-center gap-1 bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-full border border-white/25 text-[10px] font-medium text-white shadow-2xs transition-[background-color,border-color,transform] duration-150 cursor-pointer active:scale-95 whitespace-nowrap"
+          >
+            <CheckCircle2 className="w-3 h-3 text-white/70" />
+            <span>Đặt làm thẻ chính</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );

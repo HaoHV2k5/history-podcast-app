@@ -21,7 +21,7 @@ const ADMIN_EXPECTED_LABELS = [
 ];
 
 const CREATOR_EXPECTED_LABELS = [
-  'Tổng quan Bàn làm việc',
+  'Không gian sáng tác',
   'Thư viện nội dung',
   'Tạo nội dung mới',
   'Tuyển tập tác phẩm',

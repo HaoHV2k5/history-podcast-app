@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowUpRight, AlertCircle, Building2, ShieldCheck, Loader2 } from 'lucide-react';
+import { ArrowUpRight, AlertCircle, Building2, ShieldCheck, Loader2, X } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BankAccountItem, WalletItem } from '@/types/wallet';
 import { validateWithdrawalAmount } from '../financeLogic';
+import {
+  formatNumberWithDots,
+  parseNumberFromDots,
+  convertVNDToWords,
+} from '../depositLogic';
 import { maskAccountNumber } from '@/utils/formatters';
+import { cn } from '@/utils/cn';
 
 interface WalletWithdrawDialogProps {
   open: boolean;
@@ -25,7 +31,13 @@ interface WalletWithdrawDialogProps {
   onOpenAddBank: () => void;
 }
 
-const QUICK_AMOUNT_CHIPS = [50000, 100000, 200000, 500000, 1000000];
+const QUICK_WITHDRAW_PRESETS = [
+  { value: 50000, label: '50.000 ₫' },
+  { value: 100000, label: '100.000 ₫' },
+  { value: 200000, label: '200.000 ₫' },
+  { value: 500000, label: '500.000 ₫' },
+  { value: 1000000, label: '1.000.000 ₫' },
+];
 
 export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
   open,
@@ -38,7 +50,7 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
   onOpenAddBank,
 }) => {
   const availableBalance = wallet?.availableBalance ?? 0;
-  const [amountStr, setAmountStr] = useState<string>('50000');
+  const [displayAmount, setDisplayAmount] = useState<string>('50.000');
   const [selectedBankId, setSelectedBankId] = useState<string>(
     defaultBankAccountId ? String(defaultBankAccountId) : bankAccounts[0]?.id ? String(bankAccounts[0].id) : ''
   );
@@ -55,12 +67,14 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
     }
   }, [open, defaultBankAccountId, bankAccounts]);
 
+  const currentNumericAmount = parseNumberFromDots(displayAmount);
+  const amountInWords = convertVNDToWords(currentNumericAmount);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    const amt = parseFloat(amountStr);
-    const validation = validateWithdrawalAmount(amt, availableBalance);
+    const validation = validateWithdrawalAmount(currentNumericAmount, availableBalance);
     if (!validation.valid) {
       setErrorMessage(validation.error || 'Số tiền rút không hợp lệ');
       return;
@@ -72,11 +86,22 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
       return;
     }
 
-    onSubmitWithdraw(amt, bId);
+    onSubmitWithdraw(currentNumericAmount, bId);
+  };
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawVal = e.target.value;
+    setDisplayAmount(formatNumberWithDots(rawVal));
+    setErrorMessage(null);
   };
 
   const handleSelectQuickChip = (val: number) => {
-    setAmountStr(String(val));
+    setDisplayAmount(formatNumberWithDots(val));
+    setErrorMessage(null);
+  };
+
+  const handleClearAmount = () => {
+    setDisplayAmount('');
     setErrorMessage(null);
   };
 
@@ -85,24 +110,32 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
       setErrorMessage('Số dư khả dụng tối thiểu để rút là 50.000 VNĐ');
       return;
     }
-    setAmountStr(String(availableBalance));
+    setDisplayAmount(formatNumberWithDots(availableBalance));
     setErrorMessage(null);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl border border-[#EBE4D8] bg-white p-6 shadow-xl">
+      <DialogContent
+        data-ui="wallet-withdraw-dialog"
+        className="max-w-md rounded-2xl border border-[#EBE4D8] bg-white p-6 shadow-2xl"
+      >
         <DialogHeader className="space-y-2">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FDF2F2] border border-[#F9D2D4] text-[#A31D24]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F2] border border-[#F9D2D4] text-[#A31D24] shadow-2xs">
               <ArrowUpRight className="h-5 w-5" />
             </div>
-            <DialogTitle className="font-serif text-lg font-bold text-[#1F1A19]">
-              Yêu Cầu Rút Tiền Về Ngân Hàng
-            </DialogTitle>
+            <div>
+              <DialogTitle className="font-serif text-lg font-bold text-[#1F1A19]">
+                Yêu Cầu Rút Tiền Về Ngân Hàng
+              </DialogTitle>
+              <span className="text-[11px] text-[#786D66]">
+                Xử lý chuyển khoản tự động trong 24-48 giờ làm việc
+              </span>
+            </div>
           </div>
-          <DialogDescription className="text-xs text-[#786D66] leading-relaxed">
-            Số dư khả dụng hiện tại: <strong className="text-[#1F1A19] font-mono font-bold">{availableBalance.toLocaleString('vi-VN')} đ</strong>. Hạn mức rút tối thiểu 50.000 VNĐ.
+          <DialogDescription className="text-xs text-[#786D66] leading-relaxed pt-1">
+            Số dư khả dụng hiện tại: <strong className="text-[#1F1A19] font-serif font-bold">{formatNumberWithDots(availableBalance)} ₫</strong>. Hạn mức rút tối thiểu 50.000 ₫.
           </DialogDescription>
         </DialogHeader>
 
@@ -122,49 +155,75 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label htmlFor="withdraw-amount-input" className="text-xs font-bold text-[#1F1A19]">
-                Số tiền muốn rút (VNĐ)
+                Số tiền muốn rút
               </label>
               <button
                 type="button"
                 onClick={handleSelectAll}
                 className="text-xs font-semibold text-[#981B1E] hover:underline cursor-pointer"
               >
-                Rút tất cả
+                Rút tất cả ({formatNumberWithDots(availableBalance)} ₫)
               </button>
             </div>
 
-            <div className="relative">
+            <div className="relative rounded-xl border border-[#E5E0D8] bg-[#FAF8F5] focus-within:bg-white focus-within:border-[#981B1E] focus-within:ring-2 focus-within:ring-[#981B1E]/10 transition-colors">
               <Input
                 id="withdraw-amount-input"
-                type="number"
-                min={50000}
-                step={10000}
-                value={amountStr}
-                onChange={(e) => {
-                  setAmountStr(e.target.value);
-                  setErrorMessage(null);
-                }}
+                type="text"
+                inputMode="numeric"
+                value={displayAmount}
+                onChange={handleAmountChange}
+                placeholder="0"
                 required
-                className="h-11 rounded-xl border-[#E5E0D8] bg-[#FAF8F5] px-3.5 font-mono text-base font-bold text-[#1F1A19] focus:bg-white focus:border-[#981B1E]"
-                placeholder="Nhập số tiền..."
+                className="h-12 border-none bg-transparent pl-4 pr-20 font-serif text-xl font-bold text-[#1F1A19] placeholder:text-[#A89F91] focus-visible:ring-0 shadow-none"
               />
-              <span className="absolute right-3.5 top-3 text-xs font-bold text-[#786D66]">
-                VNĐ
-              </span>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                {displayAmount && (
+                  <button
+                    type="button"
+                    onClick={handleClearAmount}
+                    aria-label="Xóa số tiền"
+                    className="flex h-5 w-5 items-center justify-center rounded-full text-[#A89F91] hover:text-[#1F1A19] hover:bg-[#EBE4D8] transition-colors cursor-pointer"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+                <span className="rounded-md bg-[#EBE4D8]/60 px-2 py-0.5 font-serif text-[11px] font-bold text-[#786D66]">
+                  VNĐ
+                </span>
+              </div>
             </div>
+
+            {/* Amount in words */}
+            {amountInWords && (
+              <div className="flex items-center gap-1.5 px-1 text-[11px] text-[#786D66] animate-in fade-in duration-200">
+                <span className="text-[#A89F91]">Bằng chữ:</span>
+                <span className="font-serif font-semibold text-[#1F1A19] italic">
+                  {amountInWords}
+                </span>
+              </div>
+            )}
 
             {/* Quick chips */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              {QUICK_AMOUNT_CHIPS.map((chipVal) => (
-                <button
-                  key={chipVal}
-                  type="button"
-                  onClick={() => handleSelectQuickChip(chipVal)}
-                  className="rounded-lg border border-[#E5E0D8] bg-white px-2.5 py-1 text-[11px] font-mono font-medium text-[#38302E] hover:bg-[#FAF8F5] hover:border-[#D5CFC5] active:scale-95 transition-all cursor-pointer"
-                >
-                  {(chipVal / 1000).toLocaleString('vi-VN')}k
-                </button>
-              ))}
+              {QUICK_WITHDRAW_PRESETS.map((chip) => {
+                const isSelected = currentNumericAmount === chip.value;
+                return (
+                  <button
+                    key={chip.value}
+                    type="button"
+                    onClick={() => handleSelectQuickChip(chip.value)}
+                    className={cn(
+                      'rounded-xl border py-1.5 px-3 text-xs font-serif font-medium transition-colors cursor-pointer',
+                      isSelected
+                        ? 'bg-[#981B1E] border-[#981B1E] text-white shadow-2xs'
+                        : 'bg-white border-[#E5E0D8] text-[#38302E] hover:border-[#D5CFC5] hover:bg-[#FAF8F5] active:scale-[0.98]'
+                    )}
+                  >
+                    {chip.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -225,14 +284,14 @@ export const WalletWithdrawDialog: React.FC<WalletWithdrawDialogProps> = ({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="rounded-xl border border-[#E5E0D8] bg-white px-4 py-2 text-xs font-semibold text-[#38302E] hover:bg-[#FAF8F5] active:scale-[0.98] transition-all cursor-pointer"
+              className="rounded-xl border border-[#E5E0D8] bg-white px-4 py-2.5 text-xs font-semibold text-[#38302E] hover:bg-[#FAF8F5] active:scale-[0.98] transition-colors cursor-pointer"
             >
               Hủy
             </button>
             <button
               type="submit"
               disabled={isSubmitting || bankAccounts.length === 0}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               <span>{isSubmitting ? 'Đang gửi yêu cầu...' : 'Xác nhận rút tiền'}</span>

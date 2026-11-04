@@ -51,7 +51,7 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
       <div
         role="tablist"
         aria-label="Lọc trạng thái phát trực tiếp"
-        className="flex items-center gap-2 border-b border-[#EBE4D8] -mb-px"
+        className="flex items-center gap-2 border-b border-[#E7E2D9] -mb-px"
       >
         {/* Tất cả */}
         <button
@@ -64,8 +64,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
           className={cn(
             'flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer',
             activeTab === 'ALL'
-              ? 'border-[#A11C27] text-[#A11C27]'
-              : 'border-transparent text-[#786F6B] hover:text-[#1C1615] hover:border-[#EBE4D8]'
+              ? 'border-[#8B2635] text-[#8B2635]'
+              : 'border-transparent text-[#736B63] hover:text-[#1C1917] hover:border-[#E7E2D9]'
           )}
         >
           <span>Tất cả</span>
@@ -73,8 +73,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-mono tabular-nums',
               activeTab === 'ALL'
-                ? 'bg-[#FDF2F2] text-[#A11C27] font-bold border border-[#F8D7DA]'
-                : 'bg-stone-100 text-[#786F6B]'
+                ? 'bg-[#FBF2EE] text-[#8B2635] font-bold border border-[#F0DDD8]'
+                : 'bg-[#FAF8F5] text-[#736B63] border border-[#E7E2D9]'
             )}
           >
             {totalCount}
@@ -92,15 +92,15 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
           className={cn(
             'flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer',
             activeTab === 'LIVE'
-              ? 'border-[#A11C27] text-[#A11C27]'
-              : 'border-transparent text-[#786F6B] hover:text-[#1C1615] hover:border-[#EBE4D8]'
+              ? 'border-[#8B2635] text-[#8B2635]'
+              : 'border-transparent text-[#736B63] hover:text-[#1C1917] hover:border-[#E7E2D9]'
           )}
         >
           <span className="flex items-center gap-1.5">
             <span
               className={cn(
                 'h-2 w-2 rounded-full',
-                liveCount > 0 ? 'bg-rose-500 animate-pulse' : 'bg-stone-300'
+                liveCount > 0 ? 'bg-[#8B2635] animate-pulse' : 'bg-stone-300'
               )}
             />
             <span>Đang trực tiếp</span>
@@ -109,8 +109,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-mono tabular-nums',
               activeTab === 'LIVE'
-                ? 'bg-[#FDF2F2] text-[#A11C27] font-bold border border-[#F8D7DA]'
-                : 'bg-stone-100 text-[#786F6B]'
+                ? 'bg-[#FBF2EE] text-[#8B2635] font-bold border border-[#F0DDD8]'
+                : 'bg-[#FAF8F5] text-[#736B63] border border-[#E7E2D9]'
             )}
           >
             {liveCount}
@@ -128,8 +128,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
           className={cn(
             'flex items-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold transition-all border-b-2 cursor-pointer',
             activeTab === 'ENDED'
-              ? 'border-[#A11C27] text-[#A11C27]'
-              : 'border-transparent text-[#786F6B] hover:text-[#1C1615] hover:border-[#EBE4D8]'
+              ? 'border-[#8B2635] text-[#8B2635]'
+              : 'border-transparent text-[#736B63] hover:text-[#1C1917] hover:border-[#E7E2D9]'
           )}
         >
           <span>Đã kết thúc</span>
@@ -137,8 +137,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
             className={cn(
               'rounded-full px-2 py-0.5 text-[11px] font-mono tabular-nums',
               activeTab === 'ENDED'
-                ? 'bg-[#FDF2F2] text-[#A11C27] font-bold border border-[#F8D7DA]'
-                : 'bg-stone-100 text-[#786F6B]'
+                ? 'bg-[#FBF2EE] text-[#8B2635] font-bold border border-[#F0DDD8]'
+                : 'bg-[#FAF8F5] text-[#736B63] border border-[#E7E2D9]'
             )}
           >
             {endedCount}
@@ -162,7 +162,7 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
               onChange={(e) => onFilterChange({ searchQuery: e.target.value })}
               placeholder="Tìm kiếm theo tiêu đề, mô tả hoặc chủ đề..."
               title="Tìm kiếm phiên phát sóng"
-              className="w-full h-10 pl-10 pr-9 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#A11C27]/20 focus:border-[#A11C27] shadow-2xs transition-colors"
+              className="w-full h-10 pl-10 pr-9 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1917] placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs transition-colors"
             />
             {filter.searchQuery && (
               <button
@@ -181,13 +181,13 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Thời kỳ lịch sử */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#786F6B] whitespace-nowrap hidden sm:inline">
-              Thời kỳ lịch sử:
+            <span className="text-xs text-[#736B63] whitespace-nowrap hidden sm:inline">
+              Thời kỳ:
             </span>
             <select
               value={filter.historicalEra}
               onChange={(e) => onFilterChange({ historicalEra: e.target.value })}
-              className="h-10 px-3 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#A11C27]/20 focus:border-[#A11C27] shadow-2xs cursor-pointer"
+              className="h-10 px-3 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs cursor-pointer"
               aria-label="Chọn thời kỳ lịch sử"
             >
               {HISTORICAL_ERA_LIVESTREAM_OPTIONS.map((opt) => (
@@ -200,7 +200,7 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
 
           {/* Sắp xếp */}
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#786F6B] whitespace-nowrap hidden sm:inline">
+            <span className="text-xs text-[#736B63] whitespace-nowrap hidden sm:inline">
               Sắp xếp:
             </span>
             <select
@@ -210,7 +210,7 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
                   sortBy: e.target.value as 'newest' | 'oldest' | 'most_viewed',
                 })
               }
-              className="h-10 px-3 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#A11C27]/20 focus:border-[#A11C27] shadow-2xs cursor-pointer"
+              className="h-10 px-3 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs cursor-pointer"
               aria-label="Chọn thứ tự sắp xếp"
             >
               {SORT_LIVESTREAM_OPTIONS.map((opt) => (
@@ -223,7 +223,7 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
 
           {/* View mode toggle (Grid / List) */}
           <div
-            className="flex items-center rounded-xl border border-[#EBE4D8] bg-white p-0.5 shadow-2xs"
+            className="flex items-center rounded-xl border border-[#E7E2D9] bg-white p-0.5 shadow-2xs"
             role="group"
             aria-label="Chế độ hiển thị"
           >
@@ -234,8 +234,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer',
                 filter.viewMode === 'grid'
-                  ? 'bg-[#A11C27] text-white shadow-2xs'
-                  : 'text-[#786F6B] hover:text-[#1C1615]'
+                  ? 'bg-[#8B2635] text-white shadow-2xs'
+                  : 'text-[#736B63] hover:text-[#1C1917]'
               )}
               title="Xem dạng lưới"
               aria-label="Xem dạng lưới"
@@ -250,8 +250,8 @@ export const LivestreamFilterBar: React.FC<LivestreamFilterBarProps> = ({
               className={cn(
                 'flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer',
                 filter.viewMode === 'list'
-                  ? 'bg-[#A11C27] text-white shadow-2xs'
-                  : 'text-[#786F6B] hover:text-[#1C1615]'
+                  ? 'bg-[#8B2635] text-white shadow-2xs'
+                  : 'text-[#736B63] hover:text-[#1C1917]'
               )}
               title="Xem dạng danh sách"
               aria-label="Xem dạng danh sách"

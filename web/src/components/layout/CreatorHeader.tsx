@@ -25,8 +25,8 @@ interface CreatorHeaderProps {
 }
 
 const CREATOR_ROUTE_NAME_MAP: Record<string, string> = {
-  creator: 'Không gian Sáng tạo',
-  dashboard: 'Tổng quan Bàn làm việc',
+  creator: 'Không gian Sáng tác',
+  dashboard: 'Không gian sáng tác',
   content: 'Thư viện nội dung',
   create: 'Tạo nội dung mới',
   series: 'Tuyển tập tác phẩm',
@@ -52,8 +52,8 @@ export const CreatorHeader: React.FC<CreatorHeaderProps> = ({
 
   const breadcrumbs = isExactCreatorRoot
     ? [
-        { name: 'Không gian Sáng tạo', path: '/creator', isLast: false },
-        { name: 'Tổng quan Bàn làm việc', path: '/creator', isLast: true },
+        { name: 'Sử Ký Studio', path: '/creator', isLast: false },
+        { name: 'Không gian sáng tác', path: '/creator', isLast: true },
       ]
     : segments.map((seg, idx) => {
         const path = '/' + segments.slice(0, idx + 1).join('/');

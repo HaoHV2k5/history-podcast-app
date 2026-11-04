@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HeritageAtmosphereWatermark } from '@/components/common/HeritageAtmosphereWatermark';
 
 interface SeriesHeroBannerProps {
   totalCount: number;
@@ -14,48 +15,53 @@ export const SeriesHeroBanner: React.FC<SeriesHeroBannerProps> = ({
   return (
     <section
       aria-label="Giới thiệu tuyển tập Sử Ký"
-      className="relative overflow-hidden rounded-2xl border border-[#EBE4D8] bg-[#F7F2EA] p-6 sm:p-7 md:p-8 shadow-xs min-h-[195px] flex flex-col justify-center"
+      className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[#E7E2D9] bg-[#FAF8F5] p-6 sm:p-7 md:p-8 shadow-xs min-h-[175px] flex flex-col justify-center"
     >
-      {/* Historical Landscape Panorama - Microphone, Ancient Scroll, Pagoda & Sun matching reference */}
-      <div
-        className="absolute right-0 top-0 bottom-0 w-full sm:w-3/4 md:w-3/5 lg:w-[55%] bg-contain bg-right bg-no-repeat pointer-events-none mix-blend-multiply opacity-95"
-        style={{
-          backgroundImage: `url('/assets/studio/series-hero-illustration.png')`,
-        }}
-        aria-hidden="true"
+      {/* Authentic Vietnamese Heritage Vector Watermark & Atmospheric Glow */}
+      <HeritageAtmosphereWatermark
+        tag="✦ ĐẠI VIỆT SỬ KÝ · TUYỂN TẬP CHUYÊN ĐỀ"
+        variant="library"
       />
 
-      {/* Gentle Left Protective Wash for flawless text contrast */}
-      <div
-        className="absolute inset-y-0 left-0 w-full sm:w-3/5 md:w-1/2 bg-gradient-to-r from-[#F7F2EA] via-[#F7F2EA]/95 via-60% to-transparent pointer-events-none"
-        aria-hidden="true"
-      />
-
-      <div className="relative z-10 flex flex-col justify-center min-h-[140px]">
+      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        {/* Left Column: Masthead Titles */}
         <div className="space-y-2 max-w-xl">
-          {/* Eyebrow Label */}
-          <div className="flex items-center gap-2 text-[#A31D24]">
-            <BookOpen className="h-4 w-4 shrink-0" />
-            <span className="font-serif text-xs font-bold tracking-wider uppercase">
-              TUYỂN TẬP SỬ KÝ
-            </span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFEAE2] border border-[#E2DDD5] text-[11px] font-semibold uppercase tracking-wider text-[#8B2635] font-sans w-fit">
+            <BookOpen className="h-3 w-3 text-[#8B2635]" />
+            <span>Tuyển Tập Chuyên Đề Sử Ký</span>
           </div>
 
-          {/* Main Title & Count Pill */}
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-serif text-2xl sm:text-3xl md:text-[32px] font-bold tracking-tight text-[#1C1615] leading-tight">
-              Tuyển tập tác phẩm
-            </h1>
-            <span className="inline-flex items-center rounded-full bg-[#FDF2F2] px-3 py-0.5 text-xs font-semibold text-[#A31D24] border border-[#F8D7DA] shadow-2xs">
-              {totalCount} tuyển tập
-            </span>
-          </div>
+          <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#1C1917] leading-tight">
+            Tuyển Tập Tác Phẩm
+          </h1>
 
-          {/* Subtitle */}
-          <p className="text-xs sm:text-sm text-[#5C524F] leading-relaxed max-w-lg">
-            Khám phá các tuyển tập podcast được tuyển chọn theo chủ đề và thời kỳ lịch sử,
-            giúp bạn dễ dàng theo dõi và sáng tạo nội dung chất lượng hơn.
+          <p className="text-xs sm:text-[13px] text-[#696660] leading-relaxed font-sans pt-0.5 max-w-lg">
+            Khám phá các chuỗi podcast, trường ca lịch sử được tuyển chọn theo chủ đề và thời kỳ hoàng kim, giúp người nghe dễ dàng theo dõi liền mạch.
           </p>
+        </div>
+
+        {/* Right Column: Architectural Series Plaque & Creation Action */}
+        <div className="rounded-2xl border border-[#E2DDD5] bg-white/85 backdrop-blur-xs p-4 sm:p-4.5 shadow-2xs shrink-0 flex flex-col sm:flex-row sm:items-center gap-4 lg:gap-5">
+          <div className="pr-4 sm:border-r border-[#EAE4D9]">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-[#8C7D70] block">
+              Tổng số lưu trữ
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-serif text-2xl sm:text-3xl font-bold text-[#1C1917] tracking-tight tabular-nums">
+                {totalCount}
+              </span>
+              <span className="text-[11px] text-[#A8A29E] font-sans">tuyển tập</span>
+            </div>
+          </div>
+
+          <Button
+            size="sm"
+            onClick={onCreateClick}
+            className="h-9 px-4 text-xs font-semibold bg-[#8B2635] hover:bg-[#731E2A] text-white shadow-xs rounded-xl cursor-pointer transition-all hover:-translate-y-0.5 active:scale-[0.98] gap-1.5"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            <span>Tạo tuyển tập mới</span>
+          </Button>
         </div>
       </div>
     </section>
