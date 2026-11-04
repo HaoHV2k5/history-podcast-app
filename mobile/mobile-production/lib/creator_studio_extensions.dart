@@ -22,52 +22,66 @@ class ChannelMembershipPlanSheet extends StatefulWidget {
 
 class _ChannelMembershipPlanSheetState
     extends State<ChannelMembershipPlanSheet> {
+  static const List<String> kSystemDefaultPerks = [
+    'Nghe sớm các tập Podcast Hội viên (Early Access)',
+    'Xem toàn bộ kho nội dung độc quyền (Members-Only)',
+    'Huy hiệu Hội viên VIP nổi bật trong phòng Livestream & Bình luận',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _priceCtrl;
   late final TextEditingController _descCtrl;
-  late final TextEditingController _perksCtrl;
   bool _isActive = true;
+  bool _isEditing = false;
+  bool _loadingPlan = false;
   bool _busy = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    _syncControllersFromPlan();
+    if (widget.state.membershipPlan == null) {
+      _isEditing = true;
+      if (widget.state.isLiveBackend) {
+        _loadLatestPlan();
+      }
+    }
+  }
+
+  void _syncControllersFromPlan() {
     final plan = widget.state.membershipPlan;
     _nameCtrl = TextEditingController(
-      text: plan?.name ?? 'Tri Âm ${widget.state.channel}',
+      text: plan?.name ?? 'Hội Viên VIP - ${widget.state.channel}',
     );
     _priceCtrl = TextEditingController(
-      text: plan != null ? plan.monthlyPrice.round().toString() : '39000',
+      text: plan != null ? plan.monthlyPrice.round().toString() : '50000',
     );
     _descCtrl = TextEditingController(
-      text: plan?.description ?? 'Mở khóa toàn bộ tập chuyên sâu và phòng phát sóng trực tiếp độc quyền.',
+      text: plan?.description ??
+          'Gói đặc quyền dành riêng cho thính giả yêu lịch sử của kênh ${widget.state.channel}: Nghe sớm các tập mới và mở khóa toàn bộ kho tư liệu độc quyền.',
     );
-    final defaultPerks = [
-      'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên',
-      'Nghe không giới hạn các nội dung độc quyền của kênh',
-      'Tham gia phòng phát sóng trực tiếp độc quyền (VIP)',
-    ];
-    final existingPerks = (plan != null && plan.perks.isNotEmpty)
-        ? plan.perks
-              .map((p) {
-                if (p.toLowerCase().contains('bình luận') ||
-                    p.toLowerCase().contains('huy hiệu')) {
-                  return 'Mở khóa toàn bộ các tập Podcast dành riêng cho hội viên';
-                }
-                if (p.toLowerCase().contains('nghe sớm') ||
-                    p.toLowerCase().contains('nghe trước')) {
-                  return 'Nghe không giới hạn các nội dung độc quyền của kênh';
-                }
-                return p;
-              })
-              .toSet()
-              .toList()
-        : defaultPerks;
-
-    _perksCtrl = TextEditingController(text: existingPerks.join('\n'));
     _isActive = plan?.isActive ?? true;
+  }
+
+  Future<void> _loadLatestPlan() async {
+    setState(() => _loadingPlan = true);
+    try {
+      await widget.state.fetchMyChannel();
+      if (!mounted) return;
+      final plan = widget.state.membershipPlan;
+      if (plan != null) {
+        _nameCtrl.text = plan.name;
+        _priceCtrl.text = plan.monthlyPrice.round().toString();
+        _descCtrl.text = plan.description ?? '';
+        _isActive = plan.isActive;
+        _isEditing = false;
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingPlan = false);
+    }
   }
 
   @override
@@ -75,7 +89,6 @@ class _ChannelMembershipPlanSheetState
     _nameCtrl.dispose();
     _priceCtrl.dispose();
     _descCtrl.dispose();
-    _perksCtrl.dispose();
     super.dispose();
   }
 
@@ -86,20 +99,20 @@ class _ChannelMembershipPlanSheetState
       _error = null;
     });
     try {
-      final price = double.tryParse(_priceCtrl.text.trim()) ?? 39000;
-      final perks = _perksCtrl.text
-          .split('\n')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
+      final price = double.tryParse(_priceCtrl.text.trim()) ?? 50000;
       await widget.state.saveMembershipPlan(
-        name: _nameCtrl.text,
+        name: _nameCtrl.text.trim(),
         monthlyPrice: price,
-        description: _descCtrl.text,
-        perks: perks,
+        description: _descCtrl.text.trim(),
+        perks: kSystemDefaultPerks,
         status: _isActive ? 'ACTIVE' : 'INACTIVE',
       );
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _isEditing = false;
+        });
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -110,8 +123,79 @@ class _ChannelMembershipPlanSheetState
     }
   }
 
+  Widget _buildLockedPerksBox() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Palette.soft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Palette.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(CupertinoIcons.lock_shield_fill,
+                  size: 15, color: Palette.red),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text(
+                  '3 Đặc quyền chuẩn của Hệ thống (Cố định)',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Palette.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Được hệ thống tự động mở khóa và kiểm soát quyền truy cập cho hội viên VIP.',
+            style: TextStyle(fontSize: 11, color: Palette.muted),
+          ),
+          const SizedBox(height: 10),
+          for (final perk in kSystemDefaultPerks)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Icon(
+                      CupertinoIcons.checkmark_seal_fill,
+                      size: 14,
+                      color: Palette.red,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      perk,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w500,
+                        color: Palette.ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final plan = widget.state.membershipPlan;
+    final hasPlan = plan != null && plan.name.trim().isNotEmpty;
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(
@@ -120,89 +204,246 @@ class _ChannelMembershipPlanSheetState
           24,
           MediaQuery.viewInsetsOf(context).bottom + 28,
         ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Eyebrow('CẤU HÌNH HỘI VIÊN KÊNH · CREATOR'),
-              const SizedBox(height: 10),
-              Text('Gói hội viên tháng', style: editorial(24)),
-              const SizedBox(height: 16),
-              TextFormField(
-                key: const Key('plan-name-input'),
-                controller: _nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Tên gói hội viên',
-                ),
-                validator: (v) => v == null || v.trim().isEmpty
-                    ? 'Nhập tên gói hội viên'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const Key('plan-price-input'),
-                controller: _priceCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Mức phí hàng tháng (VNĐ)',
-                  helperText: 'Tối thiểu 1.000 VNĐ / tháng',
-                ),
-                validator: (v) {
-                  final parsed = double.tryParse(v?.trim() ?? '');
-                  if (parsed == null || parsed < 1000) {
-                    return 'Mức giá tối thiểu là 1.000 VNĐ';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const Key('plan-desc-input'),
-                controller: _descCtrl,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Mô tả gói hội viên',
-                ),
-              ),
-              const SizedBox(height: 14),
-              TextFormField(
-                key: const Key('plan-perks-input'),
-                controller: _perksCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Quyền lợi hội viên (mỗi dòng 1 quyền lợi)',
-                ),
-              ),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text(
-                  'Đang mở đăng ký gói hội viên',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                ),
-                value: _isActive,
-                onChanged: (v) => setState(() => _isActive = v),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _error!,
-                  style: const TextStyle(color: Palette.red, fontSize: 12),
-                ),
-              ],
-              const SizedBox(height: 18),
-              FilledButton(
-                key: const Key('save-membership-plan-btn'),
-                onPressed: _busy ? null : _save,
-                child: Text(
-                  _busy ? 'Đang lưu gói…' : 'Lưu cấu hình gói hội viên',
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: _loadingPlan
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : (hasPlan && !_isEditing)
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Eyebrow('GÓI HỘI VIÊN VIP HIỆN HÀNH · CREATOR'),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(plan.name, style: editorial(22)),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: plan.isActive
+                                  ? const Color(0xFFE8F5E9)
+                                  : Palette.soft,
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: plan.isActive
+                                    ? const Color(0xFF2E7D32)
+                                    : Palette.line,
+                              ),
+                            ),
+                            child: Text(
+                              plan.isActive ? 'Đang mở đăng ký' : 'Tạm dừng',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: plan.isActive
+                                    ? const Color(0xFF1B5E20)
+                                    : Palette.muted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Palette.soft,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Palette.line),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Mức phí niêm yết:',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Palette.muted),
+                                ),
+                                Text(
+                                  '${plan.monthlyPrice.round()} VNĐ / 30 ngày',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Palette.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Doanh thu thực nhận (90%):',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Palette.muted),
+                                ),
+                                Text(
+                                  '+${(plan.monthlyPrice * 0.9).round()} VNĐ / lượt',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1B5E20),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if ((plan.description ?? '').trim().isNotEmpty) ...[
+                              const Divider(height: 18),
+                              Text(
+                                plan.description ?? '',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  height: 1.5,
+                                  color: Palette.ink,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _buildLockedPerksBox(),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Đóng'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: FilledButton.icon(
+                              key: const Key('edit-membership-plan-btn'),
+                              onPressed: () {
+                                _nameCtrl.text = plan.name;
+                                _priceCtrl.text =
+                                    plan.monthlyPrice.round().toString();
+                                _descCtrl.text = plan.description ?? '';
+                                _isActive = plan.isActive;
+                                setState(() => _isEditing = true);
+                              },
+                              icon: const Icon(CupertinoIcons.pencil, size: 15),
+                              label: const Text('Chỉnh sửa cấu hình gói'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Eyebrow('CẤU HÌNH HỘI VIÊN KÊNH · CREATOR'),
+                        const SizedBox(height: 10),
+                        Text('Gói hội viên tháng', style: editorial(24)),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          key: const Key('plan-name-input'),
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Tên gói hội viên',
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Nhập tên gói hội viên'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          key: const Key('plan-price-input'),
+                          controller: _priceCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Mức phí hàng tháng (VNĐ)',
+                            helperText:
+                                'Từ 10.000 VNĐ – 5.000.000 VNĐ / tháng (Creator nhận 90%)',
+                          ),
+                          validator: (v) {
+                            final parsed = double.tryParse(v?.trim() ?? '');
+                            if (parsed == null ||
+                                parsed < 10000 ||
+                                parsed > 5000000) {
+                              return 'Mức giá phải từ 10.000 VNĐ đến 5.000.000 VNĐ';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          key: const Key('plan-desc-input'),
+                          controller: _descCtrl,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'Mô tả gói hội viên',
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _buildLockedPerksBox(),
+                        const SizedBox(height: 10),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text(
+                            'Đang mở đăng ký gói hội viên',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
+                          value: _isActive,
+                          onChanged: (v) => setState(() => _isActive = v),
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _error!,
+                            style: const TextStyle(
+                                color: Palette.red, fontSize: 12),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            if (hasPlan) ...[
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _busy
+                                      ? null
+                                      : () =>
+                                          setState(() => _isEditing = false),
+                                  child: const Text('Hủy'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            Expanded(
+                              flex: 2,
+                              child: FilledButton(
+                                key: const Key('save-membership-plan-btn'),
+                                onPressed: _busy ? null : _save,
+                                child: Text(
+                                  _busy
+                                      ? 'Đang lưu gói…'
+                                      : 'Lưu cấu hình gói hội viên',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
       ),
     );
   }

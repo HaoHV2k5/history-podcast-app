@@ -35,6 +35,8 @@ class WalletState extends ChangeNotifier {
   List<BankAccountData> remoteBanks = [];
   MilestoneFinancialSummaryModel? milestoneFinancials;
   String? lastDepositPaymentUrl;
+  String? lastDepositMerchantTxnRef;
+  int? lastDepositAmount;
 
   bool get isLiveBackend =>
       walletRepository != null ||
@@ -117,8 +119,42 @@ class WalletState extends ChangeNotifier {
         description: description,
       );
       paymentUrl = deposit.paymentUrl;
+      final effectiveRef =
+          (deposit.merchantTxnRef != null &&
+              deposit.merchantTxnRef!.trim().isNotEmpty)
+          ? deposit.merchantTxnRef!.trim()
+          : 'DEP${DateTime.now().millisecondsSinceEpoch}';
       lastDepositPaymentUrl = paymentUrl;
+      lastDepositMerchantTxnRef = effectiveRef;
+      lastDepositAmount = amount;
+      await preferences.setString('last_deposit_merchant_txn_ref', effectiveRef);
+      if (paymentUrl.isNotEmpty) {
+        await preferences.setString('last_deposit_payment_url', paymentUrl);
+      }
       await syncWalletBackend(owner);
+      final hasPendingInList = remoteTransactions.any(
+        (tx) =>
+            tx.type.toUpperCase() == 'DEPOSIT' &&
+            tx.status.toUpperCase() == 'PENDING',
+      );
+      if (!hasPendingInList) {
+        remoteTransactions = [
+          WalletTransactionModel(
+            id: DateTime.now().millisecondsSinceEpoch,
+            walletId: 0,
+            type: 'DEPOSIT',
+            amount: amount.toDouble(),
+            status: 'PENDING',
+            merchantTxnRef: effectiveRef,
+            gatewayProvider: 'VNPAY',
+            description: (description != null && description.trim().isNotEmpty)
+                ? description.trim()
+                : 'Nạp tiền vào ví Sử Ký qua VNPay Sandbox',
+            createdAt: DateTime.now().toIso8601String(),
+          ),
+          ...remoteTransactions,
+        ];
+      }
       event('Tạo lệnh nạp ${money(amount)} qua cổng thanh toán VNPay Sandbox');
       await save();
       return paymentUrl;
@@ -129,15 +165,47 @@ class WalletState extends ChangeNotifier {
     return null;
   }
 
-  Future<bool> confirmPendingDeposit(String owner, WalletTransactionModel tx) async {
-    if (walletRepository == null || tx.merchantTxnRef == null || tx.merchantTxnRef!.isEmpty) {
+  Future<void> refreshFromBackend([String owner = 'creator']) =>
+      syncWalletBackend(owner);
+
+  Future<bool> confirmPendingDeposit(String owner, Object tx) async {
+    if (walletRepository == null) {
+      return false;
+    }
+    int amount = lastDepositAmount ?? 0;
+    String? txnRef;
+    String? paymentUrl = lastDepositPaymentUrl;
+    if (tx is WalletTransactionModel) {
+      amount = tx.amount.abs().round();
+      txnRef = tx.merchantTxnRef;
+    } else if (tx is Map) {
+      final rawAmt = tx['amount'];
+      if (rawAmt is num) {
+        amount = rawAmt.toDouble().abs().round();
+      } else if (rawAmt != null) {
+        amount = (double.tryParse(rawAmt.toString()) ?? 0).abs().round();
+      }
+      txnRef = tx['merchantTxnRef']?.toString() ?? tx['vnp_TxnRef']?.toString();
+      paymentUrl = tx['paymentUrl']?.toString() ?? paymentUrl;
+    }
+    if (txnRef == null || txnRef.trim().isEmpty) {
+      txnRef = lastDepositMerchantTxnRef ??
+          preferences.getString('last_deposit_merchant_txn_ref');
+    }
+    if (paymentUrl == null || paymentUrl.trim().isEmpty) {
+      paymentUrl = preferences.getString('last_deposit_payment_url');
+    }
+    if ((txnRef == null || txnRef.trim().isEmpty) &&
+        (paymentUrl == null || paymentUrl.trim().isEmpty)) {
       return false;
     }
     final ok = await walletRepository!.confirmVnpaySandboxIpn(
-      amount: tx.amount.round(),
-      merchantTxnRef: tx.merchantTxnRef,
+      amount: amount,
+      merchantTxnRef: txnRef,
+      paymentUrl: paymentUrl,
     );
     if (ok) {
+      await preferences.remove('return_to_wallet_after_vnpay');
       await syncWalletBackend(owner);
     }
     return ok;

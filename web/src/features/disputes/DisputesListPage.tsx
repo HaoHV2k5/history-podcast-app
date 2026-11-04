@@ -1,33 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, Calendar, Gavel, CheckCircle2 } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { DataTable, Column } from '@/components/common/DataTable';
-import { FilterToolbar } from '@/components/common/FilterToolbar';
-import { PaginationBar } from '@/components/common/PaginationBar';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { Button } from '@/components/ui/button';
+import gsap from 'gsap';
+import { AlertCircle, RotateCw } from 'lucide-react';
 import { disputesApi } from '@/services/api/disputes';
-import { DisputeItem } from '@/types/dispute';
-import { formatDateTime } from '@/utils/formatters';
+import type { DisputeItem } from '@/types/dispute';
+import {
+  AdminDisputeRow,
+  DisputeStatusFilter,
+  mapBackendItemToDisputeRow,
+  calculateDisputeKpis,
+  filterDisputeRows,
+  generateDisputeCsv,
+  downloadCsvFile,
+} from './disputesLogic';
+import { AdminDisputeHeroBanner } from './components/AdminDisputeHeroBanner';
+import { AdminDisputeStatCards } from './components/AdminDisputeStatCards';
+import { AdminDisputeStatusTabs } from './components/AdminDisputeStatusTabs';
+import { AdminDisputeFilterToolbar } from './components/AdminDisputeFilterToolbar';
+import { AdminDisputeTable } from './components/AdminDisputeTable';
 import { AdminDisputeDetailModal } from './AdminDisputeDetailModal';
-import { formatDisputeResult } from './disputeResolutionLogic';
 
 export const DisputesListPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSearch = searchParams.get('search') || '';
 
-  const [page, setPage] = useState(0);
-  const [size] = useState(10);
-  const [search, setSearch] = useState(urlSearch);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OPEN' | 'RESOLVED'>('ALL');
-  const [selectedDispute, setSelectedDispute] = useState<DisputeItem | null>(null);
+  // GSAP animation refs
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
 
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState(urlSearch);
+  const [statusTab, setStatusTab] = useState<DisputeStatusFilter>('ALL');
+  const [disputeTypeFilter, setDisputeTypeFilter] = useState('ALL');
+  const [statusSelectFilter, setStatusSelectFilter] = useState('ALL');
+  const [dateRangePreset, setDateRangePreset] = useState('ALL');
+  const [customDateStart, setCustomDateStart] = useState<string | undefined>();
+  const [customDateEnd, setCustomDateEnd] = useState<string | undefined>();
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Selected dispute row for modals
+  const [selectedDisputeRow, setSelectedDisputeRow] = useState<AdminDisputeRow | null>(null);
+
+  // Sync state if URL search query changes
   useEffect(() => {
-    setSearch((prev) => {
+    setSearchQuery((prev) => {
       if (prev !== urlSearch) {
-        setPage(0);
+        setCurrentPage(0);
         return urlSearch;
       }
       return prev;
@@ -35,8 +62,8 @@ export const DisputesListPage: React.FC = () => {
   }, [urlSearch]);
 
   const handleSearchChange = (val: string) => {
-    setSearch(val);
-    setPage(0);
+    setSearchQuery(val);
+    setCurrentPage(0);
     if (val.trim()) {
       setSearchParams({ search: val.trim() }, { replace: true });
     } else {
@@ -44,265 +71,225 @@ export const DisputesListPage: React.FC = () => {
     }
   };
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin-disputes', statusFilter],
-    queryFn: () => disputesApi.getAllDisputes(statusFilter === 'ALL' ? undefined : statusFilter),
+  // 1. Fetch live disputes from Backend API (API-First Validation & Zero Fake Data)
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['admin-disputes'],
+    queryFn: () => disputesApi.getAllDisputes(),
   });
 
+  // Extract raw backend items
   const rawData = data?.data;
-  const rawItems: DisputeItem[] = Array.isArray(rawData)
-    ? rawData
-    : rawData && 'items' in rawData && Array.isArray(rawData.items)
-      ? rawData.items
-      : [];
+  const rawItems: DisputeItem[] = useMemo(() => {
+    if (!rawData) return [];
+    if (Array.isArray(rawData)) return rawData;
+    if ('content' in rawData && Array.isArray((rawData as any).content)) {
+      return (rawData as any).content;
+    }
+    if ('items' in rawData && Array.isArray((rawData as any).items)) {
+      return (rawData as any).items;
+    }
+    return [];
+  }, [rawData]);
 
-  const filteredItems = rawItems.filter((d) => {
-    // Search match
-    const matchesSearch =
-      !search.trim() ||
-      d.id.toString().includes(search.trim()) ||
-      d.contractId.toString().includes(search.trim()) ||
-      (d.contractTitle && d.contractTitle.toLowerCase().includes(search.toLowerCase())) ||
-      (d.milestoneTitle && d.milestoneTitle.toLowerCase().includes(search.toLowerCase())) ||
-      (d.raisedByUserFullName && d.raisedByUserFullName.toLowerCase().includes(search.toLowerCase())) ||
-      (d.reason && d.reason.toLowerCase().includes(search.toLowerCase()));
+  // Map real backend items to AdminDisputeRow (100% Real Live Data)
+  const liveRows: AdminDisputeRow[] = useMemo(() => {
+    return rawItems.map((item, idx) => mapBackendItemToDisputeRow(item, idx));
+  }, [rawItems]);
 
-    // Status filter match (if API returns mixed or for client safety)
-    const matchesStatus =
-      statusFilter === 'ALL' || (d.status || '').toUpperCase() === statusFilter;
+  // Aggregate live KPIs strictly from real backend records (Zero Fake Data)
+  const kpis = useMemo(() => {
+    return calculateDisputeKpis(liveRows);
+  }, [liveRows]);
 
-    return matchesSearch && matchesStatus;
-  });
+  // Filtered dispute rows
+  const filteredRows = useMemo(() => {
+    return filterDisputeRows(liveRows, {
+      searchQuery,
+      statusTab,
+      disputeType: disputeTypeFilter,
+      statusSelect: statusSelectFilter,
+      dateRangePreset,
+      customDateStart,
+      customDateEnd,
+    });
+  }, [
+    liveRows,
+    searchQuery,
+    statusTab,
+    disputeTypeFilter,
+    statusSelectFilter,
+    dateRangePreset,
+    customDateStart,
+    customDateEnd,
+  ]);
 
-  const totalElements = filteredItems.length;
-  const totalPages = Math.ceil(totalElements / size);
-  const paginatedItems = filteredItems.slice(page * size, (page + 1) * size);
+  // Pagination calculations
+  const totalElements = filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalElements / pageSize));
+  const paginatedRows = useMemo(() => {
+    const start = currentPage * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage, pageSize]);
 
-  const columns: Column<DisputeItem>[] = [
-    {
-      key: 'id',
-      header: 'Khiếu nại hợp đồng',
-      render: (item) => (
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${
-              item.status === 'OPEN'
-                ? 'bg-status-error-bg text-status-error-text'
-                : 'bg-status-success-bg text-status-success-text'
-            }`}
-          >
-            {item.status === 'OPEN' ? (
-              <AlertCircle className="h-4 w-4" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-          </div>
-          <div className="flex flex-col font-mono text-xs">
-            <span
-              className="font-semibold text-ink hover:underline cursor-pointer"
-              onClick={() => setSelectedDispute(item)}
-            >
-              Khiếu nại #{item.id}
-            </span>
-            <span className="text-[11px] text-muted">
-              Hợp đồng ID #{item.contractId}
-              {item.milestoneId ? ` • Milestone #${item.milestoneId}` : ''}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: 'raisedBy',
-      header: 'Bên khởi tạo',
-      render: (item) => (
-        <div className="flex flex-col text-xs font-mono">
-          <span className="font-semibold text-ink">
-            {item.raisedByUserFullName || `User #${item.raisedByUserId}`}
-          </span>
-          <span className="text-[10px] text-muted">
-            ID: #{item.raisedByUserId}
-          </span>
-        </div>
-      ),
-    },
-    {
-      key: 'reason',
-      header: 'Nội dung tranh chấp',
-      render: (item) => (
-        <p className="text-xs text-muted max-w-xs truncate" title={item.reason}>
-          {item.reason}
-        </p>
-      ),
-    },
-    {
-      key: 'status',
-      header: 'Trạng thái',
-      render: (item) => (
-        <div className="flex flex-col gap-1 items-start">
-          <StatusBadge status={item.status} />
-          {item.result && (
-            <span className="text-[10px] text-muted font-mono">
-              {formatDisputeResult(item.result).label}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'createdAt',
-      header: 'Thời điểm',
-      render: (item) => (
-        <div className="flex flex-col text-xs text-muted font-mono">
-          <div className="flex items-center gap-1">
-            <Calendar className="h-3 w-3 text-muted" />
-            <span>Tạo: {item.createdAt ? formatDateTime(item.createdAt) : '—'}</span>
-          </div>
-          {item.resolvedAt && (
-            <span className="text-[10px] text-status-success-text">
-              Xong: {formatDateTime(item.resolvedAt)}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: 'actions',
-      header: 'Thao tác',
-      stickyRight: true,
-      align: 'right',
-      render: (item) => {
-        const isOpen = (item.status || '').toUpperCase() === 'OPEN';
-        return (
-          <Button
-            variant="outline"
-            onClick={() => setSelectedDispute(item)}
-            className={`min-h-[44px] px-3 text-xs ${
-              isOpen
-                ? 'text-accent border-accent/40 hover:bg-accent-soft hover:border-accent font-semibold'
-                : 'text-ink hover:text-accent'
-            }`}
-          >
-            {isOpen ? (
-              <>
-                <Gavel className="h-3.5 w-3.5 mr-1" />
-                <span>Phân xử</span>
-              </>
-            ) : (
-              <span>Xem kết quả</span>
-            )}
-          </Button>
-        );
-      },
-    },
-  ];
+  // Reset to first page when any filter criteria changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [
+    statusTab,
+    disputeTypeFilter,
+    statusSelectFilter,
+    dateRangePreset,
+    customDateStart,
+    customDateEnd,
+  ]);
+
+  // Handlers
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
+  const handleExportCSV = () => {
+    const csvContent = generateDisputeCsv(filteredRows);
+    const filename = `Khieu_nai_tranh_chap_Su_Ky_${new Date().toISOString().slice(0, 10)}.csv`;
+    downloadCsvFile(csvContent, filename);
+  };
+
+  const handleNavigateContract = (contractId: number) => {
+    navigate(`/admin/contracts?search=HD${String(contractId).padStart(5, '0')}`);
+  };
+
+  // Subtle natural GSAP staggered entrance animation
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const targets = [
+        heroRef.current,
+        statsRef.current,
+        tabsRef.current,
+        toolbarRef.current,
+        tableRef.current,
+      ].filter(Boolean);
+
+      gsap.fromTo(
+        targets,
+        { opacity: 0, y: 14 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.45,
+          stagger: 0.08,
+          ease: 'power2.out',
+          clearProps: 'all',
+        }
+      );
+    }, pageContainerRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Xử lý Khiếu nại & Tranh chấp"
-        description="Sổ theo dõi và phân xử tranh chấp hợp đồng thu âm, bảo chứng giải ngân hoặc hoàn tiền ký quỹ"
-      />
+    <div ref={pageContainerRef} className="space-y-5 sm:space-y-6 font-sans">
+      {/* 1. Header / Hero Banner (3-layer design) */}
+      <div ref={heroRef}>
+        <AdminDisputeHeroBanner />
+      </div>
 
-      {/* Filter Toolbar & Status Filter Tabs */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 p-1 rounded-lg border border-border bg-surface-subtle text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('ALL');
-                setPage(0);
-              }}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all ${
-                statusFilter === 'ALL'
-                  ? 'bg-surface text-ink shadow-xs font-semibold'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              Tất cả tranh chấp
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('OPEN');
-                setPage(0);
-              }}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all ${
-                statusFilter === 'OPEN'
-                  ? 'bg-status-error-bg text-status-error-text shadow-xs font-semibold'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              Đang thụ lý (Chờ phân xử)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setStatusFilter('RESOLVED');
-                setPage(0);
-              }}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all ${
-                statusFilter === 'RESOLVED'
-                  ? 'bg-status-success-bg text-status-success-text shadow-xs font-semibold'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              Đã giải quyết
-            </button>
-          </div>
-        </div>
+      {/* 2. Thẻ Thống Kê (Stat Cards - Horizontal Squircle Layout) */}
+      <div ref={statsRef}>
+        <AdminDisputeStatCards kpis={kpis} isLoading={isLoading} />
+      </div>
 
-        <FilterToolbar
-          searchPlaceholder="Tìm theo mã khiếu nại, mã hợp đồng, bên khởi tạo hoặc lý do..."
-          searchValue={search}
-          onSearchChange={handleSearchChange}
-          showReset={Boolean(search || statusFilter !== 'ALL')}
-          onReset={() => {
-            handleSearchChange('');
-            setStatusFilter('ALL');
-            setPage(0);
+      {/* 3. Status Filter Tabs (Above filter toolbar) */}
+      <div ref={tabsRef}>
+        <AdminDisputeStatusTabs
+          activeTab={statusTab}
+          onTabChange={(tab) => {
+            setStatusTab(tab);
+            // Sync select dropdown if appropriate
+            if (tab === 'ALL') {
+              setStatusSelectFilter('ALL');
+            } else {
+              setStatusSelectFilter(tab);
+            }
           }}
+          kpis={kpis}
         />
       </div>
 
+      {/* 4. Thanh Bộ Lọc & Tìm Kiếm (Filter Toolbar) & Popover Thời Gian (Radix Portal z-[999]) */}
+      <div ref={toolbarRef}>
+        <AdminDisputeFilterToolbar
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          disputeTypeFilter={disputeTypeFilter}
+          onDisputeTypeFilterChange={setDisputeTypeFilter}
+          statusSelectFilter={statusSelectFilter}
+          onStatusSelectFilterChange={(val) => {
+            setStatusSelectFilter(val);
+            if (val === 'ALL') {
+              setStatusTab('ALL');
+            } else if (val === 'OPEN' || val === 'RESOLVED' || val === 'CANCELLED') {
+              setStatusTab(val);
+            }
+          }}
+          dateRangePreset={dateRangePreset}
+          onDateRangePresetChange={setDateRangePreset}
+          customDateStart={customDateStart}
+          customDateEnd={customDateEnd}
+          onCustomDateChange={(start, end) => {
+            setCustomDateStart(start);
+            setCustomDateEnd(end);
+          }}
+          onRefresh={handleRefresh}
+          isRefreshing={isFetching}
+          onExportCSV={handleExportCSV}
+        />
+      </div>
+
+
+
+      {/* Backend API Error Notice */}
       {isError && (
-        <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
-          <span>Không thể tải danh sách khiếu nại. Vui lòng thử lại.</span>
-          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
-            Tải lại
-          </Button>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between gap-3 select-none">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>Không thể kết nối đến máy chủ quản lý khiếu nại. Vui lòng bấm thử lại.</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="px-3 py-1.5 rounded-xl border border-rose-300 bg-white text-rose-800 hover:bg-rose-50 text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <RotateCw className="h-3.5 w-3.5" />
+            <span>Tải lại</span>
+          </button>
         </div>
       )}
 
-      <DataTable
-        columns={columns}
-        data={paginatedItems}
-        keyExtractor={(item) => item.id}
-        isLoading={isLoading}
-        emptyTitle="Chưa có khiếu nại"
-        emptyDescription={
-          statusFilter === 'OPEN'
-            ? 'Hiện không có tranh chấp nào đang chờ phân xử.'
-            : 'Hiện không có tranh chấp hợp đồng cần theo dõi.'
-        }
-        pagination={
-          <PaginationBar
-            embedded
-            page={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            size={size}
-            onPageChange={setPage}
-          />
-        }
-      />
+      {/* 5. Bảng Dữ Liệu Khiếu Nại (Admin Data Table - 100% Fit, Anti-Orphan Word) */}
+      <div ref={tableRef}>
+        <AdminDisputeTable
+          rows={paginatedRows}
+          totalElements={totalElements}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(0);
+          }}
+          onViewDetail={setSelectedDisputeRow}
+          onResolveDispute={(row) => setSelectedDisputeRow(row)}
+          onNavigateContract={handleNavigateContract}
+          isLoading={isLoading}
+        />
+      </div>
 
-      {/* Upgraded Admin Dispute Detail & Resolution Modal */}
-      {selectedDispute && (
+      {/* 6. Modal Chi Tiết Khiếu Nại & Phân Xử Ban Quản Trị */}
+      {selectedDisputeRow && (
         <AdminDisputeDetailModal
-          dispute={selectedDispute}
-          onClose={() => setSelectedDispute(null)}
+          dispute={selectedDisputeRow}
+          onClose={() => setSelectedDisputeRow(null)}
         />
       )}
     </div>

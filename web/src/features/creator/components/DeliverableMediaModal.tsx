@@ -48,7 +48,7 @@ export const DeliverableMediaModal: React.FC<DeliverableMediaModalProps> = ({
     setError(null);
 
     deliverablesApi
-      .getDeliverableBlobUrl(deliverable.id)
+      .getDeliverableBlobUrl(deliverable.id, deliverable.fileName)
       .then((res) => {
         if (isMounted) {
           setBlobUrl(res.url);
@@ -95,7 +95,7 @@ export const DeliverableMediaModal: React.FC<DeliverableMediaModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] p-0 flex flex-col bg-white rounded-2xl border border-stone-200/90 shadow-2xl overflow-hidden">
         {/* Header */}
-        <DialogHeader className="px-5 py-4 border-b border-stone-200/80 bg-stone-50/70 shrink-0">
+        <DialogHeader className="pl-5 pr-12 py-4 border-b border-stone-200/80 bg-stone-50/70 shrink-0">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">

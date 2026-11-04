@@ -163,7 +163,7 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
             </span>
           )}
 
-          {commission.status === 'CONTRACT_SENT' && (
+          {commission.status === 'CONTRACT_SENT' && commission.contractStatus === 'COMPLETED' && (<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" /><span>Hoàn thành</span></span>)} {commission.status === 'CONTRACT_SENT' && commission.contractStatus === 'ACTIVE' && (<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" /><span>Đang thực hiện lộ trình</span></span>)} {commission.status === 'CONTRACT_SENT' && commission.contractStatus !== 'COMPLETED' && commission.contractStatus !== 'ACTIVE' && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]/70 font-sans">
               <span className="h-1.5 w-1.5 rounded-full bg-[#64748B] shrink-0" />
               <span>Đã gửi lộ trình</span>
@@ -249,14 +249,14 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
           )}
 
           {/* Case 3: CONTRACT_SENT */}
-          {commission.status === 'CONTRACT_SENT' && commission.contractId && (
+          {(commission.status === 'CONTRACT_SENT' || commission.status === 'COMPLETED') && commission.contractId && (
             <button
               type="button"
               onClick={() => onViewContract(commission.contractId!)}
               className="h-8 px-3 text-xs font-semibold rounded-lg border border-[#E5E0D8] bg-white text-stone-800 hover:bg-stone-50 hover:border-stone-300 flex items-center gap-1.5 active:scale-[0.98] transition-all shadow-2xs whitespace-nowrap shrink-0 cursor-pointer font-sans"
             >
-              <ExternalLink className="h-3.5 w-3.5 text-[#8B2635] shrink-0" />
-              <span className="whitespace-nowrap">Xem lộ trình đã gửi</span>
+              <ExternalLink className="h-3.5 w-3.5 text-[#A31D24] shrink-0" />
+              <span className="whitespace-nowrap">{commission.contractStatus === 'COMPLETED' || commission.status === 'COMPLETED' ? 'Xem hợp đồng hoàn tất' : commission.contractStatus === 'ACTIVE' ? 'Xem tiến độ hợp đồng' : 'Xem lộ trình đã gửi'}</span>
             </button>
           )}
 

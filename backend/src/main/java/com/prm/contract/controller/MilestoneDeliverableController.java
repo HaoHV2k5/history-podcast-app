@@ -72,12 +72,35 @@ public class MilestoneDeliverableController {
         Resource resource = deliverableService.downloadDeliverable(id);
 
         String encodedFileName = URLEncoder.encode(deliverable.getFileName(), StandardCharsets.UTF_8).replace("+", "%20");
-        String contentType = deliverable.getContentType() != null ? deliverable.getContentType() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        String contentType = resolveContentType(deliverable.getFileName(), deliverable.getContentType());
         String disposition = asAttachment ? "attachment" : "inline";
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + deliverable.getFileName() + "\"; filename*=UTF-8''" + encodedFileName)
                 .body(resource);
+    }
+
+    private String resolveContentType(String fileName, String rawContentType) {
+        String lower = fileName != null ? fileName.toLowerCase() : "";
+        if (lower.endsWith(".pdf")) return MediaType.APPLICATION_PDF_VALUE;
+        if (lower.endsWith(".mp4")) return "video/mp4";
+        if (lower.endsWith(".mov")) return "video/quicktime";
+        if (lower.endsWith(".webm")) return "video/webm";
+        if (lower.endsWith(".mp3")) return "audio/mpeg";
+        if (lower.endsWith(".wav")) return "audio/wav";
+        if (lower.endsWith(".m4a")) return "audio/mp4";
+        if (lower.endsWith(".ogg")) return "audio/ogg";
+        if (lower.endsWith(".png")) return MediaType.IMAGE_PNG_VALUE;
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return MediaType.IMAGE_JPEG_VALUE;
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".gif")) return MediaType.IMAGE_GIF_VALUE;
+        if (lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".csv")) return "text/plain;charset=UTF-8";
+        if (lower.endsWith(".json")) return MediaType.APPLICATION_JSON_VALUE;
+        if (lower.endsWith(".zip")) return "application/zip";
+        if (rawContentType != null && !rawContentType.isBlank() && !MediaType.APPLICATION_OCTET_STREAM_VALUE.equalsIgnoreCase(rawContentType)) {
+            return rawContentType;
+        }
+        return MediaType.APPLICATION_OCTET_STREAM_VALUE;
     }
 }

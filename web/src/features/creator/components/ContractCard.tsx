@@ -35,7 +35,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
   const totalCount = milestones.length;
   const completedCount = milestones.filter(
     (m) => m.status === 'RELEASED' || m.status === 'APPROVED'
-  ).length;
+  ).length; const releasedCount = milestones.filter((m) => m.status === 'RELEASED').length; const isAllReleased = totalCount > 0 && releasedCount === totalCount; const effectiveStatus = isAllReleased ? 'COMPLETED' : contract.status; const isWaitingEscrowRelease = effectiveStatus === 'ACTIVE' && totalCount > 0 && completedCount === totalCount && !isAllReleased;
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   // Identify which milestone the contract is currently on
@@ -52,7 +52,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
 
   const currentStageLabel = (() => {
     if (!currentMilestone || totalCount === 0) return 'Chưa có mốc bàn giao';
-    if (contract.status === 'COMPLETED' || completedCount === totalCount) {
+    if (effectiveStatus === 'COMPLETED') { return `Đã hoàn tất toàn bộ (${totalCount}/${totalCount} mốc)`; } if (isWaitingEscrowRelease) { return `Đã nghiệm thu ${completedCount}/${totalCount} mốc — Chờ đối soát giải ngân`; } if (false) {
       return `Đã hoàn tất toàn bộ (${totalCount}/${totalCount} mốc)`;
     }
     if (contract.status === 'PENDING') {
@@ -138,7 +138,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
           </div>
 
           <div>
-            {contract.status === 'ACTIVE' && !isWaitingCustomerFunding && (
+            {effectiveStatus === 'ACTIVE' && isWaitingEscrowRelease && (<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-800 border border-sky-200/70 font-sans"><span className="h-1.5 w-1.5 rounded-full bg-sky-500 animate-pulse shrink-0" /><span>Đã nghiệm thu • Chờ giải ngân</span></span>)} {effectiveStatus === 'ACTIVE' && !isWaitingCustomerFunding && !isWaitingEscrowRelease && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                 <span>Đang thực hiện</span>
@@ -159,7 +159,7 @@ export const ContractCard: React.FC<ContractCardProps> = ({
               </span>
             )}
 
-            {contract.status === 'COMPLETED' && (
+            {effectiveStatus === 'COMPLETED' && (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/70 font-sans">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                 <span>Đã hoàn tất</span>

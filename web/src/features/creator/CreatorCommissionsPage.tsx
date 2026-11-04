@@ -110,11 +110,11 @@ export const CreatorCommissionsPage: React.FC = () => {
     (Array.isArray(commissionsData?.data) ? commissionsData.data : []) ||
     [];
 
-  const rawContracts: ContractItem[] = Array.isArray(contractsData?.data)
+  const rawContracts: ContractItem[] = (Array.isArray(contractsData?.data)
     ? contractsData.data
     : contractsData?.data && 'items' in contractsData.data && Array.isArray(contractsData.data.items)
       ? contractsData.data.items
-      : [];
+      : []).map((c: ContractItem) => (c.milestones && c.milestones.length > 0 && c.milestones.every((m) => m.status === 'RELEASED') ? { ...c, status: 'COMPLETED' as const } : c)); rawCommissions.forEach((cm) => { const linked = rawContracts.find((ct) => ct.id === cm.contractId || ct.commissionId === cm.id || (ct as unknown as { hireRequestId?: number }).hireRequestId === cm.id); if (linked) { cm.contractId = linked.id; cm.contractStatus = linked.status; if (linked.status === 'COMPLETED') { cm.status = 'COMPLETED'; } else if (linked.status === 'CANCELLED') { cm.status = 'CANCELLED'; } } });
 
   // Determine the highest-priority thread key so switching to 'messages' selects it in the same render batch (zero double-render stutter)
   const preferredDefaultThreadKey = useMemo<string | null>(() => {

@@ -39,6 +39,7 @@ void main() {
       var contractCreated = false;
       var chatOpened = false;
       var depositCreated = false;
+      var ipnConfirmed = false;
 
       final mockHttp = MockClient((req) async {
         final path = req.url.path;
@@ -72,11 +73,15 @@ void main() {
           );
         }
 
-        if (path == '/api/v1/hire-requests' && method == 'GET') {
+        if ((path == '/api/v1/hire-requests' ||
+                path == '/api/v1/commissions') &&
+            method == 'GET') {
           return jsonRes(ok([]));
         }
 
-        if (path == '/api/v1/hire-requests' && method == 'POST') {
+        if ((path == '/api/v1/hire-requests' ||
+                path == '/api/v1/commissions') &&
+            method == 'POST') {
           hireRequestCreated = true;
           final body = jsonDecode(req.body) as Map<String, dynamic>;
           return jsonRes(
@@ -163,7 +168,8 @@ void main() {
           return jsonRes(
             ok({
               'id': 9,
-              'availableBalance': 1250000,
+              'userId': 1,
+              'availableBalance': ipnConfirmed ? 2250000 : 1250000,
               'pendingBalance': 300000,
             }),
           );
@@ -173,12 +179,23 @@ void main() {
           return jsonRes(
             ok({
               'items': [
+                if (depositCreated)
+                  {
+                    'id': 702,
+                    'walletId': 9,
+                    'type': 'DEPOSIT',
+                    'amount': 1000000,
+                    'status': ipnConfirmed ? 'SUCCESS' : 'PENDING',
+                    'merchantTxnRef': 'DEP1000000TEST',
+                    'description': 'Nạp tiền vào ví Sử Ký qua VNPay Sandbox',
+                  },
                 {
                   'id': 701,
                   'walletId': 9,
                   'type': 'DEPOSIT',
                   'amount': 1250000,
                   'status': 'SUCCESS',
+                  'merchantTxnRef': 'DEP1250000INIT',
                   'description': 'Nạp ví qua VNPay Sandbox',
                 },
               ],
@@ -190,10 +207,21 @@ void main() {
           depositCreated = true;
           return jsonRes(
             ok({
-              'paymentUrl': 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
+              'paymentUrl':
+                  'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_TxnRef=DEP1000000TEST&vnp_TmnCode=B3R5NOX0',
+              'merchantTxnRef': 'DEP1000000TEST',
             }),
             status: 201,
           );
+        }
+
+        if (path == '/api/v1/payments/vnpay/ipn' && method == 'GET') {
+          if (req.url.queryParameters['vnp_TxnRef'] == 'DEP1000000TEST' &&
+              (req.url.queryParameters['vnp_SecureHash'] ?? '').isNotEmpty) {
+            ipnConfirmed = true;
+            return jsonRes({'RspCode': '00', 'Message': 'Confirm Success'});
+          }
+          return jsonRes({'RspCode': '97', 'Message': 'Invalid Checksum'});
         }
 
         if (path == '/api/v1/bank-accounts' && method == 'GET') {
@@ -415,9 +443,158 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(depositCreated, isTrue);
+      expect(ipnConfirmed, isTrue);
       await tester.drag(find.byType(ListView).first, const Offset(0, 300));
       await tester.pumpAndSettle();
       expect(find.text('2.250.000đ'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'WalletPage reconciles PENDING VNPay deposits via manual Check button and AppLifecycleState.resumed',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      var manualTxConfirmed = false;
+      var lifecycleTxConfirmed = false;
+      var allowIpnSuccess = false;
+
+      final mockHttp = MockClient((req) async {
+        final path = req.url.path;
+        final method = req.method;
+
+        Map<String, dynamic> ok(dynamic data) => {
+          'success': true,
+          'message': 'OK',
+          'data': data,
+        };
+
+        http.Response jsonRes(dynamic payload, {int status = 200}) =>
+            http.Response(
+              utf8.encode(jsonEncode(payload)).allowMalformed,
+              status,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+
+        if (path == '/api/v1/wallets/me' && method == 'GET') {
+          var bal = 500000;
+          if (manualTxConfirmed) bal += 300000;
+          if (lifecycleTxConfirmed) bal += 400000;
+          return jsonRes(
+            ok({
+              'id': 9,
+              'userId': 1,
+              'availableBalance': bal,
+              'pendingBalance': 0,
+            }),
+          );
+        }
+
+        if (path == '/api/v1/wallets/me/transactions' && method == 'GET') {
+          return jsonRes(
+            ok({
+              'items': [
+                {
+                  'id': 801,
+                  'walletId': 9,
+                  'type': 'DEPOSIT',
+                  'amount': 300000,
+                  'status': manualTxConfirmed ? 'SUCCESS' : 'PENDING',
+                  'merchantTxnRef': 'DEP801MANUAL',
+                  'description': 'Nạp tiền qua VNPay (Kiểm tra thủ công)',
+                },
+                if (manualTxConfirmed)
+                  {
+                    'id': 802,
+                    'walletId': 9,
+                    'type': 'DEPOSIT',
+                    'amount': 400000,
+                    'status': lifecycleTxConfirmed ? 'SUCCESS' : 'PENDING',
+                    'merchantTxnRef': 'DEP802RESUME',
+                    'description': 'Nạp tiền qua VNPay (Tự động khi quay lại app)',
+                  },
+              ],
+            }),
+          );
+        }
+
+        if (path == '/api/v1/payments/vnpay/ipn' && method == 'GET') {
+          if (!allowIpnSuccess) {
+            return jsonRes({'RspCode': '99', 'Message': 'Pending'});
+          }
+          final ref = req.url.queryParameters['vnp_TxnRef'];
+          if (ref == 'DEP801MANUAL') {
+            manualTxConfirmed = true;
+            return jsonRes({'RspCode': '00', 'Message': 'Confirm Success'});
+          }
+          if (ref == 'DEP802RESUME') {
+            lifecycleTxConfirmed = true;
+            return jsonRes({'RspCode': '00', 'Message': 'Confirm Success'});
+          }
+          return jsonRes({'RspCode': '01', 'Message': 'Order not found'});
+        }
+
+        if (path == '/api/v1/bank-accounts' && method == 'GET') {
+          return jsonRes(ok([]));
+        }
+
+        if (path == '/api/v1/withdrawals/me' && method == 'GET') {
+          return jsonRes(ok({'items': []}));
+        }
+
+        return jsonRes(ok({}));
+      });
+
+      final client = ApiClient(
+        baseUrl: 'http://localhost:8080',
+        preferences: prefs,
+        httpClient: mockHttp,
+      );
+      final walletRepo = WalletRepository(client);
+      final withdrawalRepo = WithdrawalRepository(client: client);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: appTheme(),
+          home: WalletPage(
+            preferences: prefs,
+            walletRepository: walletRepo,
+            withdrawalRepository: withdrawalRepo,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Initial balance is 500.000đ and tx 801 is PENDING with "Kiểm tra giao dịch" button
+      expect(find.text('500.000đ'), findsOneWidget);
+      final checkBtn = find.byKey(const Key('confirm-pending-deposit-btn-801'));
+      await tester.ensureVisible(checkBtn);
+      await tester.pumpAndSettle();
+      expect(checkBtn, findsOneWidget);
+      expect(find.text('Kiểm tra giao dịch'), findsOneWidget);
+
+      // Tap "Kiểm tra giao dịch" -> reconciles tx 801 and updates balance to 800.000đ
+      allowIpnSuccess = true;
+      await tester.tap(checkBtn);
+      await tester.pumpAndSettle();
+
+      expect(manualTxConfirmed, isTrue);
+      expect(find.byKey(const Key('confirm-pending-deposit-btn-801')), findsNothing);
+
+      // Now tx 802 is PENDING; simulate returning from In-App Browser (AppLifecycleState.resumed)
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(lifecycleTxConfirmed, isTrue);
+      await tester.drag(find.byType(ListView).first, const Offset(0, 300));
+      await tester.pumpAndSettle();
+      expect(find.text('1.200.000đ'), findsOneWidget);
     },
   );
 }
