@@ -36,6 +36,8 @@ export interface PaymentDisplayRow {
 
 export interface MembershipTierConfig {
   id: string;
+  channelId?: number;
+  channelName?: string;
   badge: string;
   badgeType: 'basic' | 'popular' | 'vip';
   title: string;
@@ -47,8 +49,78 @@ export interface MembershipTierConfig {
 }
 
 /**
+ * 3 Đặc quyền Hội viên cốt lõi của Hệ thống (Cố định — Tự động kiểm soát bởi Backend, không thể xóa).
+ */
+export const SYSTEM_CORE_PERKS: readonly string[] = [
+  'Nghe sớm các tập Podcast Hội viên (Early Access)',
+  'Xem toàn bộ kho nội dung độc quyền (Members-Only)',
+  'Huy hiệu Hội viên VIP nổi bật trong phòng Livestream & Bình luận',
+];
+
+const SYSTEM_CUSTOM_PERKS_STORAGE_KEY = 'suky_system_membership_perks_v1';
+export const SYSTEM_PERKS_UPDATED_EVENT = 'suky-system-perks-updated';
+
+/**
+ * Kiểm tra xem 1 đặc quyền có phải là đặc quyền cốt lõi cố định của hệ thống hay không
+ */
+export function isCoreSystemPerk(perk: string): boolean {
+  const norm = (perk || '').trim();
+  return SYSTEM_CORE_PERKS.includes(norm);
+}
+
+/**
+ * Lấy danh sách các đặc quyền bổ sung do Admin cấu hình thêm cho toàn hệ thống
+ */
+export function getCustomSystemPerks(): string[] {
+  if (typeof window === 'undefined' || !window.localStorage) return [];
+  try {
+    const raw = window.localStorage.getItem(SYSTEM_CUSTOM_PERKS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter((item) => Boolean(item) && !SYSTEM_CORE_PERKS.includes(item));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Lấy toàn bộ danh sách Đặc quyền Hội viên của Hệ thống (3 đặc quyền cốt lõi + đặc quyền mở rộng do Admin thêm)
+ */
+export function getSystemMembershipPerks(): string[] {
+  const custom = getCustomSystemPerks();
+  return [...SYSTEM_CORE_PERKS, ...custom];
+}
+
+/**
+ * Lưu danh sách đặc quyền mở rộng của hệ thống và phát sự kiện đồng bộ tức thì sang cả Admin & Creator
+ */
+export function saveCustomSystemPerks(perksList: string[]): string[] {
+  const cleanedCustom = Array.from(
+    new Set(
+      (perksList || [])
+        .map((p) => (typeof p === 'string' ? p.trim() : ''))
+        .filter((p) => Boolean(p) && !SYSTEM_CORE_PERKS.includes(p))
+    )
+  );
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(
+        SYSTEM_CUSTOM_PERKS_STORAGE_KEY,
+        JSON.stringify(cleanedCustom)
+      );
+      window.dispatchEvent(new CustomEvent(SYSTEM_PERKS_UPDATED_EVENT));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+  return [...SYSTEM_CORE_PERKS, ...cleanedCustom];
+}
+
+/**
  * Danh sách gói hội viên khởi tạo: Mặc định là mảng rỗng [] (Zero Fake Data).
- * Danh sách sẽ được tải từ Backend hoặc hiển thị trạng thái Empty State thanh lịch nếu hệ thống chưa có gói.
  */
 export const DEFAULT_PLATFORM_TIERS: MembershipTierConfig[] = [];
 
@@ -60,7 +132,6 @@ export function calculateMembershipKPIs(
   tiers: MembershipTierConfig[] = DEFAULT_PLATFORM_TIERS
 ): MembershipKPIs {
   if (!payments || payments.length === 0) {
-    // Khi DB rỗng, tổng hợp số liệu thực tế từ các gói cấu hình (nếu có) hoặc trả về 0 an toàn tuyệt đối
     const configuredSubscribers = tiers.reduce((acc, t) => acc + (t.subscriberCount || 0), 0);
     const configuredMonthlyRevenue = tiers.reduce(
       (acc, t) => acc + (t.subscriberCount || 0) * (t.price || 0),
@@ -84,7 +155,6 @@ export function calculateMembershipKPIs(
     };
   }
 
-  // Tập hợp danh sách các membership ID duy nhất
   const uniqueMemberIds = new Set(
     payments
       .map((p) => p.membershipId)
@@ -92,7 +162,6 @@ export function calculateMembershipKPIs(
   );
   const totalMembers = uniqueMemberIds.size > 0 ? uniqueMemberIds.size : payments.length;
 
-  // Tính tổng doanh thu từ các giao dịch thành công
   let monthlyRevenue = 0;
   let paidCount = 0;
   let pendingCount = 0;
@@ -165,7 +234,7 @@ export function mapPaymentStatus(status?: string): {
 }
 
 /**
- * Đoán hoặc map tên gói hội viên dựa trên số tiền hoặc thông tin cấu hình
+ * Map tên gói hội viên dựa trên thông tin gói thực tế hoặc số tiền
  */
 export function determinePlanName(amount: number, planName?: string): string {
   if (planName && planName.trim()) return planName.trim();
@@ -175,11 +244,11 @@ export function determinePlanName(amount: number, planName?: string): string {
 }
 
 /**
- * Map phương thức thanh toán sang nhãn và icon type
+ * Map phương thức thanh toán sang nhãn chuẩn thực tế của Backend (Ví Sử Ký)
  */
 export function determinePaymentMethod(
   method?: string,
-  index = 0
+  _index = 0
 ): { name: string; type: 'vnpay' | 'momo' | 'bank' | 'wallet' } {
   if (method) {
     const m = method.toUpperCase();
@@ -187,13 +256,7 @@ export function determinePaymentMethod(
     if (m.includes('MOMO')) return { name: 'MoMo', type: 'momo' };
     if (m.includes('BANK') || m.includes('NGAN_HANG')) return { name: 'Thẻ ngân hàng', type: 'bank' };
   }
-  // Nếu payment từ Backend ghi nhận qua internal wallet/VNPay:
-  const defaultMethods: Array<{ name: string; type: 'vnpay' | 'momo' | 'bank' | 'wallet' }> = [
-    { name: 'VNPAY', type: 'vnpay' },
-    { name: 'MoMo', type: 'momo' },
-    { name: 'Thẻ ngân hàng', type: 'bank' },
-  ];
-  return defaultMethods[index % defaultMethods.length];
+  return { name: 'Ví Sử Ký', type: 'wallet' };
 }
 
 /**
@@ -226,7 +289,6 @@ export function filterMembershipPayments(
   const normQuery = normalizeVietnamese(searchQuery);
 
   return payments.filter((item) => {
-    // 1. Search Query
     if (normQuery) {
       const matchName = normalizeVietnamese(item.userName).includes(normQuery);
       const matchEmail = normalizeVietnamese(item.userEmail).includes(normQuery);
@@ -238,7 +300,6 @@ export function filterMembershipPayments(
       }
     }
 
-    // 2. Plan filter
     if (planFilter && planFilter !== 'all') {
       const normPlan = normalizeVietnamese(item.planName);
       const normFilter = normalizeVietnamese(planFilter);
@@ -247,7 +308,6 @@ export function filterMembershipPayments(
       }
     }
 
-    // 3. Status filter
     if (statusFilter && statusFilter !== 'all') {
       const itemStatus = (item.status || '').toUpperCase();
       const target = statusFilter.toUpperCase();
@@ -256,7 +316,6 @@ export function filterMembershipPayments(
       }
     }
 
-    // 4. Date Range filter
     if (startDate && item.paidAt) {
       const itemTime = new Date(item.paidAt).getTime();
       const start = new Date(startDate).getTime();
@@ -365,7 +424,6 @@ export function calculateDateRangeBounds(
       }
     }
 
-    // Nếu startIso > endIso, tự động đảo lại để khoảng ngày luôn hợp lệ
     if (startIso && endIso && new Date(startIso).getTime() > new Date(endIso).getTime()) {
       const temp = startIso;
       startIso = endIso;
@@ -387,8 +445,4 @@ export function calculateDateRangeBounds(
   return { label: 'Tất cả thời gian' };
 }
 
-/**
- * Danh sách mẫu kiểm thử: Đã được dọn dẹp sạch hoàn toàn về mảng rỗng [] (Zero Fake Data)
- * Tuyệt đối không lưu dữ liệu seed/mock trong mã nguồn hệ thống
- */
 export const MOCK_MEMBERSHIP_TEST_PAYMENTS: PaymentDisplayRow[] = [];

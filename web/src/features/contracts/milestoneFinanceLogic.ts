@@ -79,14 +79,14 @@ export function calculateEscrowBreakdown(
         break;
 
       case 'RELEASED': {
-        // Released: Split into platform fee and narrator net payout
+        // Released: Split into platform fee and creator net payout
         const fee = m.platformFee != null ? Number(m.platformFee) : 0;
         const net = m.netAmount != null ? Number(m.netAmount) : Math.max(0, amount - fee);
         totalReleasedNet += net;
         totalPlatformFee += fee;
 
         // Reconcile dispute SPLIT partial releases:
-        // When a dispute is settled via SPLIT, the remaining portion was refunded to the Creator.
+        // When a dispute is settled via SPLIT, the remaining portion was refunded to the Requester.
         const splitRefund = Math.max(0, amount - (net + fee));
         if (splitRefund > 0) {
           totalRefunded += splitRefund;
@@ -96,7 +96,7 @@ export function calculateEscrowBreakdown(
       }
 
       case 'REFUNDED':
-        // Milestone escrow has been refunded to creator
+        // Milestone escrow has been refunded to requester
         totalRefunded += amount;
         break;
 
@@ -158,31 +158,31 @@ export function formatMilestoneWorkStatus(status?: string | null): StatusPresent
       return {
         label: 'Chờ ký quỹ',
         variant: 'pending',
-        description: 'Creator chưa nạp tiền bảo chứng vào Escrow',
+        description: 'Khách đặt nội dung chưa nạp tiền bảo chứng vào Ký quỹ',
       };
     case 'IN_PROGRESS':
       return {
         label: 'Đang thực hiện',
         variant: 'processing',
-        description: 'Thuyết minh viên đang ghi âm sản phẩm',
+        description: 'Nhà sáng tạo đang sản xuất nội dung theo yêu cầu',
       };
     case 'SUBMITTED':
       return {
         label: 'Đã nộp bài',
         variant: 'accent',
-        description: 'Đã gửi bản thu, chờ Creator nghiệm thu',
+        description: 'Nhà sáng tạo đã nộp sản phẩm, chờ Khách đặt nội dung nghiệm thu',
       };
     case 'APPROVED':
       return {
         label: 'Đã nghiệm thu',
         variant: 'success',
-        description: 'Creator đã chấp thuận chất lượng âm thanh',
+        description: 'Khách đặt nội dung đã chấp thuận chất lượng sản phẩm',
       };
     case 'RELEASED':
       return {
         label: 'Đã hoàn tất',
         variant: 'success',
-        description: 'Cột mốc hoàn thành và đã thanh toán',
+        description: 'Cột mốc hoàn thành và đã giải ngân cho Nhà sáng tạo',
       };
     case 'CANCELLED':
       return {
@@ -219,7 +219,7 @@ export function formatMilestoneEscrowStatus(status?: string | null): StatusPrese
       return {
         label: 'Chưa ký quỹ',
         variant: 'outline',
-        description: 'Chưa có tiền bảo chứng trong Escrow',
+        description: 'Chưa có tiền bảo chứng trong Ký quỹ',
       };
     case 'HELD':
       return {
@@ -237,13 +237,13 @@ export function formatMilestoneEscrowStatus(status?: string | null): StatusPrese
       return {
         label: 'Đã giải ngân (Released)',
         variant: 'success',
-        description: 'Đã chuyển tiền vào ví Thuyết minh viên sau khi trừ phí sàn',
+        description: 'Đã chuyển tiền vào ví Nhà sáng tạo sau khi trừ phí sàn',
       };
     case 'REFUNDED':
       return {
         label: 'Đã hoàn trả (Refunded)',
         variant: 'pending',
-        description: 'Tiền đã được hoàn lại vào ví Creator',
+        description: 'Tiền đã được hoàn trả về ví Khách đặt nội dung',
       };
     default:
       return {
@@ -286,10 +286,9 @@ export function formatVNDOrFallback(amount?: number | null): string {
 }
 
 /**
- * Calculates Creator refund portion from a milestone that was partially released via SPLIT dispute resolution.
+ * Calculates Requester refund portion from a milestone that was partially released via SPLIT dispute resolution.
  * If the milestone escrowStatus is RELEASED and the sum of netAmount and platformFee is less than gross amount,
- * the remaining difference was refunded to the Creator.
- * Strictly prevents confusing a SPLIT partial release with a full 100% payment to Freelancer.
+ * the remaining difference was refunded to the Requester.
  */
 export function getMilestoneSplitRefund(milestone?: MilestoneItem | null): number {
   if (!milestone) return 0;
@@ -314,7 +313,7 @@ export interface AutoReleaseIndicator {
 
 /**
  * Checks whether a milestone is in the 3-day hold period waiting for automatic escrow release.
- * Backend business rule: When Creator approves work, status = 'APPROVED', escrowStatus remains 'HELD',
+ * Backend business rule: When Requester approves work, status = 'APPROVED', escrowStatus remains 'HELD',
  * and releaseAt is scheduled (e.g. approvedAt + 3 days).
  */
 export function getAutoReleaseIndicator(

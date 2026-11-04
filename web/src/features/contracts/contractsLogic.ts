@@ -196,39 +196,82 @@ export function splitDateTime(isoString?: string | null): { dateStr: string; tim
   }
 }
 
+export interface UserLookupBasic {
+  id: number;
+  fullName?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+}
+
 /**
- * Transforms raw ContractItem into an AdminContractRow
+ * Transforms raw ContractItem into an AdminContractRow using real user lookup when available (Zero Fake Data)
  */
-export function buildAdminContractRow(contract: ContractItem): AdminContractRow {
+export function buildAdminContractRow(
+  contract: ContractItem,
+  userMap?: Map<number, UserLookupBasic>
+): AdminContractRow {
   const normStatus = normalizeContractStatus(contract.status);
   const statusConfig = getContractStatusBadgeConfig(normStatus);
 
   const title =
     contract.title ||
     contract.postTitle ||
-    `Hợp đồng sản xuất âm thanh #${contract.id}`;
+    `Hợp đồng sản xuất nội dung #${contract.id}`;
 
   const channelOrSeries =
     contract.channelName ||
-    'Dai Viet Su Ky Podcast';
+    'Kênh Sử Ký';
 
-  // In PRM contract model: freelancer/requester acts as the voice narrator or customer
+  const requesterId = contract.requesterId || contract.freelancerId;
+  const matchedRequester = requesterId && userMap ? userMap.get(requesterId) : undefined;
+
+  const realRequesterEmail =
+    contract.requesterEmail?.trim() ||
+    matchedRequester?.email?.trim() ||
+    '';
+
+  const rawRequesterName =
+    contract.requesterFullName?.trim() ||
+    contract.freelancerFullName?.trim() ||
+    matchedRequester?.fullName?.trim() ||
+    '';
+
+  // Customer / Requester: use real fullName, or derive from real email if user left fullName blank
   const narratorName =
-    contract.freelancerFullName ||
-    contract.requesterFullName ||
-    'Nghệ sĩ Thuyết minh';
+    rawRequesterName && rawRequesterName !== 'Khách đặt nội dung'
+      ? rawRequesterName
+      : realRequesterEmail
+      ? realRequesterEmail.split('@')[0]
+      : rawRequesterName || (requesterId ? `Người dùng #${requesterId}` : 'Khách đặt nội dung');
 
   const narratorEmail =
-    contract.requesterEmail ||
-    `narrator.${contract.freelancerId || contract.requesterId || contract.id}@example.com`;
+    realRequesterEmail ||
+    (requesterId ? `ID người dùng: #${requesterId}` : 'Chưa cập nhật email');
 
   const narratorAvatarUrl =
-    contract.freelancerAvatarUrl || contract.requesterAvatarUrl;
+    contract.requesterAvatarUrl ||
+    contract.freelancerAvatarUrl ||
+    matchedRequester?.avatarUrl ||
+    undefined;
 
   const narratorInitials = extractInitials(narratorName);
 
-  const creatorName = contract.creatorFullName || 'Sử Ký Studio';
-  const creatorEmail = contract.creatorEmail || 'creator@suky.vn';
+  const creatorId = contract.creatorId;
+  const matchedCreator = creatorId && userMap ? userMap.get(creatorId) : undefined;
+
+  const realCreatorEmail =
+    contract.creatorEmail?.trim() ||
+    matchedCreator?.email?.trim() ||
+    '';
+
+  const creatorName =
+    contract.creatorFullName?.trim() ||
+    matchedCreator?.fullName?.trim() ||
+    (realCreatorEmail ? realCreatorEmail.split('@')[0] : 'Nhà sáng tạo');
+
+  const creatorEmail =
+    realCreatorEmail ||
+    (creatorId ? `ID Creator: #${creatorId}` : 'Chưa cập nhật email');
 
   // Signed date: creatorSignedAt or acceptedAt or createdAt
   const signedDate =
@@ -290,9 +333,12 @@ export function buildAdminContractRow(contract: ContractItem): AdminContractRow 
 /**
  * Transforms an array of ContractItems into AdminContractRow array
  */
-export function buildAdminContractRows(contracts: ContractItem[]): AdminContractRow[] {
+export function buildAdminContractRows(
+  contracts: ContractItem[],
+  userMap?: Map<number, UserLookupBasic>
+): AdminContractRow[] {
   if (!contracts || !Array.isArray(contracts)) return [];
-  return contracts.map(buildAdminContractRow);
+  return contracts.map((c) => buildAdminContractRow(c, userMap));
 }
 
 /**
@@ -322,7 +368,6 @@ export function calculateContractKPIs(rows: AdminContractRow[]): ContractKPIs {
     }
   }
 
-  // In live data with no previous comparison, trends are 0 unless calculated
   return {
     totalCount,
     activeCount,
@@ -428,7 +473,7 @@ export function filterAdminContractRows(
       return false;
     }
 
-    // 3. Narrator dropdown filter
+    // 3. Customer dropdown filter
     if (narratorFilter !== 'all') {
       const rowNarratorNorm = normalizeVietnamese(row.narratorName);
       const targetNarratorNorm = normalizeVietnamese(narratorFilter);
@@ -482,8 +527,8 @@ export function exportContractsToCSV(rows: AdminContractRow[]): string {
     'Mã hợp đồng',
     'Tác phẩm',
     'Kênh / Danh mục',
-    'Thuyết minh viên',
-    'Email thuyết minh',
+    'Khách đặt nội dung',
+    'Email khách hàng',
     'Nhà sáng tạo',
     'Ngày ký',
     'Giờ ký',
@@ -598,16 +643,11 @@ function buildSampleMilestones(
 
 /**
  * Dynamic Mockup-Aligned Test Data Generator (Smart Sample Fallback)
- * Strictly adheres to AGENTS.md rule #6:
- * - Uses dynamic relative timestamps: Date.now() - X * 86400000
- * - Matches the 8 rows in mockup "Hợp đồng thu âm.png" exactly
- * - Generates exact proportional totals (128 total, 28 active, 86 completed, 14 cancelled)
  */
 export function generateMockupSampleContracts(): AdminContractRow[] {
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
 
-  // The 8 prominent showcase contracts visible in the mockup screenshot:
   const showcaseData: Array<{
     id: number;
     title: string;
@@ -711,7 +751,6 @@ export function generateMockupSampleContracts(): AdminContractRow[] {
 
   const rows: AdminContractRow[] = [];
 
-  // 1. Build the 8 showcase rows first
   for (const s of showcaseData) {
     const timestamp = new Date(now - s.daysAgo * DAY - s.hoursAgo * 3600 * 1000).toISOString();
     const { dateStr, timeStr } = splitDateTime(timestamp);
@@ -744,10 +783,10 @@ export function generateMockupSampleContracts(): AdminContractRow[] {
       completedMilestonesCount: s.status === 'COMPLETED' ? 2 : s.status === 'ACTIVE' ? 1 : 0,
       deadline: new Date(now + 10 * DAY).toISOString(),
       deadlineFormatted: splitDateTime(new Date(now + 10 * DAY).toISOString()).dateStr,
-      termsText: `Điều khoản thỏa thuận sản xuất âm thanh:
-1. Thuyết minh viên cam kết thu âm bằng giọng thật, không dùng AI sao chép trái phép.
+      termsText: `Điều khoản thỏa thuận sản xuất nội dung:
+1. Nhà sáng tạo cam kết sản xuất bằng giọng thật, không dùng AI sao chép trái phép.
 2. Bản thu đảm bảo độ trong trẻo, không lẫn tạp âm môi trường và đạt chuẩn phòng thu (Studio Master).
-3. Nhà sáng tạo thanh toán và giải ngân qua cơ chế ký quỹ Escrow bảo chứng an toàn 100%.`,
+3. Khách đặt nội dung nạp tiền bảo chứng và giải ngân qua cơ chế ký quỹ Escrow an toàn 100%.`,
       rawContract: {
         id: s.id,
         title: s.title,
@@ -766,9 +805,6 @@ export function generateMockupSampleContracts(): AdminContractRow[] {
     });
   }
 
-  // 2. Synthesize remaining items to match the exact mockup totals:
-  // Total: 128 (Showcase has 3 active, 3 completed, 1 pending, 1 cancelled = 8 items)
-  // Needed: 25 more ACTIVE (total 28), 83 more COMPLETED (total 86), 12 more CANCELLED (total 13 + 1 = 14) -> total 128!
   const additionalTargets: Array<{ count: number; status: NormalizedContractStatus }> = [
     { count: 25, status: 'ACTIVE' },
     { count: 83, status: 'COMPLETED' },
@@ -805,7 +841,6 @@ export function generateMockupSampleContracts(): AdminContractRow[] {
       const id = currentId--;
       const topic = historicalTopics[i % historicalTopics.length];
       const narrator = sampleNarrators[i % sampleNarrators.length];
-      // Dynamic relative dates spanning from 8 to 60 days ago
       const daysAgo = 8 + Math.floor((i / group.count) * 52);
       const hoursAgo = (i * 3) % 24;
       const timestamp = new Date(now - daysAgo * DAY - hoursAgo * 3600 * 1000).toISOString();

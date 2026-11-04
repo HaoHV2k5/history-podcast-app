@@ -36,16 +36,24 @@ export const DeliverableMediaModal: React.FC<DeliverableMediaModalProps> = ({
 
   useEffect(() => {
     if (!deliverable || !isOpen) {
-      if (blobUrl) {
+      if (blobUrl && blobUrl.startsWith('blob:')) {
         URL.revokeObjectURL(blobUrl);
-        setBlobUrl(null);
       }
+      setBlobUrl(null);
       return;
     }
 
     let isMounted = true;
     setLoading(true);
     setError(null);
+
+    const directUrl = deliverable.previewUrl || deliverable.downloadUrl;
+    if (deliverable.id <= 0 && directUrl) {
+      setBlobUrl(directUrl);
+      setMimeType(deliverable.contentType || '');
+      setLoading(false);
+      return;
+    }
 
     deliverablesApi
       .getDeliverableBlobUrl(deliverable.id, deliverable.fileName)
@@ -58,6 +66,12 @@ export const DeliverableMediaModal: React.FC<DeliverableMediaModalProps> = ({
       })
       .catch((err) => {
         if (isMounted) {
+          if (directUrl && directUrl.startsWith('http')) {
+            setBlobUrl(directUrl);
+            setMimeType(deliverable.contentType || '');
+            setLoading(false);
+            return;
+          }
           setError(
             err.response?.data?.message || err.message || 'Không thể tải bản xem trước file sản phẩm'
           );
@@ -67,14 +81,19 @@ export const DeliverableMediaModal: React.FC<DeliverableMediaModalProps> = ({
 
     return () => {
       isMounted = false;
-      if (blobUrl) {
+      if (blobUrl && blobUrl.startsWith('blob:')) {
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [deliverable?.id, isOpen]);
+  }, [deliverable?.id, deliverable?.previewUrl, isOpen]);
 
   const handleDownload = async () => {
     if (!deliverable) return;
+    const directUrl = deliverable.downloadUrl || deliverable.previewUrl;
+    if (deliverable.id <= 0 && directUrl) {
+      window.open(directUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     try {
       setDownloading(true);
       await deliverablesApi.downloadDeliverableFile(deliverable.id, deliverable.fileName);
@@ -229,4 +248,3 @@ export const DeliverableMediaModal: React.FC<DeliverableMediaModalProps> = ({
     </Dialog>
   );
 };
-

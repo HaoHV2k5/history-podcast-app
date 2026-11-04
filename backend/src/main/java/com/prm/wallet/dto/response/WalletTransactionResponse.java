@@ -12,6 +12,10 @@ import java.time.Instant;
 public class WalletTransactionResponse {
     private Long id;
     private Long walletId;
+    private Long userId;
+    private String userFullName;
+    private String userEmail;
+    private String userAvatarUrl;
     private String type;
     private BigDecimal amount;
     private String relatedType;

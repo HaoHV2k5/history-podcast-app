@@ -19,6 +19,10 @@ public interface WalletTransactionMapper {
     WalletTransaction toEntity(WalletTransactionRequest request);
 
     @Mapping(source = "wallet.id", target = "walletId")
+    @Mapping(source = "wallet.user.id", target = "userId")
+    @Mapping(source = "wallet.user.fullName", target = "userFullName")
+    @Mapping(source = "wallet.user.email", target = "userEmail")
+    @Mapping(source = "wallet.user.avatarUrl", target = "userAvatarUrl")
     WalletTransactionResponse toResponse(WalletTransaction entity);
 
     @Mapping(target = "id", ignore = true)

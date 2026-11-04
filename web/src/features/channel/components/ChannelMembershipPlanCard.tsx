@@ -12,6 +12,11 @@ import {
   Wallet,
 } from 'lucide-react';
 import { MembershipPlanItem, MembershipPlanRequest } from '@/types/membership';
+import {
+  SYSTEM_CORE_PERKS,
+  SYSTEM_PERKS_UPDATED_EVENT,
+  getSystemMembershipPerks,
+} from '@/features/membership/membershipLogic';
 import { formatVND } from '@/utils/formatters';
 import { cn } from '@/utils/cn';
 
@@ -22,11 +27,7 @@ interface ChannelMembershipPlanCardProps {
   className?: string;
 }
 
-export const SYSTEM_DEFAULT_PERKS = [
-  'Nghe sớm các tập Podcast Hội viên (Early Access)',
-  'Xem toàn bộ kho nội dung độc quyền (Members-Only)',
-  'Huy hiệu Hội viên VIP nổi bật trong phòng Livestream & Bình luận',
-];
+export const SYSTEM_DEFAULT_PERKS = [...SYSTEM_CORE_PERKS];
 
 export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps> = ({
   currentPlan,
@@ -40,6 +41,20 @@ export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps>
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [systemPerks, setSystemPerks] = useState<string[]>(() => getSystemMembershipPerks());
+
+  // Sync with global system perks updated by Admin
+  useEffect(() => {
+    const syncPerks = () => {
+      setSystemPerks(getSystemMembershipPerks());
+    };
+    window.addEventListener(SYSTEM_PERKS_UPDATED_EVENT, syncPerks);
+    window.addEventListener('storage', syncPerks);
+    return () => {
+      window.removeEventListener(SYSTEM_PERKS_UPDATED_EVENT, syncPerks);
+      window.removeEventListener('storage', syncPerks);
+    };
+  }, []);
 
   // Sync with currentPlan when data loads
   useEffect(() => {
@@ -80,7 +95,7 @@ export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps>
       name: name.trim(),
       description: description.trim() || undefined,
       monthlyPrice: price,
-      perks: SYSTEM_DEFAULT_PERKS,
+      perks: systemPerks,
       status,
     });
     setIsEditing(false);
@@ -134,7 +149,7 @@ export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps>
             )}
           </div>
           <p className="text-xs sm:text-[13px] text-[#786D66] leading-relaxed">
-            Thiết lập mức phí hàng tháng cho cộng đồng thính giả VIP. 3 đặc quyền cốt lõi được hệ thống tự động mở khóa và kiểm soát.
+            Thiết lập mức phí hàng tháng cho cộng đồng thính giả VIP. Các đặc quyền hội viên được hệ thống đồng bộ và kiểm soát tự động.
           </p>
         </div>
 
@@ -186,12 +201,12 @@ export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps>
                 </p>
               </div>
 
-              {/* Locked 3 System Perks */}
+              {/* Locked System Perks */}
               <div className="space-y-2 pt-3 border-t border-[#EBE4D8]">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-xs font-semibold text-[#1F1A19] flex items-center gap-1.5">
                     <ShieldCheck className="h-3.5 w-3.5 text-[#A31D24]" />
-                    <span>3 Đặc quyền hội viên được hệ thống bảo chứng</span>
+                    <span>{systemPerks.length} Đặc quyền hội viên được hệ thống bảo chứng</span>
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-md bg-white border border-[#E5E0D8] px-2 py-0.5 text-[10px] font-semibold text-[#786D66]">
                     <Lock className="h-2.5 w-2.5 text-[#A31D24]" />
@@ -200,7 +215,7 @@ export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps>
                 </div>
 
                 <div className="space-y-1.5 pt-0.5">
-                  {SYSTEM_DEFAULT_PERKS.map((perk, idx) => (
+                  {systemPerks.map((perk, idx) => (
                     <div
                       key={idx}
                       className="flex items-center gap-2.5 rounded-xl bg-white border border-[#EBE4D8] px-3 py-2 text-xs text-[#1F1A19] font-medium"
@@ -343,15 +358,15 @@ export const ChannelMembershipPlanCard: React.FC<ChannelMembershipPlanCardProps>
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <span className="text-xs font-semibold text-[#1F1A19] flex items-center gap-1.5">
                   <Lock className="h-3.5 w-3.5 text-[#A31D24]" />
-                  <span>3 Đặc quyền chuẩn của Hệ thống (Cố định — Không chỉnh sửa)</span>
+                  <span>{systemPerks.length} Đặc quyền chuẩn của Hệ thống (Cố định — Không chỉnh sửa)</span>
                 </span>
                 <span className="text-[11px] text-[#786D66]">
-                  Tự động kiểm soát quyền truy cập bởi Backend
+                  Tự động kiểm soát quyền truy cập bởi Hệ thống
                 </span>
               </div>
 
               <div className="grid grid-cols-1 gap-2 pt-1">
-                {SYSTEM_DEFAULT_PERKS.map((perk, index) => (
+                {systemPerks.map((perk, index) => (
                   <div
                     key={index}
                     className="flex items-center gap-2.5 rounded-lg bg-white border border-[#E5E0D8] px-3 py-2 text-xs text-[#38302E] font-medium"

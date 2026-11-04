@@ -1,13 +1,17 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import gsap from 'gsap';
 import { contractsApi } from '@/services/api/contracts';
+import { usersApi } from '@/services/api/users';
 import {
   AdminContractRow,
+  UserLookupBasic,
   buildAdminContractRows,
   calculateContractKPIs,
   filterAdminContractRows,
   exportContractsToCSV,
+  formatContractCode,
 } from './contractsLogic';
 import { AdminContractsHeroBanner } from './components/AdminContractsHeroBanner';
 import { AdminContractsStatCards } from './components/AdminContractsStatCards';
@@ -18,6 +22,17 @@ import { AdminContractDetailModal } from './components/AdminContractDetailModal'
 import { AlertCircle, RotateCw } from 'lucide-react';
 
 export const ContractsListPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawUrlSearch = searchParams.get('search') || '';
+  const initialSearch = useMemo(() => {
+    if (!rawUrlSearch) return '';
+    // Convert plain numeric contract ID (e.g. "3") from Dispute link to "HD00003" if appropriate
+    if (/^\d+$/.test(rawUrlSearch.trim())) {
+      return formatContractCode(rawUrlSearch.trim());
+    }
+    return rawUrlSearch.trim();
+  }, [rawUrlSearch]);
+
   // GSAP animation refs
   const pageContainerRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -27,13 +42,27 @@ export const ContractsListPage: React.FC = () => {
   const tableRef = useRef<HTMLDivElement>(null);
 
   // Search & Filter states
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [statusTab, setStatusTab] = useState('ALL');
   const [statusDropdown, setStatusDropdown] = useState('ALL');
   const [narratorFilter, setNarratorFilter] = useState('all');
   const [dateRangePreset, setDateRangePreset] = useState('all');
   const [customDateStart, setCustomDateStart] = useState<string | undefined>(undefined);
   const [customDateEnd, setCustomDateEnd] = useState<string | undefined>(undefined);
+
+  // Sync URL search param if changed externally
+  useEffect(() => {
+    setSearchQuery(initialSearch);
+  }, [initialSearch]);
+
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val);
+    if (val.trim()) {
+      setSearchParams({ search: val.trim() }, { replace: true });
+    } else {
+      setSearchParams({}, { replace: true });
+    }
+  };
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(0);
@@ -56,6 +85,38 @@ export const ContractsListPage: React.FC = () => {
     queryFn: () => contractsApi.getAllContracts(undefined, { page: 0, size: 100 }),
   });
 
+  // 1b. Fetch live users directory to enrich contracts with 100% real user emails & fullNames
+  const { data: usersResponse } = useQuery({
+    queryKey: ['admin-users-lookup'],
+    queryFn: () => usersApi.searchUsers({ page: 0, size: 200 }),
+    staleTime: 60 * 1000,
+  });
+
+  const userMap = useMemo(() => {
+    const map = new Map<number, UserLookupBasic>();
+    const rawU = usersResponse?.data;
+    const list = !rawU
+      ? []
+      : Array.isArray(rawU)
+      ? rawU
+      : 'content' in rawU && Array.isArray((rawU as any).content)
+      ? (rawU as any).content
+      : 'items' in rawU && Array.isArray((rawU as any).items)
+      ? (rawU as any).items
+      : [];
+    for (const u of list) {
+      if (u && typeof u.id === 'number') {
+        map.set(u.id, {
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+        });
+      }
+    }
+    return map;
+  }, [usersResponse]);
+
   // Extract raw contracts safely
   const rawApiData = contractsResponse?.data;
   const realContracts = useMemo(() => {
@@ -65,17 +126,17 @@ export const ContractsListPage: React.FC = () => {
     return [];
   }, [rawApiData]);
 
-  // 2. Build rows strictly from real backend data (100% Zero Fake Data)
+  // 2. Build rows strictly from real backend data + real user emails (100% Zero Fake Data)
   const allRows: AdminContractRow[] = useMemo(() => {
-    return buildAdminContractRows(realContracts);
-  }, [realContracts]);
+    return buildAdminContractRows(realContracts, userMap);
+  }, [realContracts, userMap]);
 
   // Calculate live KPIs strictly from real contracts
   const kpis = useMemo(() => {
     return calculateContractKPIs(allRows);
   }, [allRows]);
 
-  // Extract distinct narrators for the dropdown filter
+  // Extract distinct customers for the dropdown filter
   const availableNarrators = useMemo(() => {
     const set = new Set<string>();
     for (const r of allRows) {
@@ -155,7 +216,7 @@ export const ContractsListPage: React.FC = () => {
     link.href = url;
     link.setAttribute(
       'download',
-      `hop-dong-thu-am-su-ky-${new Date().toISOString().slice(0, 10)}.csv`
+      `hop-dong-san-xuat-su-ky-${new Date().toISOString().slice(0, 10)}.csv`
     );
     document.body.appendChild(link);
     link.click();
@@ -165,17 +226,17 @@ export const ContractsListPage: React.FC = () => {
 
   return (
     <div ref={pageContainerRef} className="space-y-5 pb-12 font-sans">
-      {/* 1. Header / Hero Banner 3-Layers matching mockup */}
+      {/* 1. Header / Hero Banner */}
       <div ref={heroRef}>
         <AdminContractsHeroBanner />
       </div>
 
-      {/* 2. Stat Cards (Horizontal Squircle Layout) */}
+      {/* 2. Stat Cards */}
       <div ref={statsRef}>
         <AdminContractsStatCards kpis={kpis} />
       </div>
 
-      {/* 3. Status Tabs (Tất cả, Đang thực hiện, Đã hoàn thành, Đã hủy) */}
+      {/* 3. Status Tabs */}
       <div ref={tabsRef}>
         <AdminContractsStatusTabs
           activeTab={statusTab}
@@ -184,11 +245,11 @@ export const ContractsListPage: React.FC = () => {
         />
       </div>
 
-      {/* 4. Filter Toolbar with Search, Status, Narrator, Date Range Popover & Refresh */}
+      {/* 4. Filter Toolbar */}
       <div ref={toolbarRef}>
         <AdminContractsFilterToolbar
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={handleSearchChange}
           statusFilter={statusDropdown}
           onStatusFilterChange={setStatusDropdown}
           narratorFilter={narratorFilter}
@@ -226,7 +287,7 @@ export const ContractsListPage: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Contracts Data Table (100% Fit, Anti-Orphan, 1 Single Row Status & Action) */}
+      {/* 5. Contracts Data Table */}
       <div ref={tableRef}>
         <AdminContractsTable
           rows={paginatedRows}
@@ -242,7 +303,7 @@ export const ContractsListPage: React.FC = () => {
 
       {/* 6. Contract Detail & Milestone Modal */}
       <AdminContractDetailModal
-        contract={selectedContract}
+        contract={allRows.find((r) => r.id === selectedContract?.id) || selectedContract}
         initialTab={initialDetailTab}
         open={detailModalOpen}
         onOpenChange={setDetailModalOpen}
@@ -250,3 +311,5 @@ export const ContractsListPage: React.FC = () => {
     </div>
   );
 };
+
+export default ContractsListPage;

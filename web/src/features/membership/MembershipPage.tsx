@@ -13,6 +13,9 @@ import {
   determinePlanName,
   determinePaymentMethod,
   DEFAULT_PLATFORM_TIERS,
+  SYSTEM_PERKS_UPDATED_EVENT,
+  getSystemMembershipPerks,
+  saveCustomSystemPerks,
   MembershipTierConfig,
   PaymentDisplayRow,
   calculateDateRangeBounds,
@@ -36,18 +39,33 @@ export const MembershipPage: React.FC = () => {
   const tiersRef = useRef<HTMLDivElement>(null);
   const hasAnimatedRef = useRef(false);
 
-  // Filter & Pagination States
+  // Filter & Pagination States (Default dateRangePreset = 'all' so all transactions are shown immediately)
   const [activeTab, setActiveTab] = useState<'tiers' | 'history'>('tiers');
   const [searchQuery, setSearchQuery] = useState('');
   const [planFilter, setPlanFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateRangePreset, setDateRangePreset] = useState('30days');
+  const [dateRangePreset, setDateRangePreset] = useState('all');
   const [customDateStart, setCustomDateStart] = useState<string | undefined>();
   const [customDateEnd, setCustomDateEnd] = useState<string | undefined>();
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(5);
 
-  // Fetch Live Channels to inspect and link real membership plans
+  // System-wide Membership Perks State (Shared between Admin & Creator)
+  const [systemPerks, setSystemPerks] = useState<string[]>(() => getSystemMembershipPerks());
+
+  useEffect(() => {
+    const syncPerks = () => {
+      setSystemPerks(getSystemMembershipPerks());
+    };
+    window.addEventListener(SYSTEM_PERKS_UPDATED_EVENT, syncPerks);
+    window.addEventListener('storage', syncPerks);
+    return () => {
+      window.removeEventListener(SYSTEM_PERKS_UPDATED_EVENT, syncPerks);
+      window.removeEventListener('storage', syncPerks);
+    };
+  }, []);
+
+  // Fetch Live Channels to inspect real membership plans configured by Creators
   const { data: channelsData } = useQuery({
     queryKey: ['admin-membership-channels'],
     queryFn: () => channelsApi.getAllChannels(0, 50),
@@ -59,8 +77,8 @@ export const MembershipPage: React.FC = () => {
     [channelsData]
   );
 
-  // Fetch real membership plans from active channels
-  const { data: remotePlans, refetch: refetchPlans } = useQuery({
+  // Fetch real membership plans from active channels (Read-only monitoring)
+  const { data: remotePlans } = useQuery({
     queryKey: ['admin-channel-plans', channelsList.map((c) => c.id).join(',')],
     queryFn: async () => {
       const results: MembershipTierConfig[] = [];
@@ -70,7 +88,9 @@ export const MembershipPage: React.FC = () => {
           if (res?.data && res.data.status === 'ACTIVE') {
             results.push({
               id: String(res.data.id),
-              badge: res.data.name,
+              channelId: ch.id,
+              channelName: ch.name,
+              badge: ch.name || res.data.name,
               badgeType: 'popular',
               title: res.data.name,
               price: res.data.monthlyPrice,
@@ -89,19 +109,16 @@ export const MembershipPage: React.FC = () => {
     enabled: channelsList.length > 0,
   });
 
-  // Platform Tiers State (Live Backend plans prioritized, custom tiers fallback)
-  const [customTiers, setCustomTiers] = useState<MembershipTierConfig[]>(DEFAULT_PLATFORM_TIERS);
   const tiers = useMemo(() => {
     if (remotePlans && remotePlans.length > 0) {
       return remotePlans;
     }
-    return customTiers;
-  }, [remotePlans, customTiers]);
+    return DEFAULT_PLATFORM_TIERS;
+  }, [remotePlans]);
 
   // Modal States
   const [selectedPayment, setSelectedPayment] = useState<PaymentDisplayRow | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [editingTier, setEditingTier] = useState<MembershipTierConfig | null>(null);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
   // Feedback Notification
@@ -118,35 +135,57 @@ export const MembershipPage: React.FC = () => {
     queryFn: () => membershipApi.getAllPayments(),
   });
 
-  // Fetch Live Users to join user profile information
+  // Fetch Live Users to join real user profile information by viewerId
   const { data: usersData } = useQuery({
-    queryKey: ['admin-membership-users'],
-    queryFn: () => usersApi.searchUsers({ page: 0, size: 50 }),
+    queryKey: ['admin-users-lookup'],
+    queryFn: () => usersApi.searchUsers({ page: 0, size: 200 }),
     staleTime: 60000,
   });
 
   const rawPayments = useMemo(() => paymentsData?.data || [], [paymentsData]);
-  const userList = useMemo(() => usersData?.data?.content || [], [usersData]);
+  const userMap = useMemo(() => {
+    const map = new Map<number, { id: number; fullName?: string; email?: string; avatarUrl?: string }>();
+    const rawU = usersData?.data;
+    const list = !rawU
+      ? []
+      : Array.isArray(rawU)
+      ? rawU
+      : 'content' in rawU && Array.isArray((rawU as any).content)
+      ? (rawU as any).content
+      : 'items' in rawU && Array.isArray((rawU as any).items)
+      ? (rawU as any).items
+      : [];
+    for (const u of list) {
+      if (u && typeof u.id === 'number') {
+        map.set(u.id, u);
+      }
+    }
+    return map;
+  }, [usersData]);
 
   // Date bounds calculation
   const dateBounds = useMemo(() => {
     return calculateDateRangeBounds(dateRangePreset, customDateStart, customDateEnd);
   }, [dateRangePreset, customDateStart, customDateEnd]);
 
-  // Map raw payments with user profile information into display rows (100% Zero Fake Data)
+  // Map raw payments with authentic user profile information into display rows (Zero Fake Data)
   const paymentRows: PaymentDisplayRow[] = useMemo(() => {
     if (!rawPayments || rawPayments.length === 0) {
       return [];
     }
     return rawPayments.map((p, idx) => {
-      // Find matching user if available
-      const matchedUser = userList[idx % (userList.length || 1)];
-      const userName = matchedUser?.fullName || `Hội viên #${p.membershipId}`;
-      const userEmail = matchedUser?.email || `viewer_${p.membershipId}@sucky.vn`;
-      const userAvatar = matchedUser?.avatarUrl;
+      const matchedUser = p.viewerId ? userMap.get(p.viewerId) : undefined;
+      const realEmail = p.viewerEmail?.trim() || matchedUser?.email?.trim() || '';
+      const userName =
+        p.viewerFullName?.trim() ||
+        matchedUser?.fullName?.trim() ||
+        (realEmail ? realEmail.split('@')[0] : `Hội viên #${p.membershipId}`);
+      const userEmail =
+        realEmail || `Mã đăng ký hội viên: #${p.membershipId}`;
+      const userAvatar = p.viewerAvatarUrl || matchedUser?.avatarUrl;
 
-      const planName = determinePlanName(p.amount);
-      const methodInfo = determinePaymentMethod(undefined, idx);
+      const planName = determinePlanName(p.amount, p.planName || p.channelName);
+      const methodInfo = determinePaymentMethod('WALLET', idx);
       const statusInfo = mapPaymentStatus(p.status);
 
       return {
@@ -167,7 +206,7 @@ export const MembershipPage: React.FC = () => {
         commissionAmount: Number(p.commissionAmount || p.amount * 0.1),
       };
     });
-  }, [rawPayments, userList]);
+  }, [rawPayments, userMap]);
 
   // Calculate live KPIs directly from backend data (100% Zero Fake Data)
   const kpis = useMemo(() => {
@@ -228,32 +267,13 @@ export const MembershipPage: React.FC = () => {
     setFeedbackMessage('Đã xuất thành công file danh sách giao dịch hội viên.');
   };
 
-  // Save Tier handler with real Backend API integration
-  const handleSaveTier = async (savedTier: MembershipTierConfig, channelId?: number) => {
-    const targetChannelId = channelId || (channelsList[0]?.id ?? 6);
-    try {
-      await membershipApi.upsertChannelPlan(targetChannelId, {
-        name: savedTier.title,
-        description: `Gói hội viên cho ${savedTier.title}`,
-        monthlyPrice: savedTier.price,
-        perks: savedTier.perks,
-        status: 'ACTIVE',
-      });
-      setFeedbackMessage(`Đã cập nhật gói hội viên thành công trên máy chủ Backend.`);
-      refetchPlans();
-    } catch (err: unknown) {
-      const errorObj = err as { response?: { data?: { message?: string } }; message?: string };
-      const msg = errorObj.response?.data?.message || errorObj.message || 'Lỗi kết nối máy chủ';
-      setFeedbackMessage(`Lưu ý máy chủ: ${msg}`);
-      // Đồng bộ vào bộ nhớ hiển thị UI để Admin có thể xem trực quan
-      setCustomTiers((prev) => {
-        const exists = prev.some((t) => t.id === savedTier.id);
-        if (exists) {
-          return prev.map((t) => (t.id === savedTier.id ? savedTier : t));
-        }
-        return [...prev, savedTier];
-      });
-    }
+  // Save System-Wide Perks handler (Synced immediately to Creator Channel page)
+  const handleSaveSystemPerks = (customPerks: string[]) => {
+    const updated = saveCustomSystemPerks(customPerks);
+    setSystemPerks(updated);
+    setFeedbackMessage(
+      `Đã cập nhật danh sách Đặc quyền Hội viên toàn hệ thống (${updated.length} quyền lợi). Đã đồng bộ sang giao diện Kênh của Creator!`
+    );
   };
 
   // Entrance GSAP animation sequence
@@ -320,12 +340,12 @@ export const MembershipPage: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Hero Banner matching mockup 100% */}
+      {/* 1. Hero Banner */}
       <div ref={heroRef}>
         <AdminMembershipHeroBanner />
       </div>
 
-      {/* 2. 4 Stat Cards matching mockup 100% */}
+      {/* 2. 4 Stat Cards */}
       <AdminMembershipStatCards kpis={kpis} containerRef={statsRef} />
 
       {/* Error alert if backend API fails */}
@@ -342,36 +362,24 @@ export const MembershipPage: React.FC = () => {
         </div>
       )}
 
-      {/* 3. Tabs & Actions Toolbar */}
+      {/* 3. Tabs & System Perks Configuration Toolbar */}
       <AdminMembershipTabsBar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        onOpenConfigModal={() => {
-          setEditingTier(tiers[0] || null);
-          setIsConfigModalOpen(true);
-        }}
-        onOpenCreatePlanModal={() => {
-          setEditingTier(null);
-          setIsConfigModalOpen(true);
-        }}
+        onOpenConfigModal={() => setIsConfigModalOpen(true)}
         containerRef={tabsRef}
       />
 
-      {/* 4. Membership Tier Cards (when on 'tiers' tab or displayed above table) */}
+      {/* 4. System Perks & Read-Only Channel Plans (when on 'tiers' tab) */}
       {activeTab === 'tiers' && (
         <AdminMembershipTierCards
           tiers={tiers}
-          onEditTier={(tier) => {
-            setEditingTier(tier);
-            setIsConfigModalOpen(true);
-          }}
+          systemPerks={systemPerks}
+          onEditTier={() => setIsConfigModalOpen(true)}
           onFilterByTier={(title) => {
             setPlanFilter(title);
+            setActiveTab('history');
             setPage(0);
-          }}
-          onOpenCreatePlanModal={() => {
-            setEditingTier(null);
-            setIsConfigModalOpen(true);
           }}
           containerRef={tiersRef}
         />
@@ -409,7 +417,7 @@ export const MembershipPage: React.FC = () => {
         isFiltered={isFiltered}
       />
 
-      {/* 6. Transactions Table matching mockup 100% */}
+      {/* 6. Transactions Table */}
       <AdminMembershipTransactionsTable
         items={paginatedRows}
         totalElements={totalElements}
@@ -438,16 +446,12 @@ export const MembershipPage: React.FC = () => {
         payment={selectedPayment}
       />
 
-      {/* 8. Plan Config / Create Modal */}
+      {/* 8. System-Wide Membership Perks Configuration Modal */}
       <AdminMembershipPlanConfigModal
         isOpen={isConfigModalOpen}
-        onClose={() => {
-          setIsConfigModalOpen(false);
-          setEditingTier(null);
-        }}
-        tier={editingTier}
-        channels={channelsList}
-        onSave={handleSaveTier}
+        onClose={() => setIsConfigModalOpen(false)}
+        systemPerks={systemPerks}
+        onSaveSystemPerks={handleSaveSystemPerks}
       />
     </div>
   );

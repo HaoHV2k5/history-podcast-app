@@ -58,7 +58,7 @@ export const TransactionsPage: React.FC = () => {
   // 2. Fetch Live Users to join user profile information
   const { data: usersResponse } = useQuery({
     queryKey: ['admin-transactions-users'],
-    queryFn: () => usersApi.searchUsers({ page: 0, size: 50 }),
+    queryFn: () => usersApi.searchUsers({ page: 0, size: 200 }),
     staleTime: 60000,
   });
 
