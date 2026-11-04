@@ -395,12 +395,12 @@ export const CreatorCommissionsPage: React.FC = () => {
             <FileText
               className={cn(
                 'h-4 w-4 transition-colors shrink-0',
-                activeTab === 'commissions' ? 'text-[#A31D24]' : 'text-stone-400'
+                activeTab === 'commissions' ? 'text-[#8B2635]' : 'text-stone-400'
               )}
             />
             <span>Yêu cầu đặt làm nội dung</span>
             {rawCommissions.filter((c) => c.status === 'PENDING').length > 0 ? (
-              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#A31D24] text-white">
+              <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#8B2635] text-white">
                 {rawCommissions.filter((c) => c.status === 'PENDING').length}
               </span>
             ) : (
@@ -408,7 +408,7 @@ export const CreatorCommissionsPage: React.FC = () => {
             )}
 
             {activeTab === 'commissions' && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#A31D24] rounded-full" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#8B2635] rounded-full" />
             )}
           </button>
 
@@ -428,14 +428,14 @@ export const CreatorCommissionsPage: React.FC = () => {
             <Layers
               className={cn(
                 'h-4 w-4 transition-colors shrink-0',
-                activeTab === 'contracts' ? 'text-[#A31D24]' : 'text-stone-400'
+                activeTab === 'contracts' ? 'text-[#8B2635]' : 'text-stone-400'
               )}
             />
             <span>Lộ trình Milestone &amp; Hợp đồng</span>
             <span className="text-xs text-stone-400 font-mono">({rawContracts.length})</span>
 
             {activeTab === 'contracts' && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#A31D24] rounded-full" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#8B2635] rounded-full" />
             )}
           </button>
 
@@ -455,7 +455,7 @@ export const CreatorCommissionsPage: React.FC = () => {
             <MessageSquare
               className={cn(
                 'h-4 w-4 transition-colors shrink-0',
-                activeTab === 'messages' ? 'text-[#A31D24]' : 'text-stone-400'
+                activeTab === 'messages' ? 'text-[#8B2635]' : 'text-stone-400'
               )}
             />
             <span>Tin nhắn khách hàng</span>
@@ -464,7 +464,7 @@ export const CreatorCommissionsPage: React.FC = () => {
             </span>
 
             {activeTab === 'messages' && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#A31D24] rounded-full" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#8B2635] rounded-full" />
             )}
           </button>
         </div>
@@ -536,7 +536,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Tìm theo tiêu đề, người đặt..."
-                  className="w-full h-8 pl-8 pr-3 text-xs rounded-xl border border-[#E5E0D8] bg-white text-[#1C1615] placeholder-stone-400 focus:border-[#A31D24] focus:ring-1 focus:ring-[#A31D24] outline-hidden transition-all shadow-2xs"
+                  className="w-full h-8 pl-8 pr-3 text-xs rounded-xl border border-[#E5E0D8] bg-white text-[#1C1615] placeholder-stone-400 focus:border-[#8B2635] focus:ring-1 focus:ring-[#8B2635] outline-hidden transition-all shadow-2xs"
                 />
               </div>
 
@@ -575,7 +575,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                         className={cn(
                           'w-full px-2.5 py-1.5 rounded-lg text-left transition-colors',
                           sortBy === opt.key
-                            ? 'bg-rose-50 text-[#A31D24] font-bold'
+                            ? 'bg-[#FBF2EE] text-[#8B2635] font-bold'
                             : 'text-stone-700 hover:bg-stone-50'
                         )}
                       >
@@ -594,7 +594,7 @@ export const CreatorCommissionsPage: React.FC = () => {
           <div className="space-y-3">
             {isCommissionsLoading ? (
               <div className="py-16 flex flex-col items-center justify-center gap-2 text-xs text-stone-400">
-                <RefreshCw className="h-6 w-6 animate-spin text-[#A31D24]" />
+                <RefreshCw className="h-6 w-6 animate-spin text-[#8B2635]" />
                 <span>Đang tải danh sách yêu cầu đặt làm nội dung...</span>
               </div>
             ) : paginatedCommissions.length === 0 ? (
@@ -612,7 +612,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setStatusFilter('ALL')}
-                    className="mt-1 text-xs font-semibold text-[#A31D24] hover:underline cursor-pointer"
+                    className="mt-1 text-xs font-semibold text-[#8B2635] hover:underline cursor-pointer"
                   >
                     Xem tất cả yêu cầu
                   </button>
@@ -643,7 +643,7 @@ export const CreatorCommissionsPage: React.FC = () => {
           <div className="space-y-3">
             {isContractsLoading ? (
               <div className="py-16 flex flex-col items-center justify-center gap-2 text-xs text-stone-400">
-                <RefreshCw className="h-6 w-6 animate-spin text-[#A31D24]" />
+                <RefreshCw className="h-6 w-6 animate-spin text-[#8B2635]" />
                 <span>Đang tải danh sách hợp đồng lộ trình...</span>
               </div>
             ) : paginatedContracts.length === 0 ? (
@@ -661,7 +661,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setStatusFilter('ALL')}
-                    className="mt-1 text-xs font-semibold text-[#A31D24] hover:underline cursor-pointer"
+                    className="mt-1 text-xs font-semibold text-[#8B2635] hover:underline cursor-pointer"
                   >
                     Xem tất cả hợp đồng
                   </button>
@@ -737,7 +737,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                     className={cn(
                       'h-8 w-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer',
                       currentPage === page
-                        ? 'bg-[#A31D24] text-white shadow-xs'
+                        ? 'bg-[#8B2635] text-white shadow-xs'
                         : 'border border-stone-200 bg-white text-stone-700 hover:bg-stone-50'
                     )}
                   >
@@ -785,7 +785,7 @@ export const CreatorCommissionsPage: React.FC = () => {
                         className={cn(
                           'w-full px-2.5 py-1.5 rounded-lg text-left transition-colors cursor-pointer',
                           pageSize === size
-                            ? 'bg-rose-50 text-[#A31D24] font-bold'
+                            ? 'bg-[#FBF2EE] text-[#8B2635] font-bold'
                             : 'text-stone-700 hover:bg-stone-50'
                         )}
                       >

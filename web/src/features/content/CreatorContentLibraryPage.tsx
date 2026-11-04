@@ -12,7 +12,6 @@ import {
   Play,
   Volume2,
   RotateCcw,
-  Sparkles,
   ShieldCheck,
   FileQuestion,
   ExternalLink,
@@ -20,7 +19,6 @@ import {
   ChevronDown,
   LayoutGrid,
   List,
-  FileText,
   MoreHorizontal,
   ThumbsUp,
   Layers,
@@ -32,6 +30,7 @@ import {
 import { creatorStudioApi } from '@/services/api/creatorStudio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { HeritageAtmosphereWatermark } from '@/components/common/HeritageAtmosphereWatermark';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
@@ -966,96 +965,98 @@ export const CreatorContentLibraryPage: React.FC = () => {
         </div>
       )}
 
-      {/* 1. Header Masthead with Historical Panorama & Floating Stats Card */}
+      {/* 1. Header Masthead — Bespoke Editorial Atelier Canvas */}
       <div
         ref={heroRef}
-        className="relative overflow-hidden rounded-2xl p-6 sm:p-7 md:p-8 min-h-[160px] flex flex-col justify-center"
+        className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[#E7E2D9] bg-[#FAF8F5] p-6 sm:p-7 md:p-8 shadow-xs min-h-[175px] flex flex-col justify-center"
       >
-        {/* Historical Panorama Background - Subtle Watermark Blend */}
-        <div
-          className="absolute inset-0 bg-cover bg-right pointer-events-none opacity-85 mix-blend-multiply"
-          style={{
-            backgroundImage: `url('/assets/studio/header-landscape-warm-v2.png')`,
-          }}
-          aria-hidden="true"
-        />
-
-        {/* Soft Left Protective Gradient for Title and Subtitle Legibility */}
-        <div
-          className="absolute inset-y-0 left-0 w-3/4 sm:w-2/3 bg-gradient-to-r from-[#FAF9F6] via-[#FAF9F6]/95 via-50% to-transparent pointer-events-none"
-          aria-hidden="true"
+        {/* Authentic Vietnamese Heritage Vector Watermark & Atmospheric Glow */}
+        <HeritageAtmosphereWatermark
+          tag="✦ KHO TÁC PHẨM · THỐNG KÊ LƯU TRỮ"
+          variant="library"
         />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-          {/* Left Masthead Titles */}
-          <div className="space-y-1.5 max-w-2xl">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#A22A2A]">
-              <Video className="h-4 w-4 text-[#A22A2A]" />
+          {/* Left Column: Masthead Titles */}
+          <div className="space-y-2 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFEAE2] border border-[#E2DDD5] text-[11px] font-semibold uppercase tracking-wider text-[#8B2635] font-sans w-fit">
+              <Video className="h-3 w-3 text-[#8B2635]" />
               <span>Kho Tác Phẩm Sử Ký</span>
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-stone-900">
+            <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-[#1C1917] leading-tight">
               Thư Viện Nội Dung
             </h1>
-            <p className="text-xs sm:text-sm text-stone-500 leading-relaxed pt-0.5">
+            <p className="text-xs sm:text-[13px] text-[#696660] leading-relaxed font-sans pt-0.5">
               Quản lý toàn bộ danh mục podcast, video hoạt họa lịch sử và theo dõi tiến trình kiểm duyệt của kênh.
             </p>
           </div>
 
-          {/* Right Floating Stat Pill Card - Displays Actual Real Stats from BE */}
-          <div className="flex items-center rounded-2xl border border-stone-200/90 bg-white/95 backdrop-blur-md px-5 py-3 shadow-sm divide-x divide-stone-200/80 shrink-0">
-            {/* Stat 1: Tổng cộng */}
-            <div className="flex items-center gap-2.5 pr-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
-                <Video className="h-4 w-4" />
-              </div>
-              <div className="text-left leading-tight">
-                <span className="text-[11px] font-medium text-stone-500 block">Tổng cộng</span>
-                <span className="text-base font-bold text-stone-900 font-mono tabular-nums">
+          {/* Right Column: Architectural Catalog Index Plaque */}
+          <div className="rounded-2xl border border-[#E2DDD5] bg-white/85 backdrop-blur-xs p-4 sm:p-4.5 shadow-2xs shrink-0 max-w-lg lg:max-w-none">
+            {/* Header row with status & label */}
+            <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-[#F0EBE1] text-[10px] font-semibold uppercase tracking-wider text-[#8C7D70]">
+              <span className="flex items-center gap-1.5 font-serif">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#8B2635]" />
+                <span>Chỉ Số Lưu Trữ Kênh</span>
+              </span>
+              <span className="text-[9px] text-[#A8A29E] font-mono lowercase">thời gian thực</span>
+            </div>
+
+            {/* 4 Segmented Columns (KPIs are type, not tiles; no colored icon boxes) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#EAE4D9]">
+              {/* Stat 1: Tổng cộng */}
+              <div className="pr-3 pb-2 sm:pb-0 sm:pr-4">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[#8C7D70] block">
+                  Tổng cộng
+                </span>
+                <span className="font-serif text-2xl font-bold text-[#1C1917] tracking-tight tabular-nums block mt-0.5">
                   {metrics.all}
                 </span>
-                <span className="text-[10px] text-stone-400 block -mt-0.5">tác phẩm</span>
+                <span className="text-[10px] text-[#A8A29E] block -mt-0.5 font-sans">
+                  tác phẩm
+                </span>
               </div>
-            </div>
 
-            {/* Stat 2: Đã xuất bản */}
-            <div className="flex items-center gap-2.5 px-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div className="text-left leading-tight">
-                <span className="text-[11px] font-medium text-stone-500 block">Đã xuất bản</span>
-                <span className="text-base font-bold text-stone-900 font-mono tabular-nums">
+              {/* Stat 2: Đã xuất bản */}
+              <div className="pl-3 sm:px-4 pb-2 sm:pb-0">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[#8C7D70] flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Đã phát hành
+                </span>
+                <span className="font-serif text-2xl font-bold text-emerald-800 tracking-tight tabular-nums block mt-0.5">
                   {metrics.published}
                 </span>
-                <span className="text-[10px] text-stone-400 block -mt-0.5">tác phẩm</span>
+                <span className="text-[10px] text-[#A8A29E] block -mt-0.5 font-sans">
+                  công khai
+                </span>
               </div>
-            </div>
 
-            {/* Stat 3: Chờ duyệt */}
-            <div className="flex items-center gap-2.5 px-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 text-orange-600">
-                <Clock className="h-4 w-4" />
-              </div>
-              <div className="text-left leading-tight">
-                <span className="text-[11px] font-medium text-stone-500 block">Chờ duyệt</span>
-                <span className="text-base font-bold text-stone-900 font-mono tabular-nums">
+              {/* Stat 3: Chờ duyệt */}
+              <div className="pr-3 pt-2 sm:pt-0 sm:px-4">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[#8C7D70] flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  Chờ duyệt
+                </span>
+                <span className="font-serif text-2xl font-bold text-amber-800 tracking-tight tabular-nums block mt-0.5">
                   {metrics.pendingReview}
                 </span>
-                <span className="text-[10px] text-stone-400 block -mt-0.5">tác phẩm</span>
+                <span className="text-[10px] text-[#A8A29E] block -mt-0.5 font-sans">
+                  đang thẩm định
+                </span>
               </div>
-            </div>
 
-            {/* Stat 4: Chờ gửi duyệt / Bản nháp */}
-            <div className="flex items-center gap-2.5 pl-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                <FileText className="h-4 w-4" />
-              </div>
-              <div className="text-left leading-tight">
-                <span className="text-[11px] font-medium text-stone-500 block">Chờ gửi duyệt</span>
-                <span className="text-base font-bold text-stone-900 font-mono tabular-nums">
+              {/* Stat 4: Chờ gửi duyệt / Bản thảo */}
+              <div className="pl-3 pt-2 sm:pt-0 sm:pl-4">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-[#8C7D70] flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
+                  Chờ gửi
+                </span>
+                <span className="font-serif text-2xl font-bold text-[#44403C] tracking-tight tabular-nums block mt-0.5">
                   {metrics.completed}
                 </span>
-                <span className="text-[10px] text-stone-400 block -mt-0.5">tác phẩm</span>
+                <span className="text-[10px] text-[#A8A29E] block -mt-0.5 font-sans">
+                  bản nháp
+                </span>
               </div>
             </div>
           </div>
@@ -1079,7 +1080,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 onClick={() => handleStatusChange(tab.key)}
                 className={`group relative py-2.5 px-3.5 text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-1.5 cursor-pointer select-none rounded-t-lg ${
                   isActive
-                    ? 'text-[#A22A2A] font-semibold border-b-2 border-[#A22A2A]'
+                    ? 'text-[#8B2635] font-semibold border-b-2 border-[#8B2635]'
                     : 'text-stone-500 hover:text-stone-800 hover:bg-stone-50/50'
                 }`}
               >
@@ -1087,7 +1088,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 <span
                   className={`text-[11px] font-mono tabular-nums transition-colors ${
                     isActive
-                      ? 'text-[#A22A2A] font-bold'
+                      ? 'text-[#8B2635] font-bold'
                       : 'text-stone-400 group-hover:text-stone-600'
                   }`}
                 >
@@ -1112,7 +1113,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Tìm theo tiêu đề, mô tả hoặc kịch bản..."
             aria-label="Tìm kiếm tác phẩm"
-            className="pl-10 pr-4 h-9 text-xs bg-white border-stone-200/90 focus:border-[#A22A2A] focus:ring-1 focus:ring-[#A22A2A] shadow-2xs rounded-lg"
+            className="pl-10 pr-4 h-9 text-xs bg-white border-stone-200/90 focus:border-[#8B2635] focus:ring-1 focus:ring-[#8B2635] shadow-2xs rounded-lg"
           />
         </form>
 
@@ -1129,7 +1130,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 value={formatFilter}
                 onChange={handleFormatFilterChange}
                 aria-label="Lọc theo định dạng tác phẩm"
-                className="appearance-none bg-white border border-stone-200/90 rounded-lg pl-3 pr-8 py-1.5 text-xs text-stone-700 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-[#A22A2A] cursor-pointer h-9 shadow-2xs"
+                className="appearance-none bg-white border border-stone-200/90 rounded-lg pl-3 pr-8 py-1.5 text-xs text-stone-700 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-[#8B2635] cursor-pointer h-9 shadow-2xs"
               >
                 {FORMAT_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -1152,7 +1153,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 value={eraFilter}
                 onChange={handleEraFilterChange}
                 aria-label="Lọc theo thời kỳ lịch sử"
-                className="appearance-none bg-white border border-stone-200/90 rounded-lg pl-3 pr-8 py-1.5 text-xs text-stone-700 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-[#A22A2A] cursor-pointer h-9 shadow-2xs"
+                className="appearance-none bg-white border border-stone-200/90 rounded-lg pl-3 pr-8 py-1.5 text-xs text-stone-700 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-[#8B2635] cursor-pointer h-9 shadow-2xs"
               >
                 {HISTORICAL_ERA_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -1175,7 +1176,7 @@ export const CreatorContentLibraryPage: React.FC = () => {
                 value={activeStatus}
                 onChange={(e) => handleStatusChange(e.target.value)}
                 aria-label="Lọc theo trạng thái kiểm duyệt"
-                className="appearance-none bg-white border border-stone-200/90 rounded-lg pl-3 pr-8 py-1.5 text-xs text-stone-700 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-[#A22A2A] cursor-pointer h-9 shadow-2xs"
+                className="appearance-none bg-white border border-stone-200/90 rounded-lg pl-3 pr-8 py-1.5 text-xs text-stone-700 hover:border-stone-300 focus:outline-none focus:ring-1 focus:ring-[#8B2635] cursor-pointer h-9 shadow-2xs"
               >
                 {STATUS_FILTER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>

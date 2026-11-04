@@ -1,6 +1,7 @@
 import React from 'react';
 import { Settings, BookOpen, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HeritageAtmosphereWatermark } from '@/components/common/HeritageAtmosphereWatermark';
 
 interface StudioHeaderProps {
   onOpenSettings: () => void;
@@ -16,26 +17,10 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
       aria-label="Khởi tạo kịch bản lịch sử"
       className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-[#E7E2D9] bg-[#FAF8F5] p-5 sm:p-7 md:p-8 shadow-2xs"
     >
-      {/* Authentic Historical Watermark Artwork on the Right Background */}
-      <div
-        className="absolute inset-y-0 right-0 w-full sm:w-2/3 lg:w-1/2 pointer-events-none select-none overflow-hidden flex items-center justify-end"
-        aria-hidden="true"
-      >
-        <img
-          src="/assets/studio/header-landscape.png"
-          alt=""
-          className="h-[140%] w-auto max-w-none object-contain object-right opacity-30 sm:opacity-45 mix-blend-multiply transition-opacity duration-300 pointer-events-none select-none"
-          style={{
-            maskImage: 'linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
-            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)',
-          }}
-        />
-      </div>
-
-      {/* Protective Left Gradient Wash for Text Readability */}
-      <div
-        className="absolute inset-y-0 left-0 w-full sm:w-3/5 lg:w-1/2 bg-gradient-to-r from-[#FAF8F5] via-[#FAF8F5]/90 to-transparent pointer-events-none"
-        aria-hidden="true"
+      {/* Authentic Vietnamese Heritage Vector Watermark & Atmospheric Glow */}
+      <HeritageAtmosphereWatermark
+        tag="✦ SỬ KÝ STUDIO · PHÒNG THU SÁNG TÁC"
+        variant="studio"
       />
 
       {/* Main Content Area */}

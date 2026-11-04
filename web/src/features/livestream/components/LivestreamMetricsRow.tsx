@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio, Eye, Users, Layers } from 'lucide-react';
+import { Radio, Eye, Users, Layers, Activity } from 'lucide-react';
 import { formatLivestreamViewerCount } from '../livestreamLogic';
 
 interface LivestreamMetricsRowProps {
@@ -18,77 +18,100 @@ export const LivestreamMetricsRow: React.FC<LivestreamMetricsRowProps> = ({
   return (
     <div
       aria-label="Thống kê tổng quan phát trực tiếp"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      className="rounded-2xl border border-[#E7E2D9] bg-[#FAF8F5]/95 p-4 sm:p-5 shadow-2xs"
     >
-      {/* 1. Đang phát sóng */}
-      <div className="group rounded-2xl border border-[#EBE4D8] bg-white p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#D6CCC2] flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FDF2F2] text-[#A11C27] border border-[#F8D7DA] transition-transform duration-200 group-hover:scale-105">
-          <Radio className={`h-5 w-5 ${liveCount > 0 ? 'animate-pulse' : ''}`} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-[#786F6B]">
-            Đang phát sóng
+      {/* Plaque Header */}
+      <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-[#E7E2D9]/80">
+        <div className="flex items-center gap-2">
+          <Activity className="h-3.5 w-3.5 text-[#8B2635]" />
+          <span className="font-mono text-[11px] font-bold tracking-wider text-[#736B63] uppercase">
+            ✦ Chỉ Số Phát Sóng Trực Tiếp
           </span>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="font-serif text-2xl font-bold text-[#1C1615] font-mono tabular-nums">
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-[#EFEAE2] text-[#4A453F] border border-[#E2DDD5]">
+            <span className={`h-1.5 w-1.5 rounded-full ${liveCount > 0 ? 'bg-[#8B2635] animate-ping' : 'bg-stone-400'}`} />
+            {liveCount > 0 ? `${liveCount} luồng trực tiếp` : 'Sẵn sàng phát'}
+          </span>
+        </div>
+      </div>
+
+      {/* 4 Segmented Ledger Metrics Columns */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x divide-[#E7E2D9]">
+        {/* Metric 1: Đang phát sóng */}
+        <div className="lg:px-4 first:lg:pl-0 flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 text-stone-500 mb-1">
+            <Radio className={`h-3.5 w-3.5 ${liveCount > 0 ? 'text-[#8B2635]' : 'text-stone-400'}`} />
+            <span className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#736B63]">
+              Đang phát sóng
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className={`font-serif text-2xl sm:text-3xl font-bold tabular-nums tracking-tight ${liveCount > 0 ? 'text-[#8B2635]' : 'text-[#1C1917]'}`}>
               {liveCount}
             </span>
-            <span className="text-xs text-[#786F6B]">phiên live</span>
+            <span className="text-[11px] text-[#736B63] font-sans">phiên live</span>
           </div>
+          <p className="text-[11px] text-[#8C827A] pt-1">
+            {liveCount > 0 ? 'Đang tương tác thời gian thực' : 'Chưa có phòng live mở'}
+          </p>
         </div>
-      </div>
 
-      {/* 2. Tổng lượt xem */}
-      <div className="group rounded-2xl border border-[#EBE4D8] bg-white p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#D6CCC2] flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A] transition-transform duration-200 group-hover:scale-105">
-          <Eye className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-[#786F6B]">
-            Tổng lượt xem
-          </span>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="font-serif text-2xl font-bold text-[#1C1615] font-mono tabular-nums">
+        {/* Metric 2: Tổng lượt xem */}
+        <div className="lg:px-4 flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 text-stone-500 mb-1">
+            <Eye className="h-3.5 w-3.5 text-stone-400" />
+            <span className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#736B63]">
+              Tổng lượt xem
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-2xl sm:text-3xl font-bold tabular-nums text-[#1C1917] tracking-tight">
               {formatLivestreamViewerCount(totalViewers)}
             </span>
-            <span className="text-xs text-[#786F6B]">lượt (tất cả phiên)</span>
+            <span className="text-[11px] text-[#736B63] font-sans">lượt ghé thăm</span>
           </div>
+          <p className="text-[11px] text-[#8C827A] pt-1">
+            Tích lũy từ mọi phiên phát
+          </p>
         </div>
-      </div>
 
-      {/* 3. Tổng thính giả */}
-      <div className="group rounded-2xl border border-[#EBE4D8] bg-white p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#D6CCC2] flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#E0F2FE] text-[#0284C7] border border-[#BAE6FD] transition-transform duration-200 group-hover:scale-105">
-          <Users className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-[#786F6B]">
-            Tổng thính giả
-          </span>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="font-serif text-2xl font-bold text-[#1C1615] font-mono tabular-nums">
+        {/* Metric 3: Đỉnh điểm thính giả */}
+        <div className="lg:px-4 flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 text-stone-500 mb-1">
+            <Users className="h-3.5 w-3.5 text-stone-400" />
+            <span className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#736B63]">
+              Đỉnh thính giả
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-2xl sm:text-3xl font-bold tabular-nums text-[#1C1917] tracking-tight">
               {formatLivestreamViewerCount(peakListeners)}
             </span>
-            <span className="text-xs text-[#786F6B]">người (đỉnh cao nhất)</span>
+            <span className="text-[11px] text-[#736B63] font-sans">đồng thời cao nhất</span>
           </div>
+          <p className="text-[11px] text-[#8C827A] pt-1">
+            Kỷ lục lắng nghe cùng lúc
+          </p>
         </div>
-      </div>
 
-      {/* 4. Tổng số phiên Live */}
-      <div className="group rounded-2xl border border-[#EBE4D8] bg-white p-4 sm:p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-[#D6CCC2] flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-[#4B5563] border border-[#E5E7EB] transition-transform duration-200 group-hover:scale-105">
-          <Layers className="h-5 w-5" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <span className="block text-xs font-medium text-[#786F6B]">
-            Tổng số phiên Live
-          </span>
-          <div className="flex items-baseline gap-2 mt-0.5">
-            <span className="font-serif text-2xl font-bold text-[#1C1615] font-mono tabular-nums">
+        {/* Metric 4: Tổng số phiên phát */}
+        <div className="lg:px-4 last:lg:pr-0 flex flex-col justify-between">
+          <div className="flex items-center gap-1.5 text-stone-500 mb-1">
+            <Layers className="h-3.5 w-3.5 text-stone-400" />
+            <span className="font-mono text-[10px] font-bold tracking-wider uppercase text-[#736B63]">
+              Tổng phiên live
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-serif text-2xl sm:text-3xl font-bold tabular-nums text-[#1C1917] tracking-tight">
               {totalSessions}
             </span>
-            <span className="text-xs text-[#786F6B]">phiên đã phát</span>
+            <span className="text-[11px] text-[#736B63] font-sans">phiên tổ chức</span>
           </div>
+          <p className="text-[11px] text-[#8C827A] pt-1">
+            Đã lưu trữ vào lịch sử kênh
+          </p>
         </div>
       </div>
     </div>

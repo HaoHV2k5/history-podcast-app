@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Calendar,
   ChevronDown,
@@ -9,13 +8,25 @@ import {
   Building2,
   CreditCard,
   Receipt,
+  Eye,
+  EyeOff,
+  Table as TableIcon,
+  TrendingUp,
 } from 'lucide-react';
 import { WalletTransactionItem } from '@/types/transaction';
 import { WithdrawalItem } from '@/types/withdrawal';
 import { BankAccountItem } from '@/types/wallet';
 import { formatDateTime, formatDate, maskAccountNumber } from '@/utils/formatters';
 import { formatTransactionBadge } from '../financeLogic';
+import {
+  resolveBankCardTheme,
+  formatCardNumberDisplay,
+  formatFullCardNumberDisplay,
+  formatCardHolderName,
+} from '../bankCardLogic';
+import { WalletBalanceChart } from './WalletBalanceChart';
 import { cn } from '@/utils/cn';
+import gsap from 'gsap';
 
 interface WalletHistoryTabsProps {
   activeTab: 'transactions' | 'withdrawals' | 'banks';
@@ -35,6 +46,31 @@ interface WalletHistoryTabsProps {
   isDeletingBank?: boolean;
 }
 
+interface BankTabLogoBadgeProps {
+  theme: ReturnType<typeof resolveBankCardTheme>;
+}
+
+const BankTabLogoBadge: React.FC<BankTabLogoBadgeProps> = ({ theme }) => {
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <div className="w-10 h-10 rounded-xl bg-white border border-[#EBE4D8] p-1.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+      {theme.logoUrl && !hasError ? (
+        <img
+          src={theme.logoUrl}
+          alt={theme.shortName}
+          onError={() => setHasError(true)}
+          className="w-full h-full object-contain"
+        />
+      ) : (
+        <span className="font-bold text-xs text-[#1F1A19] tracking-wider">
+          {theme.code}
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
   activeTab,
   onTabChange,
@@ -52,11 +88,35 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
   onSelectTransaction,
   isDeletingBank = false,
 }) => {
-  const navigate = useNavigate();
-
   // Date filter state
   const [dateFilter, setDateFilter] = useState<'7d' | '30d' | '90d' | 'all'>('7d');
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+
+  // View mode for Tab 1 (Transactions): 'table' | 'chart'
+  const [txViewMode, setTxViewMode] = useState<'table' | 'chart'>('table');
+  const txPanelRef = useRef<HTMLDivElement>(null);
+
+  // GSAP animation when switching between Table and Chart
+  useEffect(() => {
+    if (activeTab !== 'transactions' || !txPanelRef.current) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    gsap.fromTo(
+      txPanelRef.current,
+      { opacity: 0, y: 8 },
+      { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+    );
+  }, [txViewMode, activeTab]);
+
+  // Mask/unmask state for bank accounts in tab 3
+  const [revealedBankIds, setRevealedBankIds] = useState<Record<number, boolean>>({});
+
+  const toggleRevealBank = (bankId: number) => {
+    setRevealedBankIds((prev) => ({
+      ...prev,
+      [bankId]: !prev[bankId],
+    }));
+  };
 
   const dateFilterLabels: Record<'7d' | '30d' | '90d' | 'all', string> = {
     '7d': '7 ngày qua',
@@ -121,7 +181,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
             aria-controls="tabpanel-transactions"
             onClick={() => onTabChange('transactions')}
             className={cn(
-              'group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer border-b-2',
+              'group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-[color,border-color] duration-150 shrink-0 cursor-pointer border-b-2',
               activeTab === 'transactions'
                 ? 'border-[#981B1E] text-[#981B1E]'
                 : 'border-transparent text-[#786D66] hover:text-[#1F1A19]'
@@ -150,7 +210,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
             aria-controls="tabpanel-withdrawals"
             onClick={() => onTabChange('withdrawals')}
             className={cn(
-              'group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer border-b-2',
+              'group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-[color,border-color] duration-150 shrink-0 cursor-pointer border-b-2',
               activeTab === 'withdrawals'
                 ? 'border-[#981B1E] text-[#981B1E]'
                 : 'border-transparent text-[#786D66] hover:text-[#1F1A19]'
@@ -179,7 +239,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
             aria-controls="tabpanel-banks"
             onClick={() => onTabChange('banks')}
             className={cn(
-              'group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer border-b-2',
+              'group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-semibold transition-[color,border-color] duration-150 shrink-0 cursor-pointer border-b-2',
               activeTab === 'banks'
                 ? 'border-[#981B1E] text-[#981B1E]'
                 : 'border-transparent text-[#786D66] hover:text-[#1F1A19]'
@@ -200,50 +260,93 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
           </button>
         </div>
 
-        {/* Right side: Date Filter Dropdown */}
-        <div className="relative self-end sm:self-center shrink-0">
-          <button
-            type="button"
-            onClick={() => setFilterDropdownOpen((prev) => !prev)}
-            aria-label="Chọn khoảng thời gian lọc"
-            aria-haspopup="true"
-            aria-expanded={filterDropdownOpen}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-1.5 text-xs font-medium text-[#38302E] shadow-2xs hover:bg-[#FAF8F5] active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <Calendar className="h-3.5 w-3.5 text-[#786D66]" />
-            <span>{dateFilterLabels[dateFilter]}</span>
-            <ChevronDown className="h-3.5 w-3.5 text-[#786D66]" />
-          </button>
-
-          {filterDropdownOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-30"
-                onClick={() => setFilterDropdownOpen(false)}
-              />
-              <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl border border-[#EBE4D8] bg-white p-1.5 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
-                {(['7d', '30d', '90d', 'all'] as const).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => {
-                      setDateFilter(key);
-                      setFilterDropdownOpen(false);
-                    }}
-                    className={cn(
-                      'w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg text-left transition-colors cursor-pointer',
-                      dateFilter === key
-                        ? 'bg-[#FDF2F2] font-semibold text-[#981B1E]'
-                        : 'text-[#38302E] hover:bg-[#FAF8F5]'
-                    )}
-                  >
-                    <span>{dateFilterLabels[key]}</span>
-                    {dateFilter === key && <CheckCircle2 className="h-3.5 w-3.5 text-[#981B1E]" />}
-                  </button>
-                ))}
-              </div>
-            </>
+        {/* Right side: Controls (View Mode Switcher & Date Filter Dropdown) */}
+        <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+          {/* View Mode Toggle: Table vs Chart (only active on tab 1) */}
+          {activeTab === 'transactions' && (
+            <div
+              role="group"
+              aria-label="Chế độ xem biến động số dư"
+              className="inline-flex items-center rounded-xl border border-[#E5E0D8] bg-[#FAF8F5] p-0.5 shadow-2xs"
+            >
+              <button
+                type="button"
+                onClick={() => setTxViewMode('table')}
+                aria-pressed={txViewMode === 'table'}
+                title="Xem dạng bảng danh sách chi tiết"
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-[background-color,color,box-shadow] duration-150 cursor-pointer',
+                  txViewMode === 'table'
+                    ? 'bg-white text-[#1F1A19] shadow-2xs'
+                    : 'text-[#786D66] hover:text-[#1F1A19]'
+                )}
+              >
+                <TableIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Danh sách</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setTxViewMode('chart')}
+                aria-pressed={txViewMode === 'chart'}
+                title="Xem dạng biểu đồ biến động"
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-[background-color,color,box-shadow] duration-150 cursor-pointer',
+                  txViewMode === 'chart'
+                    ? 'bg-white text-[#981B1E] shadow-2xs'
+                    : 'text-[#786D66] hover:text-[#1F1A19]'
+                )}
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Biểu đồ</span>
+              </button>
+            </div>
           )}
+
+          {/* Date Filter Dropdown */}
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setFilterDropdownOpen((prev) => !prev)}
+              aria-label="Chọn khoảng thời gian lọc"
+              aria-haspopup="true"
+              aria-expanded={filterDropdownOpen}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-1.5 text-xs font-medium text-[#38302E] shadow-2xs hover:bg-[#FAF8F5] active:scale-[0.98] transition-[background-color,border-color,transform] duration-150 cursor-pointer"
+            >
+              <Calendar className="h-3.5 w-3.5 text-[#786D66]" />
+              <span>{dateFilterLabels[dateFilter]}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-[#786D66]" />
+            </button>
+
+            {filterDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setFilterDropdownOpen(false)}
+                />
+                <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-xl border border-[#EBE4D8] bg-white p-1.5 shadow-lg animate-in fade-in-0 zoom-in-95 duration-150">
+                  {(['7d', '30d', '90d', 'all'] as const).map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        setDateFilter(key);
+                        setFilterDropdownOpen(false);
+                      }}
+                      className={cn(
+                        'w-full flex items-center justify-between px-3 py-2 text-xs rounded-lg text-left transition-colors cursor-pointer',
+                        dateFilter === key
+                          ? 'bg-[#FDF2F2] font-semibold text-[#981B1E]'
+                          : 'text-[#38302E] hover:bg-[#FAF8F5]'
+                      )}
+                    >
+                      <span>{dateFilterLabels[key]}</span>
+                      {dateFilter === key && <CheckCircle2 className="h-3.5 w-3.5 text-[#981B1E]" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -252,6 +355,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
       {/* ─── TAB 1: Transactions ─── */}
       {activeTab === 'transactions' && (
         <div
+          ref={txPanelRef}
           role="tabpanel"
           id="tabpanel-transactions"
           aria-labelledby="tab-transactions"
@@ -261,6 +365,8 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
             <div className="p-12 text-center text-xs text-[#786D66]">
               Đang tải lịch sử giao dịch...
             </div>
+          ) : txViewMode === 'chart' ? (
+            <WalletBalanceChart transactions={filteredTransactions} />
           ) : filteredTransactions.length === 0 ? (
             /* Empty State Container Matching Reference Image */
             <div className="relative overflow-hidden p-10 sm:p-14 text-center flex flex-col items-center justify-center space-y-4 min-h-[320px]">
@@ -302,18 +408,6 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
                 <p className="text-xs text-[#786D66] leading-relaxed">
                   Các giao dịch nạp tiền, rút tiền, doanh thu từ nội dung sẽ được hiển thị tại đây.
                 </p>
-              </div>
-
-              <div className="relative z-10 pt-2">
-                <button
-                  type="button"
-                  onClick={() => navigate('/creator/create')}
-                  aria-label="Tạo nội dung mới ngay"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <Plus className="h-4 w-4" />
-                  <span>Tạo nội dung ngay</span>
-                </button>
               </div>
             </div>
           ) : (
@@ -428,7 +522,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
                 <button
                   type="button"
                   onClick={onOpenWithdraw}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-all cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-5 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-[background-color,transform] duration-150 cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Yêu cầu rút tiền</span>
@@ -510,7 +604,7 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
             <button
               type="button"
               onClick={onOpenAddBank}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#981B1E] px-4 py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#801619] active:scale-[0.98] transition-[background-color,transform] duration-150 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>Thêm tài khoản ngân hàng</span>
@@ -542,52 +636,130 @@ export const WalletHistoryTabs: React.FC<WalletHistoryTabsProps> = ({
               {bankAccounts.map((b) => {
                 const isPrimary =
                   b.id === primaryBankId || (!primaryBankId && b.id === bankAccounts[0]?.id);
+                const bTheme = resolveBankCardTheme(b.bankName);
+                const isRevealed = !!revealedBankIds[b.id];
+
                 return (
                   <div
                     key={b.id}
                     className={cn(
-                      'rounded-2xl border bg-white p-5 shadow-2xs hover:shadow-xs transition-[box-shadow,border-color] space-y-4 flex flex-col justify-between',
+                      'rounded-2xl border p-5 shadow-2xs hover:shadow-xs transition-[box-shadow,border-color] space-y-4 flex flex-col justify-between relative overflow-hidden',
                       isPrimary
-                        ? 'border-[#168A4E] ring-1 ring-[#168A4E]/30 bg-[#FAFDFB]'
-                        : 'border-[#EBE4D8]'
+                        ? 'border-[#168A4E]/60 ring-1 ring-[#168A4E]/20 bg-[#FAFDFB]'
+                        : 'border-[#EBE4D8] hover:border-[#DDD7CD] bg-white'
                     )}
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-[#981B1E]">{b.bankName}</span>
-                        <div className="flex items-center gap-1.5">
+                    {/* Subtle Bank Brand Top Accent Line */}
+                    <div
+                      className="absolute top-0 left-0 right-0 h-[3px]"
+                      style={{ backgroundColor: bTheme.accentColor }}
+                      aria-hidden="true"
+                    />
+
+                    {/* Header: Bank Brand info + Primary Badge / Action button */}
+                    <div className="space-y-3.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <BankTabLogoBadge theme={bTheme} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <h4 className="font-serif text-sm font-bold text-[#1F1A19] truncate leading-tight">
+                                {bTheme.shortName}
+                              </h4>
+                              <span className="text-[10px] font-semibold text-[#786D66] bg-[#FAF8F5] border border-[#EBE4D8] px-1.5 py-0.5 rounded shrink-0">
+                                {bTheme.code}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-[#786D66] truncate block leading-tight mt-1">
+                              {b.bankName}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="shrink-0">
                           {isPrimary ? (
-                            <span className="flex items-center gap-1 text-[10px] font-semibold text-[#168A4E] bg-[#EDFDF2] px-2 py-0.5 rounded-full border border-[#A6E9B9]">
-                              <CheckCircle2 className="h-3 w-3" />
-                              Thẻ chính
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#168A4E] bg-[#EDFDF2] px-3 py-1 rounded-full border border-[#A6E9B9] shadow-2xs">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Thẻ chính</span>
                             </span>
                           ) : onSelectPrimaryBank ? (
                             <button
                               type="button"
                               onClick={() => onSelectPrimaryBank(b.id)}
-                              className="text-[11px] font-semibold text-[#786D66] hover:text-[#981B1E] hover:underline cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[#DDD7CD] hover:border-[#1F1A19] bg-white hover:bg-[#FAF8F5] text-xs font-semibold text-[#1F1A19] shadow-2xs active:scale-[0.98] transition-[background-color,border-color,transform] duration-150 cursor-pointer"
+                              title="Nhấp để đặt làm tài khoản thụ hưởng chính"
                             >
-                              Đặt làm thẻ chính
+                              <span>Đặt làm thẻ chính</span>
                             </button>
                           ) : null}
                         </div>
                       </div>
-                      <div className="font-mono text-base font-bold text-[#1F1A19] tracking-wider">
-                        {maskAccountNumber(b.accountNumber)}
-                      </div>
-                      <div className="text-xs text-[#786D66] font-medium font-sans">
-                        {b.accountHolderName}
+
+                      {/* Account details in a structured financial container */}
+                      <div className="rounded-xl border border-[#EFEAE2] bg-[#FAF8F5]/90 p-3.5 space-y-2.5">
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-wider text-[#786D66] font-medium block">
+                              Số tài khoản thụ hưởng
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleRevealBank(b.id)}
+                              aria-label={isRevealed ? 'Ẩn số tài khoản' : 'Hiện đầy đủ số tài khoản'}
+                              title={isRevealed ? 'Ẩn số tài khoản' : 'Hiện đầy đủ số tài khoản'}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-[#786D66] hover:text-[#1F1A19] px-2 py-0.5 rounded-md hover:bg-white border border-transparent hover:border-[#DDD7CD] transition-[color,background-color,border-color] cursor-pointer"
+                            >
+                              {isRevealed ? (
+                                <>
+                                  <EyeOff className="w-3 h-3" />
+                                  <span>Ẩn</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="w-3 h-3" />
+                                  <span>Hiện</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <div className="font-mono text-sm sm:text-base font-bold text-[#1F1A19] tracking-wider tabular-nums select-all">
+                            {isRevealed
+                              ? formatFullCardNumberDisplay(b.accountNumber)
+                              : formatCardNumberDisplay(b.accountNumber)}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[#EFEAE2] flex items-center justify-between text-xs">
+                          <div className="min-w-0 pr-2">
+                            <span className="text-[9px] uppercase tracking-wider text-[#786D66] font-medium block">
+                              Chủ tài khoản
+                            </span>
+                            <span className="font-bold text-[#1F1A19] truncate block max-w-[150px]">
+                              {formatCardHolderName(b.accountHolderName)}
+                            </span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[9px] uppercase tracking-wider text-[#786D66] font-medium block">
+                              Quyết toán tự động
+                            </span>
+                            <span className="text-[11px] font-semibold text-[#168A4E] inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#168A4E]" />
+                              Napas 247
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
+                    {/* Footer: Date & Delete action */}
                     <div className="pt-3 border-t border-[#EBE4D8] flex items-center justify-between text-[11px] text-[#786D66]">
-                      <span>Thêm ngày {formatDate(b.createdAt)}</span>
+                      <span>Đã liên kết ngày {formatDate(b.createdAt)}</span>
                       <button
                         type="button"
                         onClick={() => onDeleteBank(b.id)}
                         disabled={isDeletingBank}
                         aria-label={`Xóa tài khoản ngân hàng ${b.bankName}`}
-                        className="p-1.5 rounded-lg text-[#786D66] hover:text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg text-[#786D66] hover:text-[#DC2626] hover:bg-[#FEF2F2] transition-[color,background-color] cursor-pointer"
                         title="Xóa tài khoản này"
                       >
                         <Trash2 className="h-4 w-4" />

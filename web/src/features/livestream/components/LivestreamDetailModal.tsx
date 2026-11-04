@@ -1,14 +1,11 @@
 import React from 'react';
 import {
-  Radio,
   Crown,
   Eye,
   Calendar,
   Clock,
   User,
   Tv,
-  Heart,
-  MessageSquare,
 } from 'lucide-react';
 import {
   Dialog,
