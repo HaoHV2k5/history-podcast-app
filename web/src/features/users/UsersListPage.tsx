@@ -228,7 +228,7 @@ export const UsersListPage: React.FC = () => {
   });
 
   const roleMutation = useMutation({
-    mutationFn: ({ id, targetRole }: { id: number; targetRole: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER' }) =>
+    mutationFn: ({ id, targetRole }: { id: number; targetRole: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'FREELANCER' | 'VIEWER' }) =>
       usersApi.updateRole(id, targetRole),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
