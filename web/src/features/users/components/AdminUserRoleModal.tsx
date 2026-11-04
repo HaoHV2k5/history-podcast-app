@@ -15,7 +15,7 @@ interface AdminUserRoleModalProps {
   user: UserResponse | null;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (targetRole: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER') => Promise<void>;
+  onSubmit: (targetRole: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'FREELANCER' | 'VIEWER') => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -39,6 +39,12 @@ const ROLES_LIST = [
     description: 'Hồ sơ giọng đọc, ứng tuyển dự án thu âm và hợp đồng thuyết minh',
   },
   {
+    role: 'FREELANCER' as const,
+    label: 'FREELANCER',
+    title: 'Cộng tác viên sản xuất',
+    description: 'Nhận việc theo dự án, nộp đề xuất báo giá và bàn giao sản phẩm theo cột mốc',
+  },
+  {
     role: 'VIEWER' as const,
     label: 'USER / VIEWER',
     title: 'Thính giả & Người dùng',
@@ -53,13 +59,13 @@ export const AdminUserRoleModal: React.FC<AdminUserRoleModalProps> = ({
   onSubmit,
   isLoading,
 }) => {
-  const [selectedRole, setSelectedRole] = useState<'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER'>('VIEWER');
+  const [selectedRole, setSelectedRole] = useState<'ADMIN' | 'CREATOR' | 'NARRATOR' | 'FREELANCER' | 'VIEWER'>('VIEWER');
 
   useEffect(() => {
     if (user) {
       const initial = (user.roleName || user.roles?.[0] || 'VIEWER').toUpperCase();
-      if (['ADMIN', 'CREATOR', 'NARRATOR', 'VIEWER'].includes(initial)) {
-        setSelectedRole(initial as 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER');
+      if (['ADMIN', 'CREATOR', 'NARRATOR', 'FREELANCER', 'VIEWER'].includes(initial)) {
+        setSelectedRole(initial as 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'FREELANCER' | 'VIEWER');
       } else {
         setSelectedRole('VIEWER');
       }
