@@ -20,6 +20,13 @@ public class CreateContractRequest {
     @Schema(description = "ID của đơn yêu cầu đặt nội dung (HireRequest) đã được Creator ACCEPTED", example = "5")
     private Long hireRequestId;
 
+    @Schema(hidden = true)
+    private Long commissionId;
+
+    public Long getHireRequestId() {
+        return hireRequestId != null ? hireRequestId : commissionId;
+    }
+
     @Schema(description = "ID người thuê (Listener/Viewer). Có thể bỏ qua nếu đã truyền hireRequestId", example = "2")
     private Long requesterId;
 

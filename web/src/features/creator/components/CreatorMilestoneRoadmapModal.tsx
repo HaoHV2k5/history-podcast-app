@@ -221,8 +221,15 @@ export const CreatorMilestoneRoadmapModal: React.FC<CreatorMilestoneRoadmapModal
         if (!commissionId) {
           throw new Error('Không xác định được ID đơn đặt hàng.');
         }
+        const requesterId =
+          commission?.requesterId ||
+          commission?.narratorId ||
+          existingContract?.requesterId ||
+          existingContract?.freelancerId;
         return contractsApi.createContract({
+          hireRequestId: commissionId,
           commissionId,
+          requesterId,
           title: contractTitle.trim(),
           description: contractDescription.trim(),
           milestones,
