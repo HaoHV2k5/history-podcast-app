@@ -116,7 +116,7 @@ export function resolveBankCardTheme(bankName?: string): BankCardTheme {
       logoUrl: 'https://cdn.vietqr.io/img/TPB.png',
       bgClass: 'bg-[#240E30]',
       borderClass: 'border-[#4A1D63]',
-      accentColor: '#9333EA',
+      accentColor: '#792878',
     };
   }
 

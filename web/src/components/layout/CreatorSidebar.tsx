@@ -32,7 +32,7 @@ const CREATOR_NAV_SECTIONS: CreatorNavSection[] = [
   {
     title: 'KHÔNG GIAN LÀM VIỆC',
     items: [
-      { id: '01', label: 'Tổng quan Bàn làm việc', to: '/creator', icon: LayoutDashboard },
+      { id: '01', label: 'Không gian sáng tác', to: '/creator', icon: LayoutDashboard },
     ],
   },
   {

@@ -5,6 +5,8 @@ import {
   MessageSquare,
   BookOpen,
   Heart,
+  Sparkles,
+  CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -18,129 +20,125 @@ export const LivestreamQuickActionHero: React.FC<LivestreamQuickActionHeroProps>
   return (
     <section
       aria-label="Khởi tạo phiên phát trực tiếp mới"
-      className="rounded-2xl border border-[#EDE6DD] bg-gradient-to-r from-[#FFF5F4] via-[#FAF7F2] to-[#F6F1EB] p-5 sm:p-6 lg:p-7 shadow-xs relative overflow-hidden"
+      className="relative overflow-hidden rounded-2xl border border-[#E7E2D9] bg-white p-5 sm:p-6 lg:p-7 shadow-xs"
     >
-      {/* Historical Pagoda Artwork faintly in background between left CTA and right card */}
-      <div
-        className="absolute right-[32%] sm:right-[34%] md:right-[35%] lg:right-[36%] top-4 sm:top-5 w-56 sm:w-64 lg:w-72 h-44 sm:h-52 lg:h-56 bg-contain bg-center bg-no-repeat pointer-events-none mix-blend-multiply opacity-45 select-none"
-        style={{
-          backgroundImage: `url('/assets/studio/livestream-hero-pagoda.png?v=5')`,
-        }}
-        aria-hidden="true"
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 xl:gap-6 items-stretch relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch relative z-10">
         {/* Left Column: Call-to-action & core values */}
         <div className="lg:col-span-8 flex flex-col justify-between space-y-5">
-          {/* Top section: Radio icon on left, title & button on right */}
+          {/* Top section: Radio badge, title & button */}
           <div className="flex items-start gap-4 sm:gap-5">
-            {/* Big circular live broadcast icon */}
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27] border border-[#F8D7DA] shadow-2xs">
-              <Radio className="h-7 w-7 stroke-[2.2]" />
+            {/* Live broadcast seal */}
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl bg-[#FBF2EE] text-[#8B2635] border border-[#F0DDD8] shadow-2xs">
+              <Radio className="h-6 w-6 sm:h-7 sm:w-7 stroke-[2.2] animate-pulse" />
             </div>
 
             {/* Title, description & CTA Button */}
             <div className="space-y-1.5 flex-1 min-w-0">
-              <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#A11C27]">
-                Bắt đầu phiên phát trực tiếp mới
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FAF8F5] border border-[#E7E2D9] text-[10px] font-mono font-bold uppercase tracking-wider text-[#736B63]">
+                <Sparkles className="h-3 w-3 text-[#8B2635]" />
+                <span>Trường Quay Trực Tiếp</span>
+              </div>
+
+              <h2 className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#1C1917] leading-snug">
+                Bắt Đầu Phiên Phát Trực Tiếp Mới
               </h2>
-              <p className="text-xs sm:text-[13px] xl:text-sm text-[#5C524F] leading-relaxed xl:whitespace-nowrap text-pretty">
-                Chia sẻ kiến thức lịch sử, thảo luận cùng cộng đồng thính giả theo thời&nbsp;gian&nbsp;thực.
+
+              <p className="text-xs sm:text-[13px] text-[#696660] leading-relaxed max-w-xl">
+                Mở phòng phát sóng âm thanh và hình ảnh để cùng cộng đồng thính giả bàn luận sâu sắc về các triều đại, chiến dịch hào hùng và nhân vật lịch sử Việt Nam.
               </p>
 
               {/* CTA Button */}
-              <div className="pt-2 sm:pt-2.5">
+              <div className="pt-2">
                 <Button
                   type="button"
                   onClick={onCreateClick}
-                  className="gap-2 text-xs sm:text-sm h-10 px-5 bg-[#A11C27] hover:bg-[#85151E] text-white font-semibold rounded-xl shadow-xs transition-all duration-150 active:scale-[0.98]"
+                  className="gap-2 text-xs sm:text-sm h-10 px-5 bg-[#8B2635] hover:bg-[#731E2A] text-white font-semibold rounded-xl shadow-xs transition-all duration-150 active:scale-[0.98]"
                 >
                   <PlusCircle className="h-4 w-4" />
-                  <span>Tạo phiên Live mới</span>
+                  <span>Tạo phiên Live ngay</span>
                 </Button>
               </div>
             </div>
           </div>
 
-          {/* 3 Core Value Items - Always in 1 Single Horizontal Row without divider line */}
-          <div className="pt-2 grid grid-cols-3 gap-2 sm:gap-3 lg:gap-4 items-center">
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27]">
-                <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          {/* 3 Core Value Items */}
+          <div className="pt-3 border-t border-[#E7E2D9]/70 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7E2D9]/70 px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#FBF2EE] text-[#8B2635]">
+                <MessageSquare className="h-3.5 w-3.5" />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium text-[#3E3836] leading-tight text-pretty">
-                Tương tác trực tiếp<br className="hidden sm:inline" /> với thính giả
-              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-[#1C1917] leading-tight">Tương tác thực</p>
+                <p className="text-[10px] text-[#8C827A] truncate">Trò chuyện cùng thính giả</p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27]">
-                <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7E2D9]/70 px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#FBF2EE] text-[#8B2635]">
+                <BookOpen className="h-3.5 w-3.5" />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium text-[#3E3836] leading-tight text-pretty">
-                Chia sẻ kiến thức<br className="hidden sm:inline" /> lịch sử
-              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-[#1C1917] leading-tight">Chính sử chuẩn xác</p>
+                <p className="text-[10px] text-[#8C827A] truncate">Cung cấp tri thức hào hùng</p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="flex h-7 w-7 sm:h-8 sm:w-8 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27]">
-                <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <div className="flex items-center gap-2.5 rounded-xl bg-[#FAF8F5] border border-[#E7E2D9]/70 px-3 py-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#FBF2EE] text-[#8B2635]">
+                <Heart className="h-3.5 w-3.5" />
               </div>
-              <span className="text-[11px] sm:text-xs font-medium text-[#3E3836] leading-tight text-pretty">
-                Xây dựng cộng đồng<br className="hidden sm:inline" /> yêu sử
-              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-[#1C1917] leading-tight">Cộng đồng bền vững</p>
+                <p className="text-[10px] text-[#8C827A] truncate">Gắn kết người yêu sử</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Suggested Topics Card with Ink & Scroll Illustration */}
-        <div className="lg:col-span-4 relative overflow-hidden rounded-2xl border border-[#EDE6DD] bg-white p-5 sm:p-5 shadow-2xs flex flex-col justify-between">
-          {/* Ancient Inks, Scroll and Brush Artwork in bottom-right corner */}
-          <div
-            className="absolute right-0 bottom-0 w-64 sm:w-72 md:w-80 h-44 sm:h-52 md:h-56 bg-contain bg-right-bottom bg-no-repeat pointer-events-none mix-blend-multiply opacity-95 select-none"
-            style={{
-              backgroundImage: `url('/assets/studio/livestream-quick-action-brushes.png?v=5')`,
-            }}
-            aria-hidden="true"
-          />
-
-          <div className="relative z-10 space-y-2.5">
-            <div className="flex items-center gap-2 text-[#A11C27]">
-              <BookOpen className="h-4 w-4 shrink-0 stroke-[2.2]" />
-              <h3 className="font-bold text-sm sm:text-base text-[#1C1615] tracking-tight">
-                Gợi ý nội dung Live
-              </h3>
+        {/* Right Column: Suggested Topics Card */}
+        <div className="lg:col-span-4 rounded-xl border border-[#E7E2D9] bg-[#FAF8F5] p-4 sm:p-5 flex flex-col justify-between">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-[#E7E2D9]">
+              <div className="flex items-center gap-1.5">
+                <BookOpen className="h-3.5 w-3.5 text-[#8B2635]" />
+                <span className="font-mono text-[11px] font-bold tracking-wider text-[#1C1917] uppercase">
+                  Gợi Ý Đàm Đạo
+                </span>
+              </div>
+              <span className="text-[10px] text-[#8C827A] font-medium">Chủ đề thịnh hành</span>
             </div>
-            <p className="text-xs text-[#6B6360] whitespace-nowrap">
-              Một số chủ đề phổ biến được cộng đồng quan tâm:
-            </p>
 
-            <ul className="space-y-2 pt-1 text-xs text-[#2E2827]">
-              <li className="flex items-center gap-2">
-                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27] text-[9px] font-bold">
-                  ✓
+            <ul className="space-y-2 text-xs text-[#2C2825]">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#8B2635] shrink-0 mt-0.5" />
+                <span className="text-[12px] text-[#4A453F] leading-snug">
+                  Đại phá quân Nguyên Mông &amp; Hào khí Đông A
                 </span>
-                <span className="font-medium text-[#2E2827] whitespace-nowrap">Phân tích trận chiến lịch sử</span>
               </li>
-              <li className="flex items-center gap-2">
-                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27] text-[9px] font-bold">
-                  ✓
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#8B2635] shrink-0 mt-0.5" />
+                <span className="text-[12px] text-[#4A453F] leading-snug">
+                  Chiếu dời đô 1010 và định hình Thăng Long
                 </span>
-                <span className="font-medium text-[#2E2827] whitespace-nowrap">Đàm đạo nhân vật lịch sử nổi bật</span>
               </li>
-              <li className="flex items-center gap-2">
-                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27] text-[9px] font-bold">
-                  ✓
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#8B2635] shrink-0 mt-0.5" />
+                <span className="text-[12px] text-[#4A453F] leading-snug">
+                  Phòng tuyến Như Nguyệt &amp; Bản tuyên ngôn Nam Quốc Sơn Hà
                 </span>
-                <span className="font-medium text-[#2E2827] whitespace-nowrap">Giải đáp câu hỏi từ thính giả</span>
               </li>
-              <li className="flex items-center gap-2">
-                <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-[#FCEBEB] text-[#A11C27] text-[9px] font-bold">
-                  ✓
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#8B2635] shrink-0 mt-0.5" />
+                <span className="text-[12px] text-[#4A453F] leading-snug">
+                  Giải đáp câu hỏi và giao lưu cùng thính giả
                 </span>
-                <span className="font-medium text-[#2E2827] whitespace-nowrap">Thảo luận các góc nhìn lịch sử thú vị</span>
               </li>
             </ul>
+          </div>
+
+          <div className="pt-3 border-t border-[#E7E2D9] mt-3 flex items-center justify-between text-[11px] text-[#736B63]">
+            <span>Độ dài đề xuất: 45 - 90 phút</span>
+            <span className="font-mono font-semibold text-[#8B2635]">Live HD 1080p</span>
           </div>
         </div>
       </div>

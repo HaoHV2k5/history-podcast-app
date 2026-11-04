@@ -63,7 +63,7 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
         <div className="space-y-1">
           {/* Top Single Line: Badges + Title */}
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap min-w-0">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-[#A31D24] border border-rose-200/60 font-sans shrink-0">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#FBF2EE] text-[#8B2635] border border-[#F0DDD8] font-sans shrink-0">
               {isSeries ? (
                 <>
                   <Layers className="h-3 w-3 shrink-0" />
@@ -98,7 +98,7 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
                 }
               }}
               title={`Xem chi tiết ${commission.contentType === 'SERIES' ? 'series' : 'video'}: ${commission.title}`}
-              className="text-sm font-bold text-stone-900 hover:text-[#A31D24] group-hover:text-[#A31D24] transition-colors truncate font-sans cursor-pointer focus:outline-none focus-visible:underline text-left min-w-0"
+              className="text-sm font-bold text-stone-900 hover:text-[#8B2635] group-hover:text-[#8B2635] transition-colors truncate font-sans cursor-pointer focus:outline-none focus-visible:underline text-left min-w-0"
             >
               {commission.title}
             </h3>
@@ -215,7 +215,7 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
                 type="button"
                 onClick={() => onAccept(commission.id)}
                 disabled={isAccepting}
-                className="h-8 px-3.5 text-xs font-semibold rounded-lg bg-[#A31D24] text-white hover:bg-[#8F181E] shadow-xs active:scale-[0.98] transition-all flex items-center gap-1.5 disabled:opacity-60 whitespace-nowrap shrink-0 cursor-pointer font-sans"
+                className="h-8 px-3.5 text-xs font-semibold rounded-lg bg-[#8B2635] text-white hover:bg-[#731E2A] shadow-xs active:scale-[0.98] transition-all flex items-center gap-1.5 disabled:opacity-60 whitespace-nowrap shrink-0 cursor-pointer font-sans"
               >
                 {isAccepting ? (
                   <RefreshCw className="h-3.5 w-3.5 animate-spin shrink-0" />
@@ -234,13 +234,13 @@ export const CommissionCard: React.FC<CommissionCardProps> = ({
                 onClick={() => onOpenChat(commission)}
                 className="h-8 px-3 text-xs font-semibold rounded-lg border border-[#E5E0D8] bg-white text-stone-700 hover:bg-stone-50 hover:border-stone-300 flex items-center gap-1.5 active:scale-[0.98] transition-all shadow-2xs whitespace-nowrap shrink-0 cursor-pointer font-sans"
               >
-                <MessageSquare className="h-3.5 w-3.5 text-[#A31D24] shrink-0" />
+                <MessageSquare className="h-3.5 w-3.5 text-[#8B2635] shrink-0" />
                 <span className="whitespace-nowrap">Mở chat với khách hàng</span>
               </button>
               <button
                 type="button"
                 onClick={() => onOpenRoadmap(commission)}
-                className="h-8 px-3 text-xs font-semibold rounded-lg bg-[#A31D24] text-white hover:bg-[#8F181E] shadow-xs flex items-center gap-1.5 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer font-sans"
+                className="h-8 px-3 text-xs font-semibold rounded-lg bg-[#8B2635] text-white hover:bg-[#731E2A] shadow-xs flex items-center gap-1.5 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 cursor-pointer font-sans"
               >
                 <Layers className="h-3.5 w-3.5 shrink-0" />
                 <span className="whitespace-nowrap">Lập lộ trình Milestone</span>

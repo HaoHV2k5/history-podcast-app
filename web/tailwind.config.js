@@ -147,6 +147,10 @@ export default {
             backdropFilter: 'blur(0px)',
           },
         },
+        marquee: {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-100%)' },
+        },
       },
       animation: {
         'sound-wave': 'sound-wave 1.2s ease-in-out infinite alternate',
@@ -160,6 +164,7 @@ export default {
         'apple-spring-out': 'apple-spring-out 0.18s cubic-bezier(0.3, 0, 0.8, 0.15) forwards',
         'apple-backdrop-in': 'apple-backdrop-in 0.28s ease-out forwards',
         'apple-backdrop-out': 'apple-backdrop-out 0.18s ease-in forwards',
+        marquee: 'marquee 12s linear infinite',
       },
     },
   },

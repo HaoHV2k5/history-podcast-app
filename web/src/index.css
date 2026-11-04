@@ -261,6 +261,20 @@
       0 0 0 1px rgba(255, 255, 255, 0.8) inset,
       0 1px 3px 0 rgba(0, 0, 0, 0.05);
   }
+
+  /* Horizontal Ticker Marquee */
+  @keyframes marquee-scroll {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee-scroll 14s linear infinite;
+  }
 }
 
 /* Apple Design: Accessibility - Reduced Motion Fallbacks */
