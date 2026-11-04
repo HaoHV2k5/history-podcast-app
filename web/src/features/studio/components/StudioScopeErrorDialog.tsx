@@ -171,6 +171,11 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
     rawErrorMessage.includes('OutOfScope') ||
     rawErrorMessage.includes('CHỦ ĐỀ BỊ TỪ CHỐI');
 
+  const is503Error =
+    rawErrorMessage.includes('503') ||
+    rawErrorMessage.toLowerCase().includes('service unavailable') ||
+    rawErrorMessage.toLowerCase().includes('quá tải');
+
   const isKeyError =
     rawErrorMessage.includes('Gemini API Key') ||
     rawErrorMessage.includes('API Key') ||
@@ -196,7 +201,10 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
 
   // Friendly human message
   let displayMessage = cleanMessage;
-  if (isTimeoutError) {
+  if (is503Error) {
+    displayMessage =
+      'Máy chủ Google Gemini AI hiện đang quá tải tạm thời (HTTP Error 503: Service Unavailable). Kịch bản và nội dung của bạn hoàn toàn hợp lệ, không có lỗi. Vui lòng chờ khoảng 10 – 30 giây rồi bấm "Thử lại ngay" (hệ thống sẽ tự động chuyển sang mô hình dự phòng), hoặc bấm "Cài đặt Gemini Key" để đổi API Key khác.';
+  } else if (isTimeoutError) {
     displayMessage =
       'Quá thời gian chờ phản hồi từ máy chủ AI (Request Timeout). Quá trình đối chiếu tài liệu lịch sử RAG và khởi tạo phân cảnh kịch bản đang mất nhiều thời gian do khối lượng dữ liệu lớn. Bạn có thể bấm "Thử lại ngay" để hệ thống tiếp tục xử lý.';
   } else if (isNetworkError) {
@@ -214,6 +222,8 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
               className={`flex h-11 w-11 items-center justify-center rounded-2xl shrink-0 shadow-2xs mt-0.5 border ${
                 isScopeError
                   ? 'bg-[#F5ECE0] border-[#E8DCBF] text-[#8C521E]'
+                  : is503Error
+                  ? 'bg-amber-50 border-amber-200 text-amber-700'
                   : isTimeoutError
                   ? 'bg-[#FEF3C7] border-[#FDE68A] text-[#B45309]'
                   : 'bg-status-error-bg border-status-error-text/30 text-status-error-text'
@@ -221,6 +231,8 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
             >
               {isScopeError ? (
                 <Landmark className="h-5 w-5" />
+              ) : is503Error ? (
+                <RotateCw className="h-5 w-5 text-amber-700" />
               ) : isTimeoutError ? (
                 <Clock className="h-5 w-5" />
               ) : (
@@ -233,6 +245,8 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
                 <DialogTitle className="font-serif text-base sm:text-lg font-bold text-ink tracking-tight">
                   {isScopeError
                     ? 'Chủ Đề Chưa Thuộc Kho Sử Liệu Lý – Trần'
+                    : is503Error
+                    ? 'Máy Chủ Google Gemini AI Quá Tải (503)'
                     : isTimeoutError
                     ? 'Thời Gian Phản Hồi Quá Lâu (Timeout)'
                     : isNetworkError
@@ -243,6 +257,8 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
                   className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
                     isScopeError
                       ? 'bg-[#EFE9DF] text-[#786F66] border border-[#E0D7CA]'
+                      : is503Error
+                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
                       : isTimeoutError
                       ? 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]'
                       : 'bg-status-error-bg text-status-error-text border border-status-error-text/30'
@@ -250,6 +266,8 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
                 >
                   {isScopeError
                     ? 'Chính Sử 1009 – 1400'
+                    : is503Error
+                    ? 'Máy chủ AI tạm bận'
                     : isTimeoutError
                     ? 'Quá thời gian chờ'
                     : 'Cần kiểm tra lại'}
@@ -258,6 +276,8 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
               <DialogDescription className="text-xs text-[#78716C] leading-relaxed">
                 {isScopeError
                   ? 'Kho tư liệu số hóa AI hiện chuyên sâu cho hai triều đại hoàng kim: Nhà Lý (1009 – 1225) và Nhà Trần (1225 – 1400) để đảm bảo độ chuẩn xác sử học tuyệt đối.'
+                  : is503Error
+                  ? 'Dịch vụ Google Gemini AI đang tiếp nhận lượng truy cập lớn từ toàn cầu nên bị quá tải tạm thời (HTTP 503). Nội dung kịch bản của bạn hoàn toàn hợp lệ.'
                   : isTimeoutError
                   ? 'Quá trình phân tích chuyên sâu qua kho sử liệu lớn đang tốn nhiều thời gian hơn dự kiến.'
                   : 'Yêu cầu không thể hoàn tất do dữ liệu kịch bản hoặc cấu hình chưa phù hợp.'}
@@ -344,15 +364,21 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
           ) : (
             <div
               className={`p-4 rounded-xl border text-xs space-y-2 shadow-2xs ${
-                isTimeoutError
+                is503Error
+                  ? 'bg-amber-50/60 border-amber-200 text-amber-900'
+                  : isTimeoutError
                   ? 'bg-[#FFFDF7] border-[#FDE68A] text-[#78350F]'
                   : 'bg-surface-subtle/70 border-border/70 text-ink/90'
               }`}
             >
               <div className="text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1.5 text-[#8C6D46]">
-                <AlertCircle className="h-3.5 w-3.5 text-accent shrink-0" />
+                <AlertCircle className={`h-3.5 w-3.5 shrink-0 ${is503Error ? 'text-amber-600' : 'text-accent'}`} />
                 <span>
-                  {isTimeoutError ? 'Nguyên nhân kỹ thuật:' : 'Phản hồi chi tiết từ hệ thống:'}
+                  {is503Error
+                    ? 'Thông tin từ máy chủ Google AI:'
+                    : isTimeoutError
+                    ? 'Nguyên nhân kỹ thuật:'
+                    : 'Phản hồi chi tiết từ hệ thống:'}
                 </span>
               </div>
               <p className="text-xs font-sans leading-relaxed text-[#574E43] pl-5 select-text">
@@ -467,7 +493,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
               <Edit3 className="h-3.5 w-3.5 text-accent" />
               <span>Chỉnh sửa lại đề tài của tôi</span>
             </Button>
-          ) : onRetry && (isTimeoutError || isNetworkError) ? (
+          ) : onRetry && (is503Error || isTimeoutError || isNetworkError) ? (
             <Button
               type="button"
               size="sm"
@@ -485,7 +511,7 @@ export const StudioScopeErrorDialog: React.FC<StudioScopeErrorDialogProps> = ({
           )}
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            {onOpenSettings && isKeyError && (
+            {onOpenSettings && (isKeyError || is503Error) && (
               <Button
                 type="button"
                 variant="outline"

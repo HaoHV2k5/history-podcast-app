@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   Upload,
   X,
@@ -7,7 +7,11 @@ import {
   Eye,
   EyeOff,
   Image as ImageIcon,
+  Sparkles,
+  Link2,
 } from 'lucide-react';
+import { gsap } from 'gsap';
+import { isReducedMotion } from '@/utils/motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,8 +36,6 @@ interface SeriesCreateEditDialogProps {
   onCoverUrlChange: (val: string) => void;
   status: 'PUBLISHED' | 'HIDDEN' | 'DRAFT';
   onStatusChange: (val: 'PUBLISHED' | 'HIDDEN' | 'DRAFT') => void;
-  category: string;
-  onCategoryChange: (val: string) => void;
   error: string | null;
   isSubmitting: boolean;
   isUploadingCover: boolean;
@@ -53,8 +55,6 @@ export const SeriesCreateEditDialog: React.FC<SeriesCreateEditDialogProps> = ({
   onCoverUrlChange,
   status,
   onStatusChange,
-  category,
-  onCategoryChange,
   error,
   isSubmitting,
   isUploadingCover,
@@ -62,83 +62,104 @@ export const SeriesCreateEditDialog: React.FC<SeriesCreateEditDialogProps> = ({
   onSubmit,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  // GSAP Smooth Stagger Entrance Animation when dialog opens
+  useEffect(() => {
+    if (!open || isReducedMotion() || !formRef.current) return;
+
+    const elements = formRef.current.querySelectorAll('[data-motion-field]');
+    if (!elements || elements.length === 0) return;
+
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        elements,
+        { opacity: 0, y: 10 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.32,
+          stagger: 0.045,
+          ease: 'power2.out',
+          clearProps: 'transform,opacity',
+        }
+      );
+    }, formRef);
+
+    return () => ctx.revert();
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-serif text-xl font-bold text-[#1C1615]">
-            {isEdit ? 'Chỉnh Sửa Tuyển Tập' : 'Tạo Tuyển Tập Mới'}
+      <DialogContent className="max-w-xl max-h-[92vh] overflow-y-auto bg-[#FAF8F5] border border-[#E7E2D9] p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-xl">
+        {/* Editorial Header */}
+        <DialogHeader className="space-y-1.5 pb-2 border-b border-[#E7E2D9]">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EFEAE2] border border-[#E2DDD5] text-[10px] font-semibold uppercase tracking-wider text-[#8B2635] font-sans w-fit">
+            <Sparkles className="h-3 w-3 text-[#8B2635]" />
+            <span>Sử Ký Studio · Tuyển Tập Chuyên Đề</span>
+          </div>
+          <DialogTitle className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#1C1917] leading-tight">
+            {isEdit ? 'Chỉnh Sửa Tuyển Tập' : 'Tạo Tuyển Tập Tác Phẩm Mới'}
           </DialogTitle>
-          <DialogDescription className="text-xs text-[#5C524F]">
-            Điền thông tin chủ đề, mô tả và tải lên ảnh bìa để tuyển tập hiển thị nổi bật trên kênh Sử Ký.
+          <DialogDescription className="text-xs sm:text-[13px] text-[#696660] leading-relaxed font-sans">
+            Gom nhóm các tập podcast và video liên quan thành một chuỗi tác phẩm hoàn chỉnh, giúp khán giả theo dõi liền mạch theo trình tự thời gian.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={onSubmit} className="space-y-4 py-2 text-left">
+        <form ref={formRef} onSubmit={onSubmit} className="space-y-4 pt-3 text-left">
           {error && (
-            <div className="flex items-start gap-2 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <div
+              data-motion-field
+              className="flex items-start gap-2.5 rounded-xl bg-[#FDF2F2] border border-[#F8D7DA] p-3 text-xs text-[#8B2635] font-medium leading-relaxed"
+            >
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[#8B2635]" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Title */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#1C1615]">
-              Tiêu đề tuyển tập <span className="text-red-600">*</span>
+          {/* 1. Title */}
+          <div data-motion-field className="space-y-1.5">
+            <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider font-mono flex items-center justify-between">
+              <span>
+                Tiêu đề tuyển tập <span className="text-[#8B2635]">*</span>
+              </span>
+              <span className="text-[10px] text-[#8C827A] normal-case font-sans">
+                {title.length}/100 ký tự
+              </span>
             </label>
             <Input
-              placeholder="Ví dụ: Triều Lý: Khởi nguồn Đại Việt"
+              placeholder="Ví dụ: Triều Đại Lý — Trần: 400 Năm Hào Khí Đông A"
               value={title}
+              maxLength={100}
               onChange={(e) => onTitleChange(e.target.value)}
               required
-              className="h-10 text-xs sm:text-sm rounded-xl border-[#EBE4D8]"
+              className="h-10 text-xs sm:text-sm rounded-xl border-[#E7E2D9] bg-white text-[#1C1917] focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs placeholder:text-stone-400"
             />
           </div>
 
-          {/* Description */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#1C1615]">
-              Mô tả ngắn tuyển tập
+          {/* 2. Description */}
+          <div data-motion-field className="space-y-1.5">
+            <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider font-mono">
+              Mô tả nội dung tuyển tập
             </label>
             <Textarea
               rows={3}
-              placeholder="Tóm tắt bối cảnh lịch sử, triều đại hoặc các nhân vật tiêu biểu trong chuỗi podcast này..."
+              placeholder="Tóm tắt bối cảnh lịch sử, triều đại hoặc các nhân vật tiêu biểu trong chuỗi tác phẩm này..."
               value={description}
               onChange={(e) => onDescriptionChange(e.target.value)}
-              className="text-xs sm:text-sm rounded-xl border-[#EBE4D8]"
+              className="text-xs sm:text-sm rounded-xl border-[#E7E2D9] bg-white text-[#1C1917] focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs leading-relaxed placeholder:text-stone-400"
             />
           </div>
 
-          {/* Category selection */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#1C1615]">
-              Chủ đề & Thời kỳ lịch sử
-            </label>
-            <select
-              value={category}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              className="w-full h-10 px-3 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#A31D24]/20"
-            >
-              <option value="TRIEU_LY">Triều Lý</option>
-              <option value="TRIEU_TRAN">Triều Trần</option>
-              <option value="CHIEN_TRANH">Chiến tranh & Thủy chiến</option>
-              <option value="NHAN_VAT">Nhân vật lịch sử</option>
-              <option value="VAN_HOA">Văn hóa & Đời sống</option>
-              <option value="KHAC">Di sản & Khác</option>
-            </select>
-          </div>
-
-          {/* Cover Image Upload (16:9 ratio) */}
-          <div className="space-y-1.5">
+          {/* 3. Cover Artwork (16:9 ratio) */}
+          <div data-motion-field className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <label className="text-xs font-semibold text-[#1C1615] flex items-center gap-1.5">
-                <ImageIcon className="h-3.5 w-3.5 text-[#A31D24]" />
-                <span>Ảnh bìa tuyển tập (16:9)</span>
+              <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <ImageIcon className="h-3.5 w-3.5 text-[#8B2635]" />
+                <span>Ảnh bìa đại diện (16:9)</span>
               </label>
-              <span className="text-[11px] text-[#786C68] bg-[#F5F2EB] px-2 py-0.5 rounded-md border border-[#EBE4D8]">
-                Khuyên dùng 1280×720px
+              <span className="text-[10px] text-[#736B63] bg-[#EFEAE2] px-2 py-0.5 rounded-full border border-[#E2DDD5] font-mono">
+                1280 × 720 px (Chuẩn HD)
               </span>
             </div>
 
@@ -151,35 +172,40 @@ export const SeriesCreateEditDialog: React.FC<SeriesCreateEditDialogProps> = ({
             />
 
             {coverUrl ? (
-              <div className="relative aspect-video w-full rounded-xl overflow-hidden border border-[#EBE4D8] bg-stone-900 group shadow-2xs">
+              <div className="relative aspect-video w-full rounded-2xl overflow-hidden border border-[#E7E2D9] bg-[#1C1917] group shadow-xs">
                 <img
                   src={coverUrl}
                   alt="Xem trước ảnh bìa tuyển tập"
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isUploadingCover}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="h-8 text-xs gap-1.5 bg-white text-[#1C1615] border-stone-200"
-                  >
-                    <Upload className="h-3.5 w-3.5 text-[#A31D24]" />
-                    <span>Đổi ảnh khác</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isUploadingCover}
-                    onClick={() => onCoverUrlChange('')}
-                    className="h-8 text-xs gap-1 bg-white text-red-600 border-red-200 hover:bg-red-50"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    <span>Gỡ</span>
-                  </Button>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+                  <span className="text-[11px] text-white/90 font-medium truncate max-w-[200px]">
+                    Ảnh bìa đã chọn
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isUploadingCover}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="h-8 text-xs gap-1.5 bg-white/95 text-[#1C1917] hover:bg-white border-white/80 rounded-xl font-medium shadow-xs"
+                    >
+                      <Upload className="h-3.5 w-3.5 text-[#8B2635]" />
+                      <span>Đổi ảnh khác</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isUploadingCover}
+                      onClick={() => onCoverUrlChange('')}
+                      className="h-8 text-xs gap-1 bg-white/95 text-red-600 border-red-200 hover:bg-red-50 rounded-xl font-medium shadow-xs"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      <span>Gỡ</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -187,91 +213,84 @@ export const SeriesCreateEditDialog: React.FC<SeriesCreateEditDialogProps> = ({
                 type="button"
                 disabled={isUploadingCover}
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full rounded-xl border border-dashed border-[#EBE4D8] hover:border-[#A31D24]/50 bg-[#FAF8F5] hover:bg-[#FDF2F2]/40 p-5 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors disabled:opacity-60"
+                className="w-full rounded-2xl border-2 border-dashed border-[#D9D3C7] hover:border-[#8B2635]/60 bg-white hover:bg-[#FBF2EE]/30 p-6 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-60 group shadow-2xs"
               >
                 {isUploadingCover ? (
                   <>
-                    <Loader2 className="h-5 w-5 text-[#A31D24] animate-spin" />
-                    <span className="text-xs font-semibold text-[#A31D24]">
-                      Đang tải ảnh bìa lên...
+                    <Loader2 className="h-6 w-6 text-[#8B2635] animate-spin" />
+                    <span className="text-xs font-semibold text-[#8B2635]">
+                      Đang xử lý và tải ảnh bìa lên hệ thống...
                     </span>
                   </>
                 ) : (
                   <>
-                    <Upload className="h-5 w-5 text-[#A31D24]" />
-                    <span className="text-xs font-semibold text-[#1C1615]">
-                      Bấm để chọn ảnh bìa từ máy tính
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF2EE] text-[#8B2635] border border-[#F0DDD8] group-hover:scale-105 transition-transform">
+                      <Upload className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs font-bold text-[#1C1917] group-hover:text-[#8B2635] transition-colors">
+                      Bấm để tải ảnh bìa từ máy tính
                     </span>
                     <span className="text-[11px] text-[#786C68]">
-                      JPG, PNG, WebP (tối đa 10MB)
+                      Định dạng JPG, PNG hoặc WebP (Dung lượng tối đa 10MB)
                     </span>
                   </>
                 )}
               </button>
             )}
 
+            {/* Optional URL input fallback */}
             <div className="flex items-center gap-2 pt-1">
-              <Input
-                placeholder="Hoặc dán URL ảnh có sẵn (https://...)"
-                value={coverUrl}
-                onChange={(e) => onCoverUrlChange(e.target.value)}
-                className="text-xs h-8 rounded-lg border-[#EBE4D8]"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isUploadingCover}
-                onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 h-8 px-3 text-xs gap-1.5 border-[#EBE4D8] text-[#A31D24] hover:bg-[#FDF2F2]"
-                title="Bấm để chọn file ảnh bìa từ máy tính"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                <span>Chọn ảnh</span>
-              </Button>
+              <div className="relative flex-1">
+                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-stone-400 pointer-events-none" />
+                <Input
+                  placeholder="Hoặc dán trực tiếp liên kết URL ảnh bìa (https://...)"
+                  value={coverUrl}
+                  onChange={(e) => onCoverUrlChange(e.target.value)}
+                  className="text-xs h-9 pl-8 rounded-xl border-[#E7E2D9] bg-white text-[#1C1917] placeholder:text-stone-400 focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635]"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Status Selection */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-[#1C1615]">
+          {/* 4. Publication Status Selector */}
+          <div data-motion-field className="space-y-1.5 pt-1">
+            <label className="text-xs font-bold text-[#1C1917] uppercase tracking-wider font-mono">
               Trạng thái xuất bản
             </label>
-            <div className="flex items-center gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5">
               <button
                 type="button"
                 onClick={() => onStatusChange('PUBLISHED')}
-                title="Đặt trạng thái công khai cho mọi người cùng nghe"
-                className={`h-9 px-3.5 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 transition-all cursor-pointer border ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                   status === 'PUBLISHED'
-                    ? 'bg-[#A31D24] text-white border-[#A31D24] shadow-xs'
-                    : 'bg-white border-[#EBE4D8] text-[#5C524F] hover:bg-[#F5F2EB]'
+                    ? 'bg-[#8B2635] text-white border-[#8B2635] shadow-xs'
+                    : 'bg-white border-[#E7E2D9] text-[#5C524F] hover:bg-[#F5F2EC]'
                 }`}
               >
                 <Eye className="h-3.5 w-3.5" />
                 <span>Công khai</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => onStatusChange('HIDDEN')}
-                title="Đặt trạng thái tạm ẩn để không xuất hiện công khai"
-                className={`h-9 px-3.5 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 transition-all cursor-pointer border ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                   status === 'HIDDEN'
-                    ? 'bg-amber-700 text-white border-amber-700 shadow-xs'
-                    : 'bg-white border-[#EBE4D8] text-[#5C524F] hover:bg-[#F5F2EB]'
+                    ? 'bg-[#A85822] text-white border-[#A85822] shadow-xs'
+                    : 'bg-white border-[#E7E2D9] text-[#5C524F] hover:bg-[#F5F2EC]'
                 }`}
               >
                 <EyeOff className="h-3.5 w-3.5" />
                 <span>Tạm ẩn</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => onStatusChange('DRAFT')}
-                title="Đặt trạng thái bản nháp để tiếp tục hoàn thiện sau"
-                className={`h-9 px-3.5 rounded-xl text-xs font-medium inline-flex items-center gap-1.5 transition-all cursor-pointer border ${
+                className={`h-10 px-3 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                   status === 'DRAFT'
-                    ? 'bg-stone-700 text-white border-stone-700 shadow-xs'
-                    : 'bg-white border-[#EBE4D8] text-[#5C524F] hover:bg-[#F5F2EB]'
+                    ? 'bg-[#524B46] text-white border-[#524B46] shadow-xs'
+                    : 'bg-white border-[#E7E2D9] text-[#5C524F] hover:bg-[#F5F2EC]'
                 }`}
               >
                 <span>Bản nháp</span>
@@ -279,25 +298,24 @@ export const SeriesCreateEditDialog: React.FC<SeriesCreateEditDialogProps> = ({
             </div>
           </div>
 
-          <DialogFooter className="pt-4 border-t border-[#EBE4D8]">
+          {/* Dialog Action Footer */}
+          <DialogFooter className="pt-4 mt-2 border-t border-[#E7E2D9] flex items-center justify-end gap-2.5">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isSubmitting}
-              className="rounded-xl border-[#EBE4D8]"
-              title="Hủy bỏ và đóng hộp thoại"
+              className="rounded-xl border-[#E7E2D9] bg-white text-[#5C524F] hover:bg-[#F5F2EC] text-xs h-10 px-4 font-medium"
             >
               Hủy bỏ
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="bg-[#A31D24] hover:bg-[#8B181E] text-white rounded-xl gap-2 cursor-pointer shadow-xs"
-              title={isEdit ? 'Lưu các cập nhật cho tuyển tập' : 'Tạo mới tuyển tập này'}
+              className="bg-[#8B2635] hover:bg-[#731E2A] text-white rounded-xl gap-2 cursor-pointer shadow-xs text-xs h-10 px-5 font-semibold transition-all duration-150 active:scale-[0.98]"
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span>{isEdit ? 'Lưu thay đổi' : 'Tạo tuyển tập'}</span>
+              <span>{isEdit ? 'Lưu cập nhật' : 'Tạo tuyển tập ngay'}</span>
             </Button>
           </DialogFooter>
         </form>

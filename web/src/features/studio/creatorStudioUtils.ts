@@ -337,18 +337,29 @@ export const resolveHistoricalThumbnail = (
 
 // ─── VOICE REGION & METADATA MAPPING UTILITIES ──────────────────────────────
 
-export type VoiceRegion = 'mien-bac' | 'mien-trung' | 'mien-nam' | 'toan-quoc';
+export type VoiceRegion = 'mien-bac' | 'mien-trung' | 'mien-nam';
 
 /**
  * Phân định vùng miền chuẩn xác theo dữ liệu giọng thực tế,
- * khắc phục triệt để lỗi substring 'nam' (giới tính nam) bị nhầm với 'miền nam'.
+ * tập trung vào 3 miền chính của Việt Nam: Miền Bắc, Miền Trung, Miền Nam.
+ * Khắc phục triệt để lỗi substring 'nam' (giới tính nam) bị nhầm với 'miền nam'.
  */
 export const getVoiceRegion = (voice: CreatorVoiceItem): VoiceRegion => {
   const id = voice.id;
 
   // 1. Ánh xạ ưu tiên theo ID giọng
-  if (id === 'vi-VN-NamMinhNeural' || id === 'Liam' || id === 'Laura' || id === 'Roger') {
+  if (
+    id === 'vi-VN-NamMinhNeural' ||
+    id === 'Liam' ||
+    id === 'Laura' ||
+    id === 'Roger' ||
+    id === 'River' ||
+    id === 'Rachel'
+  ) {
     return 'mien-nam';
+  }
+  if (id === 'Callum' || id === 'Harry' || id === 'Lily') {
+    return 'mien-trung';
   }
   if (
     id === 'vi-VN-HoaiMyNeural' ||
@@ -357,23 +368,19 @@ export const getVoiceRegion = (voice: CreatorVoiceItem): VoiceRegion => {
     id === 'Bill' ||
     id === 'Alice' ||
     id === 'Matilda' ||
-    id === 'Daniel'
+    id === 'Daniel' ||
+    id === 'Brian' ||
+    id === 'Adam' ||
+    id === 'Will'
   ) {
     return 'mien-bac';
-  }
-  if (id === 'Callum' || id === 'Harry' || id === 'Lily') {
-    return 'mien-trung';
-  }
-  if (id === 'Brian' || id === 'Adam' || id === 'River' || id === 'Will' || id === 'Rachel') {
-    return 'toan-quoc';
   }
 
   // 2. Kiểm tra danh sách tags từ hệ thống
   const tags = voice.tags || [];
   if (tags.includes('mien-nam')) return 'mien-nam';
-  if (tags.includes('mien-bac')) return 'mien-bac';
   if (tags.includes('mien-trung')) return 'mien-trung';
-  if (tags.includes('toan-quoc')) return 'toan-quoc';
+  if (tags.includes('mien-bac')) return 'mien-bac';
 
   // 3. Phân tích cụm từ chính xác (không so khớp từ đơn 'nam' để tránh nhầm với giới tính)
   const acc = (voice.accent || '').toLowerCase();
@@ -381,7 +388,52 @@ export const getVoiceRegion = (voice: CreatorVoiceItem): VoiceRegion => {
   if (acc.includes('miền trung') || acc.includes('trung bộ') || acc.includes('huế')) return 'mien-trung';
   if (acc.includes('chuẩn bắc') || acc.includes('miền bắc') || acc.includes('hà nội') || acc.includes('bắc bộ')) return 'mien-bac';
 
-  return 'toan-quoc';
+  return 'mien-bac';
+};
+
+/**
+ * Ánh xạ trích đoạn âm thanh tiếng Anh gốc mà diễn viên ElevenLabs nói trong tệp previewUrl.
+ * Giúp người dùng nắm bắt rõ âm sắc mẫu là tiếng Anh trong khi AI xuất bản sẽ đọc tiếng Việt.
+ */
+export const getElevenLabsSampleQuote = (voiceId: string): string => {
+  switch (voiceId) {
+    case 'Brian':
+      return 'The thing always happens that you really believe in; and the belief in a thing makes it happen.';
+    case 'Adam':
+      return 'Our distrust is very expensive.';
+    case 'Sarah':
+      return 'The years teach much which the days never know.';
+    case 'George':
+      return 'God has given you one face, and you make yourself another.';
+    case 'Laura':
+      return 'Our distrust is very expensive.';
+    case 'Liam':
+      return "Life isn't about finding yourself. Life is about creating yourself.";
+    case 'Callum':
+      return 'Life without love is like a tree without blossoms or fruit.';
+    case 'Bill':
+      return 'As we are liberated from our own fear, our presence automatically liberates others.';
+    case 'Alice':
+      return 'Just trust yourself, then you will know how to live.';
+    case 'River':
+      return 'Nature is a mutable cloud which is always and never the same.';
+    case 'Roger':
+      return 'It is not so important to know everything as to appreciate what we learn.';
+    case 'Harry':
+      return 'Friends show their love in times of trouble, not in happiness.';
+    case 'Matilda':
+      return 'Ideas are the beginning points of all fortunes.';
+    case 'Will':
+      return 'We make our own fortunes, and we call them fate.';
+    case 'Daniel':
+      return 'The world is round, and the place which may seem like the end may also be the beginning.';
+    case 'Lily':
+      return "I have never been hurt by anything I didn't say.";
+    case 'Rachel':
+      return "If you spend your whole life waiting for the storm, you'll never enjoy the sunshine.";
+    default:
+      return 'Sample preview demonstrating authentic vocal timbre and natural pitch.';
+  }
 };
 
 /**
@@ -411,8 +463,6 @@ export const getRegionLabel = (region: VoiceRegion): string => {
       return 'Miền Trung';
     case 'mien-nam':
       return 'Miền Nam';
-    case 'toan-quoc':
-      return 'Toàn quốc';
   }
 };
 
@@ -428,4 +478,139 @@ export const getEngineLabel = (engine: string): string => {
   if (engine === 'elevenlabs') return 'Cao cấp (ElevenLabs)';
   return engine;
 };
+
+/**
+ * Trích xuất lời dẫn thực tế của một phân cảnh Whiteboard.
+ * Ưu tiên sc.narration_text nếu tác giả đã biên tập, nếu chưa có sẽ tự động
+ * gộp các câu subtitle từ các khối vẽ doodle của phân cảnh đó.
+ */
+export const getEffectiveSceneNarration = (scene?: {
+  narration_text?: string;
+  elements?: Array<{ subtitle?: string }>;
+}): string => {
+  if (!scene) return '';
+  const direct = (scene.narration_text || '').trim();
+  if (direct) return direct;
+  if (!scene.elements || scene.elements.length === 0) return '';
+  return scene.elements
+    .map((e) => (e.subtitle || '').trim())
+    .filter(Boolean)
+    .join(' ');
+};
+
+/**
+ * Phân tách một đoạn văn bản lời dẫn thành số lượng mệnh đề tương ứng với số khối vẽ (mặc định 3).
+ * Dùng để đồng bộ lại subtitle của từng khối vẽ khi tác giả sửa lời dẫn tổng của phân cảnh.
+ */
+export const splitNarrationIntoElements = (
+  narration: string,
+  targetCount: number = 3
+): string[] => {
+  const text = (narration || '').trim();
+  if (!text) {
+    return Array.from({ length: targetCount }, () => '');
+  }
+  if (targetCount <= 1) return [text];
+
+  // Tách theo dấu kết câu (.?! hoặc xuống dòng)
+  const sentences = text
+    .split(/(?<=[.?!])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (sentences.length === targetCount) {
+    return sentences;
+  }
+
+  // Nếu số câu ít hơn số khối vẽ, thử tách tiếp theo dấu phẩy hoặc chấm phẩy
+  if (sentences.length < targetCount) {
+    const clauses = text
+      .split(/(?<=[,;])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (clauses.length >= targetCount) {
+      const result: string[] = [];
+      const perSlot = Math.floor(clauses.length / targetCount);
+      let remainder = clauses.length % targetCount;
+      let curIdx = 0;
+      for (let i = 0; i < targetCount; i++) {
+        const take = perSlot + (remainder > 0 ? 1 : 0);
+        remainder = Math.max(0, remainder - 1);
+        result.push(clauses.slice(curIdx, curIdx + take).join(', '));
+        curIdx += take;
+      }
+      return result;
+    }
+
+    // Nếu văn bản quá ngắn, chia đều theo số từ
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length <= targetCount) {
+      return Array.from({ length: targetCount }, (_, i) => words[i] || (i === 0 ? text : ''));
+    }
+    const perWord = Math.floor(words.length / targetCount);
+    let remWords = words.length % targetCount;
+    const res: string[] = [];
+    let wIdx = 0;
+    for (let i = 0; i < targetCount; i++) {
+      const count = perWord + (remWords > 0 ? 1 : 0);
+      remWords = Math.max(0, remWords - 1);
+      res.push(words.slice(wIdx, wIdx + count).join(' '));
+      wIdx += count;
+    }
+    return res;
+  }
+
+  // Nếu số câu nhiều hơn targetCount, gộp các câu cuối lại
+  const res = sentences.slice(0, targetCount - 1);
+  res.push(sentences.slice(targetCount - 1).join(' '));
+  return res;
+};
+
+export interface ChronologyIssue {
+  wrongYear: string;
+  suggestedYear?: string;
+  explanation: string;
+}
+
+export function detectHistoricalChronologyIssue(text: string): ChronologyIssue | null {
+  if (!text || !text.trim()) return null;
+  const regex = /\b(?:năm|vào năm|niên hiệu.*?năm|năm thứ)?\s*(\d{3,4})\b/gi;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const fullMatch = match[0].trim();
+    const yrStr = match[1];
+    const yr = parseInt(yrStr, 10);
+    if (fullMatch.toLowerCase().includes('năm') || fullMatch.toLowerCase().includes('vào năm') || /^\d{3,4}$/.test(fullMatch)) {
+      const lower = text.toLowerCase();
+      const isOutOfLýTrần = yr < 1009 || yr > 1400;
+      const isWrongDoiDo = yr !== 1010 && (lower.includes('dời đô') || (lower.includes('hoa lư') && lower.includes('thăng long')));
+      const isWrongBachDang = yr !== 1288 && lower.includes('bạch đằng') && (lower.includes('trần hưng đạo') || lower.includes('trần quốc tuấn'));
+      const isWrongHoaChau = yr !== 1353 && (lower.includes('trương hán siêu') || lower.includes('hóa châu')) && lower.includes('trần dụ tông');
+
+      if (isOutOfLýTrần || isWrongDoiDo || isWrongBachDang || isWrongHoaChau) {
+        let suggestedYear = '';
+        let explanation = `Năm ${yr} nằm ngoài phạm vi chính sử hai triều đại hoàng kim Nhà Lý (1009 – 1225) và Nhà Trần (1225 – 1400).`;
+
+        if (isWrongHoaChau || ((yr === 1453 || yr === 2000 || yr > 1400) && (lower.includes('trương hán siêu') || lower.includes('hóa châu') || lower.includes('trần dụ tông') || lower.includes('thần sách')))) {
+          suggestedYear = '1353';
+          explanation = `Sự kiện vua Trần Dụ Tông cử Trương Hán Siêu đem quân Thần Sách trấn giữ Hóa Châu diễn ra vào năm Quý Tỵ 1353 (thời Trần), không phải năm ${yr}.`;
+        } else if (isWrongDoiDo || ((yr === 1012 || yr !== 1010) && (lower.includes('dời đô') || lower.includes('lý thái tổ') || lower.includes('lý công uẩn') || lower.includes('đại la') || lower.includes('thăng long')))) {
+          suggestedYear = '1010';
+          explanation = `Vua Lý Thái Tổ ban Chiếu Dời Đô từ Hoa Lư về Đại La vào mùa thu năm Canh Tuất 1010, không phải năm ${yr}.`;
+        } else if (isWrongBachDang || (yr !== 1288 && lower.includes('bạch đằng') && (lower.includes('trần hưng đạo') || lower.includes('trần quốc tuấn') || lower.includes('ô mã nhi')))) {
+          suggestedYear = '1288';
+          explanation = `Trận thủy chiến Bạch Đằng do Trần Hưng Đạo lãnh đạo diễn ra vào năm 1288, không phải năm ${yr}.`;
+        }
+
+        return {
+          wrongYear: yrStr,
+          suggestedYear,
+          explanation,
+        };
+      }
+    }
+  }
+  return null;
+}
+
 
