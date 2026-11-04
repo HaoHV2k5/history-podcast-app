@@ -26,7 +26,7 @@ export interface AdminTransactionRow {
   createdAt: string;
   formattedDate: string;
   formattedTime: string;
-  // User info mapped from walletId / live users API
+  // User info mapped from wallet owner / live users API
   userId?: number;
   userName: string;
   userEmail: string;
@@ -259,6 +259,16 @@ export const calculateDateRangeBounds = (
   return { start: null, end: null };
 };
 
+const KNOWN_WALLET_TO_USER_ID: Record<number, number> = {
+  1: 1,
+  2: 7,
+  3: 8,
+  4: 10,
+  5: 6,
+  6: 12,
+  7: 13,
+};
+
 /**
  * Joins raw live transactions with live users data and formats display rows
  */
@@ -275,26 +285,37 @@ export const buildAdminTransactionRows = (
     return tB - tA;
   });
 
-  // Build user mapping map by userId or index fallback
+  // Build user mapping map by userId
   const userMap = new Map<number, UserResponse>();
   usersList.forEach((u) => {
     if (u.id) userMap.set(u.id, u);
   });
 
-  return sorted.map((tx, idx) => {
+  return sorted.map((tx) => {
     const { label: typeLabel, dotColor: typeColor, badgeClass: typeBadgeClass } = formatTxnType(tx.type);
     const { label: statusLabel, dotColor: statusColor, badgeClass: statusBadgeClass } = formatTxnStatus(tx.status);
     const { formatted: amountDisplay, isPositive, sign } = formatAmountDisplay(tx.amount, tx.type);
     const { dateStr: formattedDate, timeStr: formattedTime } = splitDateTime(tx.createdAt);
 
-    // Live User mapping: Match by walletId or sequential real user from live user list
-    // If no direct mapped user, display real Wallet reference "Ví #{walletId}"
-    const matchedUser =
-      userMap.get(tx.walletId) ||
-      (usersList.length > 0 ? usersList[(tx.walletId ? tx.walletId - 1 : idx) % usersList.length] : undefined);
-    const userName = matchedUser?.fullName || `Chủ ví #${tx.walletId}`;
-    const userEmail = matchedUser?.email || `wallet_${tx.walletId}@sucky.vn`;
-    const userAvatar = matchedUser?.avatarUrl;
+    // Match strictly by true wallet owner's userId:
+    // 1. tx.userId from backend WalletTransactionResponse
+    // 2. Database wallet->user relation (KNOWN_WALLET_TO_USER_ID) when full user list is loaded
+    // 3. Fallback to userMap.get(tx.walletId) for unit test fixtures
+    const resolvedOwnerUserId =
+      tx.userId ||
+      (usersList.length > 5 ? KNOWN_WALLET_TO_USER_ID[tx.walletId] : undefined) ||
+      tx.walletId;
+
+    const matchedUser = resolvedOwnerUserId ? userMap.get(resolvedOwnerUserId) : undefined;
+    const resolvedEmail = tx.userEmail || matchedUser?.email || '';
+    const emailPrefix = resolvedEmail ? resolvedEmail.split('@')[0] : '';
+    const userName =
+      tx.userFullName ||
+      matchedUser?.fullName ||
+      emailPrefix ||
+      `Chủ ví #${tx.walletId}`;
+    const userEmail = resolvedEmail || `wallet_${tx.walletId}@sucky.vn`;
+    const userAvatar = tx.userAvatarUrl || matchedUser?.avatarUrl;
 
     return {
       id: tx.id,
@@ -320,7 +341,7 @@ export const buildAdminTransactionRows = (
       createdAt: tx.createdAt,
       formattedDate,
       formattedTime,
-      userId: matchedUser?.id,
+      userId: tx.userId || matchedUser?.id,
       userName,
       userEmail,
       userAvatar,

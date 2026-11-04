@@ -15,6 +15,13 @@ public interface MembershipPaymentMapper {
     MembershipPayment toEntity(MembershipPaymentRequest request);
 
     @Mapping(source = "membership.id", target = "membershipId")
+    @Mapping(source = "membership.viewer.id", target = "viewerId")
+    @Mapping(source = "membership.viewer.fullName", target = "viewerFullName")
+    @Mapping(source = "membership.viewer.email", target = "viewerEmail")
+    @Mapping(source = "membership.viewer.avatarUrl", target = "viewerAvatarUrl")
+    @Mapping(source = "membership.channel.id", target = "channelId")
+    @Mapping(source = "membership.channel.name", target = "channelName")
+    @Mapping(source = "membership.plan.name", target = "planName")
     MembershipPaymentResponse toResponse(MembershipPayment entity);
 
     @Mapping(target = "id", ignore = true)

@@ -23,6 +23,7 @@ public class ContractResponse {
 
     private Long creatorId;
     private String creatorFullName;
+    private String creatorEmail;
     private String creatorAvatarUrl;
 
     /**
@@ -30,6 +31,7 @@ public class ContractResponse {
      */
     private Long requesterId;
     private String requesterFullName;
+    private String requesterEmail;
     private String requesterAvatarUrl;
 
     /**
@@ -37,6 +39,7 @@ public class ContractResponse {
      */
     private Long freelancerId;
     private String freelancerFullName;
+    private String freelancerEmail;
     private String freelancerAvatarUrl;
 
     private ServiceType serviceType;

@@ -8,9 +8,7 @@ import {
   Crown,
   ArrowLeftRight,
   Wallet,
-  Mic,
   FileText,
-  Lock,
   AlertCircle,
   Sliders,
   Shield,
@@ -51,20 +49,18 @@ const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    title: 'HỢP ĐỒNG & KÝ QUỸ ĐẢM BẢO',
+    title: 'HỢP ĐỒNG & KHIẾU NẠI',
     items: [
-      { id: '08', label: 'Hồ sơ Thuyết minh', to: '/admin/narrators', icon: Mic },
-      { id: '09', label: 'Hợp đồng thu âm', to: '/admin/contracts', icon: FileText },
-      { id: '10', label: 'Ký quỹ đảm bảo', to: '/admin/escrow', icon: Lock },
-      { id: '11', label: 'Xử lý Khiếu nại', to: '/admin/disputes', icon: AlertCircle },
+      { id: '08', label: 'Quản lý Hợp đồng', to: '/admin/contracts', icon: FileText },
+      { id: '09', label: 'Xử lý Khiếu nại', to: '/admin/disputes', icon: AlertCircle },
     ],
   },
   {
     title: 'QUẢN TRỊ HỆ THỐNG',
     items: [
-      { id: '12', label: 'Chính sách & Cấu hình', to: '/admin/policies', icon: Sliders },
-      { id: '13', label: 'Phân quyền tài khoản', to: '/admin/roles', icon: Shield },
-      { id: '14', label: 'Nhật ký hệ thống', to: '/admin/audit', icon: History },
+      { id: '10', label: 'Chính sách & Cấu hình', to: '/admin/policies', icon: Sliders },
+      { id: '11', label: 'Phân quyền tài khoản', to: '/admin/roles', icon: Shield },
+      { id: '12', label: 'Nhật ký hệ thống', to: '/admin/audit', icon: History },
     ],
   },
 ];

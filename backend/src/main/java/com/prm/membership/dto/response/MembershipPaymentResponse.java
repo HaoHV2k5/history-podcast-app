@@ -12,6 +12,13 @@ import java.time.Instant;
 public class MembershipPaymentResponse {
     private Long id;
     private Long membershipId;
+    private Long viewerId;
+    private String viewerFullName;
+    private String viewerEmail;
+    private String viewerAvatarUrl;
+    private Long channelId;
+    private String channelName;
+    private String planName;
     private BigDecimal amount;
     private BigDecimal commissionAmount;
     private BigDecimal creatorEarning;

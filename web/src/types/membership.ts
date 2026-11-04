@@ -1,6 +1,13 @@
 export interface MembershipPaymentItem {
   id: number;
   membershipId: number;
+  viewerId?: number;
+  viewerFullName?: string;
+  viewerEmail?: string;
+  viewerAvatarUrl?: string;
+  channelId?: number;
+  channelName?: string;
+  planName?: string;
   amount: number;
   commissionAmount: number;
   creatorEarning: number;
@@ -28,4 +35,3 @@ export interface MembershipPlanRequest {
   perks?: string[];
   status?: string;
 }
-

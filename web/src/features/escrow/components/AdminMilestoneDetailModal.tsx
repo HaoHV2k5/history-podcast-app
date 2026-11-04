@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Layers,
@@ -6,18 +6,27 @@ import {
   ShieldCheck,
   FileText,
   FileCheck2,
+  FileAudio,
+  FileVideo,
+  FileArchive,
   Download,
+  Eye,
   ExternalLink,
   RefreshCw,
+  AlertCircle,
+  Star,
 } from 'lucide-react';
 import { MilestoneItem } from '@/types/contract';
+import { MilestoneDeliverableItem } from '@/types/deliverable';
 import { deliverablesApi } from '@/services/api/deliverables';
+import { DeliverableMediaModal } from '@/features/creator/components/DeliverableMediaModal';
 import {
   formatMilestoneWorkStatus,
   formatDateOrFallback,
   formatVNDOrFallback,
   getMilestoneSplitRefund,
   getAutoReleaseIndicator,
+  getMilestoneRevisionInfo,
 } from '@/features/contracts/milestoneFinanceLogic';
 import { getEscrowStatusConfig } from '../escrowLogic';
 import {
@@ -27,7 +36,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { formatVND } from '@/utils/formatters';
+import { formatVND, formatDateTime } from '@/utils/formatters';
 
 interface AdminMilestoneDetailModalProps {
   milestone: MilestoneItem | null;
@@ -44,6 +53,8 @@ export const AdminMilestoneDetailModal: React.FC<AdminMilestoneDetailModalProps>
   onClose,
   onViewContract,
 }) => {
+  const [selectedPreviewItem, setSelectedPreviewItem] = useState<MilestoneDeliverableItem | null>(null);
+
   // Query live deliverables if milestone exists
   const { data: deliverablesRes, isLoading: isLoadingDeliverables } = useQuery({
     queryKey: ['admin-milestone-deliverables', milestone?.id],
@@ -55,9 +66,11 @@ export const AdminMilestoneDetailModal: React.FC<AdminMilestoneDetailModalProps>
 
   const workStatus = formatMilestoneWorkStatus(milestone.status);
   const escrowStatus = getEscrowStatusConfig(milestone.escrowStatus);
-  const deliverables = deliverablesRes?.data || milestone.deliverables || [];
+  const deliverables: MilestoneDeliverableItem[] =
+    deliverablesRes?.data || (milestone.deliverables as MilestoneDeliverableItem[]) || [];
   const autoRelease = getAutoReleaseIndicator(milestone);
   const splitRefund = getMilestoneSplitRefund(milestone);
+  const revisionInfo = getMilestoneRevisionInfo(milestone);
 
   const feeAmount =
     milestone.platformFee != null
@@ -79,259 +92,373 @@ export const AdminMilestoneDetailModal: React.FC<AdminMilestoneDetailModalProps>
     }
   };
 
+  const renderFileIcon = (fileName?: string) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    if (ext === 'mp4' || ext === 'mov' || ext === 'avi' || ext === 'webm') {
+      return <FileVideo className="h-5 w-5 text-rose-500 shrink-0" />;
+    }
+    if (ext === 'mp3' || ext === 'wav' || ext === 'm4a' || ext === 'ogg') {
+      return <FileAudio className="h-5 w-5 text-amber-500 shrink-0" />;
+    }
+    if (ext === 'zip' || ext === 'rar') {
+      return <FileArchive className="h-5 w-5 text-indigo-500 shrink-0" />;
+    }
+    return <FileText className="h-5 w-5 text-emerald-600 shrink-0" />;
+  };
+
   return (
-    <Dialog open={Boolean(milestone)} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        maxWidth="max-w-xl"
-        className="p-0 overflow-hidden font-sans border-[#E7E5E4] rounded-2xl max-h-[min(90vh,640px)] flex flex-col shadow-2xl"
-      >
-        {/* Header - Fixed & Compact, pr-14 sm:pr-16 to ensure zero collision with close button */}
-        <div className="shrink-0 bg-[#FAF8F5] border-b border-[#F0EBE6] pl-5 sm:pl-6 pr-14 sm:pr-16 py-3.5 select-none">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#991B1B] min-w-0">
-              <Layers className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">CHI TIẾT CỘT MỐC GIAI ĐOẠN #{milestone.orderNo || milestone.id}</span>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 mr-2 sm:mr-3">
-              <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium border ${escrowStatus.badgeClass}`}
-              >
-                <span className={`h-1.5 w-1.5 rounded-full mr-1.5 shrink-0 ${escrowStatus.dotColor}`} />
-                <span className="whitespace-nowrap">{escrowStatus.label}</span>
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-1.5">
-            <DialogTitle className="text-lg sm:text-xl font-bold font-sans text-stone-900 tracking-tight leading-snug">
-              {milestone.title || `Giai đoạn ${milestone.orderNo}`}
-            </DialogTitle>
-          </div>
-
-          <DialogDescription className="text-[11px] text-stone-500 mt-0.5 truncate font-sans">
-            Hợp đồng <strong className="text-stone-700 font-semibold">{contractCode || `HD${String(milestone.contractId).padStart(5, '0')}`}</strong>
-            {contractTitle && ` (${contractTitle})`}
-          </DialogDescription>
-        </div>
-
-        {/* Modal Body - Scrollable with compact spacing */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4 space-y-3.5 font-sans">
-          {/* 1. 3 Financial Cards (Gross, Fee, Net) */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl p-2.5 bg-stone-50/90 border border-[#E7E5E4] space-y-0.5">
-              <span className="text-[10px] font-medium text-stone-500 block truncate">
-                Giá trị mốc (Gross)
-              </span>
-              <span className="text-[14px] sm:text-[15px] font-bold font-sans tabular-nums text-stone-900 block leading-tight">
-                {formatVNDOrFallback(milestone.amount)}
-              </span>
-              <span className="text-[10px] text-stone-400 block truncate">
-                Bên thuê đặt cọc
-              </span>
-            </div>
-
-            <div className="rounded-xl p-2.5 bg-rose-50/50 border border-rose-100 space-y-0.5">
-              <span className="text-[10px] font-medium text-[#991B1B] block truncate">
-                Phí sàn ({milestone.feePercent || 5}%)
-              </span>
-              <span className="text-[14px] sm:text-[15px] font-bold font-sans tabular-nums text-[#991B1B] block leading-tight">
-                {formatVND(feeAmount)}
-              </span>
-              <span className="text-[10px] text-stone-400 block truncate">
-                Nền tảng Sử Ký
-              </span>
-            </div>
-
-            <div className="rounded-xl p-2.5 bg-emerald-50/50 border border-emerald-100 space-y-0.5">
-              <span className="text-[10px] font-medium text-emerald-700 block truncate">
-                Thực nhận (95%)
-              </span>
-              <span className="text-[14px] sm:text-[15px] font-bold font-sans tabular-nums text-emerald-700 block leading-tight">
-                {formatVND(netAmount)}
-              </span>
-              <span className="text-[10px] text-stone-400 block truncate">
-                {splitRefund > 0 ? `Hoàn Creator ${formatVND(splitRefund)}` : 'Chi trả Creator'}
-              </span>
-            </div>
-          </div>
-
-          {/* 2. Requirement & Technical Specs */}
-          <div className="rounded-xl border border-[#F0EBE6] p-3.5 bg-white space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-stone-600 uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-stone-400" />
-                <span>Yêu cầu & Nội dung công việc</span>
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-stone-100 text-stone-700 border border-stone-200">
-                {workStatus.label}
-              </span>
-            </div>
-
-            <div className="p-2.5 rounded-lg bg-[#FAF8F5] border border-[#F0EBE6] text-xs text-stone-800 leading-relaxed font-sans whitespace-pre-line">
-              {milestone.requirement || 'Không có mô tả chi tiết cho giai đoạn này.'}
-            </div>
-
-            {/* Spec Chips Row */}
-            <div className="grid grid-cols-3 gap-2 pt-1 text-[11px]">
-              <div className="p-2 rounded-lg bg-stone-50 border border-[#E7E5E4] text-center">
-                <span className="text-stone-400 block text-[10px]">Thời hạn thực hiện</span>
-                <span className="font-semibold text-stone-800 tabular-nums">
-                  {milestone.durationDays ? `${milestone.durationDays} ngày` : 'Theo thỏa thuận'}
+    <>
+      <Dialog open={Boolean(milestone)} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent
+          maxWidth="max-w-2xl"
+          className="p-0 overflow-hidden font-sans border-[#EBE4D8] rounded-2xl max-h-[min(90vh,700px)] flex flex-col shadow-2xl bg-[#FAF8F5]"
+        >
+          {/* Header - Fixed & Compact */}
+          <div className="shrink-0 bg-white border-b border-[#EBE4D8] pl-5 sm:pl-6 pr-14 sm:pr-16 py-4 select-none">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#A31D24] min-w-0">
+                <Layers className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  CHI TIẾT CỘT MỐC GIAI ĐOẠN #{milestone.orderNo || milestone.id}
                 </span>
               </div>
-
-              <div className="p-2 rounded-lg bg-stone-50 border border-[#E7E5E4] text-center">
-                <span className="text-stone-400 block text-[10px]">Số lần chỉnh sửa</span>
-                <span className="font-semibold text-stone-800 tabular-nums">
-                  {milestone.revisionsUsed || 0} / {milestone.maxRevisions || 2} lần
-                </span>
-              </div>
-
-              <div className="p-2 rounded-lg bg-stone-50 border border-[#E7E5E4] text-center">
-                <span className="text-stone-400 block text-[10px]">Hạn mỗi lần sửa</span>
-                <span className="font-semibold text-stone-800 tabular-nums">
-                  {milestone.revisionDays ? `${milestone.revisionDays} ngày` : '2 ngày'}
+              <div className="flex items-center gap-1.5 shrink-0 mr-2 sm:mr-3">
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${escrowStatus.badgeClass}`}
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full mr-1.5 shrink-0 ${escrowStatus.dotColor}`} />
+                  <span className="whitespace-nowrap">{escrowStatus.label}</span>
                 </span>
               </div>
             </div>
-          </div>
 
-          {/* 3. Deliverables & Outputs */}
-          <div className="rounded-xl border border-[#F0EBE6] p-3.5 bg-white space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-stone-600 uppercase tracking-wider flex items-center gap-1.5">
-                <FileCheck2 className="h-3.5 w-3.5 text-stone-400" />
-                <span>Sản phẩm bàn giao ({deliverables.length})</span>
-              </span>
+            <div className="mt-1.5">
+              <DialogTitle className="text-lg sm:text-xl font-bold font-sans text-[#1C1615] tracking-tight leading-snug">
+                {milestone.title || `Giai đoạn ${milestone.orderNo}`}
+              </DialogTitle>
             </div>
 
-            {isLoadingDeliverables ? (
-              <div className="flex items-center justify-center gap-2 py-4 text-xs text-stone-400">
-                <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#991B1B]" />
-                <span>Đang tải tệp sản phẩm bàn giao...</span>
+            <DialogDescription className="text-xs text-stone-500 mt-0.5 truncate font-sans">
+              Hợp đồng{' '}
+              <strong className="text-[#1C1615] font-mono font-semibold">
+                {contractCode || `HD${String(milestone.contractId).padStart(5, '0')}`}
+              </strong>
+              {contractTitle && ` — ${contractTitle}`}
+            </DialogDescription>
+          </div>
+
+          {/* Modal Body - Scrollable */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4 space-y-3.5 font-sans">
+            {/* 1. 3 Financial Cards (Gross, Fee, Net) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="rounded-xl p-3 bg-white border border-[#EBE4D8] shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block truncate">
+                  Giá trị mốc (Khách trả)
+                </span>
+                <span className="text-base font-bold font-mono tabular-nums text-[#1C1615] block leading-tight">
+                  {formatVNDOrFallback(milestone.amount)}
+                </span>
+                <span className="text-[10.5px] text-stone-400 block truncate">
+                  Khách đặt nội dung ký quỹ
+                </span>
               </div>
-            ) : deliverables.length === 0 ? (
-              <div className="p-3 rounded-lg bg-stone-50 border border-[#E7E5E4] text-center text-xs text-stone-400">
-                Chưa có tệp sản phẩm bàn giao nào được nộp cho giai đoạn này.
+
+              <div className="rounded-xl p-3 bg-white border border-[#EBE4D8] shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D97706] block truncate">
+                  Phí nền tảng ({milestone.feePercent || 5}%)
+                </span>
+                <span className="text-base font-bold font-mono tabular-nums text-[#1C1615] block leading-tight">
+                  {formatVND(feeAmount)}
+                </span>
+                <span className="text-[10.5px] text-stone-400 block truncate">
+                  Khấu trừ khi giải ngân
+                </span>
               </div>
-            ) : (
-              <div className="space-y-1.5">
-                {deliverables.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-[#FAF8F5] border border-[#F0EBE6] text-xs hover:bg-stone-50 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1 pr-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-stone-900 truncate" title={item.fileName}>
-                          {item.fileName}
-                        </span>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          v{item.versionNo || 1}
-                        </span>
+
+              <div className="rounded-xl p-3 bg-white border border-[#EBE4D8] shadow-2xs space-y-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#16A34A] block truncate">
+                  Creator thực nhận (95%)
+                </span>
+                <span className="text-base font-bold font-mono tabular-nums text-[#16A34A] block leading-tight">
+                  {formatVND(netAmount)}
+                </span>
+                <span className="text-[10.5px] text-stone-400 block truncate">
+                  {splitRefund > 0
+                    ? `Hoàn Khách hàng: ${formatVND(splitRefund)}`
+                    : 'Cộng vào ví Nhà sáng tạo'}
+                </span>
+              </div>
+            </div>
+
+            {/* 2. Requirement & Technical Specs */}
+            <div className="rounded-xl border border-[#EBE4D8] p-3.5 bg-white shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-[#A31D24]" />
+                  <span>Cam kết &amp; Yêu cầu bàn giao</span>
+                </span>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#FAF8F5] text-[#1C1615] border border-[#EBE4D8]">
+                  {workStatus.label}
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#FAF8F5] border border-[#EBE4D8] text-xs text-[#1C1615] leading-relaxed font-sans whitespace-pre-line">
+                {milestone.requirement || 'Chưa cập nhật chi tiết yêu cầu bàn giao cho giai đoạn này.'}
+              </div>
+
+              {/* Spec Chips Row */}
+              <div className="grid grid-cols-3 gap-2 pt-0.5 text-[11px]">
+                <div className="p-2 rounded-lg bg-[#FAF8F5] border border-[#EBE4D8] text-center">
+                  <span className="text-stone-400 block text-[10px]">Thời gian thực hiện</span>
+                  <span className="font-bold text-[#1C1615] tabular-nums">
+                    {milestone.durationDays ? `${milestone.durationDays} ngày` : '3 ngày'}
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-[#FAF8F5] border border-[#EBE4D8] text-center">
+                  <span className="text-stone-400 block text-[10px]">Hạn mức chỉnh sửa</span>
+                  <span className="font-bold text-[#1C1615] tabular-nums">
+                    {milestone.revisionsUsed || 0} / {milestone.maxRevisions || 2} lần
+                  </span>
+                </div>
+
+                <div className="p-2 rounded-lg bg-[#FAF8F5] border border-[#EBE4D8] text-center">
+                  <span className="text-stone-400 block text-[10px]">Gia hạn mỗi lần sửa</span>
+                  <span className="font-bold text-[#1C1615] tabular-nums">
+                    +{milestone.revisionDays ? `${milestone.revisionDays} ngày` : '2 ngày'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Latest Revision Request Note if present */}
+              {revisionInfo.hasRevisions && revisionInfo.latestRevisionNote && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3 space-y-1 text-xs text-amber-900">
+                  <div className="flex items-center gap-1.5 font-bold text-[11px] text-amber-800">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                    <span>Yêu cầu chỉnh sửa từ Khách đặt nội dung:</span>
+                  </div>
+                  <p className="text-xs italic text-stone-800 bg-white/80 p-2 rounded-lg border border-amber-200/60 leading-relaxed break-words">
+                    &ldquo;{revisionInfo.latestRevisionNote}&rdquo;
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Deliverables & Outputs (With Live Preview + Download) */}
+            <div className="rounded-xl border border-[#EBE4D8] p-3.5 bg-white shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileCheck2 className="h-3.5 w-3.5 text-[#A31D24]" />
+                  <span>Tệp sản phẩm Creator đã bàn giao ({deliverables.length})</span>
+                </span>
+              </div>
+
+              {isLoadingDeliverables ? (
+                <div className="flex items-center justify-center gap-2 py-5 text-xs text-stone-400">
+                  <RefreshCw className="h-4 w-4 animate-spin text-[#A31D24]" />
+                  <span>Đang tải danh sách tệp sản phẩm bàn giao...</span>
+                </div>
+              ) : deliverables.length === 0 ? (
+                <div className="p-4 rounded-xl bg-[#FAF8F5] border border-dashed border-[#EBE4D8] text-center text-xs text-stone-500">
+                  Nhà sáng tạo chưa tải tệp sản phẩm bàn giao nào lên cho giai đoạn này.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {deliverables.map((item, idx) => (
+                    <div
+                      key={item.id}
+                      className="rounded-xl bg-[#FAF8F5] border border-[#EBE4D8] p-3 text-xs hover:border-[#D5CFC5] transition-colors space-y-2"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <div className="mt-0.5">{renderFileIcon(item.fileName)}</div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-[#FDE9E9] text-[#A31D24] border border-rose-200/70">
+                                Phiên bản v{item.versionNo || 1}
+                              </span>
+                              {idx === 0 && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-[#EAFCF1] text-[#16A34A] border border-emerald-200/70">
+                                  Bản mới nhất
+                                </span>
+                              )}
+                              <span
+                                className="font-bold text-[#1C1615] truncate block w-full mt-0.5"
+                                title={item.title || item.fileName}
+                              >
+                                {item.title || item.fileName}
+                              </span>
+                            </div>
+                            <span className="text-[10.5px] font-mono text-stone-500 block mt-0.5 truncate">
+                              {item.fileName} • Nộp lúc {formatDateOrFallback(item.createdAt)}
+                              {item.fileSize
+                                ? ` • ${(item.fileSize / (1024 * 1024)).toFixed(1)} MB`
+                                : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedPreviewItem(item)}
+                            className="h-8 px-2.5 text-xs rounded-lg border-[#EBE4D8] bg-white hover:bg-rose-50 text-[#1C1615] inline-flex items-center gap-1.5 font-medium shadow-2xs"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-[#A31D24]" />
+                            <span>Xem / Nghe</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownload(item.id, item.fileName)}
+                            className="h-8 px-2.5 text-xs rounded-lg border-[#EBE4D8] bg-white hover:bg-stone-50 text-stone-700 inline-flex items-center gap-1 shadow-2xs"
+                          >
+                            <Download className="h-3.5 w-3.5 text-stone-500" />
+                            <span>Tải về</span>
+                          </Button>
+                        </div>
                       </div>
-                      <span className="text-[10.5px] text-stone-400 block mt-0.5 tabular-nums">
-                        Nộp lúc {formatDateOrFallback(item.createdAt)}
-                        {item.fileSize ? ` • ${(item.fileSize / (1024 * 1024)).toFixed(1)} MB` : ''}
+
+                      {item.description && (
+                        <p className="text-[11px] text-stone-600 bg-white px-2.5 py-2 rounded-lg border border-[#EBE4D8] leading-relaxed break-words">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 4. Milestone Reviews if present */}
+            {milestone.reviews && milestone.reviews.length > 0 && (
+              <div className="rounded-xl border border-[#EBE4D8] p-3.5 bg-white shadow-2xs space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
+                  <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />
+                  <span>Đánh giá nghiệm thu từ Khách hàng ({milestone.reviews.length})</span>
+                </span>
+                <div className="space-y-1.5">
+                  {milestone.reviews.map((rev) => (
+                    <div
+                      key={rev.id}
+                      className="p-2.5 rounded-lg bg-[#FAF8F5] border border-[#EBE4D8] text-xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between">
+                        <strong className="text-[#1C1615]">{rev.reviewerFullName || 'Khách đặt nội dung'}</strong>
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <Star
+                              key={s}
+                              className={`h-3 w-3 ${
+                                s <= rev.rating ? 'text-amber-400 fill-amber-400' : 'text-stone-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      {rev.comment && (
+                        <p className="text-stone-600 text-[11px] italic">&ldquo;{rev.comment}&rdquo;</p>
+                      )}
+                      <span className="text-[10px] text-stone-400 font-mono block">
+                        {formatDateTime(rev.createdAt)}
                       </span>
                     </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownload(item.id, item.fileName)}
-                      className="h-7 px-2.5 text-[11px] rounded-lg border border-[#E7E5E4] hover:bg-white text-stone-700 inline-flex items-center gap-1 shrink-0 shadow-2xs"
-                    >
-                      <Download className="h-3 w-3 text-stone-500" />
-                      <span>Tải về</span>
-                    </Button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
-          </div>
 
-          {/* 4. Timestamps & Countdown Notice */}
-          <div className="rounded-xl border border-[#F0EBE6] p-3 bg-white space-y-2 text-xs">
-            <span className="text-[11px] font-semibold text-stone-600 uppercase tracking-wider block">
-              Lộ trình & Mốc thời gian
-            </span>
+            {/* 5. Timestamps & Countdown Notice */}
+            <div className="rounded-xl border border-[#EBE4D8] p-3.5 bg-white shadow-2xs space-y-2 text-xs">
+              <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider block">
+                Lộ trình &amp; Mốc thời gian
+              </span>
 
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs font-sans">
-              <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
-                <span className="text-stone-400 text-[11px]">Hạn nộp sản phẩm:</span>
-                <span className="font-semibold text-stone-900 tabular-nums">
-                  {formatDateOrFallback(milestone.dueAt)}
-                </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-sans">
+                <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
+                  <span className="text-stone-500 text-[11px]">Hạn nộp sản phẩm:</span>
+                  <span className="font-semibold text-[#1C1615] tabular-nums">
+                    {formatDateOrFallback(milestone.dueAt)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
+                  <span className="text-stone-500 text-[11px]">Hạn khách nghiệm thu:</span>
+                  <span className="font-semibold text-[#1C1615] tabular-nums">
+                    {formatDateOrFallback(milestone.reviewDueAt)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
+                  <span className="text-stone-500 text-[11px]">Thời điểm ký quỹ:</span>
+                  <span className="font-semibold text-[#1C1615] tabular-nums">
+                    {formatDateOrFallback(milestone.fundedAt || milestone.fundDueAt)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
+                  <span className="text-stone-500 text-[11px]">Thời điểm giải ngân:</span>
+                  <span className="font-semibold text-[#16A34A] tabular-nums">
+                    {formatDateOrFallback(milestone.releasedAt || milestone.releaseAt)}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
-                <span className="text-stone-400 text-[11px]">Hạn nghiệm thu:</span>
-                <span className="font-semibold text-stone-900 tabular-nums">
-                  {formatDateOrFallback(milestone.reviewDueAt)}
-                </span>
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
-                <span className="text-stone-400 text-[11px]">Thời điểm ký quỹ:</span>
-                <span className="font-semibold text-stone-900 tabular-nums">
-                  {formatDateOrFallback(milestone.fundedAt || milestone.fundDueAt)}
-                </span>
-              </div>
-
-              <div className="flex justify-between py-1 border-b border-[#F0EBE6]">
-                <span className="text-stone-400 text-[11px]">Thời điểm giải ngân:</span>
-                <span className="font-semibold text-emerald-700 tabular-nums">
-                  {formatDateOrFallback(milestone.releasedAt || milestone.releaseAt)}
-                </span>
-              </div>
+              {autoRelease && (
+                <div className="mt-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <span>{autoRelease.message}</span>
+                </div>
+              )}
             </div>
 
-            {autoRelease && (
-              <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-800 flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                <span>{autoRelease.message}</span>
-              </div>
-            )}
+            {/* 6. Escrow Protection Notice */}
+            <div className="rounded-xl bg-[#FAF8F5] border border-[#EBE4D8] p-3 flex items-center gap-2 text-[11px] text-stone-600 leading-relaxed">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-[#A31D24]" />
+              <span>
+                Khoản tiền của cột mốc này được giữ bảo chứng độc lập. Hệ thống chỉ giải ngân 95% cho Nhà sáng tạo sau khi Khách đặt nội dung duyệt nghiệm thu và qua thời gian giữ an toàn.
+              </span>
+            </div>
           </div>
 
-          {/* 5. Escrow Protection Notice */}
-          <div className="rounded-xl bg-[#FFF0F2] border border-[#FFE4E6] p-2.5 flex items-center gap-2 text-[11px] text-[#991B1B] leading-tight">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-[#991B1B]" />
-            <span>
-              Cột mốc này được quản lý độc lập trong Escrow. Tiền chỉ được giải ngân cho Creator sau khi hoàn thành nghiệm thu hoặc hết hạn đối soát 3 ngày.
-            </span>
-          </div>
-        </div>
-
-        {/* Modal Footer */}
-        <div className="shrink-0 bg-[#FAF8F5] border-t border-[#F0EBE6] px-5 sm:px-6 py-2.5 flex items-center justify-between gap-2 select-none">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            className="h-8 px-3.5 rounded-xl border border-[#E7E5E4] text-xs font-medium text-stone-700 hover:bg-stone-50"
-          >
-            Đóng
-          </Button>
-
-          {onViewContract && (
+          {/* Modal Footer */}
+          <div className="shrink-0 bg-white border-t border-[#EBE4D8] px-5 sm:px-6 py-3 flex items-center justify-between gap-2 select-none">
             <Button
               type="button"
-              variant="primary"
-              onClick={() => {
-                onClose();
-                onViewContract(milestone.contractId);
-              }}
-              className="h-8 px-3.5 rounded-xl bg-[#991B1B] hover:bg-[#7F1D1D] text-white text-xs font-medium inline-flex items-center gap-1.5 shadow-xs"
+              variant="outline"
+              onClick={onClose}
+              className="h-8 px-4 rounded-xl border border-[#EBE4D8] text-xs font-semibold text-stone-700 hover:bg-stone-50"
             >
-              <span>Xem hợp đồng liên quan</span>
-              <ExternalLink className="h-3 w-3" />
+              Đóng
             </Button>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+
+            {onViewContract && (
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => {
+                  onClose();
+                  onViewContract(milestone.contractId);
+                }}
+                className="h-8 px-4 rounded-xl bg-[#A31D24] hover:bg-[#8F181E] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs"
+              >
+                <span>Xem hợp đồng liên quan</span>
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Media Preview Modal (Audio / Video / PDF / Image) */}
+      <DeliverableMediaModal
+        deliverable={selectedPreviewItem}
+        isOpen={Boolean(selectedPreviewItem)}
+        onClose={() => setSelectedPreviewItem(null)}
+      />
+    </>
   );
 };

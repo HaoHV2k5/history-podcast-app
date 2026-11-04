@@ -30,6 +30,7 @@ const STATUS_OPTIONS = [
   { value: 'ACTIVE', label: 'Đang thực hiện' },
   { value: 'COMPLETED', label: 'Đã hoàn thành' },
   { value: 'PENDING', label: 'Chờ ký' },
+  { value: 'DISPUTED', label: 'Có khiếu nại' },
   { value: 'CANCELLED', label: 'Đã hủy' },
 ];
 
@@ -105,7 +106,7 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Tìm kiếm theo tên tác phẩm, thuyết minh viên, mã hợp đồng..."
+          placeholder="Tìm kiếm theo tên tác phẩm, nhà sáng tạo, khách đặt hàng, mã hợp đồng..."
           className="w-full h-11 pl-10 pr-9 text-xs sm:text-[13px] font-sans bg-white border border-[#E7E5E4] rounded-xl text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#991B1B]/20 focus:border-[#991B1B] transition-all"
         />
         {searchQuery && (
@@ -145,10 +146,11 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
                   key={opt.value}
                   type="button"
                   onClick={() => onStatusFilterChange(opt.value)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-colors ${statusFilter === opt.value
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-colors ${
+                    statusFilter === opt.value
                       ? 'bg-[#FFF0F2] text-[#991B1B] font-semibold'
                       : 'text-stone-700 hover:bg-stone-50'
-                    }`}
+                  }`}
                 >
                   <span>{opt.label}</span>
                   {statusFilter === opt.value && <Check className="h-3.5 w-3.5 text-[#991B1B]" />}
@@ -158,7 +160,7 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
           </DropdownMenu>
         </div>
 
-        {/* Narrator Dropdown */}
+        {/* Customer Dropdown */}
         <div className="min-w-[170px]">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -167,9 +169,7 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
                 className="w-full h-11 flex items-center justify-between gap-2 px-3.5 rounded-xl border border-[#E7E5E4] bg-white text-xs sm:text-[13px] font-sans text-stone-700 hover:bg-stone-50 transition-colors"
               >
                 <span className="truncate">
-                  {narratorFilter === 'all'
-                    ? 'Tất cả thuyết minh viên'
-                    : narratorFilter}
+                  {narratorFilter === 'all' ? 'Tất cả khách đặt hàng' : narratorFilter}
                 </span>
                 <ChevronDown className="h-4 w-4 text-stone-400 shrink-0" />
               </button>
@@ -181,12 +181,13 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
               <button
                 type="button"
                 onClick={() => onNarratorFilterChange('all')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-colors ${narratorFilter === 'all'
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-colors ${
+                  narratorFilter === 'all'
                     ? 'bg-[#FFF0F2] text-[#991B1B] font-semibold'
                     : 'text-stone-700 hover:bg-stone-50'
-                  }`}
+                }`}
               >
-                <span>Tất cả thuyết minh viên</span>
+                <span>Tất cả khách đặt hàng</span>
                 {narratorFilter === 'all' && <Check className="h-3.5 w-3.5 text-[#991B1B]" />}
               </button>
               {availableNarrators.map((name) => (
@@ -194,10 +195,11 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
                   key={name}
                   type="button"
                   onClick={() => onNarratorFilterChange(name)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-colors ${narratorFilter === name
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-sans transition-colors ${
+                    narratorFilter === name
                       ? 'bg-[#FFF0F2] text-[#991B1B] font-semibold'
                       : 'text-stone-700 hover:bg-stone-50'
-                    }`}
+                  }`}
                 >
                   <span className="truncate">{name}</span>
                   {narratorFilter === name && <Check className="h-3.5 w-3.5 text-[#991B1B]" />}
@@ -207,15 +209,16 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
           </DropdownMenu>
         </div>
 
-        {/* Date Range Popover (Radix Portal z-[999]) */}
+        {/* Date Range Popover */}
         <DropdownMenu open={isDateOpen} onOpenChange={setIsDateOpen}>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className={`h-11 flex items-center gap-2 px-3.5 rounded-xl border text-xs sm:text-[13px] font-sans transition-colors shrink-0 ${dateRangePreset !== 'all'
+              className={`h-11 flex items-center gap-2 px-3.5 rounded-xl border text-xs sm:text-[13px] font-sans transition-colors shrink-0 ${
+                dateRangePreset !== 'all'
                   ? 'border-[#991B1B] bg-[#FFF0F2] text-[#991B1B] font-medium'
                   : 'border-[#E7E5E4] bg-white text-stone-700 hover:bg-stone-50'
-                }`}
+              }`}
             >
               <Calendar className="h-4 w-4 shrink-0 text-stone-400" />
               <span className="truncate max-w-[160px] sm:max-w-none">{getDateRangeLabel()}</span>
@@ -245,7 +248,6 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
               )}
             </div>
 
-            {/* Quick Presets with Toggle-off */}
             <div className="grid grid-cols-3 gap-1.5">
               {[
                 { id: '7d', label: '7 ngày qua' },
@@ -258,10 +260,11 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
                     key={p.id}
                     type="button"
                     onClick={() => handlePresetClick(p.id)}
-                    className={`py-1.5 px-2 rounded-lg text-xs font-sans text-center transition-colors ${isSelected
+                    className={`py-1.5 px-2 rounded-lg text-xs font-sans text-center transition-colors ${
+                      isSelected
                         ? 'bg-[#991B1B] text-white font-medium shadow-xs'
                         : 'bg-stone-50 text-stone-700 hover:bg-stone-100'
-                      }`}
+                    }`}
                   >
                     {p.label}
                   </button>
@@ -269,7 +272,6 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
               })}
             </div>
 
-            {/* Custom Range Picker */}
             <form onSubmit={handleCustomDateSubmit} className="space-y-2 pt-1 border-t border-[#F0EBE6]">
               <span className="text-[11px] font-medium text-stone-500 font-sans block">
                 Tùy chỉnh ngày
@@ -343,4 +345,3 @@ export const AdminContractsFilterToolbar: React.FC<AdminContractsFilterToolbarPr
     </div>
   );
 };
-
