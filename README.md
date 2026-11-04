@@ -18,8 +18,10 @@ code/
 ├── tool/                     # Python AI Engine (RAG, Gemini, Edge-TTS, Whiteboard Stream Render)
 │   └── README.md             # Hướng dẫn động cơ Whiteboard AI Studio
 ├── doc/                      # Tài liệu kỹ thuật, schema & hướng dẫn tích hợp
-│   └── livestream-integration-guide.md # Hướng dẫn chi tiết tích hợp Livestream (Agora RTC)
-├── README_VIDEO_AUDIO_FLOW.md # 🎬 ĐẶC TẢ CHI TIẾT LUỒNG TẠO VIDEO/AUDIO CREATOR STUDIO
+│   ├── livestream-integration-guide.md     # Hướng dẫn chi tiết tích hợp Livestream (Agora RTC)
+│   ├── MILESTONE_FLOW_GUIDE.md             # Hướng dẫn luồng Đặt làm Nội dung & Ký quỹ Milestone
+│   ├── MOBILE_FEATURES_AND_ARCHITECTURE.md # Kiến trúc & tính năng ứng dụng Mobile
+│   └── README_VIDEO_AUDIO_FLOW.md          # Đặc tả chi tiết luồng tạo Video/Audio Creator Studio
 └── README.md                 # Tài liệu tổng quan toàn bộ dự án
 ```
 

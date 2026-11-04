@@ -95,6 +95,19 @@ String contractStatusLabel(String status) {
   }
 }
 
+String stripUrlsFromEvidenceText(String? rawText) {
+  if (rawText == null || rawText.trim().isEmpty) return '';
+  return rawText
+      .replaceAll(
+        RegExp(r'\(\s*Đính kèm:\s*https?://[^\s)]+\s*\)', caseSensitive: false),
+        '',
+      )
+      .replaceAll(RegExp(r'Đính kèm:\s*https?://\S+', caseSensitive: false), '')
+      .replaceAll(RegExp(r'https?://\S+', caseSensitive: false), '')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .trim();
+}
+
 /// Quy tắc hiển thị Badge trạng thái 4 giai đoạn (Section 6.4.2)
 String contractStageBadgeLabel(
   ContractModel c, [
@@ -104,13 +117,25 @@ String contractStageBadgeLabel(
   if (status == 'PENDING') return 'Chờ khách duyệt lộ trình';
   if (status == 'REJECTED') return 'Khách yêu cầu sửa lộ trình';
   if (status == 'COMPLETED') return 'Đã hoàn thành';
-  if (status == 'CANCELLED') return 'Đã huỷ';
+  final msList = overrideMilestones != null && overrideMilestones.isNotEmpty
+      ? overrideMilestones.map((m) => (orderNo: m.orderNo, status: m.status)).toList()
+      : c.milestones.map((m) => (orderNo: m.orderNo, status: m.status)).toList();
+  if (status == 'CANCELLED') {
+    final doneMs = msList
+        .where(
+          (m) =>
+              m.status.toUpperCase() == 'APPROVED' ||
+              m.status.toUpperCase() == 'RELEASED',
+        )
+        .length;
+    if (doneMs > 0 && msList.isNotEmpty) {
+      return 'Đã dừng • Hoàn tất $doneMs/${msList.length} mốc';
+    }
+    return 'Đã huỷ';
+  }
   if (status == 'DISPUTED') return 'Đang khiếu nại';
 
   if (status == 'ACTIVE') {
-    final msList = overrideMilestones != null && overrideMilestones.isNotEmpty
-        ? overrideMilestones.map((m) => (orderNo: m.orderNo, status: m.status)).toList()
-        : c.milestones.map((m) => (orderNo: m.orderNo, status: m.status)).toList();
     for (var i = 0; i < msList.length; i++) {
       final mStatus = msList[i].status.toUpperCase();
       if (mStatus != 'APPROVED' && mStatus != 'RELEASED' && mStatus != 'CANCELLED') {
@@ -151,6 +176,16 @@ String contractStageProgressLabel(
     return 'Đã hoàn thành toàn bộ $total/$total mốc';
   }
   if (status == 'CANCELLED') {
+    final doneMs = msList
+        .where(
+          (m) =>
+              m.status.toUpperCase() == 'APPROVED' ||
+              m.status.toUpperCase() == 'RELEASED',
+        )
+        .length;
+    if (doneMs > 0) {
+      return 'Hợp đồng đã dừng — Đã hoàn thành $doneMs/$total mốc trước đó';
+    }
     return 'Hợp đồng đã huỷ';
   }
   if (status == 'ACTIVE') {
@@ -1529,10 +1564,10 @@ class _ContractMilestoneRoadmapSheetState
                         });
                         return;
                       }
-                      if (bytes.length > 25 * 1024 * 1024) {
+                      if (bytes.length > 10 * 1024 * 1024) {
                         setModalState(() {
                           modalError =
-                              'Dung lượng tệp vượt quá giới hạn 25MB. Vui lòng nén hoặc chọn tệp nhỏ hơn.';
+                              'Dung lượng tệp vượt quá giới hạn 10MB. Vui lòng nén hoặc chọn tệp nhỏ hơn.';
                         });
                         return;
                       }
@@ -1591,7 +1626,7 @@ class _ContractMilestoneRoadmapSheetState
                                 ),
                                 const SizedBox(height: 2),
                                 const Text(
-                                  'Hỗ trợ MP4, MOV, MP3, WAV, PDF, DOC/DOCX, TXT, ZIP/RAR (Tối đa 25MB). Không nhập URL ngoài.',
+                                  'Hỗ trợ MP4, MOV, MP3, WAV, PDF, DOC/DOCX, TXT, ZIP/RAR (Tối đa 10MB). Không nhập URL ngoài.',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Palette.muted,
@@ -2084,6 +2119,11 @@ class _ContractMilestoneRoadmapSheetState
                               for (final f in files) {
                                 final bytes = await f.xFile.readAsBytes();
                                 if (bytes.isEmpty) continue;
+                                if (bytes.length > 10 * 1024 * 1024) {
+                                  throw Exception(
+                                    'Tệp "${f.name}" vượt quá giới hạn 10MB. Vui lòng chọn tệp nhỏ hơn.',
+                                  );
+                                }
                                 if (_disputeRepo != null) {
                                   final fileUrl =
                                       await _disputeRepo!.uploadEvidenceFile(
@@ -2119,7 +2159,7 @@ class _ContractMilestoneRoadmapSheetState
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Hỗ trợ ảnh (PNG, JPG, WEBP), tài liệu (PDF, DOC, TXT), âm thanh/video (MP3, WAV, MP4) hoặc tệp nén (ZIP, RAR). Tối đa 25MB/tệp.',
+                    'Hỗ trợ ảnh (PNG, JPG, WEBP), tài liệu (PDF, DOC, TXT), âm thanh/video (MP3, WAV, MP4) hoặc tệp nén (ZIP, RAR). Tối đa 10MB/tệp.',
                     style: TextStyle(fontSize: 11, color: Palette.muted),
                   ),
                   if (uploadError != null) ...[
@@ -2222,7 +2262,7 @@ class _ContractMilestoneRoadmapSheetState
 
   /// Gửi bằng chứng đối chất khiếu nại (POST /api/v1/disputes/{id}/counter-evidence - Mục 9 & 16)
   Future<void> _promptCounterEvidence(DisputeModel d) async {
-    final counterCtrl = TextEditingController(text: d.counterEvidenceUrl ?? '');
+    final counterCtrl = TextEditingController(text: stripUrlsFromEvidenceText(d.counterEvidenceUrl));
     final uploadedFiles = <({String name, String url})>[
       for (final url in d.counterEvidenceUrls)
         (name: url.split('/').last, url: url),
@@ -2273,6 +2313,11 @@ class _ContractMilestoneRoadmapSheetState
                               for (final f in files) {
                                 final bytes = await f.xFile.readAsBytes();
                                 if (bytes.isEmpty) continue;
+                                if (bytes.length > 10 * 1024 * 1024) {
+                                  throw Exception(
+                                    'Tệp "${f.name}" vượt quá giới hạn 10MB. Vui lòng chọn tệp nhỏ hơn.',
+                                  );
+                                }
                                 if (_disputeRepo != null) {
                                   final fileUrl =
                                       await _disputeRepo!.uploadEvidenceFile(
@@ -2305,6 +2350,11 @@ class _ContractMilestoneRoadmapSheetState
                           ? 'Đang tải tệp đối chất lên...'
                           : 'Chọn tệp bằng chứng từ thiết bị',
                     ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Hỗ trợ ảnh (PNG, JPG, WEBP), tài liệu (PDF, DOC, TXT), âm thanh/video (MP3, WAV, MP4) hoặc tệp nén (ZIP, RAR). Tối đa 10MB/tệp.',
+                    style: TextStyle(fontSize: 11, color: Palette.muted),
                   ),
                   if (uploadError != null) ...[
                     const SizedBox(height: 6),
@@ -3148,12 +3198,12 @@ class _ContractMilestoneRoadmapSheetState
                                   'Lý do khiếu nại (${d.raisedByName ?? "Bên khởi kiện"}): ${d.reason}',
                                   style: const TextStyle(fontSize: 12.5),
                                 ),
-                                if (d.evidenceUrl != null &&
-                                    d.evidenceUrl!.isNotEmpty)
+                                if (stripUrlsFromEvidenceText(d.evidenceUrl)
+                                    .isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 3),
                                     child: Text(
-                                      'Bằng chứng ban đầu: ${d.evidenceUrl}',
+                                      'Bằng chứng ban đầu: ${stripUrlsFromEvidenceText(d.evidenceUrl)}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Palette.muted,
@@ -3184,12 +3234,13 @@ class _ContractMilestoneRoadmapSheetState
                                     ],
                                   ),
                                 ],
-                                if (d.counterEvidenceUrl != null &&
-                                    d.counterEvidenceUrl!.isNotEmpty)
+                                if (stripUrlsFromEvidenceText(
+                                      d.counterEvidenceUrl,
+                                    ).isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 6),
                                     child: Text(
-                                      'Giải trình đối chất: ${d.counterEvidenceUrl}',
+                                      'Giải trình đối chất: ${stripUrlsFromEvidenceText(d.counterEvidenceUrl)}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF1976D2),

@@ -50,6 +50,7 @@ import { CreatorMilestoneRoadmapModal } from './CreatorMilestoneRoadmapModal';
 import { CreatorEditSingleMilestoneModal } from './CreatorEditSingleMilestoneModal';
 import { CreatorOpenDisputeModal } from './CreatorOpenDisputeModal';
 import { CreatorCounterEvidenceModal } from './CreatorCounterEvidenceModal';
+import { stripUrlsFromText, extractUrlsFromText } from '@/features/disputes/disputesLogic';
 
 interface CreatorContractDetailDrawerProps {
   contractId: number | null;
@@ -107,12 +108,23 @@ function getContractStatusPresentation(
         className: 'bg-rose-50 text-rose-800 border-rose-200',
         dotColor: 'bg-rose-500',
       };
-    case 'CANCELLED':
+    case 'CANCELLED': {
+      const doneCount = (milestones || []).filter(
+        (m) => m.status === 'APPROVED' || m.status === 'RELEASED'
+      ).length;
+      if (doneCount > 0 && milestones && milestones.length > 0) {
+        return {
+          label: `Đã dừng • Hoàn tất ${doneCount}/${milestones.length} mốc`,
+          className: 'bg-amber-50 text-amber-800 border-amber-200',
+          dotColor: 'bg-amber-500',
+        };
+      }
       return {
         label: 'Đã hủy',
         className: 'bg-stone-100 text-stone-700 border-stone-200/90',
         dotColor: 'bg-stone-400',
       };
+    }
     default:
       return {
         label: status || 'Đang xử lý',
@@ -619,7 +631,16 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                               <span>Khách yêu cầu sửa — Chờ cập nhật &amp; gửi lại lộ trình</span>
                             </>
                           ) : contract.status === 'CANCELLED' ? (
-                            <span>Hợp đồng đã hủy</span>
+                            <span>
+                              {(() => {
+                                const doneCount = milestones.filter(
+                                  (m) => m.status === 'APPROVED' || m.status === 'RELEASED'
+                                ).length;
+                                return doneCount > 0
+                                  ? `Hợp đồng đã dừng — Đã hoàn tất ${doneCount}/${milestones.length} mốc trước đó`
+                                  : 'Hợp đồng đã hủy';
+                              })()}
+                            </span>
                           ) : currentStageMilestone ? (
                             <>
                               <span className="h-1.5 w-1.5 rounded-full bg-[#A31D24]" />
@@ -930,18 +951,26 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                       <strong>Lý do khiếu nại: </strong>
                                       <span>{milestoneDispute.reason}</span>
                                     </p>
-                                    {milestoneDispute.evidence && (
+                                    {(milestoneDispute.evidence ||
+                                      (milestoneDispute.evidenceUrls &&
+                                        milestoneDispute.evidenceUrls.length > 0)) && (
                                       <div className="text-[11px] text-stone-600 bg-white/70 p-2.5 rounded-lg border border-rose-150 break-words space-y-1.5">
                                         <div>
                                           <strong>Bằng chứng ban đầu: </strong>
                                           <span className="whitespace-pre-line">
-                                            {milestoneDispute.evidence}
+                                            {stripUrlsFromText(milestoneDispute.evidence) ||
+                                              'Đã đính kèm tệp bằng chứng bên dưới'}
                                           </span>
                                         </div>
-                                        {milestoneDispute.evidenceUrls &&
-                                          milestoneDispute.evidenceUrls.length > 0 && (
+                                        {extractUrlsFromText(
+                                          milestoneDispute.evidence,
+                                          milestoneDispute.evidenceUrls
+                                        ).length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 pt-1 border-t border-rose-100">
-                                              {milestoneDispute.evidenceUrls.map((url, idx) => (
+                                              {extractUrlsFromText(
+                                                milestoneDispute.evidence,
+                                                milestoneDispute.evidenceUrls
+                                              ).map((url, idx) => (
                                                 <a
                                                   key={idx}
                                                   href={url}
@@ -961,20 +990,28 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                           )}
                                       </div>
                                     )}
-                                    {milestoneDispute.counterEvidence ? (
+                                    {milestoneDispute.counterEvidence ||
+                                    (milestoneDispute.counterEvidenceUrls &&
+                                      milestoneDispute.counterEvidenceUrls.length > 0) ? (
                                       <div className="p-2.5 rounded-lg bg-emerald-50/90 border border-emerald-200 text-emerald-900 text-[11px] break-words space-y-1.5">
                                         <div>
                                           <strong className="text-emerald-800">
                                             Giải trình đối chất:{' '}
                                           </strong>
                                           <span className="whitespace-pre-line">
-                                            {milestoneDispute.counterEvidence}
+                                            {stripUrlsFromText(milestoneDispute.counterEvidence) ||
+                                              'Đã đính kèm tệp đối chất bên dưới'}
                                           </span>
                                         </div>
-                                        {milestoneDispute.counterEvidenceUrls &&
-                                          milestoneDispute.counterEvidenceUrls.length > 0 && (
+                                        {extractUrlsFromText(
+                                          milestoneDispute.counterEvidence,
+                                          milestoneDispute.counterEvidenceUrls
+                                        ).length > 0 && (
                                             <div className="flex flex-wrap gap-1.5 pt-1 border-t border-emerald-200/70">
-                                              {milestoneDispute.counterEvidenceUrls.map(
+                                              {extractUrlsFromText(
+                                                milestoneDispute.counterEvidence,
+                                                milestoneDispute.counterEvidenceUrls
+                                              ).map(
                                                 (url, idx) => (
                                                   <a
                                                     key={idx}

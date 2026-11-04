@@ -218,16 +218,52 @@ export function inferDisputeType(reason?: string, milestoneTitle?: string): stri
 /**
  * Infers dispute priority based on reason urgency and content keywords.
  */
-export function inferDisputePriority(reason?: string, status?: string): DisputePriority {
+export function inferDisputePriority(
+  reason?: string,
+  status?: string,
+  options?: {
+    totalAmount?: number | null;
+    createdAt?: string | null;
+  }
+): DisputePriority {
+  const normStatus = (status || 'OPEN').toUpperCase();
   const text = (reason || '').toLowerCase();
+
+  if (
+    text.includes('bản quyền') ||
+    text.includes('giọng đọc') ||
+    text.includes('nhẹ') ||
+    text.includes('thử') ||
+    text.includes('test')
+  ) {
+    return 'LOW';
+  }
+
+  if (normStatus === 'RESOLVED' || normStatus === 'CANCELLED') {
+    return 'LOW';
+  }
+
   if (
     text.includes('chất lượng') ||
     text.includes('sai sự thật') ||
     text.includes('không thanh toán') ||
-    text.includes('khẩn cấp')
+    text.includes('khẩn cấp') ||
+    text.includes('quá hạn') ||
+    text.includes('lừa đảo')
   ) {
     return 'HIGH';
   }
+
+  if (options?.totalAmount != null && options.totalAmount >= 1_000_000) {
+    return 'HIGH';
+  }
+  if (options?.createdAt) {
+    const createdMs = new Date(options.createdAt).getTime();
+    if (!isNaN(createdMs) && Date.now() - createdMs >= 48 * 3600 * 1000) {
+      return 'HIGH';
+    }
+  }
+
   if (
     text.includes('hoàn tiền') ||
     text.includes('hủy') ||
@@ -236,14 +272,8 @@ export function inferDisputePriority(reason?: string, status?: string): DisputeP
   ) {
     return 'MEDIUM';
   }
-  if (
-    text.includes('bản quyền') ||
-    text.includes('giọng đọc') ||
-    text.includes('nhẹ')
-  ) {
-    return 'LOW';
-  }
-  return status === 'OPEN' ? 'HIGH' : 'MEDIUM';
+
+  return 'MEDIUM';
 }
 
 export interface DisputeUserLookup {
@@ -260,7 +290,7 @@ export interface DisputeUserLookup {
 export function mapBackendItemToDisputeRow(
   item: DisputeItem,
   _rawIndex = 0,
-  contract?: { creatorId?: number | null; requesterId?: number | null } | null,
+  contract?: { creatorId?: number | null; requesterId?: number | null; totalAmount?: number | null } | null,
   userMap?: Map<number, DisputeUserLookup>
 ): AdminDisputeRow {
   const rawId = item.id;
@@ -296,7 +326,7 @@ export function mapBackendItemToDisputeRow(
     normalizedStatus = 'OPEN';
   }
 
-  const priority = inferDisputePriority(reasonText, normalizedStatus);
+  const priority = inferDisputePriority(reasonText, normalizedStatus, { totalAmount: contract?.totalAmount, createdAt: item.createdAt });
   const dt = splitDateTime(item.createdAt);
 
   // Accurately determine sender role from contract IDs or reason semantics (never random modulo)
@@ -515,7 +545,6 @@ export function generateDisputeCsv(rows: AdminDisputeRow[]): string {
     'Vai trò người gửi',
     'Mã hợp đồng',
     'Tên dự án',
-    'Mức độ ưu tiên',
     'Trạng thái',
     'Ngày tạo',
     'Giờ tạo',
@@ -534,9 +563,6 @@ export function generateDisputeCsv(rows: AdminDisputeRow[]): string {
   for (const r of rows) {
     const statusLabel =
       r.status === 'OPEN' ? 'Đang thụ lý' : r.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã hủy';
-    const priorityLabel =
-      r.priority === 'HIGH' ? 'Cao' : r.priority === 'MEDIUM' ? 'Trung bình' : 'Thấp';
-
     const row = [
       escapeCell(r.id),
       escapeCell(r.title),
@@ -546,7 +572,6 @@ export function generateDisputeCsv(rows: AdminDisputeRow[]): string {
       escapeCell(r.senderRole),
       escapeCell(r.contractCode),
       escapeCell(r.workTitle),
-      escapeCell(priorityLabel),
       escapeCell(statusLabel),
       escapeCell(r.date),
       escapeCell(r.time),

@@ -145,7 +145,9 @@ export interface MilestoneItemPayload {
 }
 
 export interface CreateContractPayload {
-  commissionId: number;
+  hireRequestId?: number;
+  commissionId?: number;
+  requesterId?: number;
   title: string;
   description?: string;
   milestones: MilestoneItemPayload[];
