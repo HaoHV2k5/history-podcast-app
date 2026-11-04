@@ -7,14 +7,23 @@ export type DisputeResult =
   | 'REFUND_TO_CREATOR'
   | 'SPLIT';
 
+export interface DisputeEvidenceUploadResponse {
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  contentType: string;
+}
+
 export interface OpenDisputePayload {
   milestoneId: number;
   reason: string;
   evidence?: string;
+  attachmentUrls?: string[];
 }
 
 export interface CounterEvidencePayload {
-  counterEvidence: string;
+  counterEvidence?: string;
+  attachmentUrls?: string[];
 }
 
 export interface ResolveDisputePayload {
@@ -33,7 +42,9 @@ export interface DisputeItem {
   raisedByUserFullName?: string;
   reason: string;
   evidence?: string;
+  evidenceUrls?: string[];
   counterEvidence?: string;
+  counterEvidenceUrls?: string[];
   status: DisputeStatus | string;
   result?: DisputeResult | string;
   splitPercent?: number;

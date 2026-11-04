@@ -69,10 +69,13 @@ class WalletRepository {
     final desc = (description != null && description.trim().isNotEmpty)
         ? description.trim()
         : 'Nạp tiền vào ví Sử Ký qua Mobile';
+    final mobileReturnUrl =
+        '${apiClient.baseUrl}/api/v1/payments/vnpay/mobile-return';
     final response = await apiClient.post('/api/v1/wallets/me/deposits', body: {
       'amount': amount,
       'description': desc,
       'orderInfo': desc,
+      'returnUrl': mobileReturnUrl,
     });
     final data = response['data'] as Map<String, dynamic>? ?? const {};
     final paymentUrl = data['paymentUrl'] as String? ?? '';

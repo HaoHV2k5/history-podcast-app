@@ -81,7 +81,7 @@ public class MilestoneDeliverableServiceImpl implements MilestoneDeliverableServ
                 .fileName(file.getOriginalFilename() != null ? file.getOriginalFilename() : "deliverable")
                 .filePath(filePath)
                 .fileSize(file.getSize())
-                .contentType(file.getContentType())
+                .contentType(resolveMimeType(file.getOriginalFilename(), file.getContentType()))
                 .versionNo(nextVersion)
                 .createdAt(Instant.now())
                 .build();
@@ -280,7 +280,7 @@ public class MilestoneDeliverableServiceImpl implements MilestoneDeliverableServ
                 .description(entity.getDescription())
                 .fileName(entity.getFileName())
                 .fileSize(entity.getFileSize())
-                .contentType(entity.getContentType())
+                .contentType(resolveMimeType(entity.getFileName(), entity.getContentType()))
                 .versionNo(entity.getVersionNo())
                 .uploadedById(entity.getUploadedBy().getId())
                 .uploadedByFullName(entity.getUploadedBy().getFullName())
@@ -295,5 +295,28 @@ public class MilestoneDeliverableServiceImpl implements MilestoneDeliverableServ
         String email = SecurityUtils.getCurrentUserEmail();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND, "Không tìm thấy thông tin người dùng"));
+    }
+
+    private String resolveMimeType(String fileName, String rawContentType) {
+        String lower = fileName != null ? fileName.toLowerCase() : "";
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        if (lower.endsWith(".mp4")) return "video/mp4";
+        if (lower.endsWith(".mov")) return "video/quicktime";
+        if (lower.endsWith(".webm")) return "video/webm";
+        if (lower.endsWith(".mp3")) return "audio/mpeg";
+        if (lower.endsWith(".wav")) return "audio/wav";
+        if (lower.endsWith(".m4a")) return "audio/mp4";
+        if (lower.endsWith(".ogg")) return "audio/ogg";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".csv")) return "text/plain;charset=UTF-8";
+        if (lower.endsWith(".json")) return "application/json";
+        if (lower.endsWith(".zip")) return "application/zip";
+        if (rawContentType != null && !rawContentType.isBlank() && !"application/octet-stream".equalsIgnoreCase(rawContentType)) {
+            return rawContentType;
+        }
+        return "application/octet-stream";
     }
 }

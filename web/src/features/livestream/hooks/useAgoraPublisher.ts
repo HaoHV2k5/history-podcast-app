@@ -207,7 +207,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
       isMicEnabledRef.current = true;
       setIsMicEnabled(true);
       if (!micGainNodeRef.current && audioTrackRef.current) {
-        void audioTrackRef.current.setEnabled(true).catch(() => {});
+        if (!audioTrackRef.current.enabled) { void audioTrackRef.current.setEnabled(true).catch(() => {}); } void audioTrackRef.current.setMuted(false).catch(() => {});
       }
     }
 
@@ -677,7 +677,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
 
     if (!cameraTrackRef.current) return;
     try {
-      await cameraTrackRef.current.setEnabled(nextState);
+      if (!cameraTrackRef.current.enabled) { await cameraTrackRef.current.setEnabled(true).catch(() => {}); } await cameraTrackRef.current.setMuted(!nextState);
       isCameraEnabledRef.current = nextState;
       if (isMountedRef.current) {
         setIsCameraEnabled(nextState);
@@ -700,7 +700,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
         // Khi đang dùng bộ trộn âm thanh (Screen Audio + Mic), điều khiển qua GainNode để không làm ngắt tiếng màn hình
         micGainNodeRef.current.gain.value = nextState ? micVolumeRef.current / 100 : 0;
       } else {
-        await audioTrackRef.current.setEnabled(nextState);
+        if (!audioTrackRef.current.enabled) { await audioTrackRef.current.setEnabled(true).catch(() => {}); } await audioTrackRef.current.setMuted(!nextState);
       }
 
       if (isMountedRef.current) {
@@ -777,7 +777,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
         }
 
         if (audioTrackRef.current) {
-          await audioTrackRef.current.setEnabled(isMicEnabledRef.current).catch(() => {});
+          if (!audioTrackRef.current.enabled) { await audioTrackRef.current.setEnabled(true).catch(() => {}); } await audioTrackRef.current.setMuted(!isMicEnabledRef.current).catch(() => {});
           audioTrackRef.current.setVolume(micVolumeRef.current);
           publishedAudioTrackRef.current = audioTrackRef.current;
         }
@@ -793,7 +793,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
           if (needRestoreMicAudio && audioTrackRef.current) {
             toPub.push(audioTrackRef.current);
           }
-          await clientRef.current.publish(toPub);
+          for (const tr of toPub) { if (!tr.enabled) { await tr.setEnabled(true).catch(() => {}); } } await clientRef.current.publish(toPub); if (!isMicEnabledRef.current && audioTrackRef.current) { await audioTrackRef.current.setMuted(true).catch(() => {}); }
         }
 
         isScreenSharingRef.current = false;
@@ -1113,7 +1113,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
         if (isBroadcastingRef.current && clientRef.current) {
           const toPub: (ICameraVideoTrack | ILocalVideoTrack | ILocalAudioTrack | IMicrophoneAudioTrack)[] = [compositedTrack];
           if (mixedAudioTrack) toPub.push(mixedAudioTrack);
-          await clientRef.current.publish(toPub);
+          for (const tr of toPub) { if (!tr.enabled) { await tr.setEnabled(true).catch(() => {}); } } await clientRef.current.publish(toPub); if (!isMicEnabledRef.current && audioTrackRef.current) { await audioTrackRef.current.setMuted(true).catch(() => {}); }
         }
 
         screenTrack.on('track-ended', () => {
@@ -1335,7 +1335,7 @@ export function useAgoraPublisher(): UseAgoraPublisherReturn {
 
         const audioToPub = publishedAudioTrackRef.current || audioTrackRef.current!;
         const tracksToPublish = [audioToPub, videoTrackRef.current!];
-        await client.publish(tracksToPublish);
+        for (const tr of tracksToPublish) { if (!tr.enabled) { await tr.setEnabled(true).catch(() => {}); } } await client.publish(tracksToPublish); if (!isMicEnabledRef.current && audioToPub === audioTrackRef.current) { await audioToPub.setMuted(true).catch(() => {}); } if (!isCameraEnabledRef.current && !isScreenSharingRef.current && videoTrackRef.current === cameraTrackRef.current && videoTrackRef.current) { await videoTrackRef.current.setMuted(true).catch(() => {}); }
 
         if (!isMountedRef.current || broadcastSessionIdRef.current !== currentBroadcastId) {
           await client.unpublish(tracksToPublish).catch(() => {});

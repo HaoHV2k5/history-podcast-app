@@ -84,7 +84,7 @@ function getContractStatusPresentation(
         };
       }
       return {
-        label: 'Đang thực hiện',
+        label: milestones && milestones.length > 0 && milestones.every((m) => m.status === 'RELEASED') ? 'Đã hoàn tất' : milestones && milestones.length > 0 && milestones.every((m) => m.status === 'RELEASED' || m.status === 'APPROVED') ? 'Đã nghiệm thu • Chờ giải ngân' : 'Đang thực hiện',
         className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
         dotColor: 'bg-emerald-500',
       };
@@ -931,17 +931,84 @@ export const CreatorContractDetailDrawer: React.FC<CreatorContractDetailDrawerPr
                                       <span>{milestoneDispute.reason}</span>
                                     </p>
                                     {milestoneDispute.evidence && (
-                                      <p className="text-[11px] text-stone-600 bg-white/70 p-2 rounded-lg border border-rose-150 break-words">
-                                        <strong>Bằng chứng ban đầu: </strong>
-                                        {milestoneDispute.evidence}
-                                      </p>
+                                      <div className="text-[11px] text-stone-600 bg-white/70 p-2.5 rounded-lg border border-rose-150 break-words space-y-1.5">
+                                        <div>
+                                          <strong>Bằng chứng ban đầu: </strong>
+                                          <span className="whitespace-pre-line">
+                                            {milestoneDispute.evidence}
+                                          </span>
+                                        </div>
+                                        {milestoneDispute.evidenceUrls &&
+                                          milestoneDispute.evidenceUrls.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-rose-100">
+                                              {milestoneDispute.evidenceUrls.map((url, idx) => (
+                                                <a
+                                                  key={idx}
+                                                  href={url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className="inline-flex items-center gap-1 rounded-md bg-rose-50 border border-rose-200 px-2 py-0.5 text-[10px] font-semibold text-[#A31D24] hover:bg-rose-100 transition-colors"
+                                                >
+                                                  <FileText className="h-3 w-3 shrink-0" />
+                                                  <span className="truncate max-w-[180px]">
+                                                    {url.split('/').pop() ||
+                                                      `Tệp bằng chứng #${idx + 1}`}
+                                                  </span>
+                                                  <ArrowUpRight className="h-2.5 w-2.5 shrink-0" />
+                                                </a>
+                                              ))}
+                                            </div>
+                                          )}
+                                      </div>
                                     )}
                                     {milestoneDispute.counterEvidence ? (
-                                      <div className="p-2 rounded-lg bg-emerald-50/90 border border-emerald-200 text-emerald-900 text-[11px] break-words">
-                                        <strong className="text-emerald-800">
-                                          Giải trình đối chất:{' '}
-                                        </strong>
-                                        <span>{milestoneDispute.counterEvidence}</span>
+                                      <div className="p-2.5 rounded-lg bg-emerald-50/90 border border-emerald-200 text-emerald-900 text-[11px] break-words space-y-1.5">
+                                        <div>
+                                          <strong className="text-emerald-800">
+                                            Giải trình đối chất:{' '}
+                                          </strong>
+                                          <span className="whitespace-pre-line">
+                                            {milestoneDispute.counterEvidence}
+                                          </span>
+                                        </div>
+                                        {milestoneDispute.counterEvidenceUrls &&
+                                          milestoneDispute.counterEvidenceUrls.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-emerald-200/70">
+                                              {milestoneDispute.counterEvidenceUrls.map(
+                                                (url, idx) => (
+                                                  <a
+                                                    key={idx}
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex items-center gap-1 rounded-md bg-white border border-emerald-300 px-2 py-0.5 text-[10px] font-semibold text-emerald-800 hover:bg-emerald-100 transition-colors"
+                                                  >
+                                                    <FileText className="h-3 w-3 shrink-0" />
+                                                    <span className="truncate max-w-[180px]">
+                                                      {url.split('/').pop() ||
+                                                        `Tệp đối chất #${idx + 1}`}
+                                                    </span>
+                                                    <ArrowUpRight className="h-2.5 w-2.5 shrink-0" />
+                                                  </a>
+                                                )
+                                              )}
+                                            </div>
+                                          )}
+                                        {milestoneDispute.status === 'OPEN' && (
+                                          <div className="pt-1">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() =>
+                                                setSelectedDisputeForCounter(milestoneDispute)
+                                              }
+                                              className="h-7 px-2.5 text-[11px] rounded-lg border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50 font-semibold"
+                                            >
+                                              <ShieldCheck className="h-3 w-3 mr-1" />
+                                              Bổ sung bằng chứng đối chất
+                                            </Button>
+                                          </div>
+                                        )}
                                       </div>
                                     ) : milestoneDispute.status === 'OPEN' ? (
                                       <div className="pt-1">

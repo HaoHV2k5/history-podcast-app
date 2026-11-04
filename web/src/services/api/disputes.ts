@@ -5,6 +5,7 @@ import {
   ResolveDisputePayload,
   OpenDisputePayload,
   CounterEvidencePayload,
+  DisputeEvidenceUploadResponse,
 } from '@/types/dispute';
 
 export const disputesApi = {
@@ -28,6 +29,23 @@ export const disputesApi = {
   getDisputesByContract: async (contractId: number): Promise<ApiResponse<DisputeItem[]>> => {
     const response = await apiClient.get<ApiResponse<DisputeItem[]>>(
       `/api/v1/disputes/contract/${contractId}`
+    );
+    return response.data;
+  },
+
+  uploadEvidenceFile: async (
+    file: File
+  ): Promise<ApiResponse<DisputeEvidenceUploadResponse>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<ApiResponse<DisputeEvidenceUploadResponse>>(
+      '/api/v1/disputes/evidence-upload',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
     );
     return response.data;
   },

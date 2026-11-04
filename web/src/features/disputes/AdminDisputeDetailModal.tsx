@@ -360,19 +360,26 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
                   <span className="font-semibold text-ink block mb-1 text-[11px] uppercase tracking-wider text-muted">
                     Bằng chứng bên khiếu nại (Evidence):
                   </span>
-                  <div className="rounded-lg border border-border bg-surface p-3 text-ink leading-relaxed whitespace-pre-line text-[11px]">
-                    {activeDispute.evidence.startsWith('http') ? (
-                      <a
-                        href={activeDispute.evidence}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-accent underline font-mono flex items-center gap-1"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        <span>Xem tài liệu / tệp đính kèm bằng chứng</span>
-                      </a>
-                    ) : (
-                      activeDispute.evidence
+                  <div className="rounded-lg border border-border bg-surface p-3 text-ink leading-relaxed whitespace-pre-line text-[11px] space-y-2">
+                    <div>{activeDispute.evidence}</div>
+                    {activeDispute.evidenceUrls && activeDispute.evidenceUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-2 border-t border-border">
+                        {activeDispute.evidenceUrls.map((url, idx) => (
+                          <a
+                            key={idx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-accent-soft/50 border border-accent/30 px-2.5 py-1 text-[11px] font-mono text-accent hover:underline"
+                          >
+                            <FileText className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate max-w-[220px]">
+                              {url.split('/').pop() || `Tệp bằng chứng #${idx + 1}`}
+                            </span>
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -383,20 +390,28 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
                   <span className="font-semibold text-status-processing-text block mb-1 text-[11px] uppercase tracking-wider">
                     Bằng chứng phản hồi từ bên bị khiếu nại (Counter-Evidence):
                   </span>
-                  <div className="rounded-lg border border-status-processing-text/25 bg-status-processing-bg/20 p-3 text-ink leading-relaxed whitespace-pre-line text-[11px]">
-                    {activeDispute.counterEvidence.startsWith('http') ? (
-                      <a
-                        href={activeDispute.counterEvidence}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-status-processing-text underline font-mono flex items-center gap-1"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        <span>Xem tệp giải trình phản hồi</span>
-                      </a>
-                    ) : (
-                      activeDispute.counterEvidence
-                    )}
+                  <div className="rounded-lg border border-status-processing-text/25 bg-status-processing-bg/20 p-3 text-ink leading-relaxed whitespace-pre-line text-[11px] space-y-2">
+                    <div>{activeDispute.counterEvidence}</div>
+                    {activeDispute.counterEvidenceUrls &&
+                      activeDispute.counterEvidenceUrls.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-2 border-t border-status-processing-text/20">
+                          {activeDispute.counterEvidenceUrls.map((url, idx) => (
+                            <a
+                              key={idx}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md bg-white border border-status-processing-text/30 px-2.5 py-1 text-[11px] font-mono text-status-processing-text hover:underline"
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate max-w-[220px]">
+                                {url.split('/').pop() || `Tệp đối chất #${idx + 1}`}
+                              </span>
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                   </div>
                 </div>
               )}
