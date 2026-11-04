@@ -4,6 +4,7 @@ import {
   AdminModerationItem,
   AdminModerationDecisionPayload,
   AiShieldPolicyConfig,
+  AiShieldPolicyConfigPayload,
 } from '@/types/moderation';
 
 export interface ModerationQueryParams {
@@ -52,13 +53,37 @@ export const moderationApi = {
     return response.data;
   },
 
+  getPolicyConfigByTier: async (tier: string): Promise<ApiResponse<AiShieldPolicyConfig>> => {
+    const response = await apiClient.get<ApiResponse<AiShieldPolicyConfig>>(
+      `/api/v1/admin/moderation/policy-configs/${tier}`
+    );
+    return response.data;
+  },
+
   updatePolicyConfig: async (
     tier: string,
-    payload: Partial<AiShieldPolicyConfig>
+    payload: AiShieldPolicyConfigPayload | Partial<AiShieldPolicyConfig>
   ): Promise<ApiResponse<AiShieldPolicyConfig>> => {
     const response = await apiClient.put<ApiResponse<AiShieldPolicyConfig>>(
       `/api/v1/admin/moderation/policy-configs/${tier}`,
       payload
+    );
+    return response.data;
+  },
+
+  batchUpdatePolicyConfigs: async (
+    configs: AiShieldPolicyConfigPayload[]
+  ): Promise<ApiResponse<AiShieldPolicyConfig[]>> => {
+    const response = await apiClient.put<ApiResponse<AiShieldPolicyConfig[]>>(
+      '/api/v1/admin/moderation/policy-configs',
+      { configs }
+    );
+    return response.data;
+  },
+
+  resetDefaultPolicyConfigs: async (): Promise<ApiResponse<AiShieldPolicyConfig[]>> => {
+    const response = await apiClient.post<ApiResponse<AiShieldPolicyConfig[]>>(
+      '/api/v1/admin/moderation/policy-configs/reset-defaults'
     );
     return response.data;
   },
