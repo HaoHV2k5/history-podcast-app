@@ -84,11 +84,12 @@ export const usersApi = {
 
   updateRole: async (
     id: number,
-    role: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER'
+    role: 'ADMIN' | 'CREATOR' | 'NARRATOR' | 'VIEWER' | 'FREELANCER' | string,
+    roleId?: number
   ): Promise<ApiResponse<UserResponse>> => {
     const response = await apiClient.patch<ApiResponse<UserResponse>>(
       `/api/v1/admin/users/${id}/role`,
-      { role, roleName: role }
+      { role, roleName: role, ...(roleId !== undefined ? { roleId } : {}) }
     );
     return response.data;
   },
