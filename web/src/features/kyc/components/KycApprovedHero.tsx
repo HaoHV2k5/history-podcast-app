@@ -91,7 +91,7 @@ export const KycApprovedHero: React.FC<KycApprovedHeroProps> = ({
               id="kyc-goto-channel-btn"
               type="button"
               onClick={onGoToChannel}
-              className="inline-flex items-center gap-1.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-[#A31D24] to-[#881318] hover:from-[#8B141B] hover:to-[#741014] px-3 sm:px-3.5 py-1.5 sm:py-2 text-xs font-semibold text-white shadow-2xs shadow-[#A31D24]/20 hover:shadow-xs hover:shadow-[#A31D24]/30 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D24]/40 focus-visible:ring-offset-2"
+              className="inline-flex items-center gap-1.5 rounded-lg sm:rounded-xl bg-[#A31D24] hover:bg-[#881318] px-3.5 py-2 text-xs font-semibold text-white shadow-2xs transition-all duration-150 active:scale-[0.98] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D24]/40 focus-visible:ring-offset-2"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>Đến Không Gian Quản Lý Kênh</span>
