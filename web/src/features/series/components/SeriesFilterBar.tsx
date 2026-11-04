@@ -45,7 +45,6 @@ export const SORT_OPTIONS = [
 export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
   filter,
   onChange,
-  onReset,
 }) => {
   return (
     <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 select-none">
@@ -63,7 +62,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
             onChange={(e) => onChange({ searchQuery: e.target.value })}
             placeholder="Tìm kiếm tuyển tập, chủ đề, mô tả..."
             title="Nhập từ khóa tìm kiếm tuyển tập theo tiêu đề, chủ đề hoặc mô tả"
-            className="w-full h-11 pl-10 pr-9 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#A31D24]/20 focus:border-[#A31D24] shadow-2xs transition-colors"
+            className="w-full h-11 pl-10 pr-9 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1615] placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs transition-colors"
           />
           {filter.searchQuery && (
             <button
@@ -90,7 +89,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
             value={filter.historicalEra}
             onChange={(e) => onChange({ historicalEra: e.target.value })}
             title="Lọc danh sách theo thời kỳ lịch sử"
-            className="h-11 px-3 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#A31D24]/20 focus:border-[#A31D24] shadow-2xs cursor-pointer"
+            className="h-11 px-3 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs cursor-pointer"
             aria-label="Chọn thời kỳ lịch sử"
           >
             {HISTORICAL_ERA_OPTIONS.map((opt) => (
@@ -110,7 +109,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
             value={filter.format}
             onChange={(e) => onChange({ format: e.target.value })}
             title="Lọc theo định dạng: Podcast, Video hoặc Whiteboard"
-            className="h-11 px-3 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#A31D24]/20 focus:border-[#A31D24] shadow-2xs cursor-pointer"
+            className="h-11 px-3 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs cursor-pointer"
             aria-label="Chọn định dạng nội dung"
           >
             {FORMAT_OPTIONS.map((opt) => (
@@ -130,7 +129,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
             value={filter.sortBy}
             onChange={(e) => onChange({ sortBy: e.target.value })}
             title="Sắp xếp danh sách tuyển tập"
-            className="h-11 px-3 rounded-xl border border-[#EBE4D8] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#A31D24]/20 focus:border-[#A31D24] shadow-2xs cursor-pointer"
+            className="h-11 px-3 rounded-xl border border-[#E7E2D9] bg-white text-xs sm:text-sm text-[#1C1615] focus:outline-none focus:ring-2 focus:ring-[#8B2635]/20 focus:border-[#8B2635] shadow-2xs cursor-pointer"
             aria-label="Sắp xếp danh sách"
           >
             {SORT_OPTIONS.map((opt) => (
@@ -142,7 +141,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
         </div>
 
         {/* View Mode Toggle: Grid vs List */}
-        <div className="flex items-center gap-1 bg-[#F5F2EB] p-1 rounded-xl border border-[#EBE4D8] h-11 shrink-0">
+        <div className="flex items-center gap-1 bg-[#F5F2EB] p-1 rounded-xl border border-[#E7E2D9] h-11 shrink-0">
           <button
             type="button"
             onClick={() => onChange({ viewMode: 'grid' })}
@@ -152,7 +151,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
             className={cn(
               'h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer',
               filter.viewMode === 'grid'
-                ? 'bg-[#A31D24] text-white shadow-2xs'
+                ? 'bg-[#8B2635] text-white shadow-2xs'
                 : 'text-[#786C68] hover:text-[#1C1615] hover:bg-white/60'
             )}
           >
@@ -167,7 +166,7 @@ export const SeriesFilterBar: React.FC<SeriesFilterBarProps> = ({
             className={cn(
               'h-9 w-9 rounded-lg flex items-center justify-center transition-all duration-150 cursor-pointer',
               filter.viewMode === 'list'
-                ? 'bg-[#A31D24] text-white shadow-2xs'
+                ? 'bg-[#8B2635] text-white shadow-2xs'
                 : 'text-[#786C68] hover:text-[#1C1615] hover:bg-white/60'
             )}
           >

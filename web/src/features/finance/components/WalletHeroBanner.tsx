@@ -1,5 +1,6 @@
 import React from 'react';
 import { RefreshCw } from 'lucide-react';
+import { HeritageAtmosphereWatermark } from '@/components/common/HeritageAtmosphereWatermark';
 import { cn } from '@/utils/cn';
 
 interface WalletHeroBannerProps {
@@ -23,21 +24,11 @@ export const WalletHeroBanner: React.FC<WalletHeroBannerProps> = ({
       data-motion-target="wallet-hero"
       data-ui="wallet-hero"
     >
-      {/* Authentic Historical Watermark on Background */}
-      <div
-        className="absolute inset-y-0 right-0 w-full sm:w-2/3 lg:w-1/2 pointer-events-none select-none overflow-hidden flex items-center justify-end"
-        aria-hidden="true"
-      >
-        <img
-          src="/assets/studio/header-landscape.png"
-          alt=""
-          className="h-[140%] w-auto max-w-none object-contain object-right opacity-30 sm:opacity-40 mix-blend-multiply pointer-events-none select-none"
-          style={{
-            maskImage: 'linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)', // taste-skill-ignore
-            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 100%)', // taste-skill-ignore
-          }}
-        />
-      </div>
+      {/* Authentic Vietnamese Heritage Vector Watermark & Atmospheric Glow */}
+      <HeritageAtmosphereWatermark
+        tag="SỬ KÝ ATELIER · QUẢN LÝ TÀI CHÍNH"
+        variant="compact"
+      />
 
       {/* Main Content Area */}
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">

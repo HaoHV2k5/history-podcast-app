@@ -33,6 +33,7 @@ interface SeriesAudioPlayerBarProps {
   onNext?: () => void;
   onTrackClick?: (track: PlayingTrack) => void;
   onSeriesClick?: (seriesId: number) => void;
+  onContentClick?: (contentId: number) => void;
   onClose?: () => void;
 }
 
