@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import gsap from 'gsap';
 import { AlertCircle, RotateCw } from 'lucide-react';
 import { escrowApi } from '@/services/api/escrow';
 import { EscrowTransactionItem } from '@/types/escrow';
@@ -26,6 +27,14 @@ export const EscrowListPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlSearch = searchParams.get('search') || '';
+
+  // GSAP animation refs
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLDivElement>(null);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState(urlSearch);
@@ -178,41 +187,77 @@ export const EscrowListPage: React.FC = () => {
     });
   };
 
+  // Subtle natural GSAP entrance animation
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      const targets = [
+        heroRef.current,
+        statsRef.current,
+        tabsRef.current,
+        toolbarRef.current,
+        tableRef.current,
+      ].filter(Boolean);
+
+      gsap.fromTo(
+        targets,
+        { opacity: 0, y: 14 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.45,
+          stagger: 0.08,
+          ease: 'power2.out',
+          clearProps: 'all',
+        }
+      );
+    }, pageContainerRef);
+
+    return () => ctx.revert();
+  }, []);
+
   return (
-    <div className="space-y-6 pb-12 font-sans select-none">
+    <div ref={pageContainerRef} className="space-y-6 pb-12 font-sans select-none">
       {/* 1. Header / Hero Banner (3 Lớp Chuẩn Sử Ký) */}
-      <AdminEscrowHeroBanner />
+      <div ref={heroRef}>
+        <AdminEscrowHeroBanner />
+      </div>
 
       {/* 2. Thẻ Thống Kê (4 Stat Cards - Bố cục ngang chuẩn mockup) */}
-      <AdminEscrowStatCards kpis={kpis} />
+      <div ref={statsRef}>
+        <AdminEscrowStatCards kpis={kpis} />
+      </div>
 
       {/* 3. Dải Tabs Trạng Thái (Status Pills) */}
-      <AdminEscrowStatusTabs
-        activeTab={statusTab}
-        onChange={setStatusTab}
-        kpis={kpis}
-      />
+      <div ref={tabsRef}>
+        <AdminEscrowStatusTabs
+          activeTab={statusTab}
+          onChange={setStatusTab}
+          kpis={kpis}
+        />
+      </div>
 
       {/* 4. Thanh Bộ Lọc & Tìm Kiếm (Filter Toolbar) */}
-      <AdminEscrowFilterToolbar
-        searchQuery={searchQuery}
-        onSearchChange={handleSearchChange}
-        statusFilter={statusSelect}
-        onStatusFilterChange={setStatusSelect}
-        paymentMethodFilter={paymentMethod}
-        onPaymentMethodFilterChange={setPaymentMethod}
-        dateRangePreset={dateRangePreset}
-        onDateRangePresetChange={setDateRangePreset}
-        customDateStart={customDateStart}
-        customDateEnd={customDateEnd}
-        onCustomDateChange={(start, end) => {
-          setCustomDateStart(start);
-          setCustomDateEnd(end);
-        }}
-        onRefresh={handleRefresh}
-        isRefreshing={isLedgerFetching}
-        onExportCSV={handleExportCSV}
-      />
+      <div ref={toolbarRef}>
+        <AdminEscrowFilterToolbar
+          searchQuery={searchQuery}
+          onSearchChange={handleSearchChange}
+          statusFilter={statusSelect}
+          onStatusFilterChange={setStatusSelect}
+          paymentMethodFilter={paymentMethod}
+          onPaymentMethodFilterChange={setPaymentMethod}
+          dateRangePreset={dateRangePreset}
+          onDateRangePresetChange={setDateRangePreset}
+          customDateStart={customDateStart}
+          customDateEnd={customDateEnd}
+          onCustomDateChange={(start, end) => {
+            setCustomDateStart(start);
+            setCustomDateEnd(end);
+          }}
+          onRefresh={handleRefresh}
+          isRefreshing={isLedgerFetching}
+          onExportCSV={handleExportCSV}
+        />
+      </div>
 
 
       {/* Network Error Alert */}
@@ -234,21 +279,23 @@ export const EscrowListPage: React.FC = () => {
       )}
 
       {/* 5. Bảng Dữ Liệu Ký Quỹ Escrow (Admin Data Table - 100% Fit) */}
-      <AdminEscrowTable
-        rows={paginatedRows}
-        totalElements={totalElements}
-        currentPage={currentPage}
-        pageSize={pageSize}
-        onPageChange={setCurrentPage}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize);
-          setCurrentPage(0);
-        }}
-        isLoading={isLedgerLoading}
-        onViewDetail={setSelectedRow}
-        onViewContract={(contractId) => navigate(`/admin/contracts?search=HD${String(contractId).padStart(5, '0')}`)}
-        onViewMilestones={handleViewMilestones}
-      />
+      <div ref={tableRef}>
+        <AdminEscrowTable
+          rows={paginatedRows}
+          totalElements={totalElements}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(0);
+          }}
+          isLoading={isLedgerLoading}
+          onViewDetail={setSelectedRow}
+          onViewContract={(contractId) => navigate(`/admin/contracts?search=HD${String(contractId).padStart(5, '0')}`)}
+          onViewMilestones={handleViewMilestones}
+        />
+      </div>
 
       {/* 6. Modal Chi Tiết Giao Dịch Ký Quỹ */}
       {selectedRow && (
