@@ -674,27 +674,35 @@ class AppState extends ChangeNotifier {
       } catch (_) {}
     }
 
-    // Tự động thử fallback địa chỉ IP LAN nếu địa chỉ mặc định bị lỗi mạng
+    // Tự động thử fallback danh sách địa chỉ IP LAN / Emulator nếu địa chỉ mặc định bị lỗi mạng
     if (hadNetworkFailure &&
         allowAutoFallback &&
         apiClient != null &&
         !kIsWeb) {
       final currentBase = apiClient!.baseUrl;
-      String? fallbackUrl;
-      if (currentBase.contains('10.0.2.2')) {
-        fallbackUrl = 'http://192.168.1.133:8080';
-      } else if (currentBase.contains('192.168.1.115') ||
-          currentBase.contains('192.168.1.72') ||
-          currentBase.contains('172.18.1.206') ||
-          currentBase.contains('10.87.31.229') ||
-          currentBase.contains('192.168.1.80') ||
-          currentBase.contains('192.168.1.123')) {
-        fallbackUrl = 'http://192.168.1.133:8080';
+      const candidates = <String>[
+        'http://192.168.100.159:8080',
+        'http://10.0.2.2:8080',
+        'http://localhost:8080',
+        'http://26.4.170.102:8080',
+        'http://192.168.1.133:8080',
+      ];
+      for (final candidate in candidates) {
+        if (currentBase == candidate) continue;
+        apiClient!.updateBaseUrl(candidate);
+        try {
+          if (channelRepository != null) {
+            final probeChannels = await channelRepository!.getAllChannels();
+            if (probeChannels.isNotEmpty) {
+              return await initRealBackend(allowAutoFallback: false);
+            }
+          }
+        } catch (_) {
+          // Tiếp tục thử candidate tiếp theo
+        }
       }
-      if (fallbackUrl != null) {
-        apiClient!.updateBaseUrl(fallbackUrl);
-        return initRealBackend(allowAutoFallback: false);
-      }
+      // Khôi phục về IP mặc định của máy nếu chưa tìm thấy
+      apiClient!.updateBaseUrl('http://192.168.100.159:8080');
     }
 
     if (hadNetworkFailure && remoteEpisodes.isEmpty && remoteChannels.isEmpty) {

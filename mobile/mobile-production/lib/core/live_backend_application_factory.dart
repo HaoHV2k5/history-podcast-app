@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app.dart';
@@ -43,24 +45,80 @@ import 'runtime_configuration.dart';
 class LiveBackendApplicationFactory implements BackendApplicationFactory {
   const LiveBackendApplicationFactory();
 
+  Future<String?> _probeCandidate(String url, Duration timeout) async {
+    try {
+      final clean = url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+      final resp = await http
+          .get(Uri.parse('$clean/api/v1/channels'))
+          .timeout(timeout);
+      if (resp.statusCode >= 200 && resp.statusCode < 500) {
+        return clean;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<String> _resolveReachableBaseUrl(
+    SharedPreferences preferences,
+    RuntimeConfiguration configuration,
+  ) async {
+    final savedBaseUrl = preferences.getString('custom_api_base_url')?.trim();
+    final defaultUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
+        ? 'http://192.168.100.159:8080'
+        : 'http://localhost:8080';
+
+    final primary = (savedBaseUrl != null && savedBaseUrl.isNotEmpty)
+        ? savedBaseUrl
+        : (configuration.apiBaseUri?.toString() ?? defaultUrl);
+
+    if (kIsWeb) return primary;
+
+    // 1. Thử nhanh địa chỉ ưu tiên hiện tại (800ms)
+    final primaryOk = await _probeCandidate(
+      primary,
+      const Duration(milliseconds: 800),
+    );
+    if (primaryOk != null) {
+      return primaryOk;
+    }
+
+    // 2. Nếu không phản hồi, dò song song tất cả địa chỉ LAN/Emulator của các thành viên trong nhóm
+    final candidates = <String>{
+      'http://192.168.100.159:8080',
+      'http://10.0.2.2:8080',
+      'http://192.168.1.133:8080',
+      'http://localhost:8080',
+      'http://26.4.170.102:8080',
+      primary,
+    }.toList();
+
+    final completer = Completer<String?>();
+    var remaining = candidates.length;
+    for (final candidate in candidates) {
+      _probeCandidate(candidate, const Duration(milliseconds: 1500)).then((hit) {
+        if (hit != null && !completer.isCompleted) {
+          completer.complete(hit);
+        } else {
+          remaining--;
+          if (remaining == 0 && !completer.isCompleted) {
+            completer.complete(null);
+          }
+        }
+      });
+    }
+
+    final resolved = await completer.future;
+    if (resolved != null) {
+      await preferences.setString('custom_api_base_url', resolved);
+      return resolved;
+    }
+    return defaultUrl;
+  }
+
   @override
   Future<Widget> createApplication(RuntimeConfiguration configuration) async {
     final preferences = await SharedPreferences.getInstance();
-    var savedBaseUrl = preferences.getString('custom_api_base_url')?.trim();
-    if (savedBaseUrl != null && (savedBaseUrl.contains('192.168.1.115') || savedBaseUrl.contains('10.0.2.2') || savedBaseUrl.contains('192.168.1.72') || savedBaseUrl.contains('172.18.1.206') || savedBaseUrl.contains('10.87.31.229') || savedBaseUrl.contains('192.168.1.80') || savedBaseUrl.contains('192.168.1.123'))) {
-      savedBaseUrl = 'http://192.168.1.133:8080';
-      await preferences.setString('custom_api_base_url', savedBaseUrl);
-    }
-    String baseUrl;
-    if (savedBaseUrl != null && savedBaseUrl.isNotEmpty) {
-      baseUrl = savedBaseUrl;
-    } else if (configuration.apiBaseUri != null) {
-      baseUrl = configuration.apiBaseUri.toString();
-    } else {
-      baseUrl = (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
-          ? 'http://192.168.1.133:8080'
-          : 'http://localhost:8080';
-    }
+    final baseUrl = await _resolveReachableBaseUrl(preferences, configuration);
     
     final apiClient = ApiClient(baseUrl: baseUrl, preferences: preferences);
     final authRepository = AuthRepository(apiClient);

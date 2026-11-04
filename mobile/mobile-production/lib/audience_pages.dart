@@ -2368,7 +2368,7 @@ class _AuthSheetState extends State<AuthSheet> {
   }
 
   void _showServerConfig() {
-    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.1.133:8080';
+    final currentUrl = widget.state.apiClient?.baseUrl ?? 'http://192.168.100.159:8080';
     final controller = TextEditingController(text: currentUrl);
     showDialog(
       context: context,
@@ -2390,7 +2390,7 @@ class _AuthSheetState extends State<AuthSheet> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Palette.soft,
-                hintText: 'http://192.168.1.133:8080',
+                hintText: 'http://192.168.100.159:8080',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
@@ -2402,8 +2402,8 @@ class _AuthSheetState extends State<AuthSheet> {
               runSpacing: 6,
               children: [
                 ActionChip(
-                  label: const Text('Wi-Fi máy tính (192.168.1.133)', style: TextStyle(fontSize: 11)),
-                  onPressed: () => controller.text = 'http://192.168.1.133:8080',
+                  label: const Text('Wi-Fi máy tính (192.168.100.159)', style: TextStyle(fontSize: 11)),
+                  onPressed: () => controller.text = 'http://192.168.100.159:8080',
                 ),
                 ActionChip(
                   label: const Text('Giả lập Android (10.0.2.2)', style: TextStyle(fontSize: 11)),
