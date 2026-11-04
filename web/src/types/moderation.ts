@@ -44,5 +44,17 @@ export interface AiShieldPolicyConfig {
   description: string;
   isActive?: boolean;
   displayOrder?: number;
+  createdAt?: string;
   updatedAt?: string;
+}
+
+export interface AiShieldPolicyConfigPayload {
+  tier?: AiShieldTier;
+  label: string;
+  minScore: number;
+  maxScore: number;
+  description?: string;
+  actionType?: string;
+  isActive?: boolean;
+  displayOrder?: number;
 }

@@ -1,224 +1,336 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Sliders, Shield, Edit3, CheckCircle2 } from 'lucide-react';
-import { PageHeader } from '@/components/common/PageHeader';
-import { AiShieldBadge } from '@/features/moderation/components/AiShieldBadge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import gsap from 'gsap';
+import { AlertCircle, AlertTriangle, RotateCw, ShieldAlert, RotateCcw } from 'lucide-react';
 import { moderationApi } from '@/services/api/moderation';
-import { AiShieldPolicyConfig } from '@/types/moderation';
+import { AiShieldTier } from '@/types/moderation';
+import {
+  PolicyCardDraft,
+  normalizePolicyConfigs,
+  isPolicyDraftDirty,
+  buildUpdatePolicyPayload,
+  analyzeTierCoverage,
+} from './policiesLogic';
+import { AdminPolicyScopeBanner } from './components/AdminPolicyScopeBanner';
+import { AdminPolicyTierCard } from './components/AdminPolicyTierCard';
+import { AdminPolicyInfoModal } from './components/AdminPolicyInfoModal';
 
 export const PoliciesPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const [editingConfig, setEditingConfig] = useState<AiShieldPolicyConfig | null>(null);
-  const [thresholdScore, setThresholdScore] = useState<number>(0);
-  const [label, setLabel] = useState('');
-  const [action, setAction] = useState('');
-  const [description, setDescription] = useState('');
 
-  const { data, isLoading, isError, refetch } = useQuery({
+  // GSAP Entrance Animation Refs
+  const pageContainerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Local Form Drafts by Tier
+  const [draftMap, setDraftMap] = useState<Record<string, PolicyCardDraft>>({});
+  const [savingTier, setSavingTier] = useState<AiShieldTier | null>(null);
+  const [feedbackMap, setFeedbackMap] = useState<
+    Record<string, { type: 'success' | 'error'; message: string } | null>
+  >({});
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
+
+  // 1. Fetch Live Policy Configs from Backend (GET /api/v1/admin/moderation/policy-configs)
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['admin-ai-shield-policies'],
     queryFn: () => moderationApi.getPolicyConfigs(),
   });
 
+  // Normalize live backend configs
+  const serverDrafts: PolicyCardDraft[] = useMemo(() => {
+    return normalizePolicyConfigs(data?.data);
+  }, [data?.data]);
+
+  // Sync server data into draftMap when server data arrives or updates
+  useEffect(() => {
+    if (serverDrafts.length === 0) return;
+    setDraftMap((prev) => {
+      const next: Record<string, PolicyCardDraft> = { ...prev };
+      for (const item of serverDrafts) {
+        next[item.tier] = item;
+      }
+      return next;
+    });
+  }, [serverDrafts]);
+
+  // Ordered list of drafts to render
+  const orderedDrafts: PolicyCardDraft[] = useMemo(() => {
+    return serverDrafts.map((serverItem) => draftMap[serverItem.tier] || serverItem);
+  }, [serverDrafts, draftMap]);
+
+  // Cross-tier coverage analysis aligned with AiShieldPolicyServiceImpl.resolveTier(score)
+  const coverageWarning = useMemo(() => {
+    return analyzeTierCoverage(orderedDrafts);
+  }, [orderedDrafts]);
+
+  // Lookup map of original server items for dirty check
+  const serverLookup = useMemo(() => {
+    const map: Record<string, PolicyCardDraft> = {};
+    for (const item of serverDrafts) {
+      map[item.tier] = item;
+    }
+    return map;
+  }, [serverDrafts]);
+
+  // 2. Single Tier Update Mutation (PUT /api/v1/admin/moderation/policy-configs/{tier})
   const updateMutation = useMutation({
-    mutationFn: ({ tier, payload }: { tier: string; payload: Partial<AiShieldPolicyConfig> }) =>
-      moderationApi.updatePolicyConfig(tier, payload),
-    onSuccess: () => {
+    mutationFn: async (draft: PolicyCardDraft) => {
+      const payload = buildUpdatePolicyPayload(draft);
+      return moderationApi.updatePolicyConfig(draft.tier, payload);
+    },
+    onMutate: (draft) => {
+      setSavingTier(draft.tier);
+      setFeedbackMap((prev) => ({ ...prev, [draft.tier]: null }));
+    },
+    onSuccess: (response, draft) => {
+      const updated = response?.data;
+      if (updated) {
+        const normalized = normalizePolicyConfigs([updated])[0];
+        if (normalized) {
+          setDraftMap((prev) => ({ ...prev, [draft.tier]: normalized }));
+        }
+      }
+      setFeedbackMap((prev) => ({
+        ...prev,
+        [draft.tier]: {
+          type: 'success',
+          message: 'Đã lưu cấu hình thành công',
+        },
+      }));
       queryClient.invalidateQueries({ queryKey: ['admin-ai-shield-policies'] });
-      setEditingConfig(null);
+    },
+    onError: (err: any, draft) => {
+      const apiMsg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Không thể lưu cấu hình. Vui lòng thử lại.';
+      setFeedbackMap((prev) => ({
+        ...prev,
+        [draft.tier]: {
+          type: 'error',
+          message: apiMsg,
+        },
+      }));
+    },
+    onSettled: () => {
+      setSavingTier(null);
     },
   });
 
-  const configs = data?.data || [];
+  // 3. Reset Default Policies Mutation (POST /api/v1/admin/moderation/policy-configs/reset-defaults)
+  const resetMutation = useMutation({
+    mutationFn: () => moderationApi.resetDefaultPolicyConfigs(),
+    onSuccess: (response) => {
+      const resetItems = normalizePolicyConfigs(response?.data);
+      if (resetItems.length > 0) {
+        const freshMap: Record<string, PolicyCardDraft> = {};
+        const freshFeedback: Record<string, { type: 'success' | 'error'; message: string }> = {};
+        for (const item of resetItems) {
+          freshMap[item.tier] = item;
+          freshFeedback[item.tier] = {
+            type: 'success',
+            message: 'Đã khôi phục mặc định',
+          };
+        }
+        setDraftMap(freshMap);
+        setFeedbackMap(freshFeedback);
+      }
+      queryClient.invalidateQueries({ queryKey: ['admin-ai-shield-policies'] });
+    },
+  });
 
-  const handleOpenEdit = (config: AiShieldPolicyConfig) => {
-    setEditingConfig(config);
-    setThresholdScore(config.thresholdScore ?? config.minScore ?? 0);
-    setLabel(config.label || '');
-    setAction(config.action || config.actionType || '');
-    setDescription(config.description || '');
+  const handleDraftChange = (nextDraft: PolicyCardDraft) => {
+    setDraftMap((prev) => ({
+      ...prev,
+      [nextDraft.tier]: nextDraft,
+    }));
+    // Clear previous save feedback when user edits
+    if (feedbackMap[nextDraft.tier]) {
+      setFeedbackMap((prev) => ({
+        ...prev,
+        [nextDraft.tier]: null,
+      }));
+    }
   };
 
-  const handleSave = () => {
-    if (!editingConfig) return;
-    updateMutation.mutate({
-      tier: editingConfig.tier,
-      payload: {
-        thresholdScore,
-        label,
-        action,
-        description,
-      },
-    });
+  const handleSaveTier = (draft: PolicyCardDraft) => {
+    updateMutation.mutate(draft);
   };
+
+  const handleResetDefaults = async () => {
+    await resetMutation.mutateAsync();
+  };
+
+  // GSAP Staggered Entrance Animation (respecting prefers-reduced-motion)
+  useEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      const targets = [
+        headerRef.current,
+        bannerRef.current,
+        gridRef.current,
+      ].filter(Boolean);
+
+      gsap.fromTo(
+        targets,
+        { opacity: 0, y: 14 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.45,
+          stagger: 0.08,
+          ease: 'power2.out',
+          clearProps: 'all',
+        }
+      );
+    }, pageContainerRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Chính sách & Cấu hình Thẩm định"
-        description="Quản trị các phân tầng quy chuẩn kiểm duyệt tự động AI Shield và ngưỡng xử lý nội dung"
-      />
-
-      {/* Scope Disclaimer */}
-      <div className="rounded-lg border border-border bg-surface-subtle p-4 text-xs text-muted leading-relaxed">
-        <div className="flex items-center gap-2 font-semibold text-ink mb-1">
-          <Sliders className="h-4 w-4 text-accent" />
-          <span>Phạm vi cấu hình phân quyền quản trị</span>
+    <div ref={pageContainerRef} className="font-sans">
+      <div className="rounded-2xl border border-[#EFEAE4] bg-white p-5 sm:p-7 md:p-8 shadow-2xs space-y-6">
+        {/* 1. Page Header */}
+        <div ref={headerRef}>
+          <h1 className="text-xl sm:text-2xl md:text-[26px] font-bold text-stone-900 tracking-tight leading-snug text-balance">
+            Chính sách & Cấu hình Thẩm định
+          </h1>
+          <p className="text-xs sm:text-[13.5px] text-stone-500 mt-1 leading-relaxed text-pretty">
+            Quản trị các phân tầng quy chuẩn kiểm duyệt tự động AI Shield và ngưỡng xử lý nội dung
+          </p>
         </div>
-        <p>
-          Phần thiết lập này tập trung quản trị 4 phân tầng quy chuẩn kiểm duyệt nội dung của <strong>AI Shield</strong>. Các phân hệ cấu hình kỹ thuật hệ thống và mẫu email thông báo được quản lý theo tiêu chuẩn nội bộ.
-        </p>
-      </div>
 
-      {isError && (
-        <div className="rounded-lg border border-status-error-text/30 bg-status-error-bg p-4 text-xs text-status-error-text flex items-center justify-between">
-          <span>Không thể tải danh sách chính sách AI Shield. Vui lòng thử lại.</span>
-          <Button variant="outline" onClick={() => refetch()} className="min-h-[44px] px-3 text-xs">
-            Tải lại
-          </Button>
+        {/* 2. Scope Disclaimer Banner */}
+        <div ref={bannerRef}>
+          <AdminPolicyScopeBanner onOpenLearnMore={() => setInfoModalOpen(true)} />
         </div>
-      )}
 
-      {/* Policy Tier Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {isLoading ? (
-          <div className="col-span-2 py-12 text-center text-xs text-muted">
-            Đang tải dữ liệu cấu hình chính sách...
-          </div>
-        ) : configs.length > 0 ? (
-          configs.map((cfg) => (
-            <div
-              key={cfg.tier}
-              className="rounded-lg border border-border bg-surface p-5 flex flex-col justify-between space-y-4"
-            >
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <AiShieldBadge tier={cfg.tier} label={cfg.label} />
-                  <span className="font-mono tabular-nums text-xs font-semibold text-ink bg-canvas px-2.5 py-1 rounded-sm border border-border">
-                    {cfg.minScore ?? 0}% - {cfg.maxScore ?? 100}%
-                  </span>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted block">
-                    Hành động quy định:
-                  </span>
-                  <p className="text-xs font-medium text-ink bg-surface-subtle/50 p-2.5 rounded-md border border-border font-mono">
-                    {cfg.action || 'Chưa định nghĩa hành động'}
-                  </p>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted block">
-                    Mô tả tiêu chuẩn:
-                  </span>
-                  <p className="text-xs text-muted leading-relaxed">
-                    {cfg.description || 'Không có mô tả chi tiết'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-border flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => handleOpenEdit(cfg)}
-                  className="min-h-[44px] px-3.5 text-xs text-ink hover:text-accent hover:border-accent"
-                >
-                  <Edit3 className="h-3.5 w-3.5 mr-1.5" />
-                  <span>Điều chỉnh cấu hình</span>
-                </Button>
-              </div>
+        {/* Cross-Tier Coverage Advisory (only visible if active tiers have gaps or overlaps) */}
+        {!isLoading && coverageWarning.hasIssue && (
+          <div
+            role="status"
+            className="rounded-xl border border-amber-200 bg-[#FFFBEB] px-4 py-3 text-xs text-amber-900 space-y-1.5"
+          >
+            <div className="flex items-center gap-2 font-bold">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
+              <span>Cảnh báo tính liên tục của ngưỡng điểm AI Shield</span>
             </div>
-          ))
-        ) : (
-          <div className="col-span-2 rounded-lg border border-border bg-surface p-8 text-center text-xs text-muted">
-            Chưa có phân tầng chính sách AI Shield nào được cấu hình.
+            <ul className="list-disc pl-6 space-y-0.5 text-amber-800">
+              {coverageWarning.messages.map((msg, idx) => (
+                <li key={idx}>{msg}</li>
+              ))}
+            </ul>
           </div>
         )}
-      </div>
 
-      {/* Edit Config Modal */}
-      {editingConfig && (
-        <Dialog open={Boolean(editingConfig)} onOpenChange={(open) => !open && setEditingConfig(null)}>
-          <DialogContent maxWidth="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-accent" />
-                <span>Điều chỉnh cấu hình: {editingConfig.tier}</span>
-              </DialogTitle>
-              <DialogDescription>
-                Cập nhật ngưỡng điểm, nhãn tiếng Việt và hành động tương ứng cho phân tầng AI Shield.
-              </DialogDescription>
-            </DialogHeader>
+        {/* Error Alert Banner */}
+        {isError && (
+          <div
+            role="alert"
+            className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+              <span>Không thể tải danh sách cấu hình chính sách AI Shield. Vui lòng thử lại.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="px-3 py-1.5 rounded-xl border border-rose-300 bg-white text-rose-800 hover:bg-rose-50 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+            >
+              <RotateCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+              <span>Tải lại</span>
+            </button>
+          </div>
+        )}
 
-            <div className="space-y-4 py-2 text-xs">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-ink block">Nhãn hiển thị tiếng Việt</label>
-                <Input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="Ví dụ: Báo động đỏ, Tốt..."
-                />
+        {/* 3. Policy Tier Cards 2x2 Grid */}
+        <div ref={gridRef} className="grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="rounded-2xl border border-[#EAE5DF] bg-white p-3 space-y-4 animate-pulse"
+              >
+                <div className="h-16 rounded-xl bg-stone-100" />
+                <div className="px-3 space-y-3">
+                  <div className="h-9 rounded-lg bg-stone-100" />
+                  <div className="h-9 rounded-lg bg-stone-100" />
+                  <div className="h-20 rounded-xl bg-stone-100" />
+                </div>
+                <div className="px-3 flex justify-end">
+                  <div className="h-9 w-28 rounded-xl bg-stone-100" />
+                </div>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="font-semibold text-ink block">Ngưỡng điểm số AI Shield (0 - 100)</label>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={thresholdScore}
-                  onChange={(e) => setThresholdScore(Number(e.target.value))}
-                />
+            ))
+          ) : orderedDrafts.length > 0 ? (
+            orderedDrafts.map((draft) => (
+              <AdminPolicyTierCard
+                key={draft.tier}
+                draft={draft}
+                isDirty={isPolicyDraftDirty(serverLookup[draft.tier], draft)}
+                isSaving={savingTier === draft.tier}
+                saveFeedback={feedbackMap[draft.tier]}
+                onChange={handleDraftChange}
+                onSave={handleSaveTier}
+              />
+            ))
+          ) : (
+            <div className="xl:col-span-2 rounded-2xl border border-[#EAE4DC] bg-[#FAF8F5] p-10 text-center space-y-3">
+              <div className="mx-auto h-11 w-11 rounded-full bg-white border border-[#EAE4DC] flex items-center justify-center text-[#991B1B] shadow-2xs">
+                <ShieldAlert className="h-5 w-5" />
               </div>
-
-              <div className="space-y-1.5">
-                <label className="font-semibold text-ink block">Hành động quy định</label>
-                <Input
-                  value={action}
-                  onChange={(e) => setAction(e.target.value)}
-                  placeholder="Ví dụ: BLOCK_VIDEO, FLAG_FOR_REVIEW..."
-                />
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-stone-900">
+                  Chưa có phân tầng chính sách AI Shield nào được cấu hình
+                </h3>
+                <p className="text-xs text-stone-500 max-w-md mx-auto">
+                  Máy chủ hiện chưa trả về dữ liệu phân tầng. Bạn có thể tải lại hoặc khởi tạo bộ ngưỡng mặc định từ hệ thống.
+                </p>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="font-semibold text-ink block">Mô tả tiêu chuẩn thẩm định</label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={3}
-                  placeholder="Nêu rõ căn cứ tiêu chuẩn phân tầng..."
-                />
+              <div className="pt-1 flex items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => refetch()}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5E0D8] bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 cursor-pointer"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  <span>Tải lại dữ liệu</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={resetMutation.isPending}
+                  onClick={handleResetDefaults}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#991B1B] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#7F1D1D] cursor-pointer disabled:opacity-60"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Khởi tạo mặc định</span>
+                </button>
               </div>
             </div>
+          )}
+        </div>
+      </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingConfig(null)} className="min-h-[44px]">
-                Hủy bỏ
-              </Button>
-              <Button
-                variant="primary"
-                isLoading={updateMutation.isPending}
-                onClick={handleSave}
-                className="min-h-[44px]"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                Lưu cấu hình
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* 4. Scope & AI Shield Info Modal (React Portal z-[999]) */}
+      <AdminPolicyInfoModal
+        open={infoModalOpen}
+        onClose={() => setInfoModalOpen(false)}
+        drafts={orderedDrafts}
+        onResetDefaults={handleResetDefaults}
+        isResetting={resetMutation.isPending}
+      />
     </div>
   );
 };
