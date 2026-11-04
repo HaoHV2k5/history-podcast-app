@@ -302,28 +302,28 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                             }
 
                         # HƯỚNG B: STRICT GROUNDING GUARDRAIL (Enforcement Code Layer):
-                        # Nhận diện nếu nội dung nằm ngoài kho sách từ nhận định của Gemini hoặc lack of grounding
-                        reason_text = (parsed.get("reason", "") + " " + " ".join([str(v) for v in parsed.get("violations", [])])).lower()
-                        is_out_of_scope = any(
-                            k in reason_text for k in [
-                                "nằm ngoài", "không có tài liệu đối chiếu", "không chứa tư liệu",
-                                "thiếu trích dẫn chứng cứ lịch sử từ kho", "không tìm thấy trích đoạn",
-                                "không có trích đoạn sử liệu", "chưa có tư liệu đối chiếu", "không có trong kho",
-                                "ngoài phạm vi kho", "thiếu trích dẫn chứng cứ", "không tìm thấy tài liệu"
-                            ]
-                        )
-                        is_mismatch = any(
-                            k in reason_text for k in [
-                                "mâu thuẫn thời đại", "mâu thuẫn nhân vật", "râu ông nọ cắm cằm bà kia",
-                                "sai lệch bối cảnh", "lệch pha nghiêm trọng", "tiêu đề và nội dung mâu thuẫn"
-                            ]
-                        ) or (isinstance(breakdown, dict) and float(breakdown.get("title_alignment", 10.0)) <= 3.0)
+                        # Nhận diện nếu nội dung thực sự vi phạm chính sách hoặc hoàn toàn nằm ngoài lịch sử
+                        violations = parsed.get("violations", [])
+                        if not isinstance(violations, list):
+                            violations = []
 
-                        # Nếu nội dung nằm ngoài kho sách hoặc có mâu thuẫn thời đại/nhân vật:
-                        # BẮT BUỘC kẹp điểm (clamp) xuống dưới 50% (BÁO ĐỘNG ĐỎ - RED_ALERT)
-                        # Tính điểm linh hoạt theo mức độ tương đồng thay vì một hằng số cố định
-                        if (not context_chunks or is_out_of_scope or is_mismatch) and raw_score >= 50.0:
-                            sim_factor = max([float(c.get("similarity", 0.0)) for c in context_chunks] + [0.0])
+                        is_severe_violation = any(
+                            any(crit in str(v).lower() for crit in [
+                                "xuyên tạc", "phản động", "thù hằn", "bạo lực", "khiêu dâm",
+                                "hoàn toàn không thuộc lịch sử việt nam", "tuyên truyền sai trái"
+                            ])
+                            for v in violations
+                        )
+
+                        title_score = float(breakdown.get("title_alignment", 10.0)) if isinstance(breakdown, dict) else 10.0
+                        grounding_score = float(breakdown.get("grounding_accuracy", 30.0)) if isinstance(breakdown, dict) else 30.0
+
+                        # Chỉ kẹp điểm xuống dưới 50% khi:
+                        # 1. Hoàn toàn không tìm thấy trích đoạn sử liệu nào trong kho sách (not context_chunks)
+                        # 2. Hoặc có vi phạm chính sách nghiêm trọng (is_severe_violation)
+                        # 3. Hoặc tiêu đề một đằng nội dung một nẻo hoàn toàn (title_score <= 3.0 và grounding_score < 15.0)
+                        if not context_chunks and raw_score >= 50.0:
+                            sim_factor = 0.0
                             raw_score = round(max(24.0, min(43.5, 20.0 + sim_factor * 25.0)), 1)
                             if isinstance(breakdown, dict):
                                 breakdown["grounding_accuracy"] = round(raw_score * 0.4, 1)
@@ -331,15 +331,20 @@ HÃY TRẢ VỀ DUY NHẤT MỘT ĐỐI TƯỢNG JSON (không có markdown code 
                                 breakdown["title_alignment"] = round(raw_score * 0.15, 1)
                                 breakdown["tone_integrity"] = round(raw_score * 0.15, 1)
                             orig_reason = parsed.get("reason", "")
-                            parsed["reason"] = f"[Báo động đỏ - Strict Grounding] Chủ đề hoặc sự kiện nằm ngoài phạm vi kho sử liệu nội bộ (doc/) hoặc mâu thuẫn thời đại. Theo chính sách B, video bị xếp loại Báo động đỏ để Admin từ chối. Nhận định: {orig_reason}"
-                            violations = parsed.get("violations", [])
-                            if not isinstance(violations, list):
-                                violations = []
-                            warning_msg = "Báo động đỏ: Nội dung nằm ngoài phạm vi kho sử liệu nội bộ (doc/) hoặc mâu thuẫn nhân vật/thời đại."
+                            parsed["reason"] = f"[Báo động đỏ - Strict Grounding] Chủ đề hoặc sự kiện nằm ngoài phạm vi kho sử liệu nội bộ (doc/). Theo chính sách B, video bị xếp loại Báo động đỏ để Admin từ chối. Nhận định: {orig_reason}"
+                            warning_msg = "Báo động đỏ: Không tìm thấy trích đoạn sử liệu đối chiếu từ kho sách nội bộ (doc/)."
                             if not any("kho sách" in str(v).lower() or "báo động đỏ" in str(v).lower() for v in violations):
                                 violations.insert(0, warning_msg)
                             parsed["violations"] = violations
                             parsed["recommendation"] = "Admin Từ chối (Reject) video vì chủ đề không đáp ứng tính chân thực sử liệu theo chính sách hệ thống."
+                        elif is_severe_violation and raw_score >= 50.0:
+                            raw_score = 30.0
+                            parsed["recommendation"] = "Admin Từ chối (Reject) video do vi phạm tiêu chuẩn cộng đồng hoặc xuyên tạc lịch sử."
+                        elif title_score <= 3.0 and grounding_score < 15.0 and raw_score >= 50.0:
+                            raw_score = 42.0
+                            orig_reason = parsed.get("reason", "")
+                            parsed["reason"] = f"[Báo động đỏ - Mâu thuẫn tiêu đề & nội dung] Tiêu đề và nội dung kịch bản lệch pha nghiêm trọng: {orig_reason}"
+                            parsed["recommendation"] = "Admin yêu cầu hiệu đính tiêu đề để khớp với nội dung kịch bản."
 
                         # Clamp score between 0 and 100
                         score = max(0.0, min(100.0, raw_score))

@@ -67,7 +67,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full p-2 text-center">
-            <BookOpen className="h-6 w-6 text-[#A31D24]/70 mb-1" />
+            <BookOpen className="h-6 w-6 text-[#8B2635]/70 mb-1" />
             <span className="text-[10px] text-stone-300 font-serif">Sử Ký</span>
           </div>
         )}
@@ -75,7 +75,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
         {/* Hover Cue: View Episode List (Unified with Thumbnail Click) */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-medium border border-white/20 shadow-xs">
-            <Film className="h-3 w-3 text-[#A31D24]" />
+            <Film className="h-3 w-3 text-[#8B2635]" />
             <span>Xem tập</span>
           </span>
         </div>
@@ -94,7 +94,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
           type="button"
           onClick={() => onManageEpisodes(series)}
           title="Nhấp để mở danh sách các tác phẩm trong tuyển tập này"
-          className="text-left font-serif text-base sm:text-lg font-bold text-[#1C1615] leading-snug truncate hover:text-[#A31D24] hover:underline transition-colors block w-full cursor-pointer"
+          className="text-left font-serif text-base sm:text-lg font-bold text-[#1C1615] leading-snug truncate hover:text-[#8B2635] hover:underline transition-colors block w-full cursor-pointer"
         >
           {series.title}
         </button>
@@ -116,7 +116,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
             <span
               key={`${tag.label}-${idx}`}
               title={`Chủ đề: ${tag.label}`}
-              className="inline-flex items-center rounded-full bg-[#F5F2EB] px-2 py-0.5 text-[10px] font-medium text-[#5C524F] border border-[#EBE4D8]"
+              className="inline-flex items-center rounded-full bg-[#FAF8F5] px-2 py-0.5 text-[10px] font-medium text-[#5C524F] border border-[#E7E2D9]"
             >
               {tag.label}
             </span>
@@ -130,7 +130,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
           type="button"
           onClick={() => onPlay(series)}
           title="Phát nghe ngay tuyển tập này"
-          className="h-9 px-3 rounded-xl bg-[#FDF2F2] hover:bg-[#A31D24] text-[#A31D24] hover:text-white flex items-center gap-1.5 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer border border-[#F8D7DA]/60"
+          className="h-9 px-3 rounded-xl bg-[#FBF2EE] hover:bg-[#8B2635] text-[#8B2635] hover:text-white flex items-center gap-1.5 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer border border-[#F0DDD8]"
         >
           <Play className="h-3.5 w-3.5 fill-current ml-0.5" />
           <span>Nghe</span>
@@ -150,7 +150,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="h-9 w-9 rounded-xl border border-[#EBE4D8] hover:bg-[#F5F2EB] flex items-center justify-center text-[#786C68] hover:text-[#1C1615] transition-colors cursor-pointer"
+              className="h-9 w-9 rounded-xl border border-[#E7E2D9] hover:bg-[#FAF8F5] flex items-center justify-center text-[#786C68] hover:text-[#1C1615] transition-colors cursor-pointer"
               aria-label={`Tùy chọn ${series.title}`}
               title="Tùy chọn thao tác tuyển tập"
             >
@@ -162,7 +162,7 @@ export const SeriesListItem: React.FC<SeriesListItemProps> = ({
               onClick={() => onManageEpisodes(series)}
               className="gap-2 cursor-pointer text-xs"
             >
-              <Film className="h-3.5 w-3.5 text-[#A31D24]" />
+              <Film className="h-3.5 w-3.5 text-[#8B2635]" />
               <span>Quản lý danh sách tập</span>
             </DropdownMenuItem>
             <DropdownMenuItem

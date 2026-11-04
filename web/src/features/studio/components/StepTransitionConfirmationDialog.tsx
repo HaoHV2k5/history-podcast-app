@@ -30,7 +30,7 @@ export type StepTransitionModalState =
       type: 'step2_missing_cover';
       title: string;
       description: string;
-      targetTab: 'voices' | 'render';
+      targetTab: 'storyboard' | 'voices' | 'render';
     }
   | {
       type: 'step2_missing_scenes';
@@ -38,7 +38,7 @@ export type StepTransitionModalState =
       description: string;
       uploadedCount: number;
       totalScenes: number;
-      targetTab: 'voices' | 'render';
+      targetTab: 'storyboard' | 'voices' | 'render';
     }
   | {
       type: 'step3_unselected_voice';
@@ -66,16 +66,13 @@ export const StepTransitionConfirmationDialog: React.FC<StepTransitionConfirmati
 }) => {
   if (!modalState) return null;
 
-  const isBypassable =
-    modalState.type === 'step2_missing_cover' ||
-    modalState.type === 'step2_missing_scenes' ||
-    modalState.type === 'step3_unselected_voice';
+  const isBypassable = modalState.type === 'step3_unselected_voice';
 
   return (
     <Dialog open={Boolean(modalState)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent maxWidth="max-w-md" className="p-0 overflow-hidden border-border/80 bg-white/95 backdrop-blur-2xl shadow-apple-dialog rounded-2xl">
         {/* Header Ribbon with Distinct Atelier Tone */}
-        <div className="p-5 sm:p-6 pb-4 border-b border-border/60 bg-gradient-to-b from-[#FAF8F5]/90 to-white/60 flex items-start gap-3.5">
+        <div className="p-5 sm:p-6 pb-4 border-b border-border/60 bg-[#FAF8F5] flex items-start gap-3.5">
           <div
             className={`h-11 w-11 rounded-2xl flex items-center justify-center shrink-0 border shadow-xs transition-transform ${
               isBypassable
@@ -198,9 +195,13 @@ export const StepTransitionConfirmationDialog: React.FC<StepTransitionConfirmati
               type="button"
               size="sm"
               onClick={onClose}
-              className="w-full sm:w-auto text-xs h-9 px-6 rounded-xl font-bold bg-accent text-white hover:bg-accent/90 cursor-pointer transition-all duration-150 active:scale-[0.98]"
+              className="w-full sm:w-auto text-xs h-9 px-6 rounded-xl font-bold bg-accent text-white hover:bg-accent/90 cursor-pointer transition-[background-color,transform] duration-150 active:scale-[0.98]"
             >
-              <span>Đã hiểu, tôi sẽ hoàn thiện</span>
+              <span>
+                {modalState.type === 'step2_missing_scenes' || modalState.type === 'step2_missing_cover'
+                  ? 'Bổ sung ảnh ngay'
+                  : 'Đã hiểu, tôi sẽ hoàn thiện'}
+              </span>
             </Button>
           )}
         </div>

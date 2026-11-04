@@ -32,9 +32,18 @@ export interface CreateWithdrawalRequest {
 export interface CreateDepositRequest {
   amount: number;
   description?: string;
+  returnUrl?: string;
 }
 
 export interface PaymentUrlResponse {
   paymentUrl: string;
   merchantTxnRef: string;
+}
+
+export interface PaymentReturnResponse {
+  merchantTxnRef: string;
+  gatewayTxnNo?: string;
+  amount: number;
+  status: string;
+  message: string;
 }

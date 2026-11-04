@@ -95,7 +95,7 @@ export const SeriesCard: React.FC<SeriesCardProps> = ({
   return (
     <article
       style={style}
-      className="group relative flex flex-col rounded-2xl border border-[#EBE4D8] bg-white shadow-2xs hover:border-stone-300 hover:shadow-md transition-all duration-200 overflow-hidden text-left focus-within:ring-2 focus-within:ring-[#A31D24]/30"
+      className="group relative flex flex-col rounded-2xl border border-[#E7E2D9] bg-white shadow-2xs hover:border-stone-300 hover:shadow-md transition-all duration-200 overflow-hidden text-left focus-within:ring-2 focus-within:ring-[#8B2635]/30"
       aria-label={`Tuyển tập: ${series.title}`}
     >
       {/* ─── 1. THUMBNAIL COVER (16:9 Aspect Ratio) ────────────────────────── */}
@@ -117,7 +117,7 @@ export const SeriesCard: React.FC<SeriesCardProps> = ({
           />
         ) : (
           <div className="flex flex-col items-center justify-center p-4 text-center">
-            <BookOpen className="h-10 w-10 text-[#A31D24]/70 mb-1" />
+            <BookOpen className="h-10 w-10 text-[#8B2635]/70 mb-1" />
             <span className="text-[11px] text-stone-300 font-serif font-medium">
               Sử Ký Tuyển Tập
             </span>
@@ -138,7 +138,7 @@ export const SeriesCard: React.FC<SeriesCardProps> = ({
         {/* Hover Cue: View Episode List (Unified with Thumbnail Click) */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium border border-white/20 shadow-md">
-            <Film className="h-3.5 w-3.5 text-[#A31D24]" />
+            <Film className="h-3.5 w-3.5 text-[#8B2635]" />
             <span>Xem danh sách tập</span>
           </span>
         </div>
@@ -162,7 +162,7 @@ export const SeriesCard: React.FC<SeriesCardProps> = ({
                 onClick={() => onManageEpisodes(series)}
                 className="gap-2 cursor-pointer text-xs"
               >
-                <Film className="h-3.5 w-3.5 text-[#A31D24]" />
+                <Film className="h-3.5 w-3.5 text-[#8B2635]" />
                 <span>Quản lý danh sách tập</span>
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -193,7 +193,7 @@ export const SeriesCard: React.FC<SeriesCardProps> = ({
             type="button"
             onClick={() => onManageEpisodes(series)}
             title="Nhấp để mở danh sách các tác phẩm trong tuyển tập này"
-            className="text-left font-serif text-base sm:text-lg font-bold text-[#1C1615] leading-snug line-clamp-1 hover:text-[#A31D24] hover:underline transition-colors break-words w-full cursor-pointer block"
+            className="text-left font-serif text-base sm:text-lg font-bold text-[#1C1615] leading-snug line-clamp-1 hover:text-[#8B2635] hover:underline transition-colors break-words w-full cursor-pointer block"
           >
             {series.title}
           </button>
@@ -262,7 +262,7 @@ export const SeriesCard: React.FC<SeriesCardProps> = ({
                 e.stopPropagation();
                 onPlay(series);
               }}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#FDF2F2] hover:bg-[#A31D24] active:bg-[#8B181E] text-[#A31D24] hover:text-white text-xs font-semibold transition-all duration-150 shadow-2xs active:scale-95 cursor-pointer border border-[#F8D7DA]/60"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-[#FBF2EE] hover:bg-[#8B2635] active:bg-[#731E2A] text-[#8B2635] hover:text-white text-xs font-semibold transition-all duration-150 shadow-2xs active:scale-95 cursor-pointer border border-[#F0DDD8]"
               title="Phát nghe ngay tuyển tập này"
               aria-label={`Phát nghe ngay tuyển tập ${series.title}`}
             >

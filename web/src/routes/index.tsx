@@ -49,6 +49,7 @@ import { CreatorChannelPage } from '@/features/channel/CreatorChannelPage';
 import { CreatorStudioPage } from '@/features/studio/CreatorStudioPage';
 import { CreatorLivestreamPage } from '@/features/livestream/CreatorLivestreamPage';
 import { CreatorCommissionsPage } from '@/features/creator/CreatorCommissionsPage';
+import { VnpayReturnPage } from '@/features/finance/VnpayReturnPage';
 
 // Lazy-load CreatorLivestreamStudioPage to isolate Agora RTC Web SDK from initial bundle
 const CreatorLivestreamStudioPage = React.lazy(() =>
@@ -95,6 +96,9 @@ export const AppRoutes: React.FC = () => {
       {/* Public / Auth routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forbidden" element={<ForbiddenPage />} />
+
+      {/* Payment Gateway Callbacks */}
+      <Route path="/payment/vnpay-return" element={<VnpayReturnPage />} />
 
       {/* Protected Creator Workspace with Unified CreatorLayout (Milestones 2, 3 & 4) */}
       <Route

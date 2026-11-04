@@ -10,7 +10,7 @@
  * - Full ARIA semantics, accessible keyboard navigation, and responsive ergonomics.
  */
 
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import {
   Layers,
   Sparkles,
@@ -31,12 +31,14 @@ import {
   Clapperboard,
   ShieldCheck,
   AlertTriangle,
+  BookOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { StoryboardResponse, StoryboardScene } from '@/types/creatorStudio';
+import { StoryboardResponse, StoryboardScene, StoryboardElement } from '@/types/creatorStudio';
 import { SceneImageUploadDropzone } from './SceneImageUploadDropzone';
+import { getEffectiveSceneNarration, splitNarrationIntoElements } from '../creatorStudioUtils';
 
 // ─── 1. TYPES & CONTEXT DEFINITION ──────────────────────────────────────────
 
@@ -61,7 +63,11 @@ export interface Step2StoryboardScenesProps {
   onCopy: (text: string, key: string) => void;
   onPrevStep: () => void;
   onNextStep: () => void;
-  onUpdateSceneNarration?: (sceneIndex: number, newNarration: string) => void;
+  onUpdateSceneNarration?: (
+    sceneIndex: number,
+    newNarration: string,
+    updatedElements?: StoryboardElement[]
+  ) => void;
 }
 
 interface StoryboardStudioContextValue extends Step2StoryboardScenesProps {
@@ -128,6 +134,10 @@ export const StoryboardStudioHeader: React.FC = () => {
   } = useStoryboardStudio();
 
   if (!storyboard) return null;
+
+  const isPendingCover = isAudioPodcast && !coverImageUrl;
+  const isPendingScenes = !isAudioPodcast && (totalScenes === 0 || uploadedCount < totalScenes);
+  const isMissingImages = isPendingCover || isPendingScenes;
 
   return (
     <header
@@ -220,9 +230,14 @@ export const StoryboardStudioHeader: React.FC = () => {
           type="button"
           size="sm"
           onClick={onNextStep}
-          className="font-sans gap-2 text-xs font-semibold px-4 rounded-xl h-9 bg-accent text-white hover:bg-accent/90 shadow-2xs active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
+          className="font-sans gap-2 text-xs font-semibold px-4 rounded-xl h-9 bg-accent text-white hover:bg-accent/90 shadow-2xs active:scale-[0.99] transition-[background-color,transform] focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
         >
           <span>Tiếp tục (Bước 3)</span>
+          {isMissingImages && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/20 text-white font-normal tabular-nums">
+              {isPendingCover ? 'Cần ảnh bìa' : `${uploadedCount}/${totalScenes} ảnh`}
+            </span>
+          )}
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       </div>
@@ -357,7 +372,8 @@ export const StoryboardRagFactCheckBanner: React.FC = () => {
         {isCitationsOpen && (
           <div className="mt-4 pt-3.5 border-t border-black/5 space-y-2 text-xs font-sans animate-fadeIn">
             <div className="font-bold text-[#1C1917] flex items-center gap-1.5 pb-1">
-              <span>📚 Trích dẫn nguồn sử học gốc:</span>
+              <BookOpen className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+              <span>Trích dẫn nguồn sử học gốc:</span>
             </div>
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {displayCitations.map((item, idx) => (
@@ -434,7 +450,7 @@ export const StoryboardStudioScriptWorkbench: React.FC = () => {
             <FileText className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="font-sans text-xs font-bold text-[#1C1917] uppercase tracking-wider">
+            <h3 className="font-sans text-xs font-bold text-[#1C1917]">
               Toàn Văn Lời Dẫn Thuyết Minh
             </h3>
             <p className="font-sans text-[11px] text-[#78716C]">
@@ -632,7 +648,7 @@ export const StoryboardStudioAudioPodcastView: React.FC = () => {
             {onUploadCoverImage && (
               <SceneImageUploadDropzone
                 label="Tải ảnh bìa Podcast"
-                sublabel="Khung hình 1:1 vuông (PNG, JPG, WebP tối đa 10MB)"
+                sublabel="Khung hình 1:1 vuông (PNG, JPG, WebP tối đa 10MB hoặc Ctrl+V dán ảnh)"
                 imageUrl={coverImageUrl}
                 aspectRatio="1:1"
                 isUploading={uploadingCover}
@@ -648,7 +664,7 @@ export const StoryboardStudioAudioPodcastView: React.FC = () => {
       <section
         role="region"
         aria-label="Ảnh Thumbnail Video 16:9 tùy chọn"
-        className="rounded-2xl border border-[#EAE6DF] bg-white p-5 sm:p-6 shadow-2xs space-y-3.5 w-full"
+        className="rounded-2xl border border-[#EAE6DF] bg-white p-5 sm:p-6 shadow-2xs space-y-4 w-full"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
@@ -675,19 +691,76 @@ export const StoryboardStudioAudioPodcastView: React.FC = () => {
           )}
         </div>
 
-        {onUploadThumbnail && (
-          <div className="max-w-md pt-1">
-            <SceneImageUploadDropzone
-              label="Tải ảnh Thumbnail Poster (Tùy chọn)"
-              sublabel="Khung hình 16:9 ngang (PNG, JPG, WebP)"
-              imageUrl={thumbnailUrl}
-              aspectRatio="16:9"
-              isUploading={uploadingThumbnail}
-              onFileSelect={(file) => onUploadThumbnail(file)}
-              onRemoveImage={() => setThumbnailUrl && setThumbnailUrl('')}
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pt-1">
+          {/* Left Column: AI Prompt for 16:9 Thumbnail Poster */}
+          <div className="lg:col-span-7 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-xs font-bold text-[#1C1917] flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                <span>Gợi ý mô tả sinh ảnh Thumbnail Poster (16:9):</span>
+              </span>
+              <span className="font-sans text-[11px] font-medium text-[#78716C] tabular-nums">Khung ngang 16:9</span>
+            </div>
+
+            {(() => {
+              const podcastThumbnailPrompt =
+                storyboard?.thumbnail_prompt ||
+                (storyboard?.title
+                  ? `Cinematic 16:9 historical documentary poster for "${storyboard.title}", dramatic atmospheric lighting, authentic Vietnamese ancient aesthetic, highly detailed, masterpiece, 8k`
+                  : 'Cinematic 16:9 historical documentary poster, dramatic atmospheric lighting, authentic Vietnamese ancient aesthetic, highly detailed, masterpiece, 8k');
+              const isThumbCopied = copiedKey === 'podcast_thumb_prompt';
+
+              return (
+                <>
+                  <div className="relative p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs sm:text-[13px] font-sans text-[#1C1917] leading-relaxed pr-20 shadow-2xs">
+                    <p className="line-clamp-4 select-all text-[#1C1917]">{podcastThumbnailPrompt}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onCopy(podcastThumbnailPrompt, 'podcast_thumb_prompt')}
+                      className={`absolute right-2 top-2 h-7.5 px-2.5 font-sans text-xs gap-1 bg-white border-[#E2DDD5] hover:bg-[#FAF8F5] rounded-lg focus-visible:ring-2 focus-visible:ring-accent cursor-pointer ${
+                        isThumbCopied
+                          ? 'text-status-success-text border-status-success-text/40'
+                          : 'text-[#1C1917]'
+                      }`}
+                    >
+                      {isThumbCopied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-status-success-text" aria-hidden="true" />
+                          <span>Đã chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5 text-[#78716C]" aria-hidden="true" />
+                          <span>Chép</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="font-sans text-[11px] text-[#78716C] italic leading-normal">
+                    Dùng prompt này trên Midjourney, DALL-E hoặc Stable Diffusion để tạo ảnh đại diện 16:9 ngoài trang chủ.
+                  </p>
+                </>
+              );
+            })()}
           </div>
-        )}
+
+          {/* Right Column: Dropzone with Ctrl+V support */}
+          {onUploadThumbnail && (
+            <div className="lg:col-span-5">
+              <SceneImageUploadDropzone
+                label="Tải ảnh Thumbnail Poster (Tùy chọn)"
+                sublabel="Khung hình 16:9 ngang (PNG, JPG, WebP tối đa 10MB hoặc Ctrl+V dán ảnh)"
+                imageUrl={thumbnailUrl}
+                aspectRatio="16:9"
+                isUploading={uploadingThumbnail}
+                onFileSelect={(file) => onUploadThumbnail(file)}
+                onRemoveImage={() => setThumbnailUrl && setThumbnailUrl('')}
+              />
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -703,7 +776,7 @@ interface WhiteboardSceneCardProps {
   onRemoveImage: () => void;
   copiedKey: string | null;
   onCopy: (text: string, key: string) => void;
-  onUpdateNarration?: (newNarration: string) => void;
+  onUpdateNarration?: (newNarration: string, updatedElements?: StoryboardElement[]) => void;
 }
 
 const WhiteboardSceneCard: React.FC<WhiteboardSceneCardProps> = ({
@@ -716,16 +789,48 @@ const WhiteboardSceneCard: React.FC<WhiteboardSceneCardProps> = ({
   onCopy,
   onUpdateNarration,
 }) => {
+  const effectiveNarration = useMemo(() => getEffectiveSceneNarration(scene), [scene]);
   const [isEditingNarration, setIsEditingNarration] = useState(false);
-  const [narrationDraft, setNarrationDraft] = useState(scene.narration_text || '');
+  const [narrationDraft, setNarrationDraft] = useState(effectiveNarration);
+  const [editingElementIdx, setEditingElementIdx] = useState<number | null>(null);
+  const [elementDraft, setElementDraft] = useState('');
   const promptKey = `scene_prompt_${scene.scene_index}`;
   const isPromptCopied = copiedKey === promptKey;
 
+  // Giữ narrationDraft luôn khớp với dữ liệu thực tế khi không ở trạng thái chỉnh sửa
+  useEffect(() => {
+    if (!isEditingNarration) {
+      setNarrationDraft(effectiveNarration);
+    }
+  }, [effectiveNarration, isEditingNarration]);
+
   const handleSaveNarration = () => {
     if (onUpdateNarration) {
-      onUpdateNarration(narrationDraft);
+      const trimmed = narrationDraft.trim();
+      let updatedElements: StoryboardElement[] | undefined = undefined;
+      if (scene.elements && scene.elements.length > 0) {
+        const parts = splitNarrationIntoElements(trimmed, scene.elements.length);
+        updatedElements = scene.elements.map((el, i) => ({
+          ...el,
+          subtitle: parts[i] || el.subtitle || '',
+        }));
+      }
+      onUpdateNarration(trimmed, updatedElements);
     }
     setIsEditingNarration(false);
+  };
+
+  const handleSaveElementSubtitle = (elIdx: number) => {
+    if (!scene.elements || !onUpdateNarration) return;
+    const newElements = scene.elements.map((el, i) =>
+      i === elIdx ? { ...el, subtitle: elementDraft.trim() } : el
+    );
+    const newCombined = newElements
+      .map((e) => (e.subtitle || '').trim())
+      .filter(Boolean)
+      .join(' ');
+    onUpdateNarration(newCombined, newElements);
+    setEditingElementIdx(null);
   };
 
   return (
@@ -771,15 +876,24 @@ const WhiteboardSceneCard: React.FC<WhiteboardSceneCardProps> = ({
           {/* Inline Scene Narration Editor */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="font-sans text-[11px] font-bold text-[#1C1917] uppercase tracking-wider flex items-center gap-1.5">
-                <FileText className="h-3 w-3 text-accent" aria-hidden="true" />
-                <span>Lời dẫn phân cảnh:</span>
-              </span>
+              <div className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                <span className="font-sans text-[11px] font-bold text-[#1C1917] uppercase tracking-wider">
+                  Lời dẫn phân cảnh (Giọng AI đọc)
+                </span>
+                <span className="text-[10px] py-0 px-1.5 border border-[#E2DDD5] text-[#78716C] bg-[#FAF8F5] rounded font-medium">
+                  Khớp theo hình vẽ
+                </span>
+              </div>
               {onUpdateNarration && !isEditingNarration && (
                 <button
                   type="button"
-                  onClick={() => setIsEditingNarration(true)}
-                  className="font-sans text-xs font-medium text-accent hover:underline flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded cursor-pointer"
+                  onClick={() => {
+                    setNarrationDraft(effectiveNarration);
+                    setIsEditingNarration(true);
+                  }}
+                  className="font-sans text-xs font-semibold text-accent hover:text-accent/80 hover:underline flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent rounded px-2 py-0.5 cursor-pointer bg-[#FAF0F1]/70"
+                  title="Chỉnh sửa câu chữ thuyết minh phân cảnh này"
                 >
                   <Edit3 className="h-3 w-3" aria-hidden="true" />
                   <span>Sửa lời dẫn</span>
@@ -788,71 +902,146 @@ const WhiteboardSceneCard: React.FC<WhiteboardSceneCardProps> = ({
             </div>
 
             {isEditingNarration ? (
-              <div className="space-y-2">
+              <div className="space-y-2.5 p-3.5 rounded-xl bg-[#FAF8F5] border border-accent/30 shadow-2xs">
+                <div className="flex items-center justify-between text-[11px] font-sans text-[#78716C]">
+                  <span className="font-semibold text-[#1C1917]">
+                    Hiệu đính lời dẫn phân cảnh {scene.scene_index}:
+                  </span>
+                  <span className="italic">Tự động đồng bộ các khối vẽ</span>
+                </div>
                 <Textarea
                   rows={3}
                   value={narrationDraft}
                   onChange={(e) => setNarrationDraft(e.target.value)}
-                  className="font-sans text-xs sm:text-[13px] bg-white border-[#EAE6DF] focus-visible:ring-accent leading-relaxed rounded-xl p-3"
+                  placeholder="Nhập nội dung thuyết minh cho phân cảnh này..."
+                  className="font-sans text-xs sm:text-[13px] bg-white border-[#EAE6DF] focus-visible:ring-accent leading-relaxed rounded-xl p-3 text-[#1C1917]"
                 />
-                <div className="flex items-center justify-end gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setNarrationDraft(scene.narration_text || '');
-                      setIsEditingNarration(false);
-                    }}
-                    className="font-sans h-7 text-xs px-2.5 rounded-lg border-[#E2DDD5]"
-                  >
-                    Hủy
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleSaveNarration}
-                    className="font-sans h-7 text-xs px-3 bg-accent text-white hover:bg-accent/90 rounded-lg cursor-pointer"
-                  >
-                    Lưu
-                  </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                  <span className="text-[10px] font-sans text-[#78716C] italic">
+                    Mẹo: Giọng đọc AI sẽ phát âm chính xác theo nội dung sau khi bạn lưu.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setNarrationDraft(effectiveNarration);
+                        setIsEditingNarration(false);
+                      }}
+                      className="font-sans h-7 text-xs px-2.5 rounded-lg border-[#E2DDD5] bg-white"
+                    >
+                      Hủy
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleSaveNarration}
+                      className="font-sans h-7 text-xs px-3 bg-accent text-white hover:bg-accent/90 rounded-lg cursor-pointer"
+                    >
+                      Lưu
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : (
-              <p className="font-sans text-xs sm:text-[13px] text-[#1C1917] leading-relaxed bg-[#FAF8F5] p-3 rounded-xl border border-[#EAE6DF] italic">
-                &ldquo;{scene.narration_text || 'Chưa có lời dẫn phân cảnh cụ thể.'}&rdquo;
-              </p>
+              <div className="p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] space-y-1.5">
+                <p className="font-sans text-xs sm:text-[13px] text-[#1C1917] leading-relaxed italic">
+                  &ldquo;{effectiveNarration || 'Chưa có lời dẫn phân cảnh cụ thể.'}&rdquo;
+                </p>
+                <p className="font-sans text-[10px] text-[#78716C] flex items-center gap-1 pt-0.5">
+                  <span className="text-accent font-bold">•</span>
+                  <span>
+                    Giọng đọc AI (ElevenLabs / Edge-TTS) sẽ đọc toàn bộ đoạn thuyết minh này xuyên suốt phân cảnh.
+                  </span>
+                </p>
+              </div>
             )}
           </div>
 
           {/* Doodle Elements List */}
           {scene.elements && scene.elements.length > 0 && (
             <div className="space-y-2">
-              <label className="font-sans text-[11px] font-bold text-[#78716C] uppercase tracking-wider block">
-                Chủ thể xuất hiện trên bảng vẽ Whiteboard:
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="font-sans text-[11px] font-bold text-[#78716C] uppercase tracking-wider block">
+                  Chủ thể xuất hiện trên bảng vẽ Whiteboard ({scene.elements.length} khối hoạt họa):
+                </label>
+                <span className="text-[10px] font-sans text-[#78716C]">Xuất hiện tuần tự theo nét vẽ</span>
+              </div>
               <div className="space-y-1.5">
-                {scene.elements.map((el, elIdx) => (
-                  <div
-                    key={elIdx}
-                    className="p-2.5 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs font-sans space-y-0.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-bold text-[#1C1917] flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-                        {el.label}
-                      </span>
-                      {el.narrativeRole && (
-                        <span className="text-[10px] text-[#78716C] font-sans font-medium">{el.narrativeRole}</span>
+                {scene.elements.map((el, elIdx) => {
+                  const isEditingThisElement = editingElementIdx === elIdx;
+                  return (
+                    <div
+                      key={elIdx}
+                      className="p-3 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs font-sans space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-[#1C1917] flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-accent shrink-0" aria-hidden="true" />
+                          <span>{el.label}</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {el.narrativeRole && (
+                            <span className="text-[10px] text-[#78716C] font-sans font-medium px-2 py-0.5 rounded bg-white border border-[#EAE6DF]">
+                              {el.narrativeRole}
+                            </span>
+                          )}
+                          {onUpdateNarration && !isEditingThisElement && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingElementIdx(elIdx);
+                                setElementDraft(el.subtitle || '');
+                              }}
+                              className="text-[11px] text-accent hover:underline flex items-center gap-0.5 cursor-pointer font-medium"
+                              title="Chỉnh sửa câu thoại riêng của hình vẽ này"
+                            >
+                              <Edit3 className="h-2.5 w-2.5" />
+                              <span>Sửa câu</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {isEditingThisElement ? (
+                        <div className="space-y-2 pt-1">
+                          <Textarea
+                            rows={2}
+                            value={elementDraft}
+                            onChange={(e) => setElementDraft(e.target.value)}
+                            className="bg-white border-[#EAE6DF] text-xs rounded-lg p-2 leading-relaxed"
+                            placeholder="Nhập câu thoại cho khối vẽ này..."
+                          />
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingElementIdx(null)}
+                              className="h-6.5 text-[11px] px-2 rounded-md border-[#E2DDD5] bg-white"
+                            >
+                              Hủy
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => handleSaveElementSubtitle(elIdx)}
+                              className="h-6.5 text-[11px] px-2.5 bg-accent text-white hover:bg-accent/90 rounded-md cursor-pointer"
+                            >
+                              Lưu câu
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        el.subtitle && (
+                          <p className="text-[#44403C] text-xs leading-relaxed italic bg-white/70 p-2 rounded-lg border border-[#EAE6DF]/60">
+                            &quot;{el.subtitle}&quot;
+                          </p>
+                        )
                       )}
                     </div>
-                    {el.subtitle && (
-                      <p className="text-[#78716C] text-xs leading-relaxed italic">
-                        &quot;{el.subtitle}&quot;
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -907,7 +1096,7 @@ const WhiteboardSceneCard: React.FC<WhiteboardSceneCardProps> = ({
 
           <SceneImageUploadDropzone
             label={`Tải ảnh Cảnh ${scene.scene_index}`}
-            sublabel="Khung hình 16:9 (PNG, JPG, WebP tối đa 10MB)"
+            sublabel="Khung hình 16:9 (PNG, JPG, WebP tối đa 10MB hoặc Ctrl+V dán ảnh)"
             imageUrl={sceneImage || ''}
             aspectRatio="16:9"
             isUploading={isUploading}
@@ -954,7 +1143,8 @@ export const StoryboardStudioWhiteboardView: React.FC = () => {
             onCopy={onCopy}
             onUpdateNarration={
               onUpdateSceneNarration
-                ? (text) => onUpdateSceneNarration(scene.scene_index, text)
+                ? (text, updatedElements) =>
+                    onUpdateSceneNarration(scene.scene_index, text, updatedElements)
                 : undefined
             }
           />
@@ -965,7 +1155,7 @@ export const StoryboardStudioWhiteboardView: React.FC = () => {
       <section
         role="region"
         aria-label="Ảnh Thumbnail Poster 16:9 tùy chọn"
-        className="rounded-2xl border border-[#EAE6DF] bg-white p-5 sm:p-6 shadow-2xs space-y-3.5 w-full"
+        className="rounded-2xl border border-[#EAE6DF] bg-white p-5 sm:p-6 shadow-2xs space-y-4 w-full"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -991,19 +1181,76 @@ export const StoryboardStudioWhiteboardView: React.FC = () => {
           )}
         </div>
 
-        {onUploadThumbnail && (
-          <div className="max-w-md pt-1">
-            <SceneImageUploadDropzone
-              label="Tải ảnh Thumbnail Poster 16:9 (Tùy chọn)"
-              sublabel="Khung hình 16:9 (PNG, JPG, WebP tối đa 10MB)"
-              imageUrl={thumbnailUrl}
-              aspectRatio="16:9"
-              isUploading={uploadingThumbnail}
-              onFileSelect={(file) => onUploadThumbnail(file)}
-              onRemoveImage={() => setThumbnailUrl && setThumbnailUrl('')}
-            />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start pt-1">
+          {/* Left Column: AI Prompt for 16:9 Thumbnail Poster */}
+          <div className="lg:col-span-7 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-sans text-xs font-bold text-[#1C1917] flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+                <span>Gợi ý mô tả sinh ảnh Thumbnail Poster (16:9):</span>
+              </span>
+              <span className="font-sans text-[11px] font-medium text-[#78716C] tabular-nums">Khung ngang 16:9</span>
+            </div>
+
+            {(() => {
+              const whiteboardThumbnailPrompt =
+                storyboard.thumbnail_prompt ||
+                (storyboard.scenes?.[0]?.image_prompt
+                  ? `16:9 cinematic historical documentary poster style: ${storyboard.scenes[0].image_prompt}`
+                  : `Cinematic 16:9 historical documentary poster for "${storyboard.title || 'Lịch Sử Việt Nam'}", dramatic atmospheric lighting, authentic Vietnamese ancient aesthetic, highly detailed, masterpiece, 8k`);
+              const isThumbCopied = copiedKey === 'whiteboard_thumb_prompt';
+
+              return (
+                <>
+                  <div className="relative p-3.5 rounded-xl bg-[#FAF8F5] border border-[#EAE6DF] text-xs sm:text-[13px] font-sans text-[#1C1917] leading-relaxed pr-20 shadow-2xs">
+                    <p className="line-clamp-4 select-all text-[#1C1917]">{whiteboardThumbnailPrompt}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onCopy(whiteboardThumbnailPrompt, 'whiteboard_thumb_prompt')}
+                      className={`absolute right-2 top-2 h-7.5 px-2.5 font-sans text-xs gap-1 bg-white border-[#E2DDD5] hover:bg-[#FAF8F5] rounded-lg focus-visible:ring-2 focus-visible:ring-accent cursor-pointer ${
+                        isThumbCopied
+                          ? 'text-status-success-text border-status-success-text/40'
+                          : 'text-[#1C1917]'
+                      }`}
+                    >
+                      {isThumbCopied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-status-success-text" aria-hidden="true" />
+                          <span>Đã chép</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5 text-[#78716C]" aria-hidden="true" />
+                          <span>Chép</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="font-sans text-[11px] text-[#78716C] italic leading-normal">
+                    Dùng prompt này trên Midjourney, DALL-E hoặc Stable Diffusion để tạo ảnh bìa trang chủ ấn tượng.
+                  </p>
+                </>
+              );
+            })()}
           </div>
-        )}
+
+          {/* Right Column: Dropzone with Ctrl+V support */}
+          {onUploadThumbnail && (
+            <div className="lg:col-span-5">
+              <SceneImageUploadDropzone
+                label="Tải ảnh Thumbnail Poster 16:9 (Tùy chọn)"
+                sublabel="Khung hình 16:9 (PNG, JPG, WebP tối đa 10MB hoặc Ctrl+V dán ảnh)"
+                imageUrl={thumbnailUrl}
+                aspectRatio="16:9"
+                isUploading={uploadingThumbnail}
+                onFileSelect={(file) => onUploadThumbnail(file)}
+                onRemoveImage={() => setThumbnailUrl && setThumbnailUrl('')}
+              />
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -1012,42 +1259,14 @@ export const StoryboardStudioWhiteboardView: React.FC = () => {
 // ─── 7. FOOTER NAVIGATION ACTIONS ───────────────────────────────────────────
 
 export const StoryboardStudioFooter: React.FC = () => {
-  const { onPrevStep, onNextStep, isAudioPodcast, coverImageUrl, uploadedCount, totalScenes } = useStoryboardStudio();
+  const { onPrevStep, onNextStep, isAudioPodcast, totalScenes, uploadedCount, coverImageUrl } = useStoryboardStudio();
 
   const isPendingCover = isAudioPodcast && !coverImageUrl;
-  const isPendingScenes = !isAudioPodcast && uploadedCount < totalScenes;
+  const isPendingScenes = !isAudioPodcast && (totalScenes === 0 || uploadedCount < totalScenes);
+  const isMissingImages = isPendingCover || isPendingScenes;
 
   return (
     <div className="space-y-4 pt-6 border-t border-[#EAE6DF] mt-8 w-full">
-      {/* Informative Guidance Banner (emil-design-eng) */}
-      {isPendingCover && (
-        <div className="rounded-xl border border-border/80 bg-[#FAF8F5] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-center gap-2 text-[#78716C] font-sans">
-            <span className="h-2 w-2 rounded-full bg-status-warning-text shrink-0" />
-            <span>
-              <strong>Chưa tải ảnh bìa Podcast:</strong> Bạn có thể sang Bước 3 chọn giọng đọc trước hoặc bổ sung ở Bước 4 (Bắt buộc trước khi kết xuất).
-            </span>
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted border border-border bg-white px-2 py-0.5 rounded-md shrink-0">
-            Có thể chuyển bước
-          </span>
-        </div>
-      )}
-
-      {isPendingScenes && (
-        <div className="rounded-xl border border-border/80 bg-[#FAF8F5] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-          <div className="flex items-center gap-2 text-[#78716C] font-sans">
-            <span className="h-2 w-2 rounded-full bg-status-warning-text shrink-0" />
-            <span>
-              <strong>Còn thiếu {totalScenes - uploadedCount}/{totalScenes} ảnh phân cảnh:</strong> Bạn có thể sang Bước 3 chọn giọng đọc trước hoặc hoàn thiện ảnh ngay tại đây.
-            </span>
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted border border-border bg-white px-2 py-0.5 rounded-md shrink-0">
-            Có thể chuyển bước
-          </span>
-        </div>
-      )}
-
       <footer
         role="contentinfo"
         className="flex items-center justify-between w-full"
@@ -1057,7 +1276,7 @@ export const StoryboardStudioFooter: React.FC = () => {
           variant="outline"
           size="sm"
           onClick={onPrevStep}
-          className="font-sans gap-2 text-xs sm:text-sm font-medium border-[#E2DDD5] bg-white hover:bg-[#FAF8F5] text-[#1C1917] h-10 sm:h-11 px-4 sm:px-5 rounded-xl active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
+          className="font-sans gap-2 text-xs sm:text-sm font-medium border-[#E2DDD5] bg-white hover:bg-[#FAF8F5] text-[#1C1917] h-10 sm:h-11 px-4 sm:px-5 rounded-xl active:scale-[0.98] transition-[background-color,border-color,transform] focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           <span>Quay lại Bước 1 (Kịch bản)</span>
@@ -1067,9 +1286,14 @@ export const StoryboardStudioFooter: React.FC = () => {
           type="button"
           size="sm"
           onClick={onNextStep}
-          className="font-sans gap-2 text-xs sm:text-sm font-bold px-5 sm:px-7 h-10 sm:h-11 rounded-xl bg-accent text-white hover:bg-accent/90 shadow-2xs active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
+          className="font-sans gap-2 text-xs sm:text-sm font-bold px-5 sm:px-7 h-10 sm:h-11 rounded-xl bg-accent text-white hover:bg-accent/90 shadow-2xs active:scale-[0.98] transition-[background-color,transform] focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
         >
           <span>Tiếp tục: Chọn giọng đọc AI (Bước 3)</span>
+          {isMissingImages && (
+            <span className="text-xs px-2 py-0.5 rounded-md bg-black/20 text-white font-normal tabular-nums">
+              {isPendingCover ? 'Cần ảnh bìa' : `Thiếu ${totalScenes - uploadedCount} ảnh`}
+            </span>
+          )}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Button>
       </footer>

@@ -27,8 +27,15 @@ public class PaymentController {
 
     @GetMapping("/return")
     @Operation(summary = "1. Xử lý Return URL từ VNPay (UI Display)",
-            description = "VNPay chuyển hướng trình duyệt của người dùng về đây sau khi thanh toán. Chỉ xác thực checksum và đọc trạng thái hiển thị, tuyệt đối không cộng tiền tại đây.")
+            description = "VNPay chuyển hướng trình duyệt của người dùng về đây sau khi thanh toán. Xác thực checksum, đối soát hoàn tất giao dịch và trả về kết quả.")
     public ResponseEntity<ApiResponse<PaymentReturnResponse>> handleReturn(@RequestParam Map<String, String> queryParams) {
+        String txnRef = queryParams.getOrDefault("vnp_TxnRef", "");
+        try {
+            // Đối soát và cộng tiền ngay lập tức khi người dùng quay về từ VNPay Sandbox/Local
+            paymentService.handleIpn(queryParams);
+        } catch (Exception e) {
+            log.warn("Lỗi khi tự động đối soát IPN tại web return (txnRef={}): {}", txnRef, e.getMessage());
+        }
         PaymentReturnResponse response = paymentService.handleReturn(queryParams);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

@@ -47,7 +47,6 @@ export const CreatorSeriesPage: React.FC = () => {
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formCoverUrl, setFormCoverUrl] = useState('');
-  const [formCategory, setFormCategory] = useState('TRIEU_LY');
   const [formStatus, setFormStatus] = useState<'PUBLISHED' | 'HIDDEN' | 'DRAFT'>('PUBLISHED');
   const [formError, setFormError] = useState<string | null>(null);
   const [isUploadingCover, setIsUploadingCover] = useState(false);
@@ -385,7 +384,6 @@ export const CreatorSeriesPage: React.FC = () => {
     setFormTitle('');
     setFormDescription('');
     setFormCoverUrl('');
-    setFormCategory('TRIEU_LY');
     setFormStatus('PUBLISHED');
     setFormError(null);
     setSelectedSeries(null);
@@ -495,6 +493,11 @@ export const CreatorSeriesPage: React.FC = () => {
     const cId = parseInt(addVideoId, 10);
     if (!managingSeriesId || isNaN(cId) || cId <= 0) return;
     addEpisodeMutation.mutate({ seriesId: managingSeriesId, contentId: cId });
+  };
+
+  const handleAddEpisodeById = (contentId: number) => {
+    if (!managingSeriesId || !contentId || contentId <= 0) return;
+    addEpisodeMutation.mutate({ seriesId: managingSeriesId, contentId });
   };
 
   // ─── 7. ENTRANCE ANIMATION: GSAP SMOOTH FLOAT IN (Exact Match with Content Library) ────
@@ -735,8 +738,6 @@ export const CreatorSeriesPage: React.FC = () => {
         onCoverUrlChange={setFormCoverUrl}
         status={formStatus}
         onStatusChange={setFormStatus}
-        category={formCategory}
-        onCategoryChange={setFormCategory}
         error={formError}
         isSubmitting={createMutation.isPending || updateMutation.isPending}
         isUploadingCover={isUploadingCover}
@@ -760,6 +761,7 @@ export const CreatorSeriesPage: React.FC = () => {
         addVideoId={addVideoId}
         onAddVideoIdChange={setAddVideoId}
         onAddEpisode={handleAddEpisode}
+        onAddEpisodeById={handleAddEpisodeById}
         onMoveEpisode={handleMoveEpisode}
         onRemoveEpisode={(contentId) =>
           managingSeriesId &&

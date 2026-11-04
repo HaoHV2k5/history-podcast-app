@@ -7,6 +7,7 @@ import {
   CreateWithdrawalRequest,
   CreateDepositRequest,
   PaymentUrlResponse,
+  PaymentReturnResponse,
 } from '@/types/wallet';
 import { WalletTransactionItem } from '@/types/transaction';
 import { WithdrawalItem } from '@/types/withdrawal';
@@ -84,6 +85,15 @@ export const walletApi = {
     const response = await apiClient.get<ApiResponse<PageResponse<WithdrawalItem>>>(
       '/api/v1/withdrawals/me',
       { params: { page, size } }
+    );
+    return response.data;
+  },
+  handleVnpayReturn: async (
+    params: Record<string, string>
+  ): Promise<ApiResponse<PaymentReturnResponse>> => {
+    const response = await apiClient.get<ApiResponse<PaymentReturnResponse>>(
+      '/api/v1/payments/vnpay/return',
+      { params }
     );
     return response.data;
   },
