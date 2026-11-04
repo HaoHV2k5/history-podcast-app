@@ -2,6 +2,44 @@ import { apiClient } from './client';
 import { ApiResponse } from '@/types/api';
 import { MilestoneDeliverableItem } from '@/types/deliverable';
 
+const inferMimeType = (fileName?: string, headerContentType?: string): string => {
+  const raw = (headerContentType || '').split(';')[0].trim().toLowerCase();
+  const ext = (fileName || '').split('.').pop()?.toLowerCase() || '';
+
+  const extMap: Record<string, string> = {
+    pdf: 'application/pdf',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    webm: 'video/webm',
+    mkv: 'video/x-matroska',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    m4a: 'audio/mp4',
+    ogg: 'audio/ogg',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    txt: 'text/plain;charset=utf-8',
+    md: 'text/plain;charset=utf-8',
+    csv: 'text/plain;charset=utf-8',
+    json: 'application/json',
+    zip: 'application/zip',
+    rar: 'application/vnd.rar',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  };
+
+  if (ext && extMap[ext]) {
+    return extMap[ext];
+  }
+  if (raw && raw !== 'application/octet-stream') {
+    return raw;
+  }
+  return 'application/octet-stream';
+};
+
 export const deliverablesApi = {
   uploadDeliverable: async (
     milestoneId: number,
@@ -54,11 +92,11 @@ export const deliverablesApi = {
     window.URL.revokeObjectURL(url);
   },
 
-  getDeliverableBlobUrl: async (id: number): Promise<{ url: string; mimeType: string }> => {
+  getDeliverableBlobUrl: async (id: number, fileName?: string): Promise<{ url: string; mimeType: string }> => {
     const response = await apiClient.get(`/api/v1/deliverables/${id}/view`, {
       responseType: 'blob',
     });
-    const mimeType = String(response.headers['content-type'] || 'application/octet-stream');
+    const mimeType = inferMimeType(fileName, String(response.headers['content-type'] || ''));
     const blob = new Blob([response.data], { type: mimeType });
     const url = window.URL.createObjectURL(blob);
     return { url, mimeType };

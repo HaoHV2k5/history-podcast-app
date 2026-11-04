@@ -15,6 +15,10 @@ public interface PaymentGatewayPort {
      */
     String buildPaymentUrl(String txnRef, Long amount, String ipAddress, String orderInfo);
 
+    default String buildPaymentUrl(String txnRef, Long amount, String ipAddress, String orderInfo, String customReturnUrl) {
+        return buildPaymentUrl(txnRef, amount, ipAddress, orderInfo);
+    }
+
     /**
      * Xác thực chữ ký checksum (vnp_SecureHash) từ callback của cổng thanh toán.
      *
