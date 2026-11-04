@@ -91,6 +91,11 @@ export const CreatorUploadDeliverableModal: React.FC<CreatorUploadDeliverableMod
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB)');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
       setSelectedFile(file);
       if (!title) {
         setTitle(file.name.replace(/\.[^/.]+$/, ''));
@@ -104,6 +109,10 @@ export const CreatorUploadDeliverableModal: React.FC<CreatorUploadDeliverableMod
     setDragOver(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Dung lượng tệp vượt quá giới hạn cho phép (tối đa 10MB)');
+        return;
+      }
       setSelectedFile(file);
       if (!title) {
         setTitle(file.name.replace(/\.[^/.]+$/, ''));
@@ -233,7 +242,7 @@ export const CreatorUploadDeliverableModal: React.FC<CreatorUploadDeliverableMod
                   <span className="text-[#9B2C2C]">*</span>
                 </span>
                 <span className="text-[10px] text-[#78746C]">
-                  Video, Audio, PDF, DOC/DOCX, TXT, ZIP (≤ 25MB)
+                  Video, Audio, PDF, DOC/DOCX, TXT, ZIP (≤ 10MB)
                 </span>
               </label>
 
@@ -269,7 +278,7 @@ export const CreatorUploadDeliverableModal: React.FC<CreatorUploadDeliverableMod
                       Bấm để chọn tệp hoặc kéo thả file vào đây
                     </p>
                     <p className="text-[11px] text-[#696660]">
-                      Hỗ trợ MP4, MOV, MP3, WAV, PDF, DOC/DOCX, TXT, ZIP/RAR (Tối đa 25MB)
+                      Hỗ trợ MP4, MOV, MP3, WAV, PDF, DOC/DOCX, TXT, ZIP/RAR (Tối đa 10MB)
                     </p>
                   </div>
                 </div>

@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { disputesApi } from '@/services/api/disputes';
 import { DisputeItem, DisputeEvidenceUploadResponse } from '@/types/dispute';
+import { stripUrlsFromText, extractUrlsFromText } from '@/features/disputes/disputesLogic';
 
 interface CreatorCounterEvidenceModalProps {
   dispute: DisputeItem | null;
@@ -56,9 +57,11 @@ export const CreatorCounterEvidenceModal: React.FC<CreatorCounterEvidenceModalPr
 
   useEffect(() => {
     if (dispute && isOpen) {
-      const existingUrls = Array.isArray(dispute.counterEvidenceUrls)
-        ? dispute.counterEvidenceUrls
-        : [];
+      setCounterEvidence(stripUrlsFromText(dispute.counterEvidence));
+      const existingUrls = extractUrlsFromText(
+        dispute.counterEvidence,
+        dispute.counterEvidenceUrls
+      );
       setUploadedFiles(
         existingUrls.map((url) => ({
           fileUrl: url,
@@ -80,8 +83,8 @@ export const CreatorCounterEvidenceModal: React.FC<CreatorCounterEvidenceModalPr
     try {
       const filesArray = Array.from(fileList);
       for (const file of filesArray) {
-        if (file.size > 25 * 1024 * 1024) {
-          throw new Error(`Tệp "${file.name}" vượt quá giới hạn 25MB.`);
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error(`Tệp "${file.name}" vượt quá giới hạn 10MB.`);
         }
         const res = await disputesApi.uploadEvidenceFile(file);
         if (res.data?.fileUrl) {
@@ -172,14 +175,14 @@ export const CreatorCounterEvidenceModal: React.FC<CreatorCounterEvidenceModalPr
                 Lý do khiếu nại ban đầu:
               </span>
               <p className="italic text-rose-800 leading-relaxed">&ldquo;{dispute.reason}&rdquo;</p>
-              {dispute.evidence && (
+              {stripUrlsFromText(dispute.evidence) && (
                 <p className="text-[11px] text-stone-600 pt-1.5 border-t border-rose-100 whitespace-pre-line">
-                  <strong>Bằng chứng kèm theo:</strong> {dispute.evidence}
+                  <strong>Bằng chứng kèm theo:</strong> {stripUrlsFromText(dispute.evidence)}
                 </p>
               )}
-              {dispute.evidenceUrls && dispute.evidenceUrls.length > 0 && (
+              {extractUrlsFromText(dispute.evidence, dispute.evidenceUrls).length > 0 && (
                 <div className="pt-1.5 flex flex-wrap gap-1.5">
-                  {dispute.evidenceUrls.map((url, idx) => (
+                  {extractUrlsFromText(dispute.evidence, dispute.evidenceUrls).map((url, idx) => (
                     <a
                       key={idx}
                       href={url}
@@ -257,7 +260,7 @@ export const CreatorCounterEvidenceModal: React.FC<CreatorCounterEvidenceModalPr
                       : 'Chọn ảnh hoặc tệp bằng chứng từ thiết bị'}
                   </p>
                   <p className="text-[11px] text-[#786D66] truncate">
-                    Hỗ trợ ảnh (PNG, JPG, WEBP), PDF, DOC, TXT, MP3, WAV, MP4, ZIP (Tối đa 25MB/tệp)
+                    Hỗ trợ ảnh (PNG, JPG, WEBP), PDF, DOC, TXT, MP3, WAV, MP4, ZIP (Tối đa 10MB/tệp)
                   </p>
                 </div>
               </div>

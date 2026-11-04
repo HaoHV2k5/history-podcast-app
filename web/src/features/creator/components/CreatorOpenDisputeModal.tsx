@@ -74,8 +74,8 @@ export const CreatorOpenDisputeModal: React.FC<CreatorOpenDisputeModalProps> = (
     try {
       const filesArray = Array.from(fileList);
       for (const file of filesArray) {
-        if (file.size > 25 * 1024 * 1024) {
-          throw new Error(`Tệp "${file.name}" vượt quá giới hạn 25MB.`);
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error(`Tệp "${file.name}" vượt quá giới hạn 10MB.`);
         }
         const res = await disputesApi.uploadEvidenceFile(file);
         if (res.data?.fileUrl) {
@@ -233,7 +233,7 @@ export const CreatorOpenDisputeModal: React.FC<CreatorOpenDisputeModalProps> = (
                       : 'Chọn ảnh hoặc tệp bằng chứng từ thiết bị'}
                   </p>
                   <p className="text-[11px] text-[#786D66] truncate">
-                    Hỗ trợ ảnh (PNG, JPG, WEBP), PDF, DOC, TXT, MP3, WAV, MP4, ZIP (Tối đa 25MB/tệp)
+                    Hỗ trợ ảnh (PNG, JPG, WEBP), PDF, DOC, TXT, MP3, WAV, MP4, ZIP (Tối đa 10MB/tệp)
                   </p>
                 </div>
               </div>

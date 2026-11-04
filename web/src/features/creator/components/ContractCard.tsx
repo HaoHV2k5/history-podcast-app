@@ -62,7 +62,9 @@ export const ContractCard: React.FC<ContractCardProps> = ({
       return 'Khách yêu cầu sửa lộ trình — Chờ cập nhật & gửi lại';
     }
     if (contract.status === 'CANCELLED') {
-      return `Hợp đồng đã hủy (${completedCount}/${totalCount} mốc hoàn tất)`;
+      return completedCount > 0
+        ? `Hợp đồng đã dừng giữa chừng — Đã hoàn tất ${completedCount}/${totalCount} mốc trước đó`
+        : 'Hợp đồng đã hủy';
     }
     if (currentMilestone.status === 'SUBMITTED') {
       return `Đang ở Mốc #${currentMilestone.orderNo}/${totalCount}: ${currentMilestone.title} (Chờ khách nghiệm thu)`;
@@ -174,9 +176,25 @@ export const ContractCard: React.FC<ContractCardProps> = ({
             )}
 
             {contract.status === 'CANCELLED' && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-600 border border-stone-200 font-sans">
-                <span className="h-1.5 w-1.5 rounded-full bg-stone-400 shrink-0" />
-                <span>Đã hủy</span>
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold border font-sans',
+                  completedCount > 0
+                    ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                    : 'bg-stone-100 text-stone-600 border-stone-200'
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full shrink-0',
+                    completedCount > 0 ? 'bg-amber-500' : 'bg-stone-400'
+                  )}
+                />
+                <span>
+                  {completedCount > 0
+                    ? `Đã dừng (${completedCount}/${totalCount} mốc)`
+                    : 'Đã hủy'}
+                </span>
               </span>
             )}
           </div>

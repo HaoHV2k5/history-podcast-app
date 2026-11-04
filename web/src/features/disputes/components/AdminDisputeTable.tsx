@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Flag,
   Activity,
   FileText,
   BookOpen,
@@ -28,7 +27,6 @@ import {
 import {
   AdminDisputeRow,
   getDisputeStatusConfig,
-  getDisputePriorityConfig,
   extractInitials,
   getAvatarBg,
   copyToClipboard,
@@ -187,28 +185,24 @@ export const AdminDisputeTable: React.FC<AdminDisputeTableProps> = ({
                 Mã khiếu nại
               </th>
               {/* Tiêu đề / Nội dung tóm tắt */}
-              <th className="w-[23%] min-w-[210px] px-3 py-3.5 text-left whitespace-nowrap">
+              <th className="w-[30%] min-w-[230px] px-3 py-3.5 text-left whitespace-nowrap">
                 Tiêu đề / Nội dung tóm tắt
               </th>
               {/* Người gửi */}
-              <th className="w-[15%] min-w-[135px] px-3 py-3.5 text-left whitespace-nowrap">
+              <th className="w-[17%] min-w-[140px] px-3 py-3.5 text-left whitespace-nowrap">
                 Người gửi
               </th>
               {/* Liên quan đến */}
-              <th className="w-[15%] min-w-[135px] px-3 py-3.5 text-left whitespace-nowrap">
+              <th className="w-[18%] min-w-[145px] px-3 py-3.5 text-left whitespace-nowrap">
                 Liên quan đến
               </th>
               {/* Ngày tạo */}
-              <th className="w-[10%] min-w-[100px] px-3 py-3.5 text-left whitespace-nowrap">
+              <th className="w-[11%] min-w-[105px] px-3 py-3.5 text-left whitespace-nowrap">
                 Ngày tạo
               </th>
               {/* Trạng thái (1 hàng duy nhất) */}
-              <th className="w-[13%] min-w-[130px] px-3 py-3.5 text-left whitespace-nowrap">
+              <th className="w-[14%] min-w-[135px] px-3 py-3.5 text-left whitespace-nowrap">
                 Trạng thái
-              </th>
-              {/* Ưu tiên */}
-              <th className="w-[12%] min-w-[125px] px-3.5 py-3.5 text-left whitespace-nowrap">
-                Ưu tiên
               </th>
               {/* Thao tác (1 hàng duy nhất) */}
               <th className="w-[175px] min-w-[175px] pl-4 pr-4 sm:pr-5 py-3.5 text-right whitespace-nowrap">
@@ -259,9 +253,6 @@ export const AdminDisputeTable: React.FC<AdminDisputeTableProps> = ({
                   <td className="px-3 py-4">
                     <div className="h-6 w-24 rounded-full bg-stone-200" />
                   </td>
-                  <td className="px-3.5 py-4">
-                    <div className="h-6 w-20 rounded-full bg-stone-200" />
-                  </td>
                   <td className="w-[175px] min-w-[175px] pl-4 pr-4 sm:pr-5 py-4 text-right">
                     <div className="h-8 w-24 rounded-xl bg-stone-200 ml-auto" />
                   </td>
@@ -270,7 +261,7 @@ export const AdminDisputeTable: React.FC<AdminDisputeTableProps> = ({
             ) : rows.length === 0 ? (
               // Empty State
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center">
+                <td colSpan={8} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-2">
                     <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-100 text-stone-400">
                       <Scale className="h-6 w-6 stroke-[1.8]" />
@@ -290,7 +281,6 @@ export const AdminDisputeTable: React.FC<AdminDisputeTableProps> = ({
               // Dispute Rows
               rows.map((row, index) => {
                 const statusCfg = getDisputeStatusConfig(row.status);
-                const priorityCfg = getDisputePriorityConfig(row.priority);
                 const isCopied = copiedId === row.id;
 
                 return (
@@ -416,16 +406,6 @@ export const AdminDisputeTable: React.FC<AdminDisputeTableProps> = ({
                           className={`h-1.5 w-1.5 rounded-full shrink-0 ${statusCfg.dotColor}`}
                         />
                         <span className="whitespace-nowrap">{statusCfg.label}</span>
-                      </span>
-                    </td>
-
-                    {/* 8. Ưu tiên (Badge pill chuẩn mockup, không bao giờ bị dính) */}
-                    <td className="px-3.5 py-3.5 whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 whitespace-nowrap ${priorityCfg.bgClass}`}
-                      >
-                        <Flag className="h-3 w-3 fill-current shrink-0" />
-                        <span className="whitespace-nowrap">{priorityCfg.label}</span>
                       </span>
                     </td>
 

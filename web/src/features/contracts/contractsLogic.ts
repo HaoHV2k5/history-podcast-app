@@ -295,6 +295,16 @@ export function buildAdminContractRow(
   const completedMilestonesCount = milestones.filter(
     (m) => m.status === 'COMPLETED' || m.status === 'APPROVED' || m.status === 'RELEASED'
   ).length;
+  const effectiveStatusConfig =
+    normStatus === 'CANCELLED' && completedMilestonesCount > 0
+      ? {
+          label: `Đã dừng (${completedMilestonesCount}/${milestonesCount} mốc)`,
+          bg: '#FEF3C7',
+          text: '#92400E',
+          border: '#FDE68A',
+          dot: 'bg-amber-500',
+        }
+      : statusConfig;
 
   const deadlineFormatted = contract.deadline
     ? splitDateTime(contract.deadline).dateStr
@@ -319,8 +329,8 @@ export function buildAdminContractRow(
     platformFee,
     netAmount,
     status: normStatus,
-    statusLabel: statusConfig.label,
-    statusConfig,
+    statusLabel: effectiveStatusConfig.label,
+    statusConfig: effectiveStatusConfig,
     milestonesCount,
     completedMilestonesCount,
     deadline: contract.deadline,
