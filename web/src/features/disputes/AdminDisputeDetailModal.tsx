@@ -429,28 +429,81 @@ export const AdminDisputeDetailModal: React.FC<AdminDisputeDetailModalProps> = (
               {/* Bằng chứng bên khiếu nại */}
               <div className="flex flex-col">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 mb-1 flex items-center gap-1">
-                  Bằng chứng đính kèm:
+                  Bằng chứng bên khiếu nại:
                 </span>
-                <div className="rounded-lg border border-stone-200/90 bg-white p-2 text-stone-800 text-[11px] leading-relaxed min-h-[46px] max-h-[60px] overflow-y-auto flex items-center">
+                <div className="rounded-lg border border-stone-200/90 bg-white p-2 text-stone-800 text-[11px] leading-relaxed min-h-[46px] max-h-[75px] overflow-y-auto space-y-1.5">
                   {activeDispute.evidence ? (
-                    activeDispute.evidence.startsWith('http') ? (
-                      <a
-                        href={activeDispute.evidence}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-accent hover:underline flex items-center gap-1.5 font-medium truncate"
-                      >
-                        <FileText className="h-3.5 w-3.5 text-accent shrink-0" />
-                        <span className="truncate">Xem tài liệu / tệp đính kèm bằng chứng</span>
-                      </a>
-                    ) : (
-                      <span className="truncate">{activeDispute.evidence}</span>
-                    )
+                    <div>
+                      {activeDispute.evidence.startsWith('http') ? (
+                        <a
+                          href={activeDispute.evidence}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-accent hover:underline flex items-center gap-1.5 font-medium truncate"
+                        >
+                          <FileText className="h-3.5 w-3.5 text-accent shrink-0" />
+                          <span className="truncate">Xem tài liệu / tệp đính kèm bằng chứng</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="truncate">{activeDispute.evidence}</span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-stone-400 italic">Không có tệp bằng chứng đính kèm</span>
                   )}
+                  {activeDispute.evidenceUrls && activeDispute.evidenceUrls.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-stone-100">
+                      {activeDispute.evidenceUrls.map((url, idx) => (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md bg-stone-50 border border-stone-200 px-2 py-0.5 text-[11px] font-sans text-accent hover:underline"
+                        >
+                          <FileText className="h-3 w-3 shrink-0" />
+                          <span className="truncate max-w-[180px]">
+                            {url.split('/').pop() || `Tệp bằng chứng #${idx + 1}`}
+                          </span>
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Bằng chứng phản hồi từ bên bị khiếu nại (nếu có) */}
+              {activeDispute.counterEvidence && (
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 mb-1 flex items-center gap-1">
+                    Bằng chứng phản hồi từ bên bị khiếu nại:
+                  </span>
+                  <div className="rounded-lg border border-amber-200/90 bg-amber-50/40 p-2 text-stone-800 text-[11px] leading-relaxed min-h-[46px] max-h-[75px] overflow-y-auto space-y-1.5">
+                    <div>{activeDispute.counterEvidence}</div>
+                    {activeDispute.counterEvidenceUrls && activeDispute.counterEvidenceUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1 border-t border-amber-200/50">
+                        {activeDispute.counterEvidenceUrls.map((url, idx) => (
+                          <a
+                            key={idx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-white border border-amber-200 px-2 py-0.5 text-[11px] font-sans text-amber-700 hover:underline"
+                          >
+                            <FileText className="h-3 w-3 shrink-0" />
+                            <span className="truncate max-w-[180px]">
+                              {url.split('/').pop() || `Tệp đối chất #${idx + 1}`}
+                            </span>
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SECTION: CANCELLED VIEW */}

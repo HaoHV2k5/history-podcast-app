@@ -43,6 +43,12 @@ import java.util.Optional;
 @Transactional
 public class MembershipServiceImpl implements MembershipService {
 
+    public static final List<String> SYSTEM_DEFAULT_PERKS = List.of(
+            "Nghe sớm các tập Podcast Hội viên (Early Access)",
+            "Xem toàn bộ kho nội dung độc quyền (Members-Only)",
+            "Huy hiệu Hội viên VIP nổi bật trong phòng Livestream & Bình luận"
+    );
+
     private final ChannelMembershipPlanRepository planRepository;
     private final MembershipRepository membershipRepository;
     private final MembershipPaymentRepository membershipPaymentRepository;
@@ -74,9 +80,12 @@ public class MembershipServiceImpl implements MembershipService {
         plan.setName(request.getName());
         plan.setDescription(request.getDescription());
         plan.setMonthlyPrice(request.getMonthlyPrice());
-        plan.setPerks(request.getPerks() != null ? request.getPerks() : new ArrayList<>());
+        // Khóa cứng 3 đặc quyền chuẩn hệ thống (không cho phép nhập ngoài 3 đặc quyền hệ thống thực thi)
+        plan.setPerks(new ArrayList<>(SYSTEM_DEFAULT_PERKS));
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
             plan.setStatus(request.getStatus().toUpperCase());
+        } else if (plan.getStatus() == null || plan.getStatus().isBlank()) {
+            plan.setStatus("ACTIVE");
         }
 
         ChannelMembershipPlan saved = planRepository.save(plan);
@@ -87,13 +96,26 @@ public class MembershipServiceImpl implements MembershipService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public MembershipPlanResponse getChannelPlan(Long channelId) {
-        ChannelMembershipPlan plan = planRepository.findByChannelId(channelId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_PLAN_NOT_FOUND, "Kênh này chưa mở tính năng gói hội viên"));
+        Channel channel = channelRepository.findById(channelId)
+                .orElseThrow(() -> new AppException(ErrorCode.CHANNEL_NOT_FOUND, "Không tìm thấy kênh"));
 
-        if (!"ACTIVE".equalsIgnoreCase(plan.getStatus())) {
-            throw new AppException(ErrorCode.MEMBERSHIP_PLAN_NOT_FOUND, "Gói hội viên của kênh này hiện đang tạm đóng");
+        ChannelMembershipPlan plan = planRepository.findByChannelId(channelId)
+                .orElseGet(() -> {
+                    ChannelMembershipPlan defaultPlan = ChannelMembershipPlan.builder()
+                            .channel(channel)
+                            .name("Hội Viên VIP - " + channel.getName())
+                            .description("Gói đặc quyền dành riêng cho thính giả yêu lịch sử của kênh " + channel.getName() + ": Nghe sớm các tập mới và mở khóa toàn bộ kho tư liệu độc quyền.")
+                            .monthlyPrice(new BigDecimal("50000"))
+                            .perks(new ArrayList<>(SYSTEM_DEFAULT_PERKS))
+                            .status("ACTIVE")
+                            .build();
+                    return planRepository.save(defaultPlan);
+                });
+
+        if (plan.getPerks() == null || !plan.getPerks().equals(SYSTEM_DEFAULT_PERKS)) {
+            plan.setPerks(new ArrayList<>(SYSTEM_DEFAULT_PERKS));
+            plan = planRepository.save(plan);
         }
 
         return toPlanResponse(plan);
@@ -113,6 +135,8 @@ public class MembershipServiceImpl implements MembershipService {
             throw new AppException(ErrorCode.CANNOT_SUBSCRIBE_OWN_CHANNEL, "Chủ kênh không thể tự mua gói hội viên của chính mình");
         }
 
+        // Tự động đảm bảo gói mặc định của kênh được khởi tạo trước khi kiểm tra ACTIVE
+        getChannelPlan(channelId);
         ChannelMembershipPlan plan = planRepository.findByChannelIdAndStatus(channelId, "ACTIVE")
                 .orElseThrow(() -> new AppException(ErrorCode.MEMBERSHIP_PLAN_NOT_FOUND, "Kênh chưa thiết lập gói hội viên hoặc gói đang tạm đóng"));
 
@@ -335,7 +359,7 @@ public class MembershipServiceImpl implements MembershipService {
                 .name(plan.getName())
                 .description(plan.getDescription())
                 .monthlyPrice(plan.getMonthlyPrice())
-                .perks(plan.getPerks())
+                .perks(SYSTEM_DEFAULT_PERKS)
                 .status(plan.getStatus())
                 .createdAt(plan.getCreatedAt())
                 .updatedAt(plan.getUpdatedAt())

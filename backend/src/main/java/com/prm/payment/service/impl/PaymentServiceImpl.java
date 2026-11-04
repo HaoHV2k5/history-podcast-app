@@ -74,7 +74,8 @@ public class PaymentServiceImpl implements PaymentService {
                 merchantTxnRef,
                 request.getAmount(),
                 ipAddress,
-                "Nap tien vao vi PRM"
+                "Nap tien vao vi PRM",
+                request.getReturnUrl()
         );
 
         log.info("Tạo yêu cầu nạp tiền VNPay thành công: userId={}, ref={}, amount={}",

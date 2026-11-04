@@ -33,7 +33,7 @@ export const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%] gap-4',
+        'fixed left-[50%] top-[50%] z-50 grid grid-cols-1 w-[calc(100%-2rem)] overflow-x-hidden translate-x-[-50%] translate-y-[-50%] gap-4',
         'border border-border/80 bg-white/95 backdrop-blur-2xl p-6 rounded-2xl shadow-apple-dialog',
         'data-[state=open]:animate-apple-spring-in data-[state=closed]:animate-apple-spring-out will-change-[transform,opacity]',
         maxWidth,
