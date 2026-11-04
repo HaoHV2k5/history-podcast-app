@@ -16,4 +16,6 @@ public class CreateDepositRequest {
     private Long amount;
 
     private String description;
+
+    private String returnUrl;
 }

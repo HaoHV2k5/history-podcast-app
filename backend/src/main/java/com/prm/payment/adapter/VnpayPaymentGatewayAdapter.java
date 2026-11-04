@@ -27,6 +27,11 @@ public class VnpayPaymentGatewayAdapter implements PaymentGatewayPort {
 
     @Override
     public String buildPaymentUrl(String txnRef, Long amount, String ipAddress, String orderInfo) {
+        return buildPaymentUrl(txnRef, amount, ipAddress, orderInfo, null);
+    }
+
+    @Override
+    public String buildPaymentUrl(String txnRef, Long amount, String ipAddress, String orderInfo, String customReturnUrl) {
         Map<String, String> vnpParams = new HashMap<>();
         vnpParams.put("vnp_Version", "2.1.0");
         vnpParams.put("vnp_Command", "pay");
@@ -37,7 +42,10 @@ public class VnpayPaymentGatewayAdapter implements PaymentGatewayPort {
         vnpParams.put("vnp_OrderInfo", orderInfo != null && !orderInfo.isBlank() ? orderInfo : "Nap tien vao vi PRM");
         vnpParams.put("vnp_OrderType", "other");
         vnpParams.put("vnp_Locale", "vn");
-        vnpParams.put("vnp_ReturnUrl", properties.getReturnUrl());
+        String effectiveReturnUrl = (customReturnUrl != null && !customReturnUrl.isBlank())
+                ? customReturnUrl.trim()
+                : properties.getReturnUrl();
+        vnpParams.put("vnp_ReturnUrl", effectiveReturnUrl);
         vnpParams.put("vnp_IpAddr", ipAddress != null && !ipAddress.isBlank() ? ipAddress : "127.0.0.1");
 
         Instant now = Instant.now();
