@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScriptVerificationResponse } from '@/types/creatorStudio';
-import { InputClassificationResult } from '../creatorStudioUtils';
+import { InputClassificationResult, detectHistoricalChronologyIssue } from '../creatorStudioUtils';
 import { HistoricalTopicItem, HISTORICAL_SCOPE_SUGGESTIONS } from '../historicalScopeData';
 import { CreationMode } from './StudioCreationMethodToggle';
 import { StudioScopeErrorDialog } from './StudioScopeErrorDialog';
@@ -129,6 +129,10 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
   };
 
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+
+  const chronologyIssue = useMemo(() => {
+    return detectHistoricalChronologyIssue(scriptContent || scriptTopic);
+  }, [scriptContent, scriptTopic]);
 
   // Live Timer & Progress State for Storyboard Generation
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -727,6 +731,48 @@ export const Step1ScriptInput: React.FC<Step1ScriptInputProps> = ({
                         <span>{wordCount} từ</span>
                         <span>~{estimatedReadingSec}s đọc ước tính</span>
                       </div>
+
+                      {chronologyIssue && (
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-900 shadow-2xs animate-in fade-in">
+                          <div className="flex items-start gap-2 min-w-0">
+                            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5 min-w-0">
+                              <span className="font-bold text-amber-950 font-serif block">
+                                Cảnh báo sử liệu: Niên đại cần kiểm tra lại
+                              </span>
+                              <p className="text-[11px] text-amber-800 leading-relaxed font-sans">
+                                {chronologyIssue.explanation}
+                              </p>
+                            </div>
+                          </div>
+                          {chronologyIssue.suggestedYear && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                if (scriptContent.includes(chronologyIssue.wrongYear)) {
+                                  setScriptContent(
+                                    scriptContent.replace(
+                                      new RegExp(`\\b${chronologyIssue.wrongYear}\\b`, 'g'),
+                                      chronologyIssue.suggestedYear!
+                                    )
+                                  );
+                                } else if (scriptTopic.includes(chronologyIssue.wrongYear)) {
+                                  setScriptTopic(
+                                    scriptTopic.replace(
+                                      new RegExp(`\\b${chronologyIssue.wrongYear}\\b`, 'g'),
+                                      chronologyIssue.suggestedYear!
+                                    )
+                                  );
+                                }
+                              }}
+                              className="self-end sm:self-center shrink-0 text-[11px] h-7 px-3 bg-[#8B2635] hover:bg-[#731E2A] text-white font-semibold rounded-lg cursor-pointer transition-colors"
+                            >
+                              Sửa thành {chronologyIssue.suggestedYear}
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

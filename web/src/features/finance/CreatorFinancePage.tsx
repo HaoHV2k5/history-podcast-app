@@ -170,7 +170,9 @@ export const CreatorFinancePage: React.FC = () => {
     mutationFn: (req: CreateDepositRequest) => walletApi.createDeposit(req),
     onSuccess: (res) => {
       if (res.data?.paymentUrl) {
-        setDepositResultUrl(res.data.paymentUrl);
+        setDepositOpen(false);
+        // Chuyển hướng trực tiếp sang trang thanh toán VNPay, không hiển thị modal trung gian
+        window.location.href = res.data.paymentUrl;
       }
     },
     onError: (err: unknown) => {
@@ -229,7 +231,8 @@ export const CreatorFinancePage: React.FC = () => {
   };
 
   const handleDepositSubmit = (amount: number, description: string) => {
-    depositMutation.mutate({ amount, description });
+    const returnUrl = `${window.location.origin}/payment/vnpay-return`;
+    depositMutation.mutate({ amount, description, returnUrl });
   };
 
   const handleAddBankSubmit = (

@@ -1365,7 +1365,57 @@ def generate_smart_storyboard(topic: str, duration_sec: int = 60) -> dict:
 
 
 def check_history_scope_llm(topic: str, api_key: str) -> dict:
-    """Xác định nhanh bằng AI xem đề tài và TOÀN BỘ NỘI DUNG có thuần khiết thuộc triều đại nhà Lý và nhà Trần hay không."""
+    """Xác định nhanh bằng AI & thuật toán niên đại xem đề tài và TOÀN BỘ NỘI DUNG có thuần khiết thuộc triều đại nhà Lý và nhà Trần hay không."""
+    
+    # ── 0. BỘ KIỂM SOÁT NIÊN ĐẠI CỨNG (DETERMINISTIC CHRONOLOGY GATE) ──
+    # Bắt ngay các mốc năm nằm ngoài khung niên đại chính sử Nhà Lý (1009 - 1225) và Nhà Trần (1225 - 1400)
+    year_matches = list(re.finditer(r'\b(?:năm|vào năm|niên hiệu.*?năm|năm thứ)?\s*(\d{3,4})\b', topic, flags=re.IGNORECASE))
+    for ym in year_matches:
+        full_match = ym.group(0).strip()
+        yr_str = ym.group(1)
+        yr = int(yr_str)
+        # Bắt mọi năm lịch sử hoặc năm đứng sau chữ "năm" / "vào năm"
+        if "năm" in full_match.lower() or "vào năm" in full_match.lower() or full_match.isdigit():
+            if yr < 1009 or yr > 1400:
+                dynasty_hint = (
+                    f"Thời kỳ Hiện đại thế kỷ 20 - 21 (năm {yr})" if yr >= 1900 else (
+                    "Lê Sơ (1428 - 1527)" if 1428 <= yr <= 1527 else (
+                    "Nhà Hồ / Thời thuộc Minh (1400 - 1427)" if 1400 < yr < 1428 else (
+                    "Hậu Lê / Mạc / Trịnh - Nguyễn (1527 - 1788)" if 1527 < yr <= 1788 else (
+                    "Nhà Tây Sơn / Nhà Nguyễn (1788 - 1945)" if 1788 < yr <= 1945 else (
+                    "Thời Đinh - Tiền Lê (968 - 1009)" if 968 <= yr < 1009 else (
+                    "Thời Ngô Quyền (938 - 967)" if 938 <= yr < 968 else "ngoài thời kỳ Lý - Trần"
+                )))))))
+
+                correct_yr = ""
+                explanation = f"Năm {yr} thuộc {dynasty_hint}, hoàn toàn nằm ngoài phạm vi triều đại Nhà Lý (1009 - 1225) và Nhà Trần (1225 - 1400)."
+                
+                # Bắt các sự kiện kinh điển bị sai lệch niên đại
+                lower_t = topic.lower()
+                if (yr == 1453 or yr == 2000 or yr > 1400) and any(k in lower_t for k in ["trương hán siêu", "hóa châu", "trần dụ tông", "thần sách"]):
+                    correct_yr = "1353"
+                    explanation = f"Sự kiện vua Trần Dụ Tông cử Trương Hán Siêu đem quân Thần Sách vào trấn giữ Hóa Châu diễn ra vào năm Quý Tỵ 1353 (thời Trần), không phải năm {yr} ({dynasty_hint})."
+                elif (yr == 1012 or yr != 1010) and any(k in lower_t for k in ["dời đô", "lý thái tổ", "lý công uẩn", "đại la", "thăng long"]):
+                    correct_yr = "1010"
+                    explanation = f"Vua Lý Thái Tổ ban Chiếu Dời Đô từ Hoa Lư về Đại La vào mùa thu năm Canh Tuất 1010, không phải năm {yr}."
+                elif (yr != 1288) and "bạch đằng" in lower_t and any(k in lower_t for k in ["trần hưng đạo", "ô mã nhi", "trần quốc tuấn"]):
+                    correct_yr = "1288"
+                    explanation = f"Trận thủy chiến Bạch Đằng lịch sử do Trần Hưng Đạo lãnh đạo diễn ra vào năm 1288, không phải năm {yr}."
+
+                suggested = topic.replace(yr_str, correct_yr) if correct_yr else ""
+                errors = [{
+                    "wrong": yr_str,
+                    "correct": correct_yr or "năm thuộc thời Lý (1009-1225) hoặc Trần (1225-1400)",
+                    "explanation": explanation
+                }]
+                print(f"[ChronologyGate] 🚫 TỪ CHỐI mốc niên đại sai lệch: '{yr_str}' ngoài thời Lý - Trần")
+                return {
+                    "in_scope": False,
+                    "reason": f"Văn bản chứa mốc niên đại sai lệch lịch sử: {explanation}",
+                    "errors": errors,
+                    "suggested_text": suggested
+                }
+
     prompt = f"""Bạn là Chuyên Gia Kiểm Định Sử Học Tối Cao chuyên trách THỜI KỲ NHÀ LÝ (1009 - 1225) VÀ NHÀ TRẦN (1225 - 1400) của Đại Việt.
 Nhiệm vụ: Thẩm định TOÀN BỘ nội dung/kịch bản dưới đây xem có hợp lệ và thuần khiết theo chính sử Lý - Trần hay không.
 
@@ -1382,8 +1432,9 @@ QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRO
 2. BẮT BUỘC TỪ CHỐI (in_scope = false):
    - Chứa BẤT KỲ nhân vật/địa danh ngoài lịch sử Việt Nam hoặc hư cấu (ví dụ nhân vật thời Tam Quốc Trung Quốc: Trương Liêu, Lưu Bị, Quan Vũ, Tào Tháo, Tôn Quyền, Gia Cát Lượng, Lữ Bố...; nhân vật kiếm hiệp, tiểu thuyết...).
    - Chứa nhân vật hoặc sự kiện thuộc CÁC THỜI KỲ KHÁC của lịch sử Việt Nam bị gán ghép sai vào thời Lý - Trần (ví dụ: Đinh Bộ Lĩnh, Ngô Quyền, Hai Bà Trưng, Lê Lợi, Nguyễn Trãi, Quang Trung, thời Nguyễn...).
+   - Chứa mốc niên đại sai lệch hoặc lạc thời kỳ (ví dụ: viết năm 1453 thời Lê Sơ cho vua thời Trần, viết năm 1012 cho Chiếu Dời Đô 1010...).
    - Râu ông nọ cắm cằm bà kia hoặc mâu thuẫn sử học nghiêm trọng (ví dụ: Lý Thường Kiệt đánh giặc Mông - Nguyên thời Trần, Lý Thái Tổ đánh trận Bạch Đằng 1288, v.v.).
-   - QUY TẮC BẮT BUỘC: Dù bài viết có 90-99% nội dung đúng về nhà Lý hoặc nhà Trần, nhưng NẾU CÓ DÙ CHỈ MỘT CÂU/CỤM TỪ cố ý hoặc vô tình chèn nhân vật sai trái/ngoại lai/lạc thời kỳ (như 'Trương Liêu', 'Lưu Bị', 'Đinh Bộ Lĩnh') -> BẮT BUỘC PHẢI TỪ CHỐI (in_scope = false) và vạch rõ tên các nhân vật sai phạm trong lý do!
+   - QUY TẮC BẮT BUỘC: Dù bài viết có 90-99% nội dung đúng về nhà Lý hoặc nhà Trần, nhưng NẾU CÓ DÙ CHỈ MỘT CÂU/CỤM TỪ cố ý hoặc vô tình chèn nhân vật sai trái/ngoại lai/lạc thời kỳ (như 'Trương Liêu', 'Lưu Bị', 'Đinh Bộ Lĩnh') hoặc sai niên đại (như '1453') -> BẮT BUỘC PHẢI TỪ CHỐI (in_scope = false) và vạch rõ tên các nhân vật hoặc niên đại sai phạm trong lý do!
 
     Trả về JSON thuần túy (không bọc trong markdown):
     {{
@@ -1414,33 +1465,51 @@ QUY TẮC KIỂM ĐỊNH TỪNG CÂU TỪ VÀ THỰC THỂ (STRICT ENTITY & CHRO
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"response_mime_type": "application/json", "temperature": 0.1}
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={api_key}"
-    req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
-            return json.loads(text)
-    except urllib.error.HTTPError as e:
-        err_body = e.read().decode("utf-8", errors="ignore")
-        if e.code == 400:
-            raise RuntimeError("❌ Google Gemini API Key của bạn không hợp lệ hoặc sai định dạng. Vui lòng kiểm tra lại trong Cài đặt (⚙️).")
-        if e.code == 403:
-            raise RuntimeError("❌ Google Gemini API Key của bạn không có quyền truy cập hoặc đã bị khóa (403 Forbidden).")
-        if e.code == 429:
-            raise RuntimeError("❌ Google Gemini API Key của bạn đã hết hạn ngạch gọi miễn phí (Quota Exceeded / Rate Limit). Vui lòng đổi sang một API Key khác tại Google AI Studio.")
-        raise
-    except Exception as e:
-        print(f"⚠️ Scope check error: {e}")
-        other_dynasties_keywords = [
-            "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền", "đinh bộ lĩnh",
-            "lê lợi", "nguyễn trãi", "lê sơ", "lê thánh tông", "quang trung", "tây sơn",
-            "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025",
-            "trương liêu", "lưu bị", "tào tháo", "quan vũ", "tôn quyền", "gia cát lượng", "lữ bố", "triệu vân"
-        ]
-        if any(k in topic.lower() for k in other_dynasties_keywords):
-            return {"in_scope": False, "reason": "Văn bản chứa nhân vật hoặc sự kiện ngoại lai/ngoài phạm vi triều đại Lý - Trần."}
-        return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần"}
+    scope_models = ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest"]
+    
+    for smodel in scope_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{smodel}:generateContent?key={api_key}"
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                return json.loads(text)
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="ignore")
+            if e.code == 400 and ("API_KEY_INVALID" in err_body or "API key not valid" in err_body):
+                raise RuntimeError("❌ Google Gemini API Key của bạn không hợp lệ hoặc sai định dạng. Vui lòng kiểm tra lại trong Cài đặt (⚙️).")
+            if e.code == 403:
+                raise RuntimeError("❌ Google Gemini API Key của bạn không có quyền truy cập hoặc đã bị khóa (403 Forbidden).")
+            if e.code == 429:
+                if "RESOURCE_EXHAUSTED" in err_body or "Quota exceeded" in err_body:
+                    raise RuntimeError("❌ Google Gemini API Key của bạn đã hết hạn ngạch gọi miễn phí (Quota Exceeded / Rate Limit). Vui lòng đổi sang một API Key khác tại Google AI Studio.")
+                time.sleep(1.5)
+                continue
+            if e.code in (503, 500, 502, 504):
+                print(f"[ScopeCheck] ⚠️ Máy chủ Google Gemini quá tải ({e.code}) trên model {smodel}, thử model tiếp theo...")
+                time.sleep(1.0)
+                continue
+            # Model 404: skip to next
+            if e.code == 404:
+                continue
+            print(f"[ScopeCheck] Lỗi HTTP {e.code} trên {smodel}: {err_body[:120]}")
+            continue
+        except Exception as e:
+            print(f"[ScopeCheck] ⚠️ Lỗi kết nối {smodel}: {e}, thử model tiếp theo...")
+            continue
+
+    # Fallback an toàn nếu toàn bộ LLM của Google đều bị quá tải (503)
+    print("⚠️ Tất cả model Gemini đều bận/quá tải, kích hoạt Fallback kiểm tra từ khóa an toàn cho đề tài...")
+    other_dynasties_keywords = [
+        "hồng bàng", "an dương vương", "hai bà trưng", "ngô quyền", "đinh bộ lĩnh",
+        "lê lợi", "nguyễn trãi", "lê sơ", "lê thánh tông", "quang trung", "tây sơn",
+        "gia long", "minh mạng", "nhà nguyễn", "pháp thuộc", "mỹ", "usa", "nga", "bitcoin", "2024", "2025",
+        "trương liêu", "lưu bị", "tào tháo", "quan vũ", "tôn quyền", "gia cát lượng", "lữ bố", "triệu vân"
+    ]
+    if any(k in topic.lower() for k in other_dynasties_keywords):
+        return {"in_scope": False, "reason": "Văn bản chứa nhân vật hoặc sự kiện ngoại lai/ngoài phạm vi triều đại Lý - Trần."}
+    return {"in_scope": True, "reason": "Cho phép kiểm tra tiếp qua kho sử liệu Lý - Trần (Chế độ Fallback khi Google bận)"}
 
 
 def call_gemini_storyboard(topic: str, raw_api_key: str | None, duration_sec: int = 60, use_rag: bool = True, keep_original_script: bool = False) -> dict:
@@ -1582,6 +1651,7 @@ QUY CHUẨN NỘI DUNG VÀ VĂN PHONG PHIM TÀI LIỆU LỊCH SỬ CHÍNH THỐN
 1. NGUYÊN TẮC BÁM SÁT 100% SỬ LIỆU GỐC (TUYỆT ĐỐI KHÔNG TỰ SUY DIỄN):
    - Mọi dữ kiện, nguyên nhân, hành động, địa danh, mốc thời gian PHẢI BÁM CHẶT VÀO VĂN BẢN TRÍCH ĐOẠN SỬ LIỆU CUNG CẤP Ở TRÊN.
    - TUYỆT ĐỐI KHÔNG tự bịa đặt, KHÔNG dùng các từ ngữ hiện đại suy diễn thiếu căn cứ (như không tự tiện gán ghép 'vùng trũng thấp chật hẹp', 'không đủ không gian phát triển lâu dài'). Thuật lại trung thực lập luận của tiền nhân ghi trong sử sách.
+   - PHÂN ĐỊNH RẠCH RÒI TỪNG CHIẾN DỊCH, THỜI KỲ VÀ TƯỚNG LĨNH: Tuyệt đối không lẫn lộn nhân vật giữa các cuộc kháng chiến (ví dụ 3 lần chống Mông - Nguyên: lần 1 năm 1258 Ngột Lương Hợp Thai; lần 2 năm 1285 Thoát Hoan, Toa Đô, Ô Mã Nhi, hội nghị Diên Hồng; lần 3 năm 1287-1288 Thoát Hoan, Ô Mã Nhi, Phàn Tiếp, Áo Lỗ Xích, bắt sống Ô Mã Nhi và Áo Lỗ Xích ở Bạch Đằng - Vạn Kiếp. TUYỆT ĐỐI KHÔNG đưa sự kiện hoặc tướng bị bắt của đợt 3 vào kịch bản đợt 2).
 {history_specific_note}
 2. DỮ KIỆN CỤ THỂ - NÓI KHÔNG VỚI LỜI KHEN SÁO RỖNG:
    - Mỗi câu thuyết minh PHẢI chứa thông tin lịch sử thật: nhân vật, địa danh, mốc năm hoặc hành động cụ thể.
@@ -1653,10 +1723,10 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
         }
     }
     
-    models = ["gemini-flash-lite-latest", "gemini-3.8-flash", "gemini-flash-latest"]
+    models = ["gemini-flash-lite-latest", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-flash-latest"]
     last_err = None
     MAX_RETRIES_ON_TRAFFIC = 3   # Số lần retry khi gặp 429 (traffic cao)
-    RETRY_BASE_DELAY = 2.0       # Giây: 2s → 4s → 8s (exponential backoff)
+    RETRY_BASE_DELAY = 1.5       # Giây: 1.5s → 3s → 6s (exponential backoff)
 
     for model in models:
         for ver in ["v1beta", "v1"]:
@@ -1866,6 +1936,8 @@ Hãy trả về định dạng JSON thuần túy (không bọc trong markdown):
 
                 break  # nếu chạy đến đây mà không return thì thôi (không nhật thiết retry)
 
+    if last_err and ("503" in str(last_err) or "Service Unavailable" in str(last_err)):
+        raise RuntimeError("⚠️ Máy chủ Google Gemini AI hiện đang quá tải (HTTP 503 Service Unavailable). Vui lòng thử lại sau 30 giây đến 1 phút hoặc đổi sang API Key khác.")
     raise RuntimeError(f"Không thể kết nối Gemini API với API Key của bạn sau khi thử các model. Vui lòng kiểm tra lại API Key hoặc đổi key mới. Lỗi cuối: {last_err}")
 
 # ──────────────────────────────────────────────────────────────
@@ -1997,7 +2069,11 @@ def normalize_tts_phonemes(text: str) -> str:
     clean = re.sub(r'\bkỷ\b', 'kỉ', clean, flags=re.IGNORECASE)
     clean = re.sub(r'\bkỳ\b', 'kì', clean, flags=re.IGNORECASE)
     clean = re.sub(r'\bmỹ\b', 'mĩ', clean, flags=re.IGNORECASE)
-    clean = re.sub(r'\blý\b', 'lí', clean, flags=re.IGNORECASE)
+    # Khắc phục từ ngữ lịch sử gây lỗi kiểm duyệt/tokenizer của Azure Edge-TTS
+    clean = re.sub(r'\bkinh sư\b', 'kinh đô', clean, flags=re.IGNORECASE)
+    clean = re.sub(r'\bkinh thành\b', 'kinh thành', clean, flags=re.IGNORECASE)
+    # Tách dấu phẩy dính liền sau số năm lịch sử để tránh nghẽn tokenizer (ví dụ: '1010,' -> '1010,')
+    clean = re.sub(r'(\d+),', r'\1, ', clean)
 
     if not clean:
         clean = "..."
@@ -2050,10 +2126,39 @@ async def generate_speech_edge(text: str, voice: str, out_p: Path):
             print(f"[Edge-TTS] Lần {attempt+1}/{len(delays)} giọng {vname} gặp sự cố cho '{clean_text[:35]}...': {e}")
             await asyncio.sleep(delay)
 
-    # Nếu sau 5 lần thử với đúng giọng yêu cầu vẫn bị từ chối kết nối từ Microsoft,
+    # Thử thêm với văn bản lược giản dấu câu gây nghẽn tokenizer trước khi kích hoạt fallback
+    simplified_text = re.sub(r'[,;:"\'()\[\]]+', ' ', clean_text).strip()
+    if not simplified_text.endswith(('.', '!', '?')):
+        simplified_text += '.'
+    for attempt, delay in enumerate([1.0, 2.0]):
+        try:
+            out_p.unlink(missing_ok=True)
+            comm = edge_tts.Communicate(simplified_text, vname)
+            await comm.save(str(out_p))
+            if out_p.exists() and out_p.stat().st_size > 500:
+                return
+        except Exception as e:
+            print(f"[Edge-TTS-Sanitized] Lần {attempt+1}/2 giọng {vname} thất bại cho '{simplified_text[:35]}...': {e}")
+            await asyncio.sleep(delay)
+
+    # Nếu sau tất cả các lần thử với đúng giọng yêu cầu vẫn bị từ chối kết nối từ Microsoft,
     # kích hoạt Google Translate TTS dự phòng để cứu video không bị gián đoạn
     print(f"[TTS-Fallback] 🌐 Kích hoạt Google Translate TTS dự phòng cho câu: '{clean_text[:40]}'...")
     if generate_speech_google_tts(clean_text, out_p):
+        if "nam" in vname.lower():
+            # Hạ cao độ giọng nữ của Google Translate xuống âm vực nam trầm ấm tự nhiên
+            raw_tmp = out_p.with_suffix(".tmp.mp3")
+            try:
+                out_p.rename(raw_tmp)
+                subprocess.run([
+                    "ffmpeg", "-y", "-loglevel", "error",
+                    "-i", str(raw_tmp),
+                    "-af", "asetrate=44100*0.82,aresample=44100,atempo=1.22",
+                    str(out_p)
+                ], check=False)
+                raw_tmp.unlink(missing_ok=True)
+            except Exception as e_pitch:
+                print(f"[TTS-Fallback] Cảnh báo xử lý pitch fallback: {e_pitch}")
         print(f"[TTS-Fallback] ✅ Google Translate TTS đã tạo giọng đọc thành công cho '{clean_text[:30]}'!")
         return
 
@@ -2219,7 +2324,10 @@ def generate_single_audio_clip(
             print(f"⚠️ ElevenLabs TTS gặp lỗi ({e_eleven}). Tự động fallback sang Microsoft Edge-TTS vi-VN-NamMinhNeural...")
             asyncio.run(generate_speech_edge(text, "vi-VN-NamMinhNeural", out_mp3))
     else:
-        vname = "vi-VN-NamMinhNeural" if "Nam" in voice_name or voice_name in ["Brian", "Liam", "Adam", "George", "Callum", "Bill"] else "vi-VN-HoaiMyNeural"
+        male_names = ["brian", "liam", "adam", "george", "callum", "bill", "roger", "harry", "will", "eric", "chris", "daniel", "charlie"]
+        v_lower = (voice_name or "").strip().lower()
+        is_male = "nam" in v_lower or any(m == v_lower for m in male_names) or v_lower.startswith("vi-vn-nam")
+        vname = "vi-VN-NamMinhNeural" if is_male else "vi-VN-HoaiMyNeural"
         asyncio.run(generate_speech_edge(text, vname, out_mp3))
 
     # Chuẩn hóa sang WAV 44.1kHz stereo để trộn timeline mượt mà

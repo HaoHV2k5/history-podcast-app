@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { gsap } from 'gsap';
+import { isReducedMotion } from '@/utils/motion';
 import {
   Clapperboard,
   Film,
@@ -14,9 +16,13 @@ import {
   ArrowLeft,
   UploadCloud,
   ShieldCheck,
+  ShieldAlert,
+  AlertTriangle,
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Loader2,
+  Lock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,9 +71,9 @@ interface Step4RenderStudioProps {
 
 export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
   renderMode,
-  setRenderMode,
+  setRenderMode: _setRenderMode,
   renderTitle,
-  setRenderTitle,
+  setRenderTitle: _setRenderTitle,
   renderDurationSec,
   selectedVoice,
   storyboard,
@@ -102,19 +108,118 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
   const isFailed = jobStatus?.status === 'failed';
   const isRunning = activeJobId && !isCompleted && !isFailed;
 
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const stepsGridRef = useRef<HTMLDivElement>(null);
+  const completedContainerRef = useRef<HTMLDivElement>(null);
+  const softGuardProgressRef = useRef<HTMLDivElement>(null);
+  const softGuardTweenRef = useRef<gsap.core.Timeline | null>(null);
+
   // 6-step progress calculation
   const currentStep = jobStatus?.step || 1;
   const totalSteps = jobStatus?.total_steps || 6;
   const progressPercent = Math.min(100, Math.round((currentStep / totalSteps) * 100));
 
-  const STEP_NAMES = [
-    'Khởi tạo môi trường đồ họa',
-    'Tổng hợp giọng đọc thuyết minh (TTS)',
-    'Tạo phụ đề SRT đồng bộ',
-    'Kết xuất khung hình MP4',
-    'Lưu trữ & đồng bộ video',
-    'Hoàn tất video',
+  const STEP_ITEMS = [
+    { num: 1, title: 'Khởi tạo', desc: 'Môi trường đồ họa' },
+    { num: 2, title: 'Lồng tiếng AI', desc: 'Thuyết minh TTS' },
+    { num: 3, title: 'Phụ đề SRT', desc: 'Khớp thời gian' },
+    { num: 4, title: 'Render MP4', desc: 'Khung hình video' },
+    { num: 5, title: 'Lưu trữ Cloud', desc: 'Đồng bộ đám mây' },
+    { num: 6, title: 'Hoàn tất', desc: 'Sẵn sàng phát' },
   ];
+
+  // GSAP Progress Bar Animation
+  useEffect(() => {
+    if (isReducedMotion() || !progressBarRef.current) return;
+    gsap.to(progressBarRef.current, {
+      width: `${progressPercent}%`,
+      duration: 0.5,
+      ease: 'power2.out',
+    });
+  }, [progressPercent]);
+
+  // GSAP Smooth Progressive Animation for AI Shield Historical Verification
+  useEffect(() => {
+    if (!softGuardProgressRef.current) return;
+
+    if (isCheckingSoftGuard) {
+      if (isReducedMotion()) {
+        softGuardProgressRef.current.style.width = '75%';
+        return;
+      }
+
+      if (softGuardTweenRef.current) {
+        softGuardTweenRef.current.kill();
+      }
+
+      gsap.set(softGuardProgressRef.current, { width: '0%' });
+
+      // Smooth realistic progress animation:
+      // Starts responsive: 0% -> 28% in 0.7s -> 65% in 1.8s -> steadily up to 92% in 3.5s
+      const tl = gsap.timeline();
+      tl.to(softGuardProgressRef.current, {
+        width: '28%',
+        duration: 0.7,
+        ease: 'power2.out',
+      })
+      .to(softGuardProgressRef.current, {
+        width: '65%',
+        duration: 1.8,
+        ease: 'power1.inOut',
+      })
+      .to(softGuardProgressRef.current, {
+        width: '92%',
+        duration: 3.5,
+        ease: 'power1.out',
+      });
+
+      softGuardTweenRef.current = tl;
+    } else {
+      if (softGuardTweenRef.current) {
+        softGuardTweenRef.current.kill();
+        softGuardTweenRef.current = null;
+      }
+      if (softGuardProgressRef.current) {
+        gsap.to(softGuardProgressRef.current, {
+          width: '100%',
+          duration: 0.25,
+          ease: 'power2.out',
+        });
+      }
+    }
+
+    return () => {
+      if (softGuardTweenRef.current) {
+        softGuardTweenRef.current.kill();
+        softGuardTweenRef.current = null;
+      }
+    };
+  }, [isCheckingSoftGuard]);
+
+  // GSAP Active Step Animation
+  useEffect(() => {
+    if (isReducedMotion() || !stepsGridRef.current || !isRunning) return;
+    const currentCard = stepsGridRef.current.children[currentStep - 1];
+    if (currentCard) {
+      gsap.fromTo(
+        currentCard,
+        { scale: 0.97 },
+        { scale: 1, duration: 0.35, ease: 'back.out(1.5)' }
+      );
+    }
+  }, [currentStep, isRunning]);
+
+  // GSAP Entrance Stagger for Completed View
+  useEffect(() => {
+    if (isReducedMotion() || !completedContainerRef.current || !isCompleted) return;
+    const items = completedContainerRef.current.querySelectorAll('[data-completion-item]');
+    if (!items.length) return;
+    gsap.fromTo(
+      items,
+      { opacity: 0, y: 14 },
+      { opacity: 1, y: 0, duration: 0.45, stagger: 0.08, ease: 'power2.out' }
+    );
+  }, [isCompleted]);
 
   return (
     <div className="space-y-6 w-full">
@@ -144,9 +249,9 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
 
               <Badge
                 variant={isCompleted ? 'success' : isFailed ? 'error' : 'accent'}
-                className="font-mono text-xs font-bold"
+                className="font-sans text-xs font-semibold tabular-nums"
               >
-                {isCompleted ? 'HOÀN TẤT (100%)' : isFailed ? 'THẤT BẠI' : `ĐANG XỬ LÝ (${progressPercent}%)`}
+                {isCompleted ? 'Hoàn tất (100%)' : isFailed ? 'Thất bại' : `Đang xử lý (${progressPercent}%)`}
               </Badge>
             </div>
 
@@ -164,21 +269,22 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   <span className="text-ink flex items-center gap-2">
                     <RotateCcw className="h-3.5 w-3.5 text-accent animate-spin" />
                     <span>
-                      Bước {currentStep}/{totalSteps}: {jobStatus?.step_name || STEP_NAMES[currentStep - 1] || 'Đang xử lý...'}
+                      Bước {currentStep}/{totalSteps}: {jobStatus?.step_name || STEP_ITEMS[currentStep - 1]?.title || 'Đang xử lý...'}
                     </span>
                   </span>
-                  <span className="text-accent font-mono font-bold">{progressPercent}%</span>
+                  <span className="text-accent font-sans font-bold text-sm tabular-nums">{progressPercent}%</span>
                 </div>
 
                 <div className="h-2.5 w-full rounded-full bg-surface-subtle overflow-hidden border border-border">
                   <div
-                    className="h-full bg-accent rounded-full transition-all duration-500 ease-out"
+                    ref={progressBarRef}
+                    className="h-full bg-accent rounded-full transition-[width] duration-300 ease-out"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5 pt-1">
-                  {STEP_NAMES.map((name, idx) => {
+                <div ref={stepsGridRef} className="grid grid-cols-2 sm:grid-cols-6 gap-2 pt-1">
+                  {STEP_ITEMS.map((item, idx) => {
                     const stepNum = idx + 1;
                     const isDone = currentStep > stepNum;
                     const isCurrent = currentStep === stepNum;
@@ -186,16 +292,29 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                     return (
                       <div
                         key={idx}
-                        className={`p-2 rounded-lg border text-center transition-all ${
+                        className={`p-2.5 rounded-xl border text-center transition-[background-color,border-color,transform] flex flex-col items-center justify-center gap-0.5 ${
                           isDone
-                            ? 'border-status-success-text/30 bg-status-success-bg/30 text-ink'
+                            ? 'border-status-success-text/30 bg-status-success-bg/25 text-ink'
                             : isCurrent
-                            ? 'border-accent bg-accent-soft/40 text-accent font-bold ring-1 ring-accent'
+                            ? 'border-accent bg-accent-soft/40 text-accent font-semibold ring-1 ring-accent shadow-2xs'
                             : 'border-border/60 bg-surface-subtle/30 text-muted opacity-60'
                         }`}
                       >
-                        <span className="text-[10px] block font-mono font-bold">0{stepNum}</span>
-                        <span className="text-[10px] line-clamp-1 mt-0.5">{name}</span>
+                        <div className="flex items-center justify-center gap-1">
+                          {isDone ? (
+                            <Check className="h-3.5 w-3.5 text-status-success-text shrink-0" />
+                          ) : (
+                            <span className="text-[11px] font-sans font-bold tabular-nums">
+                              {stepNum}
+                            </span>
+                          )}
+                          <span className="text-xs font-semibold tracking-tight text-ink">
+                            {item.title}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-muted leading-tight font-sans">
+                          {item.desc}
+                        </span>
                       </div>
                     );
                   })}
@@ -247,27 +366,93 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
             )}
           </div>
 
-          {/* COMPLETED VIDEO & AUDIO PLAYERS */}
+          {/* COMPLETED VIDEO & ACTIONS VIEW */}
           {isCompleted && (
-            <div className="space-y-6 animate-fadeIn">
-              {/* Media Preview Card */}
-              <div className="rounded-xl border border-border bg-surface p-6 shadow-xs space-y-5">
-                <div className="flex items-center justify-between pb-3 border-b border-border">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-status-success-bg text-status-success-text">
-                      <CheckCircle2 className="h-4 w-4" />
-                    </span>
-                    <h3 className="font-serif text-sm font-bold text-ink">
-                      Xem Trước Video Thành Phẩm &amp; Tải Xuống
-                    </h3>
+            <div ref={completedContainerRef} className="space-y-6">
+              {/* 1. Celebratory Success Hero Banner */}
+              <div
+                data-completion-item
+                className="p-5 sm:p-6 rounded-xl border border-status-success-text/30 bg-status-success-bg/25 border-l-4 border-l-status-success-text flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-status-success-text text-canvas shadow-2xs">
+                    <CheckCircle2 className="h-6 w-6" />
                   </div>
-
-                  <span className="text-xs text-muted font-mono">Định dạng MP4 • 1080p</span>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="success" className="font-semibold text-xs px-2.5 py-0.5">
+                        KẾT XUẤT THÀNH CÔNG • 100%
+                      </Badge>
+                      <span className="text-xs text-muted font-medium">
+                        {renderMode === 'whiteboard'
+                          ? 'Hoạt Họa Bảng Trắng 1080p'
+                          : 'Bản Thuyết Minh Audio Podcast'}
+                      </span>
+                    </div>
+                    <h3 className="font-serif text-lg font-bold text-ink">
+                      Tác phẩm video đã hoàn thành xuất sắc!
+                    </h3>
+                    <p className="text-xs text-muted leading-relaxed max-w-2xl">
+                      {renderMode === 'whiteboard'
+                        ? 'Toàn bộ nét vẽ phác thảo tay, giọng đọc thuyết minh chuẩn sắc và phụ đề đã được đồng bộ chính xác vào video MP4.'
+                        : 'Bản thu âm thanh chất lượng cao kết hợp hình ảnh bìa và sóng âm đã sẵn sàng phát hành.'}
+                    </p>
+                  </div>
                 </div>
 
-                {/* HTML5 Video Player */}
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  {jobStatus?.video_url && (
+                    <a
+                      href={resolveMediaUrl(jobStatus.video_url)}
+                      download="final_video.mp4"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-canvas font-semibold text-xs hover:bg-accent/90 transition-[background-color,transform] active:scale-[0.98]"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      <span>Tải MP4 Ngay</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Cinema Screening Room Preview Card */}
+              <div
+                data-completion-item
+                className="rounded-xl border border-border bg-surface p-5 sm:p-6 space-y-5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-border">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/10 text-accent">
+                      <Film className="h-3.5 w-3.5" />
+                    </span>
+                    <div>
+                      <h3 className="font-serif text-sm font-bold text-ink">
+                        Bản Chiếu Xem Trước (Preview Thành Phẩm)
+                      </h3>
+                      {renderTitle && (
+                        <p className="text-[11px] text-muted truncate max-w-md">
+                          {renderTitle}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs text-muted border-border font-medium">
+                      Định dạng MP4 • 1080p
+                    </Badge>
+                    {jobStatus?.srt_url && (
+                      <Badge variant="outline" className="text-xs text-status-success-text border-status-success-text/30 bg-status-success-bg/20 font-medium">
+                        Phụ đề SRT đồng bộ
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* HTML5 Video Player Frame */}
                 {jobStatus?.video_url && (
-                  <div className="rounded-xl overflow-hidden border border-border bg-black aspect-video max-w-2xl mx-auto shadow-md">
+                  <div className="rounded-xl overflow-hidden border border-border bg-black aspect-video max-w-3xl mx-auto">
                     <video
                       controls
                       src={resolveMediaUrl(jobStatus.video_url)}
@@ -279,9 +464,9 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   </div>
                 )}
 
-                {/* Optional HTML5 Audio Player */}
-                {jobStatus?.audio_url && (
-                  <div className="p-4 rounded-xl border border-border bg-surface-subtle/50 max-w-2xl mx-auto space-y-2">
+                {/* Optional HTML5 Audio Player - STRICTLY ONLY for audio_podcast */}
+                {renderMode === 'audio_podcast' && jobStatus?.audio_url && (
+                  <div className="p-4 rounded-xl border border-border bg-surface-subtle/50 max-w-3xl mx-auto space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
                         <Volume2 className="h-3.5 w-3.5 text-accent" />
@@ -292,7 +477,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                         download="podcast_voice.mp3"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[11px] text-accent hover:underline flex items-center gap-1 font-mono"
+                        className="text-[11px] text-accent hover:underline flex items-center gap-1 font-sans font-medium"
                       >
                         <Download className="h-3 w-3" />
                         <span>Tải MP3</span>
@@ -308,18 +493,18 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   </div>
                 )}
 
-                {/* Download Buttons Bar */}
-                <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
+                {/* Download & Export Action Bar */}
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   {jobStatus?.video_url && (
                     <a
                       href={resolveMediaUrl(jobStatus.video_url)}
                       download="final_video.mp4"
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-accent text-canvas font-bold text-xs hover:bg-accent/90 transition-colors shadow-xs"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-accent text-canvas font-semibold text-xs hover:bg-accent/90 transition-[background-color,transform] active:scale-[0.98]"
                     >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Tải Video MP4</span>
+                      <Download className="h-4 w-4" />
+                      <span>Tải Video MP4 (1080p)</span>
                     </a>
                   )}
 
@@ -329,20 +514,20 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                       download="subtitles.srt"
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs text-ink hover:bg-surface-subtle transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-border text-xs font-medium text-ink hover:bg-surface-subtle transition-[background-color,color]"
                     >
                       <Download className="h-3.5 w-3.5 text-muted" />
                       <span>Tải Phụ Đề SRT</span>
                     </a>
                   )}
 
-                  {jobStatus?.audio_url && (
+                  {renderMode === 'audio_podcast' && jobStatus?.audio_url && (
                     <a
                       href={resolveMediaUrl(jobStatus.audio_url)}
                       download="podcast_voice.mp3"
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-xs text-ink hover:bg-surface-subtle transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-border text-xs font-medium text-ink hover:bg-surface-subtle transition-[background-color,color]"
                     >
                       <Volume2 className="h-3.5 w-3.5 text-accent" />
                       <span>Tải Audio MP3</span>
@@ -351,18 +536,21 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                 </div>
               </div>
 
-              {/* VITAL FEATURE: SUBMIT MODERATION TO AI SHIELD */}
-              <div className="rounded-xl border border-accent/40 bg-accent-soft/20 p-6 shadow-xs space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-accent/20">
+              {/* 3. AI Shield Moderation Card */}
+              <div
+                data-completion-item
+                className="rounded-xl border border-accent/40 bg-accent-soft/20 p-5 sm:p-6 space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-accent/20">
                   <div className="flex items-center gap-2.5">
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-canvas">
                       <ShieldCheck className="h-4 w-4" />
                     </span>
                     <div>
                       <h3 className="font-serif text-sm font-bold text-ink flex items-center gap-2">
-                        <span>Gửi Kiểm Duyệt Xuất Bản (AI Shield &amp; Admin)</span>
+                        <span>Kiểm Duyệt Nội Dung &amp; Xuất Bản (AI Shield)</span>
                         {activeContentId && (
-                          <span className="text-[10px] font-mono text-muted font-normal">(Video #{activeContentId})</span>
+                          <span className="text-[11px] text-muted font-normal">(Video #{activeContentId})</span>
                         )}
                       </h3>
                       <p className="text-[11px] text-muted">
@@ -372,11 +560,11 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   </div>
 
                   {publishResult ? (
-                    <Badge variant="success" className="font-sans font-bold">
+                    <Badge variant="success" className="font-sans font-bold text-xs">
                       Đã Gửi Duyệt Thành Công
                     </Badge>
                   ) : (
-                    <Badge variant="pending" className="font-sans">
+                    <Badge variant="pending" className="font-sans text-xs">
                       Trạng thái: Chờ gửi duyệt
                     </Badge>
                   )}
@@ -389,83 +577,204 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   </div>
                 )}
 
-                {publishResult ? (
-                  <div className="p-4 rounded-xl border border-status-success-text/30 bg-status-success-bg/40 text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-ink flex items-center gap-1.5">
-                        <CheckCircle2 className="h-4 w-4 text-status-success-text" />
-                        <span>AI Shield đã tiếp nhận và đánh giá video của bạn</span>
-                      </span>
-                      {publishResult.aiShieldScore !== undefined && (
-                        <Badge variant="success" className="font-mono font-bold text-xs">
-                          Điểm an toàn: {publishResult.aiShieldScore}/100
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted leading-relaxed">
-                      Video hiện đang ở trạng thái <strong>Chờ quản trị viên phê duyệt</strong>. Quản trị viên sẽ xem xét duyệt nội dung trước khi tác phẩm được công khai trên nền tảng.
-                    </p>
-                    <div className="pt-2 flex items-center gap-3">
-                      <Button
-                        size="sm"
-                        onClick={onGoToContentLibrary}
-                        className="text-xs gap-1.5"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        <span>Đến Thư Viện Nội Dung Của Bạn</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onResetNewVideo}
-                        className="text-xs"
-                      >
-                        Tạo video mới khác
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                    <p className="text-xs text-muted max-w-lg">
-                      Nhấn nút dưới đây để kích hoạt kiểm duyệt tự động. Quá trình kiểm tra ngôn từ và đối chiếu chính trị chỉ mất vài giây.
-                    </p>
+                {publishResult ? (() => {
+                  const score =
+                    publishResult.aiShieldScore !== undefined && publishResult.aiShieldScore !== null
+                      ? Number(publishResult.aiShieldScore)
+                      : null;
+                  const isFair = score !== null && score >= 50 && score < 80;
+                  const isCritical = score !== null && score < 50;
 
-                    <Button
-                      size="sm"
-                      onClick={onSubmitPublish}
-                      disabled={isSubmittingPublish}
-                      className="gap-2 text-xs font-semibold px-5 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300"
+                  return (
+                    <div
+                      className={`p-4 rounded-xl border text-xs space-y-3 ${
+                        isCritical
+                          ? 'border-rose-500/30 bg-rose-500/10'
+                          : isFair
+                          ? 'border-amber-500/30 bg-amber-500/10'
+                          : 'border-status-success-text/30 bg-status-success-bg/40'
+                      }`}
                     >
-                      <Sparkles className={`h-3.5 w-3.5 ${isSubmittingPublish ? 'animate-spin' : 'animate-pulse'}`} />
-                      <span>{isSubmittingPublish ? 'Đang gửi kiểm duyệt...' : 'Gửi kiểm duyệt AI Shield ngay'}</span>
-                    </Button>
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <span className="font-bold text-ink flex items-center gap-1.5">
+                          {isCritical ? (
+                            <ShieldAlert className="h-4 w-4 text-rose-600 shrink-0" />
+                          ) : isFair ? (
+                            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                          ) : (
+                            <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0" />
+                          )}
+                          <span>
+                            {isCritical
+                              ? 'AI Shield: Cảnh báo sử liệu / Chờ Admin xem xét kỹ'
+                              : isFair
+                              ? 'AI Shield: Đạt mức Khá (Cần lưu ý một số chi tiết)'
+                              : 'AI Shield: Video đạt chuẩn an toàn & sử liệu cao'}
+                          </span>
+                        </span>
+                        {score !== null && (
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold uppercase shrink-0 border ${
+                              isCritical
+                                ? 'bg-rose-100 text-rose-800 border-rose-300'
+                                : isFair
+                                ? 'bg-amber-100 text-amber-800 border-amber-300'
+                                : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            }`}
+                          >
+                            Điểm an toàn: {score.toFixed(0)}/100 •{' '}
+                            {publishResult.aiShieldTierLabel ||
+                              (isCritical ? 'Báo động đỏ' : isFair ? 'Khá' : 'Xuất sắc')}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-muted leading-relaxed">
+                        {isCritical
+                          ? 'AI Shield phát hiện điểm nghi vấn hoặc mâu thuẫn sử liệu giữa tiêu đề và nội dung kịch bản. Tác phẩm đã được chuyển sang chế độ Admin xem xét đặc biệt trước khi duyệt công khai.'
+                          : isFair
+                          ? 'Video đạt tiêu chuẩn nhưng có một số luận điểm cần biên tập viên đối chiếu lại. Video hiện đang trong hàng đợi Chờ quản trị viên phê duyệt.'
+                          : 'Video đã được AI Shield thẩm định đạt chất lượng cao và không có từ ngữ độc hại. Tác phẩm đã được chuyển vào hàng đợi ưu tiên phê duyệt xuất bản.'}
+                      </p>
+
+                      {publishResult.aiShieldReason && (
+                        <div className="p-3 rounded-lg bg-surface border border-border/80 text-[11px] space-y-1">
+                          <span className="font-semibold text-ink block text-[11px]">
+                            Nhận định chi tiết của AI Shield:
+                          </span>
+                          <p className="text-muted leading-relaxed font-serif italic text-[11px]">
+                            {publishResult.aiShieldReason}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="pt-2 flex flex-wrap items-center gap-3">
+                        <Button
+                          size="sm"
+                          onClick={onGoToContentLibrary}
+                          className="text-xs gap-1.5 font-semibold px-4 rounded-xl bg-accent text-white hover:bg-accent/90"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Đến Thư Viện Nội Dung Của Bạn</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={onResetNewVideo}
+                          className="text-xs rounded-xl border-border hover:bg-surface-subtle"
+                        >
+                          Tạo video mới khác
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 py-1">
+                      <div className="p-3 rounded-lg bg-surface border border-border/80 text-[11px] space-y-1">
+                        <div className="font-semibold text-ink flex items-center gap-1.5">
+                          <Check className="h-3.5 w-3.5 text-status-success-text" />
+                          <span>An toàn ngôn từ</span>
+                        </div>
+                        <p className="text-muted leading-relaxed">Quét từ cấm, bạo lực và nội dung độc hại tự động.</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-surface border border-border/80 text-[11px] space-y-1">
+                        <div className="font-semibold text-ink flex items-center gap-1.5">
+                          <Check className="h-3.5 w-3.5 text-status-success-text" />
+                          <span>Chuẩn mực lịch sử</span>
+                        </div>
+                        <p className="text-muted leading-relaxed">Đối chiếu nhân vật, sự kiện và niên đại chuẩn xác.</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-surface border border-border/80 text-[11px] space-y-1">
+                        <div className="font-semibold text-ink flex items-center gap-1.5">
+                          <Check className="h-3.5 w-3.5 text-status-success-text" />
+                          <span>Chấm điểm AI Shield</span>
+                        </div>
+                        <p className="text-muted leading-relaxed">Cấp điểm an toàn và xếp vào hàng đợi ưu tiên duyệt.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      {isSubmittingPublish && (
+                        <div className="p-3.5 rounded-xl bg-accent/8 border border-accent/25 flex items-center justify-between text-xs animate-in fade-in">
+                          <div className="flex items-center gap-2.5">
+                            <ShieldCheck className="h-4 w-4 text-accent animate-pulse shrink-0" />
+                            <div className="space-y-0.5">
+                              <span className="font-semibold text-ink block text-xs">
+                                AI Shield đang quét ngôn từ &amp; đối chiếu sử liệu...
+                              </span>
+                              <span className="text-[11px] text-muted block">
+                                Hệ thống đang kiểm tra mức độ chân thực với kho sách nội bộ doc/.
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] bg-surface rounded-full px-2.5 font-mono shrink-0">
+                            Đang xử lý
+                          </Badge>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-xs text-muted max-w-lg leading-relaxed">
+                          Nhấn nút dưới đây để kích hoạt kiểm duyệt tự động. Quá trình kiểm tra ngôn từ và đối chiếu chính trị chỉ mất vài giây.
+                        </p>
+
+                        <Button
+                          size="sm"
+                          onClick={onSubmitPublish}
+                          disabled={isSubmittingPublish}
+                          className={`gap-2 text-xs font-semibold px-5 rounded-xl bg-accent text-canvas transition-[background-color,transform] duration-200 ${
+                            isSubmittingPublish
+                              ? 'cursor-wait opacity-90'
+                              : 'shadow-glow-accent shimmer-button hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98]'
+                          }`}
+                        >
+                          {isSubmittingPublish ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-canvas" />
+                              <span>Đang gửi kiểm duyệt...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-3.5 w-3.5 text-canvas" />
+                              <span>Gửi kiểm duyệt AI Shield ngay</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Bottom Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-border">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onGoToContentLibrary}
-                  className="gap-2 text-xs border-border hover:bg-surface-subtle"
+              {/* Bottom Actions - only rendered if publishResult is not yet present to prevent duplicate buttons */}
+              {!publishResult && (
+                <div
+                  data-completion-item
+                  className="flex items-center justify-between pt-4 border-t border-border"
                 >
-                  <Film className="h-3.5 w-3.5 text-accent" />
-                  <span>Mở Thư Viện Nội Dung</span>
-                </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onGoToContentLibrary}
+                    className="gap-2 text-xs border-border hover:bg-surface-subtle"
+                  >
+                    <Film className="h-3.5 w-3.5 text-accent" />
+                    <span>Mở Thư Viện Nội Dung</span>
+                  </Button>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={onResetNewVideo}
-                  className="gap-2 text-xs"
-                >
-                  <span>Tạo Video Mới Khác</span>
-                </Button>
-              </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={onResetNewVideo}
+                    className="gap-2 text-xs"
+                  >
+                    <span>Tạo Video Mới Khác</span>
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -480,88 +789,91 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                 <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent/10 text-accent">
                   <Clapperboard className="h-3.5 w-3.5" />
                 </span>
-                <span className="text-xs font-bold uppercase tracking-wider text-muted">
-                  Bước 4 • Thiết Lập &amp; Khởi Chạy Kết Xuất
+                <span className="text-xs font-semibold text-ink">
+                  Bước 4: Thiết lập &amp; Khởi chạy kết xuất video
                 </span>
               </div>
-              <span className="text-xs text-muted font-mono">1080p Full HD</span>
+              <Badge variant="outline" className="text-xs text-muted border-border font-medium">
+                1080p Full HD
+              </Badge>
             </div>
 
-            {/* 1. Title Input */}
+            {/* 1. Title Input (Locked & Fixed from Script) */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-ink flex items-center justify-between">
-                <span>Tiêu đề tác phẩm video</span>
-                <span className="text-status-error-text text-[11px]">* Bắt buộc</span>
+                <span className="flex items-center gap-1.5">
+                  <span>Tiêu đề tác phẩm video</span>
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted font-normal bg-surface-subtle px-2 py-0.5 rounded border border-border">
+                    <Lock className="h-3 w-3 text-stone-500" />
+                    <span>Đã khóa cố định</span>
+                  </span>
+                </span>
+                <span className="text-muted text-[11px] font-normal">Cố định theo kịch bản</span>
               </label>
-              <Input
-                type="text"
-                placeholder="Ví dụ: Đại lễ dời đô 1010 và Khát vọng Thăng Long ngàn năm"
-                value={renderTitle}
-                onChange={(e) => setRenderTitle(e.target.value)}
-                className="text-xs h-9 bg-surface-subtle/30 border-border font-medium"
-              />
+              <div className="relative">
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={renderTitle}
+                  className="text-xs h-9 bg-surface-subtle/70 text-ink border-border font-medium pr-8 cursor-not-allowed select-all focus-visible:ring-0 focus-visible:border-border"
+                  title="Tiêu đề video được thiết lập từ bước khởi tạo và đã được khóa cố định"
+                />
+                <Lock className="absolute right-2.5 top-2.5 h-4 w-4 text-stone-400 pointer-events-none" />
+              </div>
             </div>
 
-            {/* 2. Format Selection (Whiteboard vs Audio Podcast) */}
+            {/* 2. Confirmed Video Format Display */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-ink block">
-                Định dạng video kết xuất
-              </label>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Audio Podcast Card */}
-                <div
-                  onClick={() => setRenderMode('audio_podcast')}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                    renderMode === 'audio_podcast'
-                      ? 'border-accent bg-accent-soft/30 ring-1 ring-accent shadow-xs'
-                      : 'border-border bg-surface hover:border-accent/40 hover:bg-surface-subtle/40'
-                  }`}
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-ink block">
+                  Định dạng video kết xuất (Đã xác nhận)
+                </label>
+                <button
+                  type="button"
+                  onClick={onPrevStep}
+                  className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium cursor-pointer"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-serif font-bold text-sm text-ink flex items-center gap-2">
-                      <Film className="h-4 w-4 text-accent" />
-                      <span>Video Audio Podcast</span>
-                    </span>
-                    <Badge variant="accent" size="sm">Đề xuất • Nhanh</Badge>
+                  <ArrowLeft className="h-3 w-3" />
+                  <span>Quay lại nếu cần chỉnh sửa</span>
+                </button>
+              </div>
+
+              <div className="p-4 rounded-xl border border-accent/25 bg-accent-soft/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                    {renderMode === 'whiteboard' ? (
+                      <Video className="h-5 w-5" />
+                    ) : (
+                      <Film className="h-5 w-5" />
+                    )}
                   </div>
-
-                  <p className="text-[11px] text-muted leading-relaxed">
-                    Âm thanh chất lượng cao, kết hợp <strong>1 ảnh bìa thumbnail nghệ thuật</strong> và sóng âm thanh động kèm phụ đề SRT đồng bộ. Thời gian tạo chỉ 30–60 giây.
-                  </p>
-
-                  <div className="pt-2 border-t border-border/60 text-[10px] text-accent font-medium">
-                    ✓ Chỉ cần 1 ảnh bìa Podcast Cover
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-serif font-bold text-sm text-ink">
+                        {renderMode === 'whiteboard' ? 'Hoạt Họa Bảng Trắng 16:9' : 'Video Audio Podcast'}
+                      </span>
+                      <Badge variant="accent" size="sm">
+                        {renderMode === 'whiteboard' ? 'Whiteboard Animation' : 'Audio Wave Podcast'}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-muted leading-relaxed mt-0.5">
+                      {renderMode === 'whiteboard'
+                        ? 'Hoạt họa nét vẽ tay phác thảo dòng mực xuất hiện dần trên nền giấy cổ, chuyển cảnh theo từng phân cảnh Storyboard.'
+                        : 'Âm thanh chất lượng cao kết hợp ảnh bìa thumbnail nghệ thuật và sóng âm thanh động kèm phụ đề SRT đồng bộ.'}
+                    </p>
                   </div>
                 </div>
 
-                {/* Whiteboard Card */}
-                <div
-                  onClick={() => setRenderMode('whiteboard')}
-                  className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
-                    renderMode === 'whiteboard'
-                      ? 'border-accent bg-accent-soft/30 ring-1 ring-accent shadow-xs'
-                      : 'border-border bg-surface hover:border-accent/40 hover:bg-surface-subtle/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-serif font-bold text-sm text-ink flex items-center gap-2">
-                      <Video className="h-4 w-4 text-accent" />
-                      <span>Hoạt Họa Bảng Trắng</span>
-                    </span>
-                    <Badge variant="outline" size="sm">Bảng trắng 16:9</Badge>
-                  </div>
-
-                  <p className="text-[11px] text-muted leading-relaxed">
-                    Hoạt họa nét vẽ tay phác thảo dòng mực xuất hiện dần trên nền giấy cổ, chuyển cảnh theo phân cảnh Storyboard.
-                  </p>
-
-                  <div className="pt-2 border-t border-border/60 text-[10px] text-ink font-medium">
-                    {sceneValidation.isValid && scenes.length > 0 ? (
-                      <span className="text-status-success-text">✓ Đủ {sceneValidation.assignedCount}/{sceneValidation.totalScenes} ảnh phân cảnh</span>
-                    ) : (
-                      <span className="text-status-error-text">! Cần tải đủ ảnh cho từng phân cảnh</span>
-                    )}
+                <div className="text-left sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 sm:border-l border-border/60 sm:pl-4 space-y-0.5">
+                  <span className="text-[11px] font-medium text-ink block">
+                    {renderMode === 'whiteboard'
+                      ? `${sceneValidation.assignedCount}/${sceneValidation.totalScenes} ảnh phân cảnh`
+                      : '1 ảnh bìa Podcast Cover'}
+                  </span>
+                  <div className="flex items-center sm:justify-end gap-1 text-[11px] text-status-success-text font-medium">
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Đã khóa định dạng</span>
                   </div>
                 </div>
               </div>
@@ -591,7 +903,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                     size="sm"
                     className="font-medium text-[11px] shrink-0"
                   >
-                    {coverImageUrl ? '✓ Đã có ảnh bìa' : 'Bắt buộc'}
+                    {coverImageUrl ? 'Đã có ảnh bìa' : 'Bắt buộc'}
                   </Badge>
                 </div>
 
@@ -800,17 +1112,17 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                       </div>
                     </div>
 
-                    {/* Mục 3: Giọng đọc (Tùy chọn) */}
-                    <div className="p-2.5 rounded-lg border border-border/80 bg-white flex items-start gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                    {/* Mục 3: Giọng đọc */}
+                    <div className="p-2.5 rounded-lg border border-status-success-text/30 bg-status-success-bg/20 flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-status-success-text shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <span className="font-semibold text-ink">Giọng thuyết minh</span>
-                          <span className="text-[10px] text-muted">(Tùy chọn)</span>
+                          <span className="text-[10px] text-status-success-text font-medium">(Đã chọn)</span>
                         </div>
                         <span className="text-[11px] text-muted truncate block">
                           {selectedVoice
-                            ? `${selectedVoice.name} (${selectedVoice.accent || 'Việt Nam'})`
+                            ? `${selectedVoice.name} (${selectedVoice.accent || (selectedVoice.engine === 'elevenlabs' ? 'ElevenLabs' : 'Việt Nam')})`
                             : 'Mặc định: Nam Minh (Miền Bắc, Edge-TTS)'}
                         </span>
                       </div>
@@ -854,7 +1166,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
             {/* Confirmation Checkbox Card (Mathematically Centered Alignment) */}
             <div
               onClick={() => setConfirmCheck(!confirmCheck)}
-              className={`p-3.5 sm:p-4 rounded-xl border transition-all duration-150 cursor-pointer select-none ${
+              className={`p-3.5 sm:p-4 rounded-xl border transition-[background-color,border-color] duration-150 cursor-pointer select-none ${
                 confirmCheck
                   ? 'border-accent/40 bg-accent/5 shadow-2xs'
                   : 'border-border/80 bg-white hover:border-border hover:bg-surface-subtle/30'
@@ -874,7 +1186,7 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                     className="sr-only"
                   />
                   <div
-                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-150 ${
+                    className={`w-5 h-5 rounded-md border flex items-center justify-center transition-[background-color,border-color,transform] duration-150 ${
                       confirmCheck
                         ? 'bg-accent border-accent text-white shadow-2xs scale-100'
                         : 'border-border/90 bg-canvas hover:border-ink-muted'
@@ -889,6 +1201,49 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                 </span>
               </label>
             </div>
+
+            {/* Active Historical Verification Inspection Banner (ui-ux-pro-max & taste) */}
+            {isCheckingSoftGuard && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="p-4 rounded-xl border border-accent/40 bg-accent-soft/20 space-y-2.5 animate-in fade-in duration-200"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-canvas shrink-0">
+                      <ShieldCheck className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-serif text-xs font-bold text-ink">
+                          Rào chắn mềm AI Shield đang đối chiếu sử liệu
+                        </span>
+                        <Badge variant="outline" className="text-[10px] text-accent border-accent/30 bg-accent/10">
+                          RAG Chính Sử
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted leading-relaxed">
+                        Hệ thống đang rà soát niên đại, sự kiện và nhân vật với Đại Việt Sử Ký Toàn Thư qua RAG...
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-[11px] font-semibold text-accent font-sans">
+                    Đang quét sử liệu...
+                  </span>
+                </div>
+
+                {/* Micro Progress Bar with GSAP Smooth Drive */}
+                <div className="h-1.5 w-full bg-accent/20 rounded-full overflow-hidden">
+                  <div
+                    ref={softGuardProgressRef}
+                    className="h-full bg-accent rounded-full transition-none"
+                    style={{ width: '0%' }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Actions Bar */}
             <div className="flex items-center justify-between pt-4 border-t border-border">
@@ -914,12 +1269,24 @@ export const Step4RenderStudio: React.FC<Step4RenderStudioProps> = ({
                   (renderMode === 'audio_podcast' && !coverImageUrl.trim()) ||
                   (renderMode === 'whiteboard' && (!sceneValidation.isValid || scenes.length === 0))
                 }
-                className="gap-2 text-xs font-semibold px-6 shadow-glow-accent shimmer-button bg-accent text-canvas hover:bg-accent/90 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-300 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                className={`gap-2 text-xs font-semibold px-6 shadow-glow-accent shimmer-button text-canvas transition-[background-color,transform] duration-200 active:scale-[0.98] ${
+                  isCheckingSoftGuard
+                    ? 'bg-accent/90 cursor-wait'
+                    : isStartingRender
+                    ? 'bg-accent/80 cursor-wait'
+                    : 'bg-accent hover:bg-accent/90 hover:-translate-y-0.5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
+                }`}
               >
-                <Clapperboard className={`h-3.5 w-3.5 ${isStartingRender ? 'animate-spin' : ''}`} />
+                {isCheckingSoftGuard ? (
+                  <ShieldCheck className="h-4 w-4 text-amber-200" />
+                ) : isStartingRender ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Clapperboard className="h-3.5 w-3.5" />
+                )}
                 <span>
                   {isCheckingSoftGuard
-                    ? '🔍 Đang đối chiếu sử liệu...'
+                    ? 'Đang đối chiếu sử liệu...'
                     : isStartingRender
                     ? 'Đang khởi chạy render...'
                     : 'Bắt đầu kết xuất Video'}

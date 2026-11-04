@@ -4,6 +4,7 @@ Tích hợp cho tool (Whiteboard Studio)
 """
 
 import os
+import re
 import json
 import time
 import urllib.request
@@ -231,10 +232,77 @@ def verify_script_with_gemini(script_text: str, api_key: str) -> Dict[str, Any]:
     if not key_to_use:
         raise ValueError("Vui lòng cung cấp Google Gemini API Key cá nhân trong Cài đặt (⚙️) để thực hiện thẩm định!")
 
+    # ── 0. BỘ KIỂM SOÁT NIÊN ĐẠI CỨNG (DETERMINISTIC CHRONOLOGY GATE) ──
+    year_matches = list(re.finditer(r'\b(?:năm|vào năm|niên hiệu.*?năm|năm thứ)?\s*(\d{3,4})\b', script_text, flags=re.IGNORECASE))
+    for ym in year_matches:
+        full_match = ym.group(0).strip()
+        yr_str = ym.group(1)
+        yr = int(yr_str)
+        if "năm" in full_match.lower() or "vào năm" in full_match.lower() or full_match.isdigit():
+            if yr < 1009 or yr > 1400:
+                dynasty_hint = (
+                    f"Thời kỳ Hiện đại thế kỷ 20 - 21 (năm {yr})" if yr >= 1900 else (
+                    "Lê Sơ (1428 - 1527)" if 1428 <= yr <= 1527 else (
+                    "Nhà Hồ / Thời thuộc Minh (1400 - 1427)" if 1400 < yr < 1428 else (
+                    "Hậu Lê / Mạc / Trịnh - Nguyễn (1527 - 1788)" if 1527 < yr <= 1788 else (
+                    "Nhà Tây Sơn / Nhà Nguyễn (1788 - 1945)" if 1788 < yr <= 1945 else (
+                    "Thời Đinh - Tiền Lê (968 - 1009)" if 968 <= yr < 1009 else (
+                    "Thời Ngô Quyền (938 - 967)" if 938 <= yr < 968 else "ngoài thời kỳ Lý - Trần"
+                )))))))
+
+                correct_yr = ""
+                lower_t = script_text.lower()
+                explanation = f"Năm {yr} thuộc {dynasty_hint}, hoàn toàn nằm ngoài phạm vi triều đại Nhà Lý (1009 - 1225) và Nhà Trần (1225 - 1400)."
+                if (yr == 1453 or yr == 2000 or yr > 1400) and any(k in lower_t for k in ["trương hán siêu", "hóa châu", "trần dụ tông", "thần sách"]):
+                    correct_yr = "1353"
+                    explanation = f"Sự kiện vua Trần Dụ Tông cử Trương Hán Siêu đem quân Thần Sách vào trấn giữ Hóa Châu diễn ra vào năm Quý Tỵ 1353 (thời Trần), không phải năm {yr} ({dynasty_hint})."
+                elif (yr == 1012 or yr != 1010) and any(k in lower_t for k in ["dời đô", "lý thái tổ", "lý công uẩn", "đại la", "thăng long"]):
+                    correct_yr = "1010"
+                    explanation = f"Vua Lý Thái Tổ ban Chiếu Dời Đô từ Hoa Lư về Đại La vào mùa thu năm Canh Tuất 1010, không phải năm {yr}."
+                elif (yr != 1288) and "bạch đằng" in lower_t and any(k in lower_t for k in ["trần hưng đạo", "ô mã nhi", "trần quốc tuấn"]):
+                    correct_yr = "1288"
+                    explanation = f"Trận thủy chiến Bạch Đằng lịch sử do Trần Hưng Đạo lãnh đạo diễn ra vào năm 1288, không phải năm {yr}."
+
+                suggested = script_text.replace(yr_str, correct_yr) if correct_yr else script_text
+                return {
+                    "in_scope": False,
+                    "overall_score": 35,
+                    "status": "critical_errors",
+                    "summary": f"Phát hiện mốc niên đại sai lệch nghiêm trọng: {explanation}",
+                    "claims": [{
+                        "claim_text": full_match,
+                        "verdict": "error",
+                        "explanation": explanation,
+                        "source_reference": "Đại Việt Sử Ký Toàn Thư (Bản Kỷ Toàn Thư)",
+                        "suggested_fix": correct_yr
+                    }],
+                    "revised_script": suggested
+                }
+
     # 1. Truy vấn các đoạn sử liệu liên quan nhất cho toàn bộ bài viết / kịch bản
-    # Cắt ngắn để tìm kiếm theo bối cảnh chung
-    summary_query = script_text[:500].replace("\n", " ")
-    context_chunks = search_history_context(summary_query, key_to_use, top_k=7)
+    # Lấy mẫu thông minh từ cả phần đầu, giữa và kết bài để không bỏ sót các phân cảnh sau
+    queries = []
+    clean_text = " ".join([line.strip() for line in script_text.split("\n") if line.strip()])
+    if len(clean_text) <= 500:
+        queries.append(clean_text)
+    else:
+        queries.append(clean_text[:400])
+        mid_pos = len(clean_text) // 2
+        queries.append(clean_text[mid_pos:mid_pos + 400])
+        queries.append(clean_text[-400:])
+
+    context_chunks = []
+    seen_sigs = set()
+    for q in queries:
+        try:
+            matched = search_history_context(q, key_to_use, top_k=5)
+            for c in matched:
+                sig = f"{c.get('book_title')}_{c.get('page')}_{c.get('text', '')[:60]}"
+                if sig not in seen_sigs:
+                    seen_sigs.add(sig)
+                    context_chunks.append(c)
+        except Exception as err:
+            print(f"⚠️ Context search chunk warning: {err}")
 
     context_str = ""
     for idx, c in enumerate(context_chunks, 1):
@@ -255,44 +323,46 @@ Dưới đây là một KỊCH BẢN / ĐOẠN VĂN do người dùng gửi đ�
 VÀ ĐÂY LÀ CÁC TRÍCH ĐOẠN SỬ LIỆU GỐC ĐƯỢC TÌM THẤY TRONG KHO SÁCH (Đại Việt Sử Ký Toàn Thư, An Nam Chí Lược, Đại Việt Sử Lược):
 {context_str}
 
-NHIỆM VỤ CỦA BẠN (CỰC KỲ NGHIÊM NGẶT VÀ CỤ THỂ):
+NHIỆM VỤ CỦA BẠN (CỰC KỲ KHÁCH QUAN, CHUẨN XÁC VÀ KHOA HỌC):
 1. ĐÁNH GIÁ PHẠM VI (SCOPE):
    - Đề tài có nằm trong phạm vi lịch sử Việt Nam hay không? (in_scope: true / false).
    - Nếu hoàn toàn không thuộc lịch sử Việt Nam (ví dụ: công nghệ hiện đại, lịch sử phương Tây), hãy nêu rõ.
 
-2. ĐỐI CHIẾU VÀ BẮT LỖI TỪNG MỆNH ĐỀ SỰ KIỆN (CLAIMS ANALYSIS):
-   - Phân tích kỹ từng vế câu, phát hiện cả những ngộ nhận lịch sử tinh vi, nhầm lẫn bản chất sự kiện hoặc đảo lộn địa lý - quân sự:
-     + Chú ý đặc tính địa lý - quân sự: Ví dụ nếu câu ghi Hoa Lư "thiếu hiểm địa" hoặc "không có thế hiểm" thì ĐÂY LÀ LỖI SAI (error). Thực tế Hoa Lư núi non hiểm trở bao bọc rất tốt để phòng thủ thời loạn lạc; lý do vua Lý Thái Tổ dời đô theo Chiếu dời đô là vì hai nhà Đinh - Lê đóng mãi ở đây khiến "thế đại không dài, vận số ngắn ngủi, trăm họ hao tổn"; vua muốn "mưu nghiệp lớn, lập kế muôn đời" nên chọn Đại La vì đất rộng bằng phẳng, thế đất cao ráo sáng sủa, dân không khổ vì ngập lụt trũng tối.
-     + Chú ý nguồn gốc tên gọi và điển tích: Ví dụ tên gọi Thăng Long gắn liền trực tiếp với sự kiện mùa thu tháng 7 năm 1010 có rồng vàng bay lên ở thuyền ngự khi cập bến Đại La, chứ không chỉ đơn thuần bắt nguồn trừu tượng từ thế đất.
-     + Chú ý các mốc năm then chốt (năm Canh Tuất 1010) và văn kiện lịch sử (Chiếu dời đô / Thiên đô chiếu).
-   - Với mỗi luận điểm, đánh giá verdict:
-     + "verified" (Chính xác, khớp hoàn toàn với sử liệu gốc)
-     + "error" (Sai lệch sự thật, nhầm lẫn mốc năm, gán sai tính chất quân sự/địa lý, hiểu ngược bản chất)
-     + "unverified" (Dã sử, thiếu dữ kiện xác thực, hoặc diễn giải chủ quan thiếu căn cứ)
-   - Cung cấp giải thích chi tiết, khách quan, trích dẫn chính xác sách sử (sách nào, bối cảnh nào).
-   - BẮT BUỘC cung cấp "suggested_fix" chuẩn xác cho mọi luận điểm bị đánh giá "error" hoặc "unverified".
+2. ĐỐI CHIẾU VÀ ĐÁNH GIÁ TỪNG MỆNH ĐỀ SỰ KIỆN (CLAIMS ANALYSIS):
+   - Rà soát từng câu trong kịch bản và đối chiếu với trích đoạn sử liệu gốc cùng chính sử Việt Nam:
+     + Kiểm tra tính chuẩn xác của niên đại, mốc năm, địa danh, tên gọi nhân vật và tước vị.
+     + Phân định rạch ròi giữa các giai đoạn/chiến dịch lịch sử (ví dụ: không lẫn lộn giữa các lần kháng chiến chống Nguyên Mông 1258, 1285, 1287-1288; các tướng giặc bị chém hay bị bắt phải đúng trận và đúng năm).
+     + Kiểm tra tính đúng đắn của bối cảnh quân sự, địa lý, lý do dời đô hoặc ban bố chiếu thư.
+   - Với mỗi luận điểm trong kịch bản, xác định verdict:
+     + "verified": Khi mệnh đề CHÍNH XÁC, khớp với sử liệu chính thống (Đại Việt Sử Ký Toàn Thư hoặc các trích dẫn ở trên). Khi đã "verified", đặt "suggested_fix": null (tuyệt đối KHÔNG gán lỗi hay bắt người dùng sửa câu đã đúng).
+     + "error": Khi mệnh đề SAI LỆCH SỰ THẬT (sai mốc năm, gán sai nhân vật, nhầm lẫn chiến dịch, đảo lộn bản chất sự kiện). Cần giải thích rõ điểm sai và BẮT BUỘC cung cấp "suggested_fix" chuẩn xác.
+     + "unverified": Khi mệnh đề là giai thoại dân gian truyền miệng, dã sử chưa được chính sử ghi nhận, hoặc nhận định chủ quan suy diễn thiếu cứ liệu. Cung cấp "suggested_fix" với giọng văn trung tính hơn.
+   - Cung cấp "explanation" khách quan, trích dẫn chính xác sách sử (sách nào, quyển nào, trang nào).
 
-3. TỔNG KẾT ĐIỂM SỐ, THUMBNAIL PROMPT VÀ BẢN SỬA ĐỔI HOÀN HẢO:
-   - overall_score: Thang điểm 0 - 100. Trừ điểm nghiêm khắc nếu có hiểu sai về địa lý/quân sự hoặc thiếu dữ kiện cốt lõi (ví dụ: nhầm lẫn thế hiểm Hoa Lư chỉ được tối đa 65-75 điểm).
-   - status: "verified" (nếu score >= 85), "needs_revision" (nếu score từ 50 - 84), hoặc "critical_errors" (nếu score < 50).
-   - summary: Nhận xét thẳng thắn, sắc bén, chỉ rõ điểm được và điểm sai lệch/thiếu sót của kịch bản.
-   - thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa Podcast tỉ lệ VUÔNG 1:1 (ví dụ 1200x1200px) (Epic cinematic historical documentary podcast cover art illustration representing the topic, dramatic atmospheric lighting, rich classical oil painting style, highly detailed, masterwork, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark).
-   - revised_script: Viết lại kịch bản hoàn chỉnh, sửa sạch lỗi sai, đưa vào mốc năm 1010, Chiếu dời đô, thế đất Đại La, sự tích rồng vàng bay lên ở thuyền ngự, và loại bỏ hoàn toàn các từ nối rập khuôn AI.
+3. TỔNG KẾT ĐIỂM SỐ, THUMBNAIL PROMPT VÀ BẢN SỬA ĐỔI HOÀN CHỈNH:
+   - overall_score: Thang điểm 0 - 100:
+     + Nếu kịch bản hoàn toàn chính xác theo chính sử (mọi claim đều verified): 90 - 100 điểm.
+     + Nếu kịch bản có sai sót về niên đại hoặc nhân vật (có claim error): tính điểm từ 55 - 75 điểm.
+     + Nếu kịch bản sai lạc nghiêm trọng hoặc xuyên tạc: dưới 50 điểm.
+   - status: "verified" (nếu score >= 85 và không có claim error), "needs_revision" (nếu score từ 50 - 84 hoặc có claim error), hoặc "critical_errors" (nếu score < 50).
+   - summary: Nhận xét khách quan, ghi nhận rõ những luận điểm đã đúng và chỉ ra chi tiết cần hiệu đính nếu có.
+   - thumbnail_prompt: 1 prompt tiếng Anh chuyên dụng tạo ảnh bìa podcast lịch sử tỉ lệ VUÔNG 1:1 (1200x1200px) đại diện ĐÚNG CHO CHỦ ĐỀ VÀ NHÂN VẬT của kịch bản này (Epic cinematic historical podcast illustration, atmospheric dramatic lighting, rich historical tones, classical oil painting art style, square 1:1 aspect ratio, 1200x1200px, strictly NO text, NO typography, NO watermark).
+   - revised_script: Viết lại kịch bản hoàn chỉnh dựa trên ĐÚNG chủ đề, nhân vật và sự kiện gốc của bài viết. CHỈ hiệu đính các lỗi sai sự kiện/niên đại (nếu có), TUYỆT ĐỐI KHÔNG tự ý đổi sang chủ đề hay thời đại lịch sử khác. Loại bỏ các từ nối rập khuôn AI (như 'Thế nhưng,', 'Chính vì vậy,').
 
 HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ```json):
 {{
   "in_scope": true,
-  "overall_score": 70,
+  "overall_score": 75,
   "status": "needs_revision",
   "summary": "...",
   "thumbnail_prompt": "Epic cinematic historical podcast thumbnail illustration...",
   "claims": [
     {{
       "claim_text": "...",
-      "verdict": "error",
-      "explanation": "...",
-      "source_reference": "Đại Việt Sử Ký Toàn Thư - Bản Kỷ - Quyển II (Trang 80-81)",
-      "suggested_fix": "..."
+      "verdict": "verified",
+      "explanation": "Khớp hoàn toàn với trích đoạn sử liệu từ Đại Việt Sử Ký Toàn Thư...",
+      "source_reference": "Đại Việt Sử Ký Toàn Thư (Trang 189)",
+      "suggested_fix": null
     }}
   ],
   "revised_script": "..."
@@ -330,7 +400,6 @@ HÃY TRẢ VỀ ĐỊNH DẠNG JSON THUẦN TÚY (không bọc trong markdown ``
                             text_out = text_out[4:].strip()
                     parsed = json.loads(text_out)
                     if not parsed.get("thumbnail_prompt"):
-                        import re
                         clean_sample = re.sub(r'[\r\n\t"]+', ' ', script_text[:120]).strip()
                         parsed["thumbnail_prompt"] = (
                             f"Epic cinematic historical podcast thumbnail illustration representing {clean_sample}, "

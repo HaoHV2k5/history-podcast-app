@@ -775,6 +775,11 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                     if (sc instanceof Map<?, ?> scMap) {
                         Object title = scMap.get("scene_title");
                         if (title != null) sb.append("=== ").append(title).append(" ===\n");
+                        Object narrationText = scMap.get("narration_text");
+                        if (narrationText != null && StringUtils.hasText(narrationText.toString())) {
+                            sb.append(narrationText.toString().trim()).append("\n\n");
+                            continue;
+                        }
                         Object els = scMap.get("elements");
                         if (els instanceof List<?> elList) {
                             for (Object el : elList) {
@@ -1742,7 +1747,7 @@ public class CreatorStudioServiceImpl implements CreatorStudioService {
                 .accent("Điềm đạm, rõ chữ, thanh lịch, chuẩn mực")
                 .recommendedFor("Thuyết minh tài liệu, lời dẫn chương trình, đọc truyện")
                 .vietnameseRating(4.6)
-                .previewUrl("https://storage.googleapis.com/eleven-public-prod/premade/voices/21m00Tcm4TlvDq8ikWAM/sample.mp3")
+                .previewUrl("https://storage.googleapis.com/eleven-public-prod/premade/voices/cgSgspJ2msm6clMCkdW9/56a97bf8-b69b-448f-846c-c3a11683d45a.mp3")
                 .sampleText("Chào mừng các bạn đến với kênh kể chuyện lịch sử Việt Nam.")
                 .tags(List.of("elevenlabs", "female", "calm", "narrative"))
                 .isRecommended(false)

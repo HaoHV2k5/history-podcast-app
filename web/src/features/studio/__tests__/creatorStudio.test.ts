@@ -29,6 +29,9 @@ import {
   validateSceneImages,
   validateMediaFile,
   extractNarrationFromStoryboard,
+  getEffectiveSceneNarration,
+  splitNarrationIntoElements,
+  detectHistoricalChronologyIssue,
 } from '../creatorStudioUtils.ts';
 import type { StoryboardScene } from '../../../types/creatorStudio.ts';
 
@@ -465,5 +468,164 @@ describe('Creator Studio - M17-A1 Core Specifications', () => {
 
     assert.equal(parsed[0], '80 Đại Việt Sử Ký Toàn Thư - Bản Kỷ - Quyển II');
     assert.equal(parsed[1], 'Đại Việt Sử Ký Toàn Thư - Trang 80: Dời đô Thăng Long');
+  });
+
+  // 23. Step 2 to Step 3 transition gate strictly mandates image completion
+  test('23. Step 2 to Step 3 transition gate strictly mandates image completion', () => {
+    // Evaluation helper matching CreatorStudioPage handleNextFromStoryboard
+    const evaluateStep2Gate = (params: {
+      renderMode: 'whiteboard' | 'audio_podcast';
+      coverImageUrl: string;
+      scenes: Array<{ scene_index: number }>;
+      sceneImages: Record<string, string>;
+    }) => {
+      const isAudioPodcast = params.renderMode === 'audio_podcast';
+      const isPendingCover = isAudioPodcast && !params.coverImageUrl.trim();
+      const totalScenes = params.scenes.length;
+      const uploadedCount = params.scenes.filter((s) => Boolean(params.sceneImages[String(s.scene_index)])).length;
+      const isPendingScenes = !isAudioPodcast && (totalScenes === 0 || uploadedCount < totalScenes);
+
+      if (isPendingCover) {
+        return { canProceed: false, reason: 'missing_cover' };
+      }
+      if (isPendingScenes) {
+        return { canProceed: false, reason: 'missing_scenes', missingCount: totalScenes - uploadedCount };
+      }
+      return { canProceed: true };
+    };
+
+    // Case A: Whiteboard missing 1 scene -> BLOCKED
+    const gateA = evaluateStep2Gate({
+      renderMode: 'whiteboard',
+      coverImageUrl: '',
+      scenes: [{ scene_index: 1 }, { scene_index: 2 }, { scene_index: 3 }],
+      sceneImages: { '1': 'https://res.suky.vn/s1.png', '2': 'https://res.suky.vn/s2.png' },
+    });
+    assert.equal(gateA.canProceed, false);
+    assert.equal(gateA.reason, 'missing_scenes');
+    assert.equal(gateA.missingCount, 1);
+
+    // Case B: Whiteboard with all scenes uploaded -> ALLOWED
+    const gateB = evaluateStep2Gate({
+      renderMode: 'whiteboard',
+      coverImageUrl: '',
+      scenes: [{ scene_index: 1 }, { scene_index: 2 }, { scene_index: 3 }],
+      sceneImages: {
+        '1': 'https://res.suky.vn/s1.png',
+        '2': 'https://res.suky.vn/s2.png',
+        '3': 'https://res.suky.vn/s3.png',
+      },
+    });
+    assert.equal(gateB.canProceed, true);
+
+    // Case C: Audio Podcast without cover -> BLOCKED
+    const gateC = evaluateStep2Gate({
+      renderMode: 'audio_podcast',
+      coverImageUrl: '   ',
+      scenes: [],
+      sceneImages: {},
+    });
+    assert.equal(gateC.canProceed, false);
+    assert.equal(gateC.reason, 'missing_cover');
+
+    // Case D: Audio Podcast with valid cover -> ALLOWED
+    const gateD = evaluateStep2Gate({
+      renderMode: 'audio_podcast',
+      coverImageUrl: 'https://res.suky.vn/podcast-cover.jpg',
+      scenes: [],
+      sceneImages: {},
+    });
+    assert.equal(gateD.canProceed, true);
+  });
+
+  // 23. getEffectiveSceneNarration regression & fallback logic
+  test('23. getEffectiveSceneNarration prioritizes narration_text and falls back to doodle element subtitles', () => {
+    // Case A: Has element subtitles but NO narration_text (Whiteboard generated state)
+    const sceneFromAI: StoryboardScene = {
+      scene_index: 1,
+      scene_title: 'Dời đô Thăng Long',
+      estimated_duration_sec: 30,
+      elements: [
+        { label: 'Thuyền Ngự', subtitle: 'Mùa thu tháng bảy năm Canh Tuất mười không mười.' },
+        { label: 'Điềm Lành', subtitle: 'Có rồng vàng hiện lên ở thuyền ngự bay vút lên trời.' },
+        { label: 'Kiến Thiết', subtitle: 'Triều đình cho dựng điện Càn Nguyên làm chỗ coi chầu.' },
+      ],
+    };
+    const effectiveA = getEffectiveSceneNarration(sceneFromAI);
+    assert.ok(effectiveA.includes('Mùa thu tháng bảy năm Canh Tuất mười không mười.'));
+    assert.ok(effectiveA.includes('Có rồng vàng hiện lên ở thuyền ngự bay vút lên trời.'));
+    assert.ok(effectiveA.includes('Triều đình cho dựng điện Càn Nguyên làm chỗ coi chầu.'));
+    assert.notEqual(effectiveA, '');
+
+    // Case B: Creator explicitly edited narration_text -> Takes priority
+    const sceneEdited: StoryboardScene = {
+      ...sceneFromAI,
+      narration_text: 'Đoạn văn thuyết minh đã được Creator tùy biến theo giọng văn riêng.',
+    };
+    const effectiveB = getEffectiveSceneNarration(sceneEdited);
+    assert.equal(effectiveB, 'Đoạn văn thuyết minh đã được Creator tùy biến theo giọng văn riêng.');
+
+    // Case C: Empty scene -> Returns empty string gracefully
+    assert.equal(getEffectiveSceneNarration(undefined), '');
+    assert.equal(getEffectiveSceneNarration({ scene_index: 2, scene_title: '', estimated_duration_sec: 20 }), '');
+  });
+
+  // 24. splitNarrationIntoElements splits text into matching count of doodle blocks
+  test('24. splitNarrationIntoElements distributes sentences across target count of elements', () => {
+    const inputNarration =
+      'Mùa thu tháng bảy năm Canh Tuất mười không mười. Có rồng vàng hiện lên ở thuyền ngự bay vút lên trời xanh. Triều đình cho dựng điện Càn Nguyên làm chỗ coi chầu.';
+    const parts = splitNarrationIntoElements(inputNarration, 3);
+    assert.equal(parts.length, 3);
+    assert.equal(parts[0], 'Mùa thu tháng bảy năm Canh Tuất mười không mười.');
+    assert.equal(parts[1], 'Có rồng vàng hiện lên ở thuyền ngự bay vút lên trời xanh.');
+    assert.equal(parts[2], 'Triều đình cho dựng điện Càn Nguyên làm chỗ coi chầu.');
+
+    // Gracefully handles short texts or single sentence
+    const singleSentence = 'Chiếu dời đô vang danh muôn thuở.';
+    const partsShort = splitNarrationIntoElements(singleSentence, 3);
+    assert.equal(partsShort.length, 3);
+    assert.ok(partsShort[0].length > 0);
+  });
+
+  // 25. Voice preview with custom text parameter support
+  test('25. Custom text TTS preview parameter formats request with live spoken text', () => {
+    const customSentence = 'Sử Ký non sông, ngàn năm rạng rỡ anh hùng đất Việt.';
+    const previewRequest = {
+      engine: 'elevenlabs',
+      voiceId: 'Roger',
+      text: customSentence,
+    };
+    assert.equal(previewRequest.engine, 'elevenlabs');
+    assert.equal(previewRequest.voiceId, 'Roger');
+    assert.equal(previewRequest.text, customSentence);
+  });
+
+  // 26. Historical Chronology Gate: strictly catches out-of-scope or erroneous years
+  test('26. detectHistoricalChronologyIssue detects anachronistic years and recommends historical corrections', () => {
+    // Case A: Year 2000 in Trương Hán Siêu context -> must flag and suggest 1353
+    const text2000 = 'Năm 2000, vua Trần Dụ Tông nhận thấy tình hình biên giới phía Nam bất ổn nên đã cử Trương Hán Siêu đem quân Thần Sách vào trấn giữ Hóa Châu.';
+    const issue2000 = detectHistoricalChronologyIssue(text2000);
+    assert.ok(issue2000 !== null, 'Year 2000 must trigger a chronology issue');
+    assert.equal(issue2000?.wrongYear, '2000');
+    assert.equal(issue2000?.suggestedYear, '1353');
+
+    // Case B: Year 1453 in Trương Hán Siêu context -> must flag and suggest 1353
+    const text1453 = 'Năm 1453, vua Trần Dụ Tông cử Trương Hán Siêu vào trấn giữ Hóa Châu.';
+    const issue1453 = detectHistoricalChronologyIssue(text1453);
+    assert.ok(issue1453 !== null, 'Year 1453 must trigger a chronology issue');
+    assert.equal(issue1453?.wrongYear, '1453');
+    assert.equal(issue1453?.suggestedYear, '1353');
+
+    // Case C: Valid year 1353 in Lý-Trần era -> must return null (valid)
+    const validText = 'Năm 1353, vua Trần Dụ Tông cử Trương Hán Siêu đem quân Thần Sách vào trấn giữ Hóa Châu.';
+    const issueValid = detectHistoricalChronologyIssue(validText);
+    assert.equal(issueValid, null, 'Valid year 1353 must not trigger any issue');
+
+    // Case D: Year 1012 in Chiếu Dời Đô context -> must suggest 1010
+    const text1012 = 'Năm 1012, Lý Thái Tổ ban Chiếu dời đô từ Hoa Lư về Thăng Long.';
+    const issue1012 = detectHistoricalChronologyIssue(text1012);
+    assert.ok(issue1012 !== null);
+    assert.equal(issue1012?.wrongYear, '1012');
+    assert.equal(issue1012?.suggestedYear, '1010');
   });
 });

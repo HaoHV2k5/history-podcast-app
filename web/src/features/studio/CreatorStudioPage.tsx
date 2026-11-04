@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Sparkles,
@@ -8,6 +8,9 @@ import {
   Key,
   ExternalLink,
   ShieldAlert,
+  AlertTriangle,
+  BookOpen,
+  X,
 } from 'lucide-react';
 import { creatorStudioApi } from '@/services/api/creatorStudio';
 import {
@@ -33,6 +36,7 @@ import {
   resolveMediaUrl,
   classifyInputText,
   extractNarrationFromStoryboard,
+  splitNarrationIntoElements,
 } from './creatorStudioUtils';
 import { Step1ScriptInput } from './components/Step1ScriptInput';
 import { Step2StoryboardScenes } from './components/Step2StoryboardScenes';
@@ -58,9 +62,13 @@ Khi thuyền ngự vừa tạm đỗ dưới chân thành Đại La, có điềm
 export const CreatorStudioPage: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const isMockStep4 = searchParams.get('step') === '4';
 
   // Active Guided Step: 'script' | 'storyboard' | 'voices' | 'render'
-  const [activeTab, setActiveTab] = useState<'script' | 'storyboard' | 'voices' | 'render'>('script');
+  const [activeTab, setActiveTab] = useState<'script' | 'storyboard' | 'voices' | 'render'>(
+    isMockStep4 ? 'render' : 'script'
+  );
 
   // Animation Refs (GSAP Smooth Float In matching Content Library)
   const isFirstMountRef = useRef<boolean>(true);
@@ -149,21 +157,66 @@ export const CreatorStudioPage: React.FC = () => {
   }, [activeTab]);
 
   // Step 1: Script & Storyboard Generator State
-  const [creationMode, setCreationMode] = useState<CreationMode | null>(null);
-  const [scriptTopic, setScriptTopic] = useState('');
+  const [creationMode, setCreationMode] = useState<CreationMode | null>(
+    isMockStep4 ? 'ai_prompt' : null
+  );
+  const [scriptTopic, setScriptTopic] = useState(
+    isMockStep4 ? 'Hội nghị Diên Hồng (năm 1284)' : ''
+  );
   const [scriptContent, setScriptContent] = useState('');
   const [storyboardDuration, setStoryboardDuration] = useState<number>(60);
-  const [generatedStoryboard, setGeneratedStoryboard] = useState<StoryboardResponse | null>(null);
+  const [generatedStoryboard, setGeneratedStoryboard] = useState<StoryboardResponse | null>(() => {
+    if (isMockStep4) {
+      return {
+        title: 'Hội nghị Diên Hồng (năm 1284)',
+        scenes: [
+          {
+            scene_index: 1,
+            scene_title: 'Sứ mệnh và tình thế năm 1284',
+            estimated_duration_sec: 30,
+            narration_text:
+              'Mùa đông năm 1284, Thoát Hoan mượn đường đánh Chiêm Thành nhưng thực chất nhằm xâm lược Đại Việt.',
+            image_prompt: 'Cảnh biên ải Lạng Sơn mây mù, quân Nguyên áp sát biên cương',
+            elements: [
+              { label: 'Biên Cương', subtitle: 'Mùa đông năm 1284, Thoát Hoan mượn đường đánh Chiêm Thành.' },
+              { label: 'Âm Mưu', subtitle: 'Thực chất là cớ nhằm xâm lược bờ cõi Đại Việt.' },
+            ],
+          },
+          {
+            scene_index: 2,
+            scene_title: 'Hội nghị Diên Hồng - Lời thề Sát Thát',
+            estimated_duration_sec: 30,
+            narration_text:
+              'Thượng hoàng triệu tập các phụ lão tại điện Diên Hồng, muôn người đồng thanh hô Đánh.',
+            image_prompt: 'Các bô lão giơ nắm đấm hô Đánh trong điện Diên Hồng',
+            elements: [
+              { label: 'Điện Diên Hồng', subtitle: 'Thượng hoàng triệu tập các phụ lão muôn nơi.' },
+              { label: 'Quyết Chiến', subtitle: 'Muôn người như một, đồng thanh hô vang Đánh.' },
+            ],
+          },
+        ],
+      };
+    }
+    return null;
+  });
 
   // Progressive Sequential Flow (Steps 1 -> 4 unlocked strictly one by one)
-  const [maxUnlockedStep, setMaxUnlockedStep] = useState<number>(1);
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState<number>(isMockStep4 ? 4 : 1);
 
   // Step 1: Historical Verification State
   const [verificationResult, setVerificationResult] = useState<ScriptVerificationResponse | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Step 2 & 4: Image Resources State
-  const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
+  const [sceneImages, setSceneImages] = useState<Record<string, string>>(() => {
+    if (isMockStep4) {
+      return {
+        '1': 'https://res.cloudinary.com/dummy/s1.png',
+        '2': 'https://res.cloudinary.com/dummy/s2.png',
+      };
+    }
+    return {};
+  });
   const [uploadingSceneIndex, setUploadingSceneIndex] = useState<string | null>(null);
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -179,13 +232,18 @@ export const CreatorStudioPage: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Step 4: Video Rendering State
-  const [renderMode, setRenderMode] = useState<'whiteboard' | 'audio_podcast' | null>(null);
-  const [renderTitle, setRenderTitle] = useState('');
+  const [renderMode, setRenderMode] = useState<'whiteboard' | 'audio_podcast' | null>(
+    isMockStep4 ? 'whiteboard' : null
+  );
+  const [renderTitle, setRenderTitle] = useState(
+    isMockStep4 ? 'Hội nghị Diên Hồng (năm 1284)' : ''
+  );
   const [renderDurationSec, setRenderDurationSec] = useState<number>(60);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeArtifactId, setActiveArtifactId] = useState<number | null>(null);
   const [activeContentId, setActiveContentId] = useState<number | null>(null);
   const [pollingError, setPollingError] = useState<string | null>(null);
+  const [devJobStatusOverride, setDevJobStatusOverride] = useState<CreatorJobStatusResponse | null>(null);
 
   // Step 4: Submit Moderation State
   const [publishResult, setPublishResult] = useState<CreatorVideoItem | null>(null);
@@ -257,12 +315,57 @@ export const CreatorStudioPage: React.FC = () => {
     setIsSettingsOpen(true);
   };
 
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__creatorStudioDev = {
+        setActiveTab,
+        setCreationMode,
+        setGeneratedStoryboard,
+        setMaxUnlockedStep,
+        setSceneImages,
+        setRenderMode,
+        setSelectedVoiceId,
+        setTransitionModal,
+        setCoverImageUrl,
+        setRenderTitle,
+        setActiveJobId,
+        setActiveContentId,
+        setPublishResult,
+        setRenderSuccessToast,
+        setDevJobStatus: setDevJobStatusOverride,
+        setSoftGuardWarning,
+        setIsSoftGuardModalOpen,
+        setIsSoftGuardChecking,
+      };
+    }
+  }, []);
+
   // 2. Fetch Voices Catalog
   const { data: voicesResponse } = useQuery({
     queryKey: ['creator', 'studio-voices'],
     queryFn: creatorStudioApi.getVoices,
   });
   const voices: CreatorVoiceItem[] = Array.isArray(voicesResponse?.data) ? voicesResponse.data : [];
+
+  const selectedVoiceObj = useMemo(() => {
+    const found = voices.find((v) => v.id === selectedVoiceId);
+    if (found) return found;
+    if (selectedVoiceId && !selectedVoiceId.startsWith('vi-VN-')) {
+      return {
+        id: selectedVoiceId,
+        name: `Giọng ElevenLabs (${selectedVoiceId.length > 10 ? selectedVoiceId.slice(0, 8) + '...' : selectedVoiceId})`,
+        gender: 'custom',
+        engine: 'elevenlabs',
+        accent: 'ElevenLabs Tùy chỉnh',
+        recommendedFor: 'Voice ID ElevenLabs cá nhân từ Creator',
+        vietnameseRating: 5.0,
+        previewUrl: '',
+        sampleText: '',
+        tags: ['ElevenLabs', 'Custom Voice ID'],
+      } as CreatorVoiceItem;
+    }
+    return undefined;
+  }, [voices, selectedVoiceId]);
 
   // Update Settings Mutation
   const updateSettingsMutation = useMutation({
@@ -381,7 +484,30 @@ export const CreatorStudioPage: React.FC = () => {
     refetchIntervalInBackground: true,
   });
 
-  const jobStatusData = (jobStatusResponse?.data as unknown as CreatorJobStatusResponse) || null;
+  const jobStatusData = devJobStatusOverride || ((jobStatusResponse?.data as unknown as CreatorJobStatusResponse) || null);
+
+  // Floating Completion Toast Notification
+  const prevJobStatusRef = useRef<string | null>(null);
+  const [renderSuccessToast, setRenderSuccessToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (
+      jobStatusData?.status === 'completed' &&
+      prevJobStatusRef.current &&
+      prevJobStatusRef.current !== 'completed'
+    ) {
+      setRenderSuccessToast(
+        'Kết xuất video hoàn tất 100%! Bạn có thể xem trước tác phẩm và gửi kiểm duyệt AI Shield.'
+      );
+    }
+    prevJobStatusRef.current = jobStatusData?.status || null;
+  }, [jobStatusData?.status]);
+
+  useEffect(() => {
+    if (!renderSuccessToast) return;
+    const timer = setTimeout(() => setRenderSuccessToast(null), 7000);
+    return () => clearTimeout(timer);
+  }, [renderSuccessToast]);
 
   // Audio Playback Helpers
   const playAudioStream = (resolvedUrl: string, voiceId: string) => {
@@ -409,14 +535,34 @@ export const CreatorStudioPage: React.FC = () => {
     };
   };
 
-  const handlePlayVoicePreview = (voice: CreatorVoiceItem) => {
+  const handlePlayVoicePreview = (voice: CreatorVoiceItem, customText?: string) => {
     setVoicePreviewError(null);
-    if (playingVoiceId === voice.id) {
+    const trimmedCustom = customText?.trim();
+
+    // If currently playing this voice AND no new custom text is requested, toggle pause
+    if (playingVoiceId === voice.id && !trimmedCustom) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
       setPlayingVoiceId(null);
+      return;
+    }
+
+    // Stop current playback before starting new request
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
+    // If custom text is provided, ALWAYS invoke previewVoiceMutation to render the custom text live!
+    if (trimmedCustom) {
+      setLoadingVoiceId(voice.id);
+      previewVoiceMutation.mutate({
+        voiceId: voice.id,
+        engine: voice.engine,
+        text: trimmedCustom,
+      });
       return;
     }
 
@@ -534,8 +680,8 @@ export const CreatorStudioPage: React.FC = () => {
 
   // Step 4: 2-Phase Creation Flow (Nhịp 1: Rào chắn mềm sử liệu ngầm -> Nhịp 2: Render video ngầm)
   const executeRender = (scriptOverride?: string) => {
-    const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId);
-    const finalEngine = selectedVoiceObj?.engine || settings?.ttsEngine || 'edge-tts';
+    const isCustomElevenLabs = !selectedVoiceObj && selectedVoiceId && !selectedVoiceId.startsWith('vi-VN-');
+    const finalEngine = selectedVoiceObj?.engine || (isCustomElevenLabs ? 'elevenlabs' : settings?.ttsEngine || 'edge-tts');
 
     const storyboardNarration = generatedStoryboard?.scenes
       ? extractNarrationFromStoryboard(generatedStoryboard.scenes)
@@ -643,7 +789,6 @@ export const CreatorStudioPage: React.FC = () => {
     setActiveTab('script');
   };
 
-  const selectedVoiceObj = voices.find((v) => v.id === selectedVoiceId);
   const effectiveMaxStep = Math.max(maxUnlockedStep, generatedStoryboard ? 2 : 1);
 
   // Guarded transition from Step 2 to Step 3
@@ -655,15 +800,15 @@ export const CreatorStudioPage: React.FC = () => {
     const uploadedCount =
       generatedStoryboard?.scenes?.filter((s) => Boolean(sceneImages[String(s.scene_index)]))
         .length || 0;
-    const isPendingScenes = !isAudioPodcast && uploadedCount < totalScenes;
+    const isPendingScenes = !isAudioPodcast && (totalScenes === 0 || uploadedCount < totalScenes);
 
     if (isPendingCover) {
       setTransitionModal({
         type: 'step2_missing_cover',
-        title: 'Bạn Chưa Tải Ảnh Bìa Podcast',
+        title: 'Bắt Buộc Tải Ảnh Bìa Podcast',
         description:
-          'Ảnh bìa đại diện là bắt buộc trước khi kết xuất video ở Bước 4. Tuy nhiên, bạn hoàn toàn có thể tiếp tục sang Bước 3 để duyệt và chọn giọng đọc AI trước, rồi quay lại hoặc bổ sung ảnh ở Bước 4.',
-        targetTab,
+          'Định dạng Audio Podcast bắt buộc phải có ảnh bìa chính (tỷ lệ 1:1) đại diện cho tác phẩm trước khi bạn có thể chọn giọng đọc và chuyển sang các bước tiếp theo.',
+        targetTab: 'storyboard',
       });
       return;
     }
@@ -671,11 +816,11 @@ export const CreatorStudioPage: React.FC = () => {
     if (isPendingScenes) {
       setTransitionModal({
         type: 'step2_missing_scenes',
-        title: 'Chưa Tải Đủ Ảnh Phân Cảnh Bảng Trắng',
-        description: `Bạn mới tải lên ${uploadedCount}/${totalScenes} ảnh phân cảnh. Hoạt họa bảng trắng cần đủ ảnh cho tất cả phân cảnh trước khi kết xuất tại Bước 4. Bạn có muốn chuyển sang Bước 3 để duyệt và chọn giọng đọc trước không?`,
+        title: 'Bắt Buộc Tải Đủ Toàn Bộ Ảnh Phân Cảnh',
+        description: `Bạn mới tải lên ${uploadedCount}/${totalScenes} ảnh phân cảnh. Video Hoạt Họa Bảng Trắng bắt buộc bạn phải tải lên đầy đủ hình ảnh cho toàn bộ ${totalScenes} phân cảnh trước khi được chuyển sang Bước 3 (Chọn giọng đọc).`,
         uploadedCount,
         totalScenes,
-        targetTab,
+        targetTab: 'storyboard',
       });
       return;
     }
@@ -760,8 +905,11 @@ export const CreatorStudioPage: React.FC = () => {
       transitionModal.type === 'step2_missing_cover' ||
       transitionModal.type === 'step2_missing_scenes'
     ) {
-      setMaxUnlockedStep((prev) => Math.max(prev, transitionModal.targetTab === 'render' ? 4 : 3));
-      setActiveTab(transitionModal.targetTab);
+      const target = transitionModal.targetTab;
+      if (target && target !== 'storyboard') {
+        setMaxUnlockedStep((prev) => Math.max(prev, target === 'render' ? 4 : 3));
+        setActiveTab(target);
+      }
     } else if (transitionModal.type === 'step3_unselected_voice') {
       setMaxUnlockedStep((prev) => Math.max(prev, 4));
       setActiveTab('render');
@@ -772,6 +920,30 @@ export const CreatorStudioPage: React.FC = () => {
 
   return (
     <div ref={pageContainerRef} className="space-y-4 pb-10">
+      {/* Floating Success Toast on Video Completion */}
+      {renderSuccessToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-6 right-6 z-50 flex items-center justify-between gap-3 rounded-xl border border-status-success-text/40 bg-surface px-4 py-3 text-xs font-semibold text-ink shadow-lg animate-in slide-in-from-top-4 duration-200 select-none max-w-md border-l-4 border-l-status-success-text"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-status-success-bg text-status-success-text">
+              <CheckCircle2 className="h-4 w-4" />
+            </span>
+            <span className="leading-snug">{renderSuccessToast}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRenderSuccessToast(null)}
+            className="p-1 text-muted hover:text-ink transition-colors cursor-pointer"
+            aria-label="Đóng thông báo"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* 1. Page Header & Studio Actions with Historical Watermark */}
       <div ref={headerRef}>
         <StudioHeader
@@ -883,11 +1055,24 @@ export const CreatorStudioPage: React.FC = () => {
             onCopy={handleCopy}
             onPrevStep={() => setActiveTab('script')}
             onNextStep={() => handleNextFromStoryboard('voices')}
-            onUpdateSceneNarration={(sceneIndex, newNarration) => {
+            onUpdateSceneNarration={(sceneIndex, newNarration, updatedElements) => {
               if (!generatedStoryboard) return;
-              const updatedScenes = generatedStoryboard.scenes.map((s) =>
-                s.scene_index === sceneIndex ? { ...s, narration_text: newNarration } : s
-              );
+              const updatedScenes = generatedStoryboard.scenes.map((s) => {
+                if (s.scene_index !== sceneIndex) return s;
+                let elems = updatedElements || s.elements;
+                if (!updatedElements && s.elements && s.elements.length > 0) {
+                  const parts = splitNarrationIntoElements(newNarration, s.elements.length);
+                  elems = s.elements.map((el, i) => ({
+                    ...el,
+                    subtitle: parts[i] || el.subtitle || '',
+                  }));
+                }
+                return {
+                  ...s,
+                  narration_text: newNarration,
+                  elements: elems,
+                };
+              });
               setGeneratedStoryboard({ ...generatedStoryboard, scenes: updatedScenes });
               const updatedNarration = extractNarrationFromStoryboard(updatedScenes);
               if (updatedNarration) {
@@ -1019,7 +1204,7 @@ export const CreatorStudioPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setIsSettingsOpen(false)}
-              className="text-xs h-9 px-4 rounded-xl border-border/80 hover:bg-white text-muted hover:text-ink cursor-pointer transition-all duration-150 active:scale-[0.98]"
+              className="text-xs h-9 px-4 rounded-xl border-border/80 hover:bg-white text-muted hover:text-ink cursor-pointer transition-[background-color,color,transform] duration-150 active:scale-[0.98]"
             >
               Hủy
             </Button>
@@ -1034,7 +1219,7 @@ export const CreatorStudioPage: React.FC = () => {
                   ttsEngine: ttsEngineInput,
                 })
               }
-              className="text-xs h-9 font-semibold px-5 rounded-xl bg-accent text-white hover:bg-accent/90 shadow-2xs cursor-pointer transition-all duration-150 active:scale-[0.98]"
+              className="text-xs h-9 font-semibold px-5 rounded-xl bg-accent text-white hover:bg-accent/90 shadow-2xs cursor-pointer transition-[background-color,transform] duration-150 active:scale-[0.98]"
             >
               {updateSettingsMutation.isPending ? 'Đang lưu...' : 'Lưu cài đặt'}
             </Button>
@@ -1061,65 +1246,127 @@ export const CreatorStudioPage: React.FC = () => {
             </div>
           </DialogHeader>
 
-          {softGuardWarning && (
-            <div className="space-y-4 py-2 text-xs">
-              {/* Score and summary pill */}
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-amber-800 flex items-center gap-1.5">
-                    <span>Điểm tin cậy sử liệu:</span>
-                    <span className="text-sm font-mono">{softGuardWarning.overall_score || 70} / 100</span>
-                  </span>
-                  <Badge variant="outline" className="text-[10px] bg-surface rounded-full px-2.5">
-                    Rào chắn mềm (Soft Guard)
-                  </Badge>
-                </div>
-                {softGuardWarning.summary && (
-                  <p className="text-muted leading-relaxed">{softGuardWarning.summary}</p>
-                )}
-              </div>
+          {softGuardWarning && (() => {
+            const attentionClaims = (softGuardWarning.claims || []).filter(
+              (c) => c.verdict === 'error' || c.verdict === 'unverified'
+            );
+            const verifiedClaims = (softGuardWarning.claims || []).filter(
+              (c) => c.verdict === 'verified'
+            );
 
-              {/* Claims Breakdown */}
-              {softGuardWarning.claims && softGuardWarning.claims.length > 0 && (
-                <div className="space-y-2.5">
-                  <span className="font-semibold text-ink block text-xs">Chi tiết các luận điểm cần lưu ý:</span>
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                    {softGuardWarning.claims.map((claim, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
-                          claim.verdict === 'error'
-                            ? 'bg-status-error-bg/30 border-status-error-border'
-                            : 'bg-surface-subtle/80 border-border'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-semibold text-ink">
-                            &quot;{claim.claim_text}&quot;
-                          </span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-mono shrink-0 uppercase font-bold ${
-                              claim.verdict === 'error'
-                                ? 'bg-status-error-bg text-status-error-text border border-status-error-border'
-                                : 'bg-amber-100 text-amber-800 border border-amber-300'
-                            }`}
-                          >
-                            {claim.verdict === 'error' ? 'Sai lệch' : 'Chưa xác thực'}
-                          </span>
-                        </div>
-                        <p className="text-muted text-[11px] leading-relaxed">{claim.explanation}</p>
-                        {claim.suggested_fix && (
-                          <div className="p-2.5 rounded-lg bg-surface border border-accent/20 text-[11px] text-accent">
-                            <strong>Đề xuất sửa:</strong> {claim.suggested_fix}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+            return (
+              <div className="space-y-4 py-2 text-xs">
+                {/* Score and summary pill */}
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-800 flex items-center gap-1.5">
+                      <span>Điểm tin cậy sử liệu:</span>
+                      <span className="text-sm font-mono">{softGuardWarning.overall_score || 70} / 100</span>
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-surface rounded-full px-2.5">
+                      Rào chắn mềm (Soft Guard)
+                    </Badge>
                   </div>
+                  {softGuardWarning.summary && (
+                    <p className="text-muted leading-relaxed">{softGuardWarning.summary}</p>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+
+                <div className="space-y-3.5 max-h-[50vh] overflow-y-auto pr-1">
+                  {/* Attention Claims (Errors & Unverified) */}
+                  {attentionClaims.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="font-semibold text-ink flex items-center gap-1.5 text-xs">
+                        <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                        <span>Luận điểm cần hiệu đính ({attentionClaims.length}):</span>
+                      </span>
+                      <div className="space-y-2">
+                        {attentionClaims.map((claim, idx) => {
+                          const isError = claim.verdict === 'error';
+                          return (
+                            <div
+                              key={`attn-${idx}`}
+                              className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                                isError
+                                  ? 'bg-rose-500/8 border-rose-500/25'
+                                  : 'bg-amber-500/8 border-amber-500/25'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="font-serif italic font-medium text-ink">
+                                  &quot;{claim.claim_text}&quot;
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-mono shrink-0 uppercase font-bold ${
+                                    isError
+                                      ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                  }`}
+                                >
+                                  {isError ? 'Sai lệch niên đại / nhân vật' : 'Dã sử / Cần thẩm định'}
+                                </span>
+                              </div>
+                              <p className="text-muted text-[11px] leading-relaxed">{claim.explanation}</p>
+                              {claim.source_reference && (
+                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 font-mono">
+                                  <BookOpen className="h-3 w-3 shrink-0" />
+                                  <span>{claim.source_reference}</span>
+                                </div>
+                              )}
+                              {claim.suggested_fix && (
+                                <div className="p-2.5 rounded-lg bg-surface border border-accent/25 text-[11px] space-y-1">
+                                  <div className="flex items-center gap-1 text-[10px] font-bold text-accent uppercase tracking-wider">
+                                    <Sparkles className="h-3 w-3" />
+                                    <span>Gợi ý chuẩn xác:</span>
+                                  </div>
+                                  <p className="font-serif italic text-ink leading-relaxed">{claim.suggested_fix}</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Verified Claims */}
+                  {verifiedClaims.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <span className="font-semibold text-emerald-800 flex items-center gap-1.5 text-xs">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Luận điểm đã chuẩn xác chính sử ({verifiedClaims.length}):</span>
+                      </span>
+                      <div className="space-y-2">
+                        {verifiedClaims.map((claim, idx) => (
+                          <div
+                            key={`ver-${idx}`}
+                            className="p-3 rounded-xl border border-emerald-500/25 bg-emerald-500/8 text-xs space-y-1.5"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-serif italic font-medium text-ink">
+                                &quot;{claim.claim_text}&quot;
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono shrink-0 uppercase font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                <CheckCircle2 className="h-2.5 w-2.5 text-emerald-700" />
+                                <span>Chính sử xác thực</span>
+                              </span>
+                            </div>
+                            <p className="text-muted text-[11px] leading-relaxed">{claim.explanation}</p>
+                            {claim.source_reference && (
+                              <div className="flex items-center gap-1 text-[10px] text-emerald-700/80 font-mono">
+                                <BookOpen className="h-3 w-3 shrink-0" />
+                                <span>{claim.source_reference}</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2.5 pt-3 border-t border-border/60">
             <Button
@@ -1127,7 +1374,7 @@ export const CreatorStudioPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={handleBypassSoftGuardAndRender}
-              className="text-xs h-9 px-4 rounded-xl border-border/80 hover:bg-surface-subtle cursor-pointer transition-all duration-150 active:scale-[0.98]"
+              className="text-xs h-9 px-4 rounded-xl border-border/80 hover:bg-surface-subtle cursor-pointer transition-[background-color,transform] duration-150 active:scale-[0.98]"
             >
               <span>Bảo lưu quan điểm, Vẫn tạo video</span>
             </Button>
@@ -1135,7 +1382,7 @@ export const CreatorStudioPage: React.FC = () => {
               type="button"
               size="sm"
               onClick={handleApplySoftGuardFixAndRender}
-              className="text-xs h-9 font-semibold px-5 rounded-xl gap-1.5 bg-accent text-white hover:bg-accent/90 shadow-2xs cursor-pointer transition-all duration-150 active:scale-[0.98]"
+              className="text-xs h-9 font-semibold px-5 rounded-xl gap-1.5 bg-accent text-white hover:bg-accent/90 shadow-2xs cursor-pointer transition-[background-color,transform] duration-150 active:scale-[0.98]"
             >
               <Sparkles className="h-3.5 w-3.5" />
               <span>Áp dụng câu sửa của AI &amp; Tạo Video</span>

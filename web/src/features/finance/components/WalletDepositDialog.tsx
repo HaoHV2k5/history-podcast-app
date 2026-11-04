@@ -342,11 +342,11 @@ export const WalletDepositDialog: React.FC<WalletDepositDialogProps> = ({
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Đang khởi tạo...</span>
+                    <span>Đang chuyển sang VNPay...</span>
                   </>
                 ) : (
                   <>
-                    <span>Tạo link VNPay</span>
+                    <span>Nạp tiền qua VNPay</span>
                     <ExternalLink className="h-3.5 w-3.5" />
                   </>
                 )}
