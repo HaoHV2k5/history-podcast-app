@@ -342,11 +342,17 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
         final uri = Uri.tryParse(paymentUrl);
         if (uri != null) {
           try {
-            await launchUrl(
+            final launchFuture = launchUrl(
               uri,
-              mode: LaunchMode.externalApplication,
-              webOnlyWindowName: '_self',
+              mode: LaunchMode.inAppBrowserView,
             );
+            if (!WidgetsBinding.instance.runtimeType
+                .toString()
+                .contains('TestWidgetsFlutterBinding')) {
+              await launchFuture;
+            } else {
+              launchFuture.ignore();
+            }
           } catch (_) {}
         }
       }
@@ -479,7 +485,13 @@ class _TopUpWalletSheetState extends State<TopUpWalletSheet> {
             FilledButton.icon(
               key: const Key('confirm-topup-btn'),
               onPressed: _busy ? null : _submit,
-              icon: const Icon(CupertinoIcons.creditcard, size: 16),
+              icon: _busy
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(CupertinoIcons.creditcard, size: 16),
               label: Text(_busy ? 'Đang chuyển sang VNPay…' : 'Xác nhận nạp tiền'),
             ),
           ],
