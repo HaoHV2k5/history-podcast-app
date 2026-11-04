@@ -13,6 +13,7 @@ export interface AdminDisputeRow {
   summary: string; // Nội dung tóm tắt
   disputeType: string; // Loại tranh chấp
   senderName: string; // Tên người gửi
+  senderEmail?: string; // Email thật người gửi
   senderRole: 'Creator' | 'Người dùng'; // Vai trò người gửi
   senderAvatar?: string;
   senderId: number;
@@ -54,6 +55,46 @@ export interface DisputeFilterOptions {
   dateRangePreset?: string;
   customDateStart?: string;
   customDateEnd?: string;
+}
+
+/**
+ * Extracts all http/https URLs from text and merges with any explicit URL array.
+ */
+export function extractUrlsFromText(text?: string, explicitUrls?: string[]): string[] {
+  const urls = new Set<string>();
+  if (Array.isArray(explicitUrls)) {
+    for (const u of explicitUrls) {
+      if (u && typeof u === 'string' && u.trim().startsWith('http')) {
+        urls.add(u.trim());
+      }
+    }
+  }
+  if (text && typeof text === 'string') {
+    const matches = text.match(/https?:\/\/[^\s"'<>)\]]+/gi);
+    if (matches) {
+      for (const m of matches) {
+        const cleaned = m.replace(/[.,;!?]+$/, '');
+        if (cleaned.startsWith('http')) {
+          urls.add(cleaned);
+        }
+      }
+    }
+  }
+  return Array.from(urls);
+}
+
+/**
+ * Strips embedded URLs or "(Đính kèm: https://...)" wrappers from evidence text
+ * so the explanation text is clean and doesn't duplicate the attachment pills.
+ */
+export function stripUrlsFromText(text?: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/\(\s*Đính kèm:\s*https?:\/\/[^\s)]+\s*\)/gi, '')
+    .replace(/Đính kèm:\s*https?:\/\/[^\s"'<>)\]]+/gi, '')
+    .replace(/https?:\/\/[^\s"'<>)\]]+/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 /**
@@ -205,10 +246,23 @@ export function inferDisputePriority(reason?: string, status?: string): DisputeP
   return status === 'OPEN' ? 'HIGH' : 'MEDIUM';
 }
 
+export interface DisputeUserLookup {
+  id: number;
+  fullName?: string | null;
+  email?: string | null;
+  avatarUrl?: string | null;
+}
+
 /**
  * Maps raw backend DisputeItem to UI AdminDisputeRow.
+ * Uses contract participant IDs and real user lookup when available to accurately resolve sender info.
  */
-export function mapBackendItemToDisputeRow(item: DisputeItem, rawIndex = 0): AdminDisputeRow {
+export function mapBackendItemToDisputeRow(
+  item: DisputeItem,
+  _rawIndex = 0,
+  contract?: { creatorId?: number | null; requesterId?: number | null } | null,
+  userMap?: Map<number, DisputeUserLookup>
+): AdminDisputeRow {
   const rawId = item.id;
   const formattedId = formatDisputeId(rawId);
   const contractCode = formatContractCode(item.contractId);
@@ -245,6 +299,35 @@ export function mapBackendItemToDisputeRow(item: DisputeItem, rawIndex = 0): Adm
   const priority = inferDisputePriority(reasonText, normalizedStatus);
   const dt = splitDateTime(item.createdAt);
 
+  // Accurately determine sender role from contract IDs or reason semantics (never random modulo)
+  let senderRole: 'Creator' | 'Người dùng' = 'Người dùng';
+  if (contract?.creatorId != null && item.raisedByUserId === contract.creatorId) {
+    senderRole = 'Creator';
+  } else if (contract?.requesterId != null && item.raisedByUserId === contract.requesterId) {
+    senderRole = 'Người dùng';
+  } else {
+    const lowerReason = reasonText.toLowerCase();
+    if (
+      lowerReason.includes('không thanh toán') ||
+      lowerReason.includes('chậm trả') ||
+      lowerReason.includes('tiền thù lao') ||
+      lowerReason.includes('thay đổi kịch bản')
+    ) {
+      senderRole = 'Creator';
+    }
+  }
+
+  const extractedEvidenceUrls = extractUrlsFromText(item.evidence, item.evidenceUrls);
+  const extractedCounterUrls = extractUrlsFromText(item.counterEvidence, item.counterEvidenceUrls);
+
+  const matchedSender =
+    item.raisedByUserId && userMap ? userMap.get(item.raisedByUserId) : undefined;
+  const senderEmail = matchedSender?.email?.trim() || undefined;
+  const senderName =
+    item.raisedByUserFullName?.trim() ||
+    matchedSender?.fullName?.trim() ||
+    (senderEmail ? senderEmail.split('@')[0] : `Người dùng #${item.raisedByUserId}`);
+
   return {
     id: formattedId,
     rawId,
@@ -254,16 +337,18 @@ export function mapBackendItemToDisputeRow(item: DisputeItem, rawIndex = 0): Adm
     title,
     summary,
     disputeType,
-    senderName: item.raisedByUserFullName || `Người dùng #${item.raisedByUserId}`,
-    senderRole: rawIndex % 3 === 2 ? 'Người dùng' : 'Creator',
+    senderName,
+    senderEmail,
+    senderAvatar: matchedSender?.avatarUrl || undefined,
+    senderRole,
     senderId: item.raisedByUserId,
     status: normalizedStatus,
     priority,
     reason: item.reason || '',
     evidence: item.evidence,
-    evidenceUrls: item.evidence ? [item.evidence] : [],
+    evidenceUrls: extractedEvidenceUrls,
     counterEvidence: item.counterEvidence,
-    counterEvidenceUrls: item.counterEvidence ? [item.counterEvidence] : [],
+    counterEvidenceUrls: extractedCounterUrls,
     milestoneId: item.milestoneId,
     milestoneTitle: item.milestoneTitle,
     result: item.result,
@@ -313,7 +398,6 @@ export function calculateDisputeKpis(rows: AdminDisputeRow[]): DisputeKpis {
     trendCancelled,
   };
 }
-
 
 /**
  * Checks whether an ISO date string falls within the selected date range preset or custom bounds.
@@ -556,27 +640,29 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 
   try {
-    if (typeof document === 'undefined') return false;
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.top = '0';
-    textArea.style.left = '0';
-    textArea.style.width = '2em';
-    textArea.style.height = '2em';
-    textArea.style.padding = '0';
-    textArea.style.border = 'none';
-    textArea.style.outline = 'none';
-    textArea.style.boxShadow = 'none';
-    textArea.style.background = 'transparent';
-    textArea.style.opacity = '0';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    textArea.setSelectionRange(0, text.length);
-    const successful = document.execCommand('copy');
-    document.body.removeChild(textArea);
-    return successful;
+    if (typeof document !== 'undefined') {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.top = '0';
+      textArea.style.left = '0';
+      textArea.style.width = '2em';
+      textArea.style.height = '2em';
+      textArea.style.padding = '0';
+      textArea.style.border = 'none';
+      textArea.style.outline = 'none';
+      textArea.style.boxShadow = 'none';
+      textArea.style.background = 'transparent';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      textArea.setSelectionRange(0, text.length);
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return successful;
+    }
+    return false;
   } catch {
     return false;
   }

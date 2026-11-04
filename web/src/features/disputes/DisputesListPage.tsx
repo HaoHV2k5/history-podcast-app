@@ -4,10 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import gsap from 'gsap';
 import { AlertCircle, RotateCw } from 'lucide-react';
 import { disputesApi } from '@/services/api/disputes';
+import { contractsApi } from '@/services/api/contracts';
+import { usersApi } from '@/services/api/users';
 import type { DisputeItem } from '@/types/dispute';
+import type { ContractItem } from '@/types/contract';
 import {
   AdminDisputeRow,
   DisputeStatusFilter,
+  DisputeUserLookup,
   mapBackendItemToDisputeRow,
   calculateDisputeKpis,
   filterDisputeRows,
@@ -77,6 +81,62 @@ export const DisputesListPage: React.FC = () => {
     queryFn: () => disputesApi.getAllDisputes(),
   });
 
+  // 2. Fetch contracts lookup to accurately resolve senderRole (Creator vs Khách hàng)
+  const { data: contractsData } = useQuery({
+    queryKey: ['admin-contracts-lookup'],
+    queryFn: () => contractsApi.getAllContracts(undefined, { page: 0, size: 100 }),
+  });
+
+  // 2b. Fetch users lookup to enrich dispute participants with real emails & fullNames
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-users-lookup'],
+    queryFn: () => usersApi.searchUsers({ page: 0, size: 200 }),
+    staleTime: 60 * 1000,
+  });
+
+  const userMap = useMemo(() => {
+    const map = new Map<number, DisputeUserLookup>();
+    const rawU = usersData?.data;
+    const list = !rawU
+      ? []
+      : Array.isArray(rawU)
+      ? rawU
+      : 'content' in rawU && Array.isArray((rawU as any).content)
+      ? (rawU as any).content
+      : 'items' in rawU && Array.isArray((rawU as any).items)
+      ? (rawU as any).items
+      : [];
+    for (const u of list) {
+      if (u && typeof u.id === 'number') {
+        map.set(u.id, {
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+        });
+      }
+    }
+    return map;
+  }, [usersData]);
+
+  const contractMap = useMemo(() => {
+    const map = new Map<number, ContractItem>();
+    const rawC = contractsData?.data;
+    const list: ContractItem[] = !rawC
+      ? []
+      : Array.isArray(rawC)
+      ? rawC
+      : 'content' in rawC && Array.isArray((rawC as any).content)
+      ? (rawC as any).content
+      : 'items' in rawC && Array.isArray((rawC as any).items)
+      ? (rawC as any).items
+      : [];
+    for (const c of list) {
+      map.set(c.id, c);
+    }
+    return map;
+  }, [contractsData]);
+
   // Extract raw backend items
   const rawData = data?.data;
   const rawItems: DisputeItem[] = useMemo(() => {
@@ -93,8 +153,10 @@ export const DisputesListPage: React.FC = () => {
 
   // Map real backend items to AdminDisputeRow (100% Real Live Data)
   const liveRows: AdminDisputeRow[] = useMemo(() => {
-    return rawItems.map((item, idx) => mapBackendItemToDisputeRow(item, idx));
-  }, [rawItems]);
+    return rawItems.map((item, idx) =>
+      mapBackendItemToDisputeRow(item, idx, contractMap.get(item.contractId), userMap)
+    );
+  }, [rawItems, contractMap, userMap]);
 
   // Aggregate live KPIs strictly from real backend records (Zero Fake Data)
   const kpis = useMemo(() => {
@@ -204,7 +266,6 @@ export const DisputesListPage: React.FC = () => {
           activeTab={statusTab}
           onTabChange={(tab) => {
             setStatusTab(tab);
-            // Sync select dropdown if appropriate
             if (tab === 'ALL') {
               setStatusSelectFilter('ALL');
             } else {
@@ -244,8 +305,6 @@ export const DisputesListPage: React.FC = () => {
           onExportCSV={handleExportCSV}
         />
       </div>
-
-
 
       {/* Backend API Error Notice */}
       {isError && (

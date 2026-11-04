@@ -45,9 +45,7 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
   const startIndex = totalElements === 0 ? 0 : currentPage * pageSize + 1;
   const endIndex = Math.min((currentPage + 1) * pageSize, totalElements);
 
-  // Multi-tier reliable clipboard copy engine (Async Clipboard API + Fallback)
   const copyToClipboard = async (text: string): Promise<boolean> => {
-    // 1. Try modern navigator.clipboard API
     if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
       try {
         await navigator.clipboard.writeText(text);
@@ -57,7 +55,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
       }
     }
 
-    // 2. Fallback to hidden textarea with execCommand('copy') for 100% browser/HTTP sandbox compatibility
     try {
       const textArea = document.createElement('textarea');
       textArea.value = text;
@@ -85,7 +82,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
     }
   };
 
-  // Generate page numbers array with ellipsis
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     if (totalPages <= 5) {
@@ -117,10 +113,10 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                 MÃ HỢP ĐỒNG
               </th>
               <th className="w-[23%] min-w-[170px] py-3.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-500">
-                TÁC PHẨM
+                TÁC PHẨM &amp; CREATOR
               </th>
               <th className="w-[19%] min-w-[160px] py-3.5 px-3 text-xs font-semibold uppercase tracking-wider text-stone-500">
-                THUYẾT MINH VIÊN
+                KHÁCH ĐẶT NỘI DUNG
               </th>
               <th className="w-[11%] min-w-[100px] py-3.5 px-2.5 text-xs font-semibold uppercase tracking-wider text-stone-500 whitespace-nowrap">
                 NGÀY KÝ
@@ -157,12 +153,12 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                     </div>
                     <span className="text-sm font-semibold text-stone-700">
                       {totalElements === 0
-                        ? 'Chưa có hợp đồng thu âm nào trong hệ thống'
-                        : 'Không tìm thấy hợp đồng thu âm phù hợp'}
+                        ? 'Chưa có hợp đồng sản xuất nào trong hệ thống'
+                        : 'Không tìm thấy hợp đồng phù hợp'}
                     </span>
                     <span className="text-xs text-stone-400 leading-relaxed">
                       {totalElements === 0
-                        ? 'Khi Người đặt nội dung và Creator hoàn tất thỏa thuận lộ trình, danh sách hợp đồng sẽ tự động hiển thị tại đây.'
+                        ? 'Khi Khách đặt nội dung và Nhà sáng tạo hoàn tất thỏa thuận lộ trình, danh sách hợp đồng sẽ tự động hiển thị tại đây.'
                         : 'Thử điều chỉnh từ khóa tìm kiếm hoặc bỏ bớt các bộ lọc để hiển thị kết quả.'}
                     </span>
                   </div>
@@ -205,7 +201,7 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                       </div>
                     </td>
 
-                    {/* 3. Tác phẩm & Kênh */}
+                    {/* 3. Tác phẩm & Nhà sáng tạo */}
                     <td className="py-3 px-3">
                       <div className="min-w-0 pr-2">
                         <span
@@ -215,18 +211,17 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                           {row.title}
                         </span>
                         <span
-                          className="text-[11px] text-stone-400 block truncate"
-                          title={row.channelOrSeries}
+                          className="text-[11px] text-stone-500 block truncate"
+                          title={`Creator: ${row.creatorName} • Kênh: ${row.channelOrSeries}`}
                         >
-                          {row.channelOrSeries}
+                          Creator: <strong className="font-medium text-stone-700">{row.creatorName}</strong> • {row.channelOrSeries}
                         </span>
                       </div>
                     </td>
 
-                    {/* 4. Thuyết minh viên */}
+                    {/* 4. Khách đặt nội dung */}
                     <td className="py-3 px-3">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        {/* Avatar */}
                         {row.narratorAvatarUrl ? (
                           <img
                             src={row.narratorAvatarUrl}
@@ -265,14 +260,18 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
 
                     {/* 6. Giá trị hợp đồng */}
                     <td className="py-3 px-3 whitespace-nowrap text-right">
-                      <span className="font-bold text-stone-900 font-sans tabular-nums text-xs sm:text-[13px]">
+                      <span className="font-bold text-stone-900 font-sans tabular-nums text-xs sm:text-[13px] block">
                         {row.totalAmountFormatted}
+                      </span>
+                      <span className="text-[10.5px] text-stone-400 tabular-nums block">
+                        {row.completedMilestonesCount}/{row.milestonesCount} mốc hoàn tất
                       </span>
                     </td>
 
-                    {/* 7. Trạng thái (1 HÀNG DUY NHẤT) */}
+                    {/* 7. Trạng thái */}
                     <td className="py-3 px-3 whitespace-nowrap text-center">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap border"
+                      <div
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap border"
                         style={{
                           backgroundColor: row.statusConfig.bg,
                           color: row.statusConfig.text,
@@ -284,7 +283,7 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                       </div>
                     </td>
 
-                    {/* 8. Thao tác (1 HÀNG DUY NHẤT: Xem chi tiết + Ba chấm thanh thoát chuẩn mockup) */}
+                    {/* 8. Thao tác */}
                     <td className="w-[170px] min-w-[170px] py-3 pl-2 pr-4 sm:pr-5 whitespace-nowrap text-right">
                       <div
                         className="inline-flex items-center justify-end gap-2 sm:gap-2.5 shrink-0 whitespace-nowrap"
@@ -299,7 +298,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                           <span className="whitespace-nowrap">Xem chi tiết</span>
                         </button>
 
-                        {/* More Actions Dropdown (Icon 3 chấm dọc trần thanh lịch chuẩn mockup) */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -321,7 +319,7 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-sans text-stone-700 hover:bg-stone-50 transition-colors"
                             >
                               <Layers className="h-4 w-4 text-stone-400" />
-                              <span>Tiến trình cột mốc</span>
+                              <span>Lộ trình &amp; Tệp bàn giao</span>
                             </button>
 
                             <button
@@ -330,7 +328,7 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-sans text-stone-700 hover:bg-stone-50 transition-colors"
                             >
                               <FileCheck2 className="h-4 w-4 text-stone-400" />
-                              <span>Điều khoản & Chữ ký</span>
+                              <span>Điều khoản &amp; Chữ ký</span>
                             </button>
 
                             <button
@@ -364,7 +362,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
 
       {/* Pagination Footer */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 bg-[#FAF8F5] border-t border-[#F0EBE6] select-none text-xs text-stone-500">
-        {/* Left: Summary */}
         <div className="text-stone-600 font-sans">
           <span>Hiển thị </span>
           <strong className="text-stone-900 font-semibold tabular-nums">
@@ -377,7 +374,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
           <span> hợp đồng</span>
         </div>
 
-        {/* Center: Page Size Selector */}
         <div className="flex items-center gap-2">
           <span>Hiển thị</span>
           <select
@@ -391,7 +387,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
           </select>
         </div>
 
-        {/* Right: Page Buttons */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -420,10 +415,11 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
                 key={p}
                 type="button"
                 onClick={() => onPageChange(p)}
-                className={`h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold font-sans tabular-nums transition-colors ${isCurrent
+                className={`h-8 w-8 flex items-center justify-center rounded-lg text-xs font-semibold font-sans tabular-nums transition-colors ${
+                  isCurrent
                     ? 'bg-[#991B1B] text-white shadow-xs'
                     : 'border border-[#E7E5E4] bg-white text-stone-700 hover:bg-stone-50'
-                  }`}
+                }`}
               >
                 {p + 1}
               </button>
@@ -442,7 +438,6 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
         </div>
       </div>
 
-      {/* Floating Toast Notification khi sao chép thành công */}
       {copiedCode && (
         <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#1C1917] text-white text-xs font-medium shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none">
           <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
@@ -454,4 +449,3 @@ export const AdminContractsTable: React.FC<AdminContractsTableProps> = ({
     </div>
   );
 };
-
